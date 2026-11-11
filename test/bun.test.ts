@@ -53,13 +53,13 @@ describe('instrument', () => {
     const expected = await run(SAMPLE + '// plain')
     assert.deepEqual(await run(result.code), expected)
     assert.equal(result.code.split('\n').length, SAMPLE.split('\n').length)
-    // The code that did not run: `never`, and the `2` in `a || 2`
+    // The code that did not run: `never`, and the `|| 2` in `a || 2`
     // (`a` is 1 there). Nothing else.
     const zero: string[] = []
     const flat = flatten([{ ranges: snapshot(result.regions, counts, true) }])
     for (let i = 0; i < flat.length; i += 3)
       if (!flat[i + 2]) zero.push(SAMPLE.slice(flat[i], flat[i + 1]))
-    assert.deepEqual(zero, ["function never() { return 'never' }", '2'])
+    assert.deepEqual(zero, ["function never() { return 'never' }", ' || 2'])
   })
 
   test('a snapshot after the first lists only functions that ran', () => {
@@ -74,7 +74,7 @@ describe('instrument', () => {
     // Only `b` ran: its region, and its two branches.
     const b = result.regions.findIndex(r => r.fn && r.start > 10)
     counts[b] = 1
-    assert.deepEqual(names(false), [src.indexOf('function b'), src.indexOf('2'), src.indexOf('3')])
+    assert.deepEqual(names(false), [src.indexOf('function b'), src.indexOf(' ? 2'), src.indexOf(' : 3')])
     assert.deepEqual([...counts], [0, 0, 0, 0, 0])
   })
 
@@ -113,7 +113,7 @@ describe('bun', () => {
     assert.deepEqual(sh('node', [cli, 'uncovered'], cov), [
       "src/calc.ts:8:3  return 'fail'",
       'src/calc.ts:12:17  (): string => { (+2 lines)',
-      "src/calc.ts:15:24  () => 'other'",
+      "src/calc.ts:15:22  : () => 'other'",
       'src/calc.ts:18:8  function never(): number { (+3 lines)',
       '4 uncovered ranges in 1 files',
     ])

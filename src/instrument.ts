@@ -95,17 +95,21 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     return first ? first.start : (body.at(-1)?.end ?? fallback)
   }
   /** A counter at the start of a statement that is a branch or a loop body. */
-  const statement = (node: Node | null | undefined, fn: number): void => {
+  // `from` is the start of the region, if the region has text in
+  // front of the node: `else`, `?`, `:`. That text does not run
+  // unless the branch does.
+  const statement = (node: Node | null | undefined, fn: number, from?: number): void => {
     if (!node) return
-    if (node.type === 'BlockStatement') edit(node.start + 1, `${region(node, false, fn)};`)
+    if (node.type === 'BlockStatement')
+      edit(node.start + 1, `${region(node, false, fn, from)};`)
     else {
-      edit(node.start, `{${region(node, false, fn)};`)
+      edit(node.start, `{${region(node, false, fn, from)};`)
       edit(node.end, '}', true)
     }
   }
   /** A counter in front of an expression that is a branch. */
-  const expression = (node: Node, fn: number): void => {
-    edit(node.start, `(${region(node, false, fn)},`)
+  const expression = (node: Node, fn: number, from?: number, isFn = false): void => {
+    edit(node.start, `(${region(node, isFn, fn, from)},`)
     edit(node.end, ')', true)
   }
   /**
@@ -123,11 +127,12 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     })
   }
 
-  const walk = (node: Node, fn: number): void => {
+  // `from` is the start of the region of a method: its name.
+  const walk = (node: Node, fn: number, from?: number): void => {
     let inner = fn
     if (FUNCTIONS.has(node.type) && isNode(node.body)) {
       const body = node.body
-      const count = region(node, true, fn)
+      const count = region(node, true, fn, from)
       inner = regions.length - 1
       if (body.type === 'BlockStatement') {
         const stmts = body.body as Node[]
@@ -140,19 +145,28 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     switch (node.type) {
       case 'IfStatement':
         statement(node.consequent as Node, inner)
-        statement(node.alternate as Node | null, inner)
+        statement(node.alternate as Node | null, inner, (node.consequent as Node).end)
         break
       case 'ConditionalExpression':
-        expression(node.consequent as Node, inner)
-        expression(node.alternate as Node, inner)
+        expression(node.consequent as Node, inner, (node.test as Node).end)
+        expression(node.alternate as Node, inner, (node.consequent as Node).end)
         break
       case 'LogicalExpression':
-        expression(node.right as Node, inner)
+        expression(node.right as Node, inner, (node.left as Node).end)
         break
       case 'SwitchCase': {
         const first = (node.consequent as Node[])[0]
-        if (first) edit(first.start, `${region(node, false, inner, first.start)};`)
+        if (first) edit(first.start, `${region(node, false, inner)};`)
         list(node.consequent as Node[], inner)
+        break
+      }
+      case 'PropertyDefinition': {
+        // The value of a class field runs for each new object. A
+        // function or a class has its own counter, and a wrap would
+        // remove the name that it gets from the field.
+        const value = node.value
+        if (isNode(value) && !FUNCTIONS.has(value.type) && value.type !== 'ClassExpression')
+          expression(value, inner, undefined, true)
         break
       }
       case 'CatchClause':
@@ -165,7 +179,11 @@ export const instrument = (source: string, file: string): Instrumented | undefin
       default:
         if (LOOPS.has(node.type)) statement(node.body as Node, inner)
     }
-    for (const child of children(node)) walk(child, inner)
+    const method =
+      node.type === 'MethodDefinition' ||
+      (node.type === 'Property' && (node.method === true || node.kind !== 'init'))
+    for (const child of children(node))
+      walk(child, inner, method && child === node.value ? node.start : undefined)
   }
   walk(program, 0)
 
