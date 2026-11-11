@@ -24,5 +24,6 @@
   },
   "bin": {
     "ubq": "./src/cli.ts"
-  }
+  },
+  "license": "BlueOak-1.0.0"
 }
