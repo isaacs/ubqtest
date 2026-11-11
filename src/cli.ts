@@ -25,6 +25,8 @@ const USAGE = `usage:
   ubq                        run all test files (names that end in .test.ts, .test.js, ...)
   ubq <file or folder>...    run these test files, and the test files in these folders
   ubq <file>:<line>          run the test at that line
+  ubq '<test id>'            run one test, or all tests of a group
+  ubq --failed               run the tests that failed in their last run
   ubq failures [run]         the failures of a run (default: the last run)
   ubq show <test id>         the last result of one test
   ubq uncovered [file]       code that no test ran

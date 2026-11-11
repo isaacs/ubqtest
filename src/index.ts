@@ -22,6 +22,6 @@ else startPlain()
 // keeps its console, so that it is easy to debug.
 if (process.env.UBQ_CAPTURE) startCapture(currentFile)
 // Processes that the tests start must not get these.
-for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_COMMAND', 'UBQ_CAPTURE'])
+for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_COMMAND', 'UBQ_CAPTURE'])
   delete process.env[name]
 setCollector(startCoverage())

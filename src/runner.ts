@@ -40,8 +40,11 @@ const coverageArgs = (): string[] =>
 export interface Selected {
   /** Path from the project root. */
   file: string
-  /** Empty for all tests of the file. */
+  /** Lines that select tests. */
   lines: number[]
+  /** Test IDs and group IDs that select tests. */
+  ids: string[]
+  // With no lines and no IDs, all tests of the file run.
 }
 
 /** An error in the command. Exit code 4. */
@@ -58,22 +61,58 @@ export const select = (args: string[]): Selected[] => {
     })
       .sort()
       .map(file => rel(join(dir, file)))
-  if (!args.length) return under(root).map(file => ({ file, lines: [] }))
-  const byFile = new Map<string, number[]>()
+  if (!args.length) return under(root).map(file => ({ file, lines: [], ids: [] }))
+  const byFile = new Map<string, Selected>()
+  const entry = (file: string): Selected => {
+    const e = byFile.get(file) ?? { file, lines: [], ids: [] }
+    byFile.set(file, e)
+    return e
+  }
   for (const arg of args) {
+    // A test ID starts with the path of its file from the project root.
+    const sep = arg.indexOf(' > ')
+    if (sep >= 0) {
+      const file = arg.slice(0, sep)
+      if (!existsSync(join(root, file))) throw new UsageError(`no such file: ${file}`)
+      entry(file).ids.push(arg)
+      continue
+    }
     const m = /^(.*?)(?::(\d+))?$/.exec(arg)!
     const path = resolve(m[1]!)
     if (!existsSync(path)) throw new UsageError(`no such file: ${m[1]}`)
-    if (statSync(path).isDirectory()) {
-      for (const file of under(path)) if (!byFile.has(file)) byFile.set(file, [])
-      continue
-    }
-    const file = rel(path)
-    const lines = byFile.get(file) ?? []
-    byFile.set(file, lines)
-    if (m[2]) lines.push(+m[2])
+    if (statSync(path).isDirectory()) for (const file of under(path)) entry(file)
+    else if (m[2]) entry(rel(path)).lines.push(+m[2])
+    else entry(rel(path))
   }
-  return [...byFile].map(([file, lines]) => ({ file, lines }))
+  return [...byFile.values()]
+}
+
+/**
+ * The tests that failed in the last run of their file, and the files
+ * that had an error in their last run.
+ */
+export const selectFailed = (store: Store): Selected[] => {
+  const byFile = new Map<string, Selected>()
+  const tests = store.db
+    .prepare(
+      `with last as (select file, max(run) run from test group by file)
+       select id, file from test join last using (file, run) where status = 'fail'`,
+    )
+    .all() as { id: string; file: string }[]
+  for (const { id, file } of tests) {
+    const e = byFile.get(file) ?? { file, lines: [], ids: [] }
+    byFile.set(file, e)
+    e.ids.push(id)
+  }
+  const errors = store.db
+    .prepare(
+      `select file from file_error group by file
+       having max(run) >= coalesce((select max(run) from test where test.file = file_error.file), 0)`,
+    )
+    .all() as { file: string }[]
+  // A file error can stop tests before they run: run the full file.
+  for (const { file } of errors) byFile.set(file, { file, lines: [], ids: [] })
+  return [...byFile.values()].filter(s => existsSync(join(projectRoot(), s.file)))
 }
 
 const runtime = (): RunStart['runtime'] => {
@@ -124,7 +163,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const)
 
 /** Runs one test file in a new process. Sends its events to `send`. */
 const runFile = (
-  { file, lines }: Selected,
+  { file, lines, ids }: Selected,
   send: Sink,
   cacheDir: string,
 ): Promise<void> =>
@@ -145,6 +184,7 @@ const runFile = (
           UBQ_CAPTURE: '1',
           UBQ_FILE: file,
           UBQ_LINES: lines.join(','),
+          UBQ_IDS: JSON.stringify(ids),
         },
       },
     )
@@ -233,7 +273,21 @@ const runFile = (
 
 /** Runs test files. Returns the exit code of the run. */
 export const run = async (args: string[]): Promise<number> => {
-  const files = select(args)
+  const flags = args.filter(a => a.startsWith('--'))
+  const rest = args.filter(a => !a.startsWith('--'))
+  for (const flag of flags)
+    if (flag !== '--failed') throw new UsageError(`unknown option: ${flag}`)
+  let files: Selected[]
+  if (flags.includes('--failed')) {
+    if (rest.length) throw new UsageError('--failed takes no files and no test IDs')
+    const store = openStore()
+    files = selectFailed(store)
+    store.close()
+    if (!files.length) {
+      process.stderr.write('ubq: no test failed in its last run\n')
+      return 2
+    }
+  } else files = select(rest)
   if (!files.length) {
     process.stderr.write(
       'ubq: no test files. A test file has a name that ends in .test.ts (or .test.js, .test.mts, ...), or is an argument: ubq <file>\n',
@@ -244,7 +298,7 @@ export const run = async (args: string[]): Promise<number> => {
 
   // One file runs in this process. It has the runner role for itself.
   if (files.length === 1) {
-    const { file, lines } = files[0]!
+    const { file, lines, ids } = files[0]!
     enableCompileCache(cacheDir)
     // On Bun, the load plugin must exist before the test file loads.
     if (process.versions.bun) await import(BUN_PRELOAD.href)
@@ -252,6 +306,7 @@ export const run = async (args: string[]): Promise<number> => {
     process.env.UBQ_FILE = file
     process.env.UBQ_CAPTURE = '1'
     process.env.UBQ_LINES = lines.join(',')
+    process.env.UBQ_IDS = JSON.stringify(ids)
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])
     await import(pathToFileURL(join(projectRoot(), file)).href)

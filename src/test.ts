@@ -310,12 +310,18 @@ const runOne = async (entry: Entry): Promise<void> => {
 // Lines from `ubq <file>:<line>`. A line selects the test that
 // starts at or before it and is nearest to it.
 const lines = (process.env.UBQ_LINES ?? '').split(',').filter(Boolean).map(Number)
+// Test IDs from `ubq '<test id>'`. The ID of a group selects all
+// tests in the group.
+const wanted = JSON.parse(process.env.UBQ_IDS || '[]') as string[]
 const starts: number[] = []
 let unselected = 0
 const selected = (entry: Entry): boolean => {
-  if (!lines.length) return true
+  if (!lines.length && !wanted.length) return true
   const line = entry.at?.line ?? 0
-  return lines.some(l => line <= l && !starts.some(s => s > line && s <= l))
+  return (
+    lines.some(l => line <= l && !starts.some(s => s > line && s <= l)) ||
+    wanted.some(id => entry.id === id || entry.id.startsWith(id + SEPARATOR))
+  )
 }
 
 let draining = false
@@ -411,9 +417,10 @@ process.on('beforeExit', () => {
       failure: {
         kind: 'no-tests',
         message:
-          ids.size ?
-            `no test starts at or before line ${lines.join(', ')} of this file`
-          : 'the file registered no tests',
+          !ids.size ? 'the file registered no tests'
+          : wanted.length ?
+            `no test of this file has an ID in the selection. The IDs in this file are:\n${[...ids].join('\n')}`
+          : `no test starts at or before line ${lines.join(', ')} of this file`,
       },
     })
   emit({ type: 'file-end', file: file!, unselected })
