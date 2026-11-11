@@ -256,3 +256,24 @@ the Bun plugin API.
 **Reason.** Source counters could replace V8 snapshots on Node
 later (`04-architecture.md`, section 12). A snapshot of counters
 costs microseconds, and a V8 snapshot costs 0.43 ms for each test.
+
+## D23. A folder with its own `package.json` is a different project (user and agent, 2026-11-12)
+
+The search for test files does not go into a folder that has its
+own `package.json`. At the root of a monorepo, `ubq` runs only the
+tests of the root.
+
+**Reason.** ubq already takes the nearest `package.json` as the
+project, and each project has its own store. With no rule, a
+repository with experiments, fixtures, or packages runs tests that
+are not its own. This repository had that fault.
+
+## D24. Configuration is the `ubq` key of `package.json` (user, 2026-11-12)
+
+As little configuration as possible. The keys are `include`,
+`exclude`, and `timeout` (`08-config.md`). There is no config file.
+
+**Reason.** `package.json` is already the mark of a project for
+package managers, and ubq reads it in any case. Some users do not
+like tool fields in `package.json`. That is acceptable if the
+field is small and only projects with special layouts need it.

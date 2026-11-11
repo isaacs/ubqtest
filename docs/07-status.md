@@ -7,7 +7,7 @@ section 13. Update this file when a step ends.
 
 | Command | Does |
 | --- | --- |
-| `npm test` | runs the tool's own tests with ubq itself: `node src/cli.ts test` |
+| `npm test` | runs the tool's own tests with ubq itself: `node src/cli.ts` |
 | `npm run typecheck` | must print nothing |
 | `npm run build` | makes `dist/index.js`, one bundled file |
 | `npm run bench` | builds, then times ubq and other tools. `-- --check` fails if a ubq row is over its budget. `-- --only ubq` runs only ubq rows. |
@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts test    # the tool runs its own tests: 49 pass
+node src/cli.ts         # the tool runs its own tests: 50 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -312,3 +312,34 @@ Known limits:
 - Counters for code after `return` or `throw` exist only at
   statement level in a block. An expression that throws in the
   middle of a statement counts the rest of the statement as run.
+
+## Step 6: in progress (2026-11-12)
+
+Done:
+
+- `ubq '<test id>'` runs one test. The ID of a group runs its
+  tests.
+- `ubq --failed` runs each test that failed in the last run of its
+  file, and each file that had a file error.
+- `ubq --changed` runs each test file that loaded a file whose
+  content differs now, each new test file, and each test file
+  whose loaded files are not known. It prints the changed files.
+  Selection is at file level.
+- Each coverage row has the content hash of its source file (store
+  schema 3). `coverage` events name their test file.
+- Configuration and the project boundary: `08-config.md`.
+
+Not done: `history`, `diff`, `--repeat`, `--baseline`.
+
+Known limits:
+
+- `--changed` does not see a change in a file that no test loaded
+  as code: a JSON fixture, a config file, a lock file.
+- With nothing to run, `--failed` and `--changed` exit with code 2.
+
+## Open decision: source counters on Node
+
+`03-measurements.md`, section 12, has the experiment. The agent
+recommended: build the cache and a Node preload, add a check that
+compares counters with V8 on the fixtures, then switch the runner.
+The user has not answered. D5 stands until then.
