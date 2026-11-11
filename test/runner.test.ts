@@ -106,7 +106,9 @@ test('a failed test shows its own console output, a passed test shows none', () 
     '  | step 1: start',
     '  | step 2: about to fail',
   ])
-  assert.deepEqual(ubq(['sql', "select text from output where test is null and text like 'printed%'"]).out, [
+  // The store has older runs too, if this file ran alone before.
+  const lastRun = "run = (select max(run) from output where file = 'output.ts')"
+  assert.deepEqual(ubq(['sql', `select text from output where test is null and text like 'printed%' and ${lastRun}`]).out, [
     '{"text":"printed while the file loads\\n"}',
   ])
 })
@@ -156,6 +158,14 @@ test('processes that a test file leaves behind are stopped', () => {
   assert.equal(r.code, 0)
   const pid = +readFileSync(pidFile, 'utf8')
   rmSync(dir, { recursive: true })
+  // A process that was killed stays in the table as a zombie
+  // (state Z) until its parent reads its exit status. In a container
+  // whose first process does not do that, it stays for good.
+  let state = ''
+  try {
+    state = readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ').at(-1)![0]!
+  } catch {}
+  if (state === 'Z') return void assert.equal(state, 'Z')
   // Signal 0 tests for the process and sends nothing.
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 })
