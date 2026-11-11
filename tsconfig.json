@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "target": "esnext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true,
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "src",
+    "test"
+  ],
+  "exclude": [
+    "test/fixtures/types-bad.ts"
+  ]
+}
