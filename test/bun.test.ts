@@ -103,7 +103,8 @@ const sh = (cmd: string, args: string[], cwd: string) => {
 describe('bun', () => {
   test('coverage with the preload gives the same answers as V8', { skip }, () => {
     rmSync(cov, { recursive: true, force: true })
-    cpSync(`${fixtures}cov/`, cov, { recursive: true })
+    // Not the store: coverage.test.ts can remove it during the copy.
+    cpSync(`${fixtures}cov/`, cov, { recursive: true, filter: path => !path.endsWith('.ubq') })
     resetStore(cov)
     assert.deepEqual(sh('bun', ['--preload', 'ubqtest/bun-preload', 'test/calc.test.ts'], cov), [
       'pass: 0 failed, 5 passed',
