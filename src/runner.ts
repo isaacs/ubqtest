@@ -7,7 +7,7 @@ import { enableCompileCache } from 'node:module'
 import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { startCoverage } from './coverage.ts'
 import {
   EVENT_VERSION,
@@ -26,9 +26,15 @@ import { openStore, stateDir, type Store } from './store.ts'
 const TEST_FILES = '**/*.test.{ts,mts,cts,tsx,js,mjs,cjs,jsx}'
 
 // The source is `.ts`, and the bundle is `.js`.
-const PRELOAD = import.meta.resolve(
-  import.meta.url.endsWith('.ts') ? './preload.ts' : './preload.js',
-)
+const EXT = import.meta.url.endsWith('.ts') ? '.ts' : '.js'
+const BUN_PRELOAD = new URL(`./bun-preload${EXT}`, import.meta.url)
+
+/** The arguments that make a test process collect full coverage. */
+const coverageArgs = (): string[] =>
+  process.versions.bun ?
+    ['--preload', fileURLToPath(BUN_PRELOAD)]
+    // With port 0, SIGUSR1 starts the inspector on a free port.
+  : ['--inspect-port=0', '--import', import.meta.resolve(`./preload${EXT}`)]
 
 /** A test file, and the lines that select tests in it. */
 export interface Selected {
@@ -125,8 +131,7 @@ const runFile = (
   new Promise(done => {
     const child = spawn(
       process.execPath,
-      // With port 0, SIGUSR1 starts the inspector on a free port.
-      ['--inspect-port=0', '--import', PRELOAD, join(projectRoot(), file)],
+      [...coverageArgs(), join(projectRoot(), file)],
       {
         cwd: projectRoot(),
         // The child leads its own process group, so that one signal
@@ -241,7 +246,9 @@ export const run = async (args: string[]): Promise<number> => {
   if (files.length === 1) {
     const { file, lines } = files[0]!
     enableCompileCache(cacheDir)
-    startCoverage(true)
+    // On Bun, the load plugin must exist before the test file loads.
+    if (process.versions.bun) await import(BUN_PRELOAD.href)
+    else startCoverage(true)
     process.env.UBQ_FILE = file
     process.env.UBQ_CAPTURE = '1'
     process.env.UBQ_LINES = lines.join(',')
