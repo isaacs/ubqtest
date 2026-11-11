@@ -105,6 +105,7 @@ FAIL fail.ts > rules > timeout
   the test did not end in 20 ms
   at fail.ts:59:3
   > test('timeout', { timeout: 20 }, async () => {
+  still open: Timeout
   rerun: ubq fail.ts:59
 
 FAIL fail.ts > rules > an error in a callback

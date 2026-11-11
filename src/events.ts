@@ -42,6 +42,11 @@ export interface Failure {
   expected?: string
   /** For `assert`: the differences, each with the path to it. */
   diff?: string
+  /**
+   * For `timeout` and for a process that does not exit: what keeps
+   * the process alive, such as `Timeout x2` or `TCPServerWrap`.
+   */
+  pending?: string[]
 }
 
 /** First event of a run. The runner role writes it. */
@@ -78,6 +83,8 @@ export interface FileStart {
 export interface TestStart {
   type: 'test-start'
   id: TestId
+  /** The time limit of the test, in milliseconds. */
+  timeout: number
   /** The `test()` call. */
   at?: Location
 }
@@ -108,6 +115,8 @@ export interface LateFailure {
 /** Text that the code wrote to stdout or stderr. */
 export interface Output {
   type: 'output'
+  /** The file whose process wrote the text. */
+  file: string
   /** Absent for text written outside a test. */
   id?: TestId
   stream: 'stdout' | 'stderr'

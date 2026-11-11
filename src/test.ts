@@ -141,10 +141,14 @@ export const describe: Describe = (
   }
 }
 
+/** The path of the test file. Known after the first `test()` call. */
+export const currentFile = (): string => file ?? FILE ?? rel(process.argv[1] ?? '')
+
 let started = false
 const start = (): void => {
   if (started) return
   started = true
+  openAtStart = openNow()
   file ??= FILE || rel(process.argv[1] ?? '')
   emit({
     type: 'file-start',
@@ -169,8 +173,36 @@ const errorFailure = (error: unknown): Failure => {
 
 const TIMEOUT = Symbol('timeout')
 
+/** Counts of what keeps the process alive now, by type. */
+const openNow = (): Map<string, number> => {
+  const counts = new Map<string, number>()
+  for (const type of process.getActiveResourcesInfo())
+    counts.set(type, (counts.get(type) ?? 0) + 1)
+  return counts
+}
+
+// The stdio pipes of the process, and all that was open before the
+// first test. These are not a fault of a test.
+let openAtStart = new Map<string, number>()
+
+/** What was opened after `before`, as `Type` or `Type xN`. */
+const stillOpen = (before = openAtStart): string[] =>
+  [...openNow()].flatMap(([type, n]) => {
+    const more = n - (before.get(type) ?? 0)
+    return (
+      more > 1 ? [`${type} x${more}`]
+      : more === 1 ? [type]
+      : []
+    )
+  })
+
 const runOne = async (entry: Entry): Promise<void> => {
-  emit({ type: 'test-start', id: entry.id, ...(entry.at && { at: entry.at }) })
+  emit({
+    type: 'test-start',
+    id: entry.id,
+    timeout: entry.timeout,
+    ...(entry.at && { at: entry.at }),
+  })
   if (entry.skip) {
     emit({
       type: 'test-end',
@@ -203,20 +235,25 @@ const runOne = async (entry: Entry): Promise<void> => {
     },
   }
   active = state
+  const before = openNow()
   const t0 = performance.now()
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const result = current.run(state, entry.fn, ctx)
     if (result instanceof Promise) {
-      timer = setTimeout(stop, entry.timeout, TIMEOUT)
+      // Not a reason to stay alive: if nothing else is pending,
+      // `beforeExit` reports that the promise can never settle.
+      timer = setTimeout(stop, entry.timeout, TIMEOUT).unref()
       await Promise.race([result, stopped])
     }
   } catch (error) {
     if (error === TIMEOUT) {
+      const pending = stillOpen(before)
       state.failure ??= {
         kind: 'timeout',
         message: `the test did not end in ${entry.timeout} ms`,
         ...(entry.at && { at: entry.at }),
+        ...(pending.length && { pending }),
       }
       controller?.abort(new Error('test timed out'))
     } else state.failure ??= errorFailure(error)
@@ -274,6 +311,32 @@ const drain = async (): Promise<void> => {
   }
   draining = false
   scheduled = false
+  // This timer does not keep the process alive. It fires only if
+  // something else does.
+  idle ??= setTimeout(leaked, IDLE_MS).unref()
+}
+
+const IDLE_MS = 1000
+let idle: ReturnType<typeof setTimeout> | undefined
+
+// The tests ended, but the process did not exit.
+const leaked = (): void => {
+  idle = undefined
+  if (finished || draining || queue.length) return
+  finished = true
+  const pending = stillOpen()
+  emit({
+    type: 'file-error',
+    file: file!,
+    failure: {
+      kind: 'error',
+      message:
+        'the tests ended, but the process did not exit. Something that a test or the file opened is still open. Close it in the test that opened it.',
+      ...(pending.length && { pending }),
+    },
+  })
+  emit({ type: 'file-end', file: file!, unselected })
+  process.exit()
 }
 
 // An error that nothing caught belongs to the test that runs now.
@@ -308,6 +371,14 @@ process.on('exit', code => {
 // `beforeExit` means that the process has no more work, so no more
 // tests can arrive.
 process.on('beforeExit', () => {
+  // The process has no more work, but a test is open: its promise
+  // can never settle. The failure lets the next test start.
+  if (active && !active.ended)
+    return active.fail({
+      kind: 'never-settled',
+      message:
+        'the promise of the test never settled, and nothing is pending. A callback or an event that the test waits for never came.',
+    })
   if (finished || draining || queue.length) return
   finished = true
   start()
