@@ -12,6 +12,39 @@ section 13. Update this file when a step ends.
 | `npm run build` | makes `dist/index.js`, one bundled file |
 | `npm run bench` | builds, then times ubq and other tools. `-- --check` fails if a ubq row is over its budget. `-- --only ubq` runs only ubq rows. |
 
+## Checks before each commit
+
+```
+npx tsc                 # must print nothing
+node src/cli.ts test    # the tool runs its own tests: 49 pass
+npm run bench -- --only ubq --check   # speed guards (builds first)
+```
+
+The suite needs `bun` and `deno` on the path for all tests. A test
+skips itself, with a reason, if its runtime is not installed.
+
+If a test fails, `node src/cli.ts failures` prints the failures of
+the last run again, and `node src/cli.ts failures <run>` prints an
+older run.
+
+## Lessons for work on this repository
+
+- A command that can hang must run under `timeout`. A wedged test
+  process once ran until the tool call timed out.
+- A test process that starts child processes must not pass
+  `UBQ_*` variables on. The library removes them when it loads.
+- Two test files must not share one fixture store. Test files run
+  in parallel. `test/bun.test.ts` works on a copy of the coverage
+  fixture for this reason.
+- A change to a sink must not throw on a closed pipe. An error
+  handler that writes to the same pipe makes a loop.
+- The benchmark guards catch real regressions. A watchdog thread
+  in each child added 300 ms to the 200-file run before the guard
+  showed it.
+- The machine gets slower during long sessions (Node start went
+  from 28.7 ms to 31.3 ms). Compare against `node -e 0` on the
+  same day.
+
 ## Step 0: done (2026-11-11)
 
 - `package.json`, `tsconfig.json`, `.gitignore`.
