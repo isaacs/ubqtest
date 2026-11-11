@@ -327,3 +327,77 @@ Scripts: `bun/jsc.ts`, `bun/plugin.ts`, `bun/static.ts`.
 
 Not measured: the cost to parse and change each file. That needs a
 real instrumenter.
+
+## 12. Source counters on Node
+
+Scripts: `experiments/counters/` (`preload.ts`, `run.mjs`,
+`hot-run.mjs`, `corpus.ts`, `semantic.ts`). Date: 2026-11-12.
+
+The experiment preload adds counters through a
+`module.registerHooks` load hook, with `src/instrument.ts`. It
+keeps the changed source in a disk cache, by content hash. On a
+cache hit, the process does not load the parser.
+
+### 12.1 Speed
+
+| Case | V8 snapshots | Counters, cache | Counters, no cache |
+| --- | --- | --- | --- |
+| One child process, 10 tests | 44.0 ms | 36.9 ms | 54.0 ms |
+| 200 files, no store | 864 ms | 721 ms | 1221 ms |
+| Hot loop, 30 million calls (161 ms with no coverage) | 2289 ms | 161 ms | |
+
+- An empty Node program took 27.3 ms in the same session.
+- The store adds about 50 ms to the 200-file numbers.
+- The instrumenter reads 2 to 3 MB of source for each second. The
+  cache is necessary: with no cache, the run is slower than V8.
+- The 9 MB TypeScript compiler took 9.2 s to change. The cost per
+  byte goes up with file size, because the check for early exits
+  walks nested blocks again.
+
+### 12.2 Does the changed source stay valid?
+
+`corpus.ts`, on all `.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, `.cts`
+files in `experiments/node_modules` (9823 files, 93.5 MB), without
+`.d.ts` and `.min.js`:
+
+| Result | Files |
+| --- | --- |
+| Changed source parses again, and each line keeps its number | 9803 |
+| The parser cannot read the file (it runs with no counters) | 20 |
+| Changed source does not parse | 0 |
+
+The 20 files: 14 declaration files with `.d.cts` or `.d.mts` names
+(no code to run), 3 CommonJS files with `return` at the top level,
+2 files with JSX in `.js`, 1 more declaration file.
+
+In this repository, 46 of 47 files are read. `src/assert.ts` is
+not: the parser does not accept a `const` type parameter on an
+interface method.
+
+### 12.3 Does the changed code behave the same?
+
+`semantic.ts` runs two libraries with counters and compares the
+results with the unchanged library:
+
+| Library | Workload | Result |
+| --- | --- | --- |
+| acorn (ESM, 230 KB, 2641 counters) | parse 600 JavaScript files | 598 equal trees, 2 equal errors, 0 different |
+| TypeScript 5.9 (CommonJS, 9 MB, 92505 counters) | compile 47 files with source maps | 47 equal outputs |
+| TypeScript 5.9 | type check 2 files of `experiments/api` | 20 equal diagnostics |
+
+The workloads ran 1701 of the acorn counters and 17797 of the
+TypeScript counters. Code that the workloads did not run is not
+verified.
+
+### 12.4 Not tested, and known ways to differ from the original
+
+- Code that reads its own source (`fn.toString()`) sees the
+  counters.
+- A function declaration as the direct body of an `if` (legal only
+  in non-strict scripts) moves into a block.
+- Counters are at statement level. If an expression throws in the
+  middle of a statement, the rest of the statement counts as run.
+  V8 block coverage has the same limit for most such cases.
+- Files with JSX, and CommonJS files with a top-level `return`,
+  get no counters.
+- Only one machine and one Node version.

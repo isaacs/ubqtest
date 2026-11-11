@@ -14,6 +14,7 @@ are measurement tools, not product code. Run `npm install` here first.
 | `runtimes/` | Which building blocks exist on Node, Deno, and Bun? | `node caps.mjs`, `node cov-async.mjs`, `node fd3-parent.mjs` |
 | `hang/` | What does async tracking cost? Can the runner read the stack of a wedged child? | `node cost.mjs hook`, `node report.mjs`, `node sigusr1.mjs` |
 | `api/` | Do the types and the mock call in `docs/05-api.md` work? | `npx tsc -p api` (errors only in `bad.ts`), `node api/mock-rt.ts` |
+| `counters/` | Are source counters on Node faster than V8 snapshots, and are they safe? | `npx esbuild preload.ts --bundle --platform=node --format=esm --outfile=dist/preload.js`, `node run.mjs dist/preload.js`, `node corpus.ts ../node_modules`, `node --stack-size=4000 semantic.ts` |
 | `bun/` | How can Bun record per-test coverage? | `BUN_JSC_useControlFlowProfiler=1 bun jsc.ts`, `bun plugin.ts`, `bun static.ts` |
 | `hooks/` | Do typed, scoped module mocks work with no flags? | `node use.ts` |
 
