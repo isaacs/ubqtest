@@ -1,6 +1,6 @@
 // Selection of tests: by ID, and by the result of the last run.
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -51,5 +51,35 @@ test('--failed runs the tests that failed in their last run', () => {
   assert.deepEqual([p.ubq('--failed').code, p.ubq('--failed').err], [2, 'ubq: no test failed in its last run\n'])
   assert.equal(p.ubq('--failed', 'flip.ts').code, 4)
   assert.equal(p.ubq('--nope').code, 4)
+  rmSync(p.dir, { recursive: true })
+})
+
+test('--changed runs the test files that loaded a changed file', () => {
+  const p = project()
+  p.set('pass')
+  assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'pass: 0 failed, 8 passed, 1 skipped')
+  const none = p.ubq('--changed')
+  assert.equal(none.code, 2)
+  assert.match(none.err, /^ubq: no file that a test loaded has changed/)
+
+  // Only pass.ts loads src/shape.ts.
+  appendFileSync(join(p.dir, 'src/shape.ts'), '\n// a change\n')
+  assert.equal(p.ubq('--changed').out.replace(/ \(run \d+\)/, ''), [
+    'changed: src/shape.ts',
+    'skip pass.ts > not on this platform: needs a GPU',
+    'pass: 0 failed, 5 passed, 1 skipped',
+    '',
+  ].join('\n'))
+  assert.equal(p.ubq('--changed').code, 2)
+
+  // A change to a test file, and a new test file.
+  appendFileSync(join(p.dir, 'flip.ts'), '\n// a change\n')
+  mkdirSync(join(p.dir, 'test'))
+  cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/new.test.ts'))
+  const both = p.ubq('--changed')
+  assert.equal(both.out.split('\n')[0], 'changed: flip.ts, test/new.test.ts')
+  assert.equal(both.last, 'pass: 0 failed, 6 passed')
+  assert.equal(p.ubq('--changed').code, 2)
+  assert.equal(p.ubq('--changed', '--failed').code, 4)
   rmSync(p.dir, { recursive: true })
 })

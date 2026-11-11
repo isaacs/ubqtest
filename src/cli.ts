@@ -27,6 +27,7 @@ const USAGE = `usage:
   ubq <file>:<line>          run the test at that line
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
+  ubq --changed              run the test files that loaded a file that has changed, and new test files
   ubq failures [run]         the failures of a run (default: the last run)
   ubq show <test id>         the last result of one test
   ubq uncovered [file]       code that no test ran

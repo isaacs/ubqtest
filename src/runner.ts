@@ -20,7 +20,7 @@ import {
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
-import { openStore, stateDir, type Store } from './store.ts'
+import { fileHash, openStore, stateDir, type Store } from './store.ts'
 
 /** The one name pattern for test files. */
 const TEST_FILES = '**/*.test.{ts,mts,cts,tsx,js,mjs,cjs,jsx}'
@@ -51,16 +51,18 @@ export interface Selected {
 export class UsageError extends Error {}
 
 /** Test files from command arguments, or all test files of the project. */
+/** The test files in a folder, by the name pattern. */
+const under = (dir: string): string[] =>
+  globSync(TEST_FILES, {
+    cwd: dir,
+    // The argument is a path from `dir`.
+    exclude: path => /(^|[\\/])(node_modules$|\.)/.test(path),
+  })
+    .sort()
+    .map(file => rel(join(dir, file)))
+
 export const select = (args: string[]): Selected[] => {
   const root = projectRoot()
-  const under = (dir: string): string[] =>
-    globSync(TEST_FILES, {
-      cwd: dir,
-      // The argument is a path from `dir`.
-      exclude: path => /(^|[\\/])(node_modules$|\.)/.test(path),
-    })
-      .sort()
-      .map(file => rel(join(dir, file)))
   if (!args.length) return under(root).map(file => ({ file, lines: [], ids: [] }))
   const byFile = new Map<string, Selected>()
   const entry = (file: string): Selected => {
@@ -160,6 +162,55 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const)
     for (const pid of groups) killGroup(pid)
     process.exit(signal === 'SIGINT' ? 130 : 143)
   })
+
+/**
+ * The test files that a change can affect: a file that a test file
+ * loaded has different content now, the test file is new, or its
+ * loaded files are not known. `changed` lists the files that differ.
+ */
+export const selectChanged = (store: Store): { files: Selected[]; changed: string[] } => {
+  const now = new Map<string, string>()
+  const differs = (file: string, hash: string): boolean => {
+    let h = now.get(file)
+    if (h === undefined) now.set(file, (h = fileHash(file)))
+    return h !== hash
+  }
+  const tfiles = new Set<string>()
+  const changed = new Set<string>()
+  const known = store.db.prepare('select tfile, coverage, hash from test_file').all() as {
+    tfile: string
+    coverage: string
+    hash: string
+  }[]
+  for (const { tfile, coverage, hash } of known) {
+    if (differs(tfile, hash)) changed.add(tfile)
+    else if (coverage !== 'none') continue
+    tfiles.add(tfile)
+  }
+  const rows = store.db.prepare('select distinct tfile, file, hash from coverage').all() as {
+    tfile: string
+    file: string
+    hash: string
+  }[]
+  for (const { tfile, file, hash } of rows)
+    if (differs(file, hash)) {
+      changed.add(file)
+      tfiles.add(tfile)
+    }
+  const old = new Set(known.map(k => k.tfile))
+  for (const file of under(projectRoot()))
+    if (!old.has(file)) {
+      changed.add(file)
+      tfiles.add(file)
+    }
+  return {
+    files: [...tfiles]
+      .filter(file => existsSync(join(projectRoot(), file)))
+      .sort()
+      .map(file => ({ file, lines: [], ids: [] })),
+    changed: [...changed].sort(),
+  }
+}
 
 /** Runs one test file in a new process. Sends its events to `send`. */
 const runFile = (
@@ -276,16 +327,33 @@ export const run = async (args: string[]): Promise<number> => {
   const flags = args.filter(a => a.startsWith('--'))
   const rest = args.filter(a => !a.startsWith('--'))
   for (const flag of flags)
-    if (flag !== '--failed') throw new UsageError(`unknown option: ${flag}`)
+    if (flag !== '--failed' && flag !== '--changed')
+      throw new UsageError(`unknown option: ${flag}`)
   let files: Selected[]
-  if (flags.includes('--failed')) {
-    if (rest.length) throw new UsageError('--failed takes no files and no test IDs')
+  if (flags.length) {
+    if (rest.length || flags.length > 1)
+      throw new UsageError(`${flags[0]} takes no files, no test IDs, and no other option`)
     const store = openStore()
-    files = selectFailed(store)
-    store.close()
-    if (!files.length) {
-      process.stderr.write('ubq: no test failed in its last run\n')
-      return 2
+    if (flags[0] === '--failed') {
+      files = selectFailed(store)
+      store.close()
+      if (!files.length) {
+        process.stderr.write('ubq: no test failed in its last run\n')
+        return 2
+      }
+    } else {
+      const { files: affected, changed } = selectChanged(store)
+      store.close()
+      files = affected
+      if (!files.length) {
+        process.stderr.write(
+          'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new\n',
+        )
+        return 2
+      }
+      const names = changed.slice(0, 10).join(', ')
+      const more = changed.length > 10 ? `, and ${changed.length - 10} more` : ''
+      process.stdout.write(`changed: ${names}${more}\n`)
     }
   } else files = select(rest)
   if (!files.length) {

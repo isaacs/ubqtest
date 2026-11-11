@@ -1,12 +1,13 @@
 // The run store: one SQLite file at `.ubq/runs.db` in the project.
 // See docs/04-architecture.md, section 5.
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { hash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
 import { projectRoot } from './project.ts'
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -15,6 +16,8 @@ const COMMIT_MS = 50
 // code that ran while `tfile` loaded. `ranges` is a JSON array of
 // flat triples (start, end, count), as in the `coverage` event. One
 // row for each test and file keeps the table and its index small.
+// `hash` is the content hash of `file` at the time of the run.
+// `ubq --changed` compares it with the file as it is now.
 const SCHEMA = `
 create table run (
   id integer primary key,
@@ -60,12 +63,14 @@ create table coverage (
   file text not null,
   run integer not null,
   ranges text not null,
+  hash text not null,
   primary key (tfile, test, file)
 ) without rowid;
 create table test_file (
   tfile text primary key,
   run integer not null,
-  coverage text not null
+  coverage text not null,
+  hash text not null
 ) without rowid;
 create index coverage_file on coverage (file);
 create index test_file_run on test (file, run);
@@ -88,6 +93,15 @@ export const stateDir = (): string => {
     writeFileSync(join(dir, '.gitignore'), '*\n')
   }
   return dir
+}
+
+/** The content hash of a project file. Empty if the file does not exist. */
+export const fileHash = (file: string): string => {
+  try {
+    return hash('sha1', readFileSync(join(projectRoot(), file)))
+  } catch {
+    return ''
+  }
 }
 
 export const openStore = (): Store => {
@@ -145,13 +159,13 @@ export const openStore = (): Store => {
       const dropTestCov = db.prepare('delete from coverage where tfile = ? and test = ?')
       const dropGoneCov = db.prepare('delete from coverage where tfile = ? and run < ?')
       const addCov = db.prepare(
-        'insert or replace into coverage (tfile, test, file, run, ranges) values (?, ?, ?, ?, ?)',
+        'insert or replace into coverage (tfile, test, file, run, ranges, hash) values (?, ?, ?, ?, ?, ?)',
       )
       const addOutput = db.prepare(
         'insert into output (run, file, test, stream, text) values (?, ?, ?, ?, ?)',
       )
       const setFile = db.prepare(
-        'insert or replace into test_file (tfile, run, coverage) values (?, ?, ?)',
+        'insert or replace into test_file (tfile, run, coverage, hash) values (?, ?, ?, ?)',
       )
       const endRun = db.prepare(
         'update run set ms = ?, pass = ?, fail = ?, errors = ?, skip = ?, unselected = ?, code = ? where id = ?',
@@ -159,7 +173,13 @@ export const openStore = (): Store => {
       const lines = new Map<TestId, number | undefined>()
       const fileOf = (id: TestId): string => id.slice(0, id.indexOf(' > '))
       const json = (f: Failure | undefined): string | null => (f ? JSON.stringify(f) : null)
-      let tfile = ''
+      // One hash for each file in a run.
+      const hashes = new Map<string, string>()
+      const hashOf = (file: string): string => {
+        let h = hashes.get(file)
+        if (h === undefined) hashes.set(file, (h = fileHash(file)))
+        return h
+      }
       let pending: UbqEvent[] = []
       let timer: ReturnType<typeof setTimeout> | undefined
       // Events wait here, and one short transaction writes them.
@@ -178,9 +198,8 @@ export const openStore = (): Store => {
       const write = (event: UbqEvent): void => {
         switch (event.type) {
           case 'file-start':
-            tfile = event.file
-            dropTestCov.run(tfile, '')
-            setFile.run(tfile, run, event.coverage)
+            dropTestCov.run(event.file, '')
+            setFile.run(event.file, run, event.coverage, hashOf(event.file))
             break
           case 'test-start':
             lines.set(event.id, event.at?.line)
@@ -209,9 +228,9 @@ export const openStore = (): Store => {
             addError.run(run, event.file, json(event.failure))
             break
           case 'coverage': {
-            const file = event.id ? fileOf(event.id) : tfile
+            const file = event.tfile
             for (const f of event.files)
-              addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges))
+              addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges), hashOf(f.file))
             break
           }
           case 'file-end':
