@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs'
 import { sep } from 'node:path'
 import { type Collector, flatten } from './coverage.ts'
 import type { Coverage } from './events.ts'
-import { COUNTERS, instrument, type Region, snapshot } from './instrument.ts'
+import { COUNTERS, type Region, snapshot } from './counters.ts'
+import { instrument } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
 
 // The part of the Bun plugin API that this file uses.

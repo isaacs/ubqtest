@@ -4,7 +4,8 @@ import { cpSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { assert, describe, test } from 'ubqtest'
 import { flatten } from '../src/coverage.ts'
-import { COUNTERS, instrument, snapshot } from '../src/instrument.ts'
+import { COUNTERS, snapshot } from '../src/counters.ts'
+import { instrument } from '../src/instrument.ts'
 import { fixtures, resetStore } from './setup.ts'
 
 // Plain JavaScript with each construct that gets a counter. The

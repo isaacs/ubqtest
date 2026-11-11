@@ -266,6 +266,7 @@ Source files:
 | File | Contents |
 | --- | --- |
 | `src/instrument.ts` | adds a counter to each function and branch of a source file, and maps each counter to a source range |
+| `src/counters.ts` | counter regions and snapshots, with no parser, so that a process can read counters and not load the parser |
 | `src/bun-preload.ts` | `bun --preload ubqtest/bun-preload`: a load plugin that adds the counters, and the collector that reads them |
 
 What it does:
