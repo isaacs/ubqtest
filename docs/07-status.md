@@ -225,3 +225,56 @@ Known limits:
   run is not written to the store, and the exit code is 137.
 - Node prints "Debugger listening" on stderr when the watchdog
   starts the inspector.
+
+## Step 5: done for coverage, not for mocks and hang reports (2026-11-11)
+
+Source files:
+
+| File | Contents |
+| --- | --- |
+| `src/instrument.ts` | adds a counter to each function and branch of a source file, and maps each counter to a source range |
+| `src/bun-preload.ts` | `bun --preload ubqtest/bun-preload`: a load plugin that adds the counters, and the collector that reads them |
+
+What it does:
+
+- `bun src/cli.ts <files>` runs tests on Bun with full per-test
+  coverage, for one file and for many files. The runner starts
+  each child with `--preload`.
+- The `coverage` events have the same form as on Node, so the
+  store and the queries are the same code.
+- A plain `bun test/foo.ts` has no preload, and records coverage
+  `none`.
+
+Checks (`test/bun.test.ts`):
+
+- The changed source gives the same result as the original for a
+  sample with each construct that gets a counter, and each line
+  keeps its number.
+- On the coverage fixture, `uncovered` and `covers` give the same
+  answers on Bun as V8 gives on Node. Two ranges start 1 or 2
+  columns later.
+
+Decisions in this step are D21 and D22 in `02-decisions.md`.
+
+Not done:
+
+- Module mocks on Bun (`Bun.plugin` resolve hooks). They belong to
+  step 7, with mocks on Node.
+- A hang report on Bun has no stack. `SIGUSR1` does not start an
+  inspector there.
+- `.tsx` and `.jsx` files get no counters.
+- The changed source is not cached. The parser reads about 3 MB
+  of source for each second, so a large project pays for it in
+  each process.
+- `dist/bun-preload.js` is 418 KB, because it contains the parser.
+  It is not minified yet.
+
+Known limits:
+
+- A file that the parser cannot read runs with no counters, and
+  the test file records coverage `partial`. The parser does not
+  read a `const` type parameter in an interface method
+  (`src/assert.ts` has one).
+- Counters for code after `return` or `throw` exist only at
+  statement level in a block. An expression that throws in the
+  middle of a statement counts the rest of the statement as run.

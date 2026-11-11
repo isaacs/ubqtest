@@ -234,3 +234,25 @@ match helper files and fixtures.
 
 Runs have numbers that count up in each project store: `(run 42)`.
 A number is short to type in `ubq failures 42`.
+
+## D21. Parser for source counters: acorn with a TypeScript plugin (agent, 2026-11-11)
+
+The instrumenter uses `acorn` and `@sveltejs/acorn-typescript`.
+Both are development dependencies. The build puts them into
+`dist/bun-preload.js`, so the package has no dependencies at
+install time (D13). Only a Bun test process loads that file.
+
+**Reason.** The counters go into the original TypeScript text, and
+Bun compiles the result. This needs positions in the original
+source and no code generator. Parsers that are native modules
+cannot go into one bundle.
+
+## D22. The instrumenter is separate from Bun (agent, 2026-11-11)
+
+`src/instrument.ts` takes source text and returns changed text and
+regions. It knows nothing about Bun. Only `src/bun-preload.ts` uses
+the Bun plugin API.
+
+**Reason.** Source counters could replace V8 snapshots on Node
+later (`04-architecture.md`, section 12). A snapshot of counters
+costs microseconds, and a V8 snapshot costs 0.43 ms for each test.

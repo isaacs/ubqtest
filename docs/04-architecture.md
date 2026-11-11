@@ -469,8 +469,9 @@ Until step 3, the tool's own tests run on `node:test`.
 The user answered the first set of questions (D9 to D14). These
 points are still open, and each one has a step that settles it:
 
-- The TypeScript parser for the Bun source counters, and its size
-  in the bundle (step 5).
+- Source counters on Node in place of V8 snapshots, to get nearer
+  to the 200-file target. The instrumenter exists (D22). The user
+  has not decided this.
 - The child transport on Deno (step 8).
 - Hang reports on Bun and Deno (steps 5 and 8).
 - Retention limits for the store, against real project sizes
