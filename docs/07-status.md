@@ -337,9 +337,36 @@ Known limits:
   as code: a JSON fixture, a config file, a lock file.
 - With nothing to run, `--failed` and `--changed` exit with code 2.
 
-## Open decision: source counters on Node
+## Source counters on Node: steps 1 and 2 of D25 done (2026-11-12)
 
-`03-measurements.md`, section 12, has the experiment. The agent
-recommended: build the cache and a Node preload, add a check that
-compares counters with V8 on the fixtures, then switch the runner.
-The user has not answered. D5 stands until then.
+Source files:
+
+| File | Contents |
+| --- | --- |
+| `src/counter-collector.ts` | the collector for counters, and the cache of changed source in `.ubq/counters/` |
+| `src/counters-preload.ts` | `node --import ubqtest/counters-preload`: a load hook that adds the counters |
+| `src/bun-preload.ts` | now uses the same collector and cache |
+
+- The cache key is a hash of the file path and its content. A
+  process that finds all its files in the cache does not load the
+  parser.
+- The runner does not use counters on Node yet (step 3 of D25).
+- `test/counters.test.ts` compares counters with V8 on
+  `test/fixtures/diff/`. Lines with uncovered code are equal. The
+  tests for each line are equal, but for two accepted differences:
+  a class field with no value, and the name of a method that no
+  test calls.
+- To make the answers equal, the regions of the counters changed:
+  `else`, `?`, `:`, `&&`, a `case` label, and a method name now
+  belong to the branch or the method, as in V8. A class field with
+  a value has a counter.
+- After that change, the checks of `03-measurements.md`, section
+  12, gave the same results again.
+
+Before step 3:
+
+- Let the comparison run through more changes to the code.
+- The runner needs a way to choose the preload, and the benchmark
+  needs a row for it.
+- `src/assert.ts` has no counters (parser limit), so a run of this
+  repository with counters records coverage `partial`.

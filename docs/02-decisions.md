@@ -277,3 +277,24 @@ As little configuration as possible. The keys are `include`,
 package managers, and ubq reads it in any case. Some users do not
 like tool fields in `package.json`. That is acceptable if the
 field is small and only projects with special layouts need it.
+
+## D25. Source counters on Node, with V8 as the reference (user and agent, 2026-11-12)
+
+Node gets source counters in three steps:
+
+1. Build the cache and a Node preload. Done:
+   `ubqtest/counters-preload`.
+2. A test in this repository compares the answers of counters and
+   V8 on a fixture project, and fails on a difference that is not
+   in its list of accepted ones. Done: `test/counters.test.ts`.
+3. Switch the children of the runner to counters. Not done. The
+   switch waits until the comparison has run for some time with no
+   new difference.
+
+V8 stays the reference, and D5 stays in force for the runner until
+step 3. A plain `node file.ts` has no preload, so it stays on V8.
+
+**Reason.** Counters are faster (`03-measurements.md`, section
+12). The user's experience with `nyc` and `istanbul` was that
+source counters were flaky. A new instrumenter must earn trust
+against a method that is known to be correct.
