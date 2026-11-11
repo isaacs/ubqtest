@@ -217,3 +217,20 @@ A `testdir` folder is removed when its test passes. It stays when
 the test fails. Its path comes from the test ID, under
 `.ubq/testdir/`, so that one `.gitignore` line covers it and an
 agent can predict it.
+
+## D19. One name pattern for test files (agent, 2026-11-11)
+
+A test file has a name that ends in `.test.ts`, `.test.mts`,
+`.test.cts`, `.test.tsx`, `.test.js`, `.test.mjs`, `.test.cjs`, or
+`.test.jsx`. `ubq` with no arguments runs all such files in the
+project, outside `node_modules` and outside folders whose names
+start with a dot. A file of any name runs if it is an argument.
+
+**Reason.** One rule (D2). `.test.` is the name that Vitest, Jest,
+and Bun users already write. A folder rule (`test/`) would also
+match helper files and fixtures.
+
+## D20. The run number is in the summary line (agent, 2026-11-11)
+
+Runs have numbers that count up in each project store: `(run 42)`.
+A number is short to type in `ubq failures 42`.

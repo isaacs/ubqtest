@@ -7,7 +7,7 @@ section 13. Update this file when a step ends.
 
 | Command | Does |
 | --- | --- |
-| `npm test` | runs the tool's own tests (on `node:test` until step 3) |
+| `npm test` | runs the tool's own tests with ubq itself: `node src/cli.ts test` |
 | `npm run typecheck` | must print nothing |
 | `npm run build` | makes `dist/index.js`, one bundled file |
 | `npm run bench` | builds, then times ubq and other tools. `-- --check` fails if a ubq row is over its budget. `-- --only ubq` runs only ubq rows. |
@@ -116,3 +116,66 @@ Known limits:
   hold content hashes yet (step 6 needs them for `--changed`).
 - The Deno inspector answers later than Node's, so coverage start
   on Deno can be late. Not measured yet (step 8).
+
+## Step 3: done, with one target not met (2026-11-11)
+
+Source files:
+
+| File | Contents |
+| --- | --- |
+| `src/runner.ts` | finds test files, orders them, starts a process for each, reads events, totals |
+| `src/sink-pipe.ts` | a child writes its events as JSON lines to fd 3 |
+| `src/cli.ts` | now also runs tests: `ubq`, `ubq <file or folder>...`, `ubq <file>:<line>` |
+
+How a run works:
+
+- A test file has a name that ends in `.test.ts` (or `.test.js`,
+  `.test.mts`, and so on). `ubq` with no arguments runs all of
+  them in the project. An argument can be any file, or a folder.
+- One selected file runs in the CLI process, with the compile
+  cache and early coverage. More files run in child processes,
+  one for each file, as many at a time as the machine has cores.
+- Files that failed in the last run start first, then the slowest.
+- `<file>:<line>` selects the test that starts at or before the
+  line and is nearest to it. The summary counts the tests that
+  were not selected.
+- Exit codes: 0 pass, 1 failure or file error, 2 no tests, 4
+  command error. Code 3 (coverage level) has no feature yet.
+- With `CI` set, the first line of output states the runtime, the
+  platform, and the command.
+
+Checks (`test/runner.test.ts`): 38 tests in 4 files, run by ubq.
+
+What was learned:
+
+- Code that calls `process.exit` in a test ended the process with
+  no summary, and code 0 looked like a pass. The library now
+  reports this as a file error.
+- A test that starts a child process gave the child the runner's
+  environment variables, and the child then wrote events to a
+  pipe that it did not have. The library now removes its
+  variables from `process.env` when it loads.
+- A write to a closed pipe threw inside the error handler and
+  looped. The text sink and the pipe sink now stop on the first
+  write error.
+- Two runs in one project gave "database is locked". The store
+  sink now collects events and writes them in short transactions
+  that take the write lock at the start.
+- A query for run history with no index made each run slower
+  than the last. The store has an index for it now.
+- Coverage is one row for each test and source file, with the
+  ranges as JSON. One row for each range made the store 4 times
+  slower.
+
+Speed: see `04-architecture.md`, section 12. One file meets its
+target. 200 files take 885 ms against a target of 650 ms.
+
+Not done in step 3:
+
+- Output of a child on stdout and stderr is dropped, except for
+  the last lines of stderr when the process dies. Step 4 captures
+  it for each test.
+- The CI text has only the header line. Console output and hang
+  reports come with step 4.
+- Deno and Bun as the runtime of the runner are not tested. The
+  runner starts children with its own runtime.

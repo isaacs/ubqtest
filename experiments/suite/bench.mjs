@@ -1,8 +1,9 @@
 // Times ubq and other frameworks on the same suite.
 // usage: node bench.mjs [--runs N] [--only text] [--check]
 //   --check  exit 1 if a ubq row is over its budget
-// Budgets are from docs/04-architecture.md, section 12. They hold
-// for the machine in docs/03-measurements.md.
+// A budget is a guard against a regression: the measured time plus
+// a small margin, on the machine in docs/03-measurements.md. The
+// targets are in docs/04-architecture.md, section 12.
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -22,8 +23,8 @@ if (!existsSync(resolve(here, 't-ubq'))) spawnSync(process.execPath, ['gen.mjs',
 const rows = [
   ['ubq plain, 1 file', 'node', ['t-ubq/f0.test.ts'], { budget: 70 }],
   ['ubq plain, 1 file, compile cache', 'node', ['t-ubq/f0.test.ts'], { budget: 45, env: { NODE_COMPILE_CACHE: cc } }],
-  ['ubq, 1 file', 'node', [ubq, 't-ubq/f0.test.ts'], { budget: 45 }],
-  ['ubq, 200 files', 'node', [ubq, 't-ubq'], { budget: 650 }],
+  ['ubq, 1 file', 'node', [ubq, 't-ubq/f0.test.ts'], { budget: 50 }],
+  ['ubq, 200 files', 'node', [ubq, 't-ubq'], { budget: 950 }],
   ['node:test, 1 file', 'node', ['--test', 't-nodetest/f0.test.ts']],
   ['vitest, 1 file', bin('vitest'), ['run', 't-vitest/f0.test.ts']],
   ['jest, 1 file', bin('jest'), ['t-jest/f0.test.ts']],

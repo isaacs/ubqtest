@@ -379,13 +379,23 @@ that one code path works on Node and Deno.
 Targets on the machine in `03`, for the suite in M 4. A benchmark
 in the repository must check these in each change.
 
-| Case | Target | Basis |
+| Case | Target | Measured in step 3 |
 | --- | --- | --- |
-| 1 file through the CLI, coverage on | 45 ms | step 2 measured 43 ms; Node start is 27 ms |
-| 1 file as a plain TypeScript program | 70 ms | step 2 measured 66 ms; type stripping is 19 ms of it |
-| 200 files, full run, coverage on | 650 ms | prototype 747 ms; floor is 510 ms |
-| Edit loop with `--changed`, 1 to 5 files | 40 to 80 ms | follows from the rows above |
-| Query on a stored run | 35 ms | Node start plus 1 ms |
+| 1 file through the CLI, coverage on | 45 ms | 45.5 ms |
+| 1 file as a plain TypeScript program | 70 ms | 64.6 ms (43 ms with the compile cache) |
+| 200 files, full run, coverage on | 650 ms | 885 ms, target not met |
+| Edit loop with `--changed`, 1 to 5 files | 40 to 80 ms | not built yet |
+| Query on a stored run | 35 ms | not measured yet |
+
+**The 200-file target is not met.** A child process takes 44 ms:
+29 ms for Node, 1.9 ms to start coverage, about 5.5 ms for 11
+snapshots, and about 8 ms to load and run the library and the
+test. A snapshot costs 0.43 ms in a real test process, because the
+cost follows all functions that the process loaded, with the ones
+in Node itself. The prototype child took 40 ms. The run store adds
+about 50 ms to the run. The known ways to get faster are source
+counters in place of V8 snapshots (section 4), and the background
+server (below).
 
 The first two targets were 40 and 65 ms before step 2. The
 prototype did not have the store, and its 10 snapshots were
@@ -395,9 +405,11 @@ the store takes about 1.5 ms.
 
 Where the plan stands against other tools (M 4):
 
-- Faster than `node --test`, Vitest default, Jest with coverage,
-  and tap, by 2 times or more, with per-test coverage on.
-- Equal to Jest with no coverage and to `deno test --parallel`.
+- Faster than `node --test` (1462 ms) and Vitest default
+  (1529 ms) by 1.7 times, and faster than Jest with coverage
+  (1898 ms) by 2 times, with per-test coverage on.
+- Slower than Jest with no coverage (778 ms) and
+  `deno test --parallel` (671 ms).
 - Slower than Vitest with isolation off (343 ms). Shared processes
   would beat it (191 ms).
 - Slower than `bun test` in all cold cases. Bun starts in 5 ms and
