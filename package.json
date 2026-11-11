@@ -26,7 +26,7 @@
     "typescript": "^7.0.2"
   },
   "bin": {
-    "ubq": "./src/cli.ts"
+    "ubq": "src/cli.ts"
   },
   "license": "BlueOak-1.0.0"
 }
