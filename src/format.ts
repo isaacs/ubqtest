@@ -126,6 +126,8 @@ export const diffDeep = (
         add(`${path}.length`, String(a.length), String(e.length))
       const n = Math.min(a.length, e.length)
       for (let i = 0; i < n; i++) walk(a[i], e[i], `${path}[${i}]`)
+      for (let i = n; i < a.length; i++) add(`${path}[${i}]`, show(a[i]), MISSING)
+      for (let i = n; i < e.length; i++) add(`${path}[${i}]`, MISSING, show(e[i]))
       return
     }
     const plain = (v: object): boolean => {
