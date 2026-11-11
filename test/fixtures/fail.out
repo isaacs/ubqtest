@@ -1,0 +1,122 @@
+FAIL fail.ts > assertions > equal
+  expected values to be equal
+  at fail.ts:6:12
+  > assert.equal(parse('s')?.kind, 'circle')
+  actual:   'square'
+  expected: 'circle'
+  rerun: ubq fail.ts:5
+
+FAIL fail.ts > assertions > equal on objects with the same content
+  expected values to be equal
+  at fail.ts:10:12
+  > assert.equal(parse('c'), { kind: 'circle', r: 1 })
+  actual:   { kind: 'circle', r: 1 }
+  expected: { kind: 'circle', r: 1 }
+  note: same content, but not the same object. Use assert.deepEqual to compare content.
+  rerun: ubq fail.ts:9
+
+FAIL fail.ts > assertions > deepEqual
+  expected values to be deeply equal
+  at fail.ts:15:12
+  > assert.deepEqual<unknown>(actual, { id: 1, items: [{ id: 1, tags: ['a', 'c'] }, { id: 3, tags: [] }]…
+  .extra
+    actual:   true
+    expected: (missing)
+  .items[0].tags[1]
+    actual:   'b'
+    expected: 'c'
+  .items[1].id
+    actual:   2
+    expected: 3
+  .name
+    actual:   (missing)
+    expected: 'x'
+  rerun: ubq fail.ts:13
+
+FAIL fail.ts > assertions > match
+  expected value to match the pattern
+  at fail.ts:19:12
+  > assert.match({ status: 500, body: { user: { name: 'bob' } } }, { status: 200, body: { user: { name: …
+  .status
+    actual:   500
+    expected: 200
+  .body.user.name
+    actual:   'bob'
+    expected: /^a/
+  rerun: ubq fail.ts:18
+
+FAIL fail.ts > assertions > long strings
+  expected values to be equal
+  at fail.ts:23:12
+  > assert.equal('the quick brown fox jumps over the lazy dog, again and again', 'the quick brown fox ju…
+  actual:   "jumps over the lazy dog, again and again"
+  expected: "jumps over the lazy cat, again and again"
+  note: first difference at index 40; text shown from index 20
+  rerun: ubq fail.ts:22
+
+FAIL fail.ts > assertions > throws the wrong error
+  the function threw a different error
+  at fail.ts:27:12
+  > assert.throws(() => parse('?'), TypeError)
+  actual:   RangeError: unknown shape: ?
+  expected: an instance of TypeError
+  rerun: ubq fail.ts:26
+
+FAIL fail.ts > assertions > does not throw
+  expected the function to throw, but it returned
+  at fail.ts:31:12
+  > assert.throws(() => parse('c'), /unknown/)
+  rerun: ubq fail.ts:30
+
+FAIL fail.ts > assertions > a custom message
+  x must parse: expected a truthy value, got undefined
+  at fail.ts:35:5
+  > assert(parse('x'), 'x must parse')
+  rerun: ubq fail.ts:34
+
+FAIL fail.ts > rules > no assertions
+  the test ran no assertions
+  at fail.ts:40:3
+  > test('no assertions', () => {
+  rerun: ubq fail.ts:40
+
+FAIL fail.ts > rules > rejects without await
+  assert.rejects was not awaited. Write: await assert.rejects(...)
+  at fail.ts:44:3
+  > test('rejects without await', () => {
+  rerun: ubq fail.ts:44
+
+FAIL fail.ts > rules > a caught assertion still fails
+  expected values to be equal
+  at fail.ts:50:14
+  > assert.equal(1 as number, 2)
+  actual:   1
+  expected: 2
+  rerun: ubq fail.ts:48
+
+FAIL fail.ts > rules > an error in the code under test
+  RangeError: unknown shape: ?
+  at src/shape.ts:8:24
+  > if (s === '?') throw new RangeError('unknown shape: ?')
+  at fail.ts:56:5
+  rerun: ubq fail.ts:55
+
+FAIL fail.ts > rules > timeout
+  the test did not end in 20 ms
+  at fail.ts:59:3
+  > test('timeout', { timeout: 20 }, async () => {
+  rerun: ubq fail.ts:59
+
+FAIL fail.ts > rules > an error in a callback
+  Error: in callback
+  at fail.ts:64:54
+  > await new Promise(() => setTimeout(() => { throw new Error('in callback') }, 1))
+  rerun: ubq fail.ts:63
+
+FAIL fail.ts > rules > an assertion after the end
+  an assertion ran after the test ended. Await all async work in the test.
+  at fail.ts:68:29
+  > setTimeout(() => assert.equal(1, 1), 5)
+  rerun: ubq fail.ts:67
+
+fail: 15 failed, 0 passed

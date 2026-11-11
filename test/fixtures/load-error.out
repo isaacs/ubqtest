@@ -1,0 +1,6 @@
+ERROR load-error.ts
+  Error: duplicate test name: load-error.ts > one. Each name must be unique in its group.
+  at load-error.ts:7:1
+  > test('one', () => {
+
+fail: 1 errors, 0 failed, 1 passed
