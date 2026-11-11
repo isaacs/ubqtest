@@ -301,10 +301,19 @@ await-heavy code 5 times slower (M 8).
 | --- | --- | --- |
 | Test waits on something that never comes, handles are open | timer in the test process | handle types from `getActiveResourcesInfo` (no cost) |
 | Test waits, no handles | process is about to exit with an open test | "promise never settled, nothing was pending" |
-| Busy loop | runner sees no events for the time limit | runner sends `SIGUSR1`, connects to the inspector, and reads the stack (40 ms, M 8) |
+| Loop that does not return | a watchdog sees no test end after the time limit plus 500 ms | the watchdog sends `SIGUSR1`, connects to the inspector, reads the stack (40 ms, M 8), and stops the process |
 
-After a timeout, the runner kills the process group of the child,
-so child processes of the test die too.
+The watchdog for a child process is a timer in the runner. It
+costs the child nothing. A process with no runner above it (a
+plain program, or one file in the CLI process) has a watchdog
+thread, because its own timers cannot run while it is in the loop.
+A thread in each child would add about 300 ms to a 200-file run.
+
+When a child ends, the runner kills the process group of the
+child, so processes that its tests started and did not stop die
+too.
+
+Not built yet: the rerun for creation stacks, below.
 
 For creation stacks ("which line opened this server?"), the runner
 runs a timed-out test one more time, alone, with the init hook on.
@@ -379,13 +388,21 @@ that one code path works on Node and Deno.
 Targets on the machine in `03`, for the suite in M 4. A benchmark
 in the repository must check these in each change.
 
-| Case | Target | Measured in step 3 |
+| Case | Target | Measured in step 4 |
 | --- | --- | --- |
-| 1 file through the CLI, coverage on | 45 ms | 45.5 ms |
-| 1 file as a plain TypeScript program | 70 ms | 64.6 ms (43 ms with the compile cache) |
-| 200 files, full run, coverage on | 650 ms | 885 ms, target not met |
+| 1 file through the CLI, coverage on | 45 ms | 54 ms, target not met |
+| 1 file as a plain TypeScript program | 70 ms | 75 ms (52 ms with the compile cache), target not met |
+| 200 files, full run, coverage on | 650 ms | 917 ms, target not met |
 | Edit loop with `--changed`, 1 to 5 files | 40 to 80 ms | not built yet |
 | Query on a stored run | 35 ms | not measured yet |
+
+**The one-file targets were met in step 3 (45.5 ms and 64.6 ms)
+and are not met after step 4.** A process with no runner above it
+now starts a watchdog thread, so that a loop that does not return
+cannot wedge it (section 8). The thread costs 3 to 4 ms in a file
+of 10 tests. The machine was also about 2.5 ms slower for each
+process start on the day of the step 4 numbers (31.3 ms for an
+empty Node program, 28.7 ms before).
 
 **The 200-file target is not met.** A child process takes 44 ms:
 29 ms for Node, 1.9 ms to start coverage, about 5.5 ms for 11

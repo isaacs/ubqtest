@@ -1,6 +1,6 @@
 // The runner: many files, selection, exit codes, and dead processes.
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -132,4 +132,30 @@ test('hangs: a promise that never settles, a timeout, a process that stays alive
   assert.match(text, /the test did not end in 50 ms\n.*\n.*\n  still open: TCPServerWrap/)
   assert.match(text, /ERROR hang\.ts\n  the tests ended, but the process did not exit\..*\n  still open: TCPServerWrap/)
   assert.equal(r.out.at(-1), 'fail: 1 errors, 2 failed, 1 passed')
+})
+
+test('a loop that does not return is stopped, with the line of the loop', () => {
+  for (const args of [['busy.ts'], ['busy.ts', 'pass.ts']]) {
+    const r = ubq(args)
+    assert.deepEqual(r.out.slice(0, 5), [
+      'FAIL busy.ts > loops forever',
+      '  the test did not end in 100 ms, and the process does not respond. The code is in a loop that does not return.',
+      '  at busy.ts:5:3',
+      '  > while (true) x += n',
+      '  at busy.ts:13:16',
+    ])
+    assert.match(r.out.join('\n'), /ERROR busy\.ts\n  ubq stopped the process\. The tests after the stuck test did not run\./)
+  }
+  assert.equal(ubq(['busy.ts', 'pass.ts']).out.at(-1), 'fail: 1 errors, 1 failed, 6 passed, 1 skipped')
+})
+
+test('processes that a test file leaves behind are stopped', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ubq-orphan-'))
+  const pidFile = join(dir, 'pid')
+  const r = ubq(['orphan.ts', 'pass.ts'], { ORPHAN_PID_FILE: pidFile })
+  assert.equal(r.code, 0)
+  const pid = +readFileSync(pidFile, 'utf8')
+  rmSync(dir, { recursive: true })
+  // Signal 0 tests for the process and sends nothing.
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 })

@@ -21,9 +21,9 @@ if (!existsSync(resolve(here, 't-ubq'))) spawnSync(process.execPath, ['gen.mjs',
 
 // [name, command, args, { budget ms, env }]
 const rows = [
-  ['ubq plain, 1 file', 'node', ['t-ubq/f0.test.ts'], { budget: 70 }],
-  ['ubq plain, 1 file, compile cache', 'node', ['t-ubq/f0.test.ts'], { budget: 45, env: { NODE_COMPILE_CACHE: cc } }],
-  ['ubq, 1 file', 'node', [ubq, 't-ubq/f0.test.ts'], { budget: 50 }],
+  ['ubq plain, 1 file', 'node', ['t-ubq/f0.test.ts'], { budget: 80 }],
+  ['ubq plain, 1 file, compile cache', 'node', ['t-ubq/f0.test.ts'], { budget: 55, env: { NODE_COMPILE_CACHE: cc } }],
+  ['ubq, 1 file', 'node', [ubq, 't-ubq/f0.test.ts'], { budget: 58 }],
   ['ubq, 200 files', 'node', [ubq, 't-ubq'], { budget: 950 }],
   ['node:test, 1 file', 'node', ['--test', 't-nodetest/f0.test.ts']],
   ['vitest, 1 file', bin('vitest'), ['run', 't-vitest/f0.test.ts']],

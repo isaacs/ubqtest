@@ -14,8 +14,10 @@ import {
   type FileEvent,
   type RunStart,
   type Sink,
+  type TestStart,
   type UbqEvent,
 } from './events.ts'
+import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
 import { openStore, stateDir, type Store } from './store.ts'
@@ -96,6 +98,24 @@ const order = (files: Selected[], store: Store | undefined): Selected[] => {
   return [...files].sort((a, b) => of(b) - of(a))
 }
 
+/** Process groups of the test processes that run now. */
+const groups = new Set<number>()
+const killGroup = (pid: number): void => {
+  groups.delete(pid)
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch {
+    // The group has no processes.
+  }
+}
+// The children are not in the process group of the runner, so a
+// signal from the terminal does not reach them.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const)
+  process.on(signal, () => {
+    for (const pid of groups) killGroup(pid)
+    process.exit(signal === 'SIGINT' ? 130 : 143)
+  })
+
 /** Runs one test file in a new process. Sends its events to `send`. */
 const runFile = (
   { file, lines }: Selected,
@@ -105,9 +125,13 @@ const runFile = (
   new Promise(done => {
     const child = spawn(
       process.execPath,
-      ['--import', PRELOAD, join(projectRoot(), file)],
+      // With port 0, SIGUSR1 starts the inspector on a free port.
+      ['--inspect-port=0', '--import', PRELOAD, join(projectRoot(), file)],
       {
         cwd: projectRoot(),
+        // The child leads its own process group, so that one signal
+        // stops it and all processes that its tests started.
+        detached: true,
         stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
@@ -121,6 +145,35 @@ const runFile = (
     )
     let ended = false
     let open: string | undefined
+    let watchdog: ReturnType<typeof setTimeout> | undefined
+    // The test has a timer for its limit in its own process. If no
+    // `test-end` came after that limit, the process is in a loop
+    // that does not return.
+    const stuck = async (start: TestStart): Promise<void> => {
+      ended = true
+      child.kill('SIGUSR1')
+      let url: string | undefined
+      for (let i = 0; i < 20 && !url; i++) {
+        await new Promise(r => setTimeout(r, 25))
+        url = /ws:\/\/\S+/.exec(stderr)?.[0]
+      }
+      const stack = url ? await pausedStack(url, child.pid!, projectRoot()) : []
+      send({
+        type: 'test-end',
+        id: start.id,
+        status: 'fail',
+        ms: start.timeout + GRACE_MS,
+        asserts: 0,
+        failure: {
+          kind: 'timeout',
+          message: stuckMessage(start.timeout),
+          ...(stack[0] ? { at: stack[0], stack } : start.at && { at: start.at }),
+        },
+      })
+      send({ type: 'file-error', file, failure: { kind: 'error', message: STOPPED } })
+      send({ type: 'file-end', file, unselected: 0 })
+      killGroup(child.pid!)
+    }
     let buffer = ''
     const pipe = child.stdio[3] as Readable
     pipe.setEncoding('utf8')
@@ -130,8 +183,13 @@ const runFile = (
         const event = JSON.parse(buffer.slice(0, i)) as FileEvent
         buffer = buffer.slice(i + 1)
         if (event.type === 'file-end') ended = true
-        else if (event.type === 'test-start') open = event.id
-        else if (event.type === 'test-end') open = undefined
+        else if (event.type === 'test-start') {
+          open = event.id
+          watchdog = setTimeout(stuck, event.timeout + GRACE_MS, event)
+        } else if (event.type === 'test-end') {
+          open = undefined
+          clearTimeout(watchdog)
+        }
         send(event)
       }
     })
@@ -140,12 +198,17 @@ const runFile = (
     let stderr = ''
     child.stderr!.setEncoding('utf8').on('data', (text: string) => {
       stderr += text
-      send({ type: 'output', file, stream: 'stderr', text })
+      // The inspector start message is from the watchdog, not the test.
+      if (!ended) send({ type: 'output', file, stream: 'stderr', text })
     })
     child.stdout!.setEncoding('utf8').on('data', (text: string) => {
       send({ type: 'output', file, stream: 'stdout', text })
     })
+    groups.add(child.pid!)
     child.on('close', (code, signal) => {
+      clearTimeout(watchdog)
+      // Processes that the tests started and did not stop.
+      killGroup(child.pid!)
       if (!ended)
         send({
           type: 'file-error',

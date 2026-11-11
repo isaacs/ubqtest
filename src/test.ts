@@ -1,5 +1,6 @@
 // `test`, `describe`, and the loop that runs tests one at a time.
 // See docs/05-api.md, sections 3 and 4.
+import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
 import type { Collector } from './coverage.ts'
 import { emit } from './emit.ts'
@@ -8,6 +9,7 @@ import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
 import { callSite, userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
+import type { WatchData, WatchMessage } from './watchdog.ts'
 
 export interface TestContext {
   /** Aborts when the test times out. */
@@ -40,6 +42,8 @@ export interface Describe {
 const DEFAULT_TIMEOUT = 5000
 /** The path of this test file, if the runner gave it. */
 const FILE = process.env.UBQ_FILE
+/** True if the process is a child of the runner. */
+const CHILD = !!process.env.UBQ_CHILD
 const SEPARATOR = ' > '
 
 interface Entry {
@@ -141,6 +145,14 @@ export const describe: Describe = (
   }
 }
 
+// The source is `.ts`, and the bundle is `.js`.
+const WATCHDOG = new URL(
+  import.meta.url.endsWith('.ts') ? './watchdog.ts' : './watchdog.js',
+  import.meta.url,
+)
+let watchdog: Worker | undefined
+const watch = (message: WatchMessage): void => watchdog?.postMessage(message)
+
 /** The path of the test file. Known after the first `test()` call. */
 export const currentFile = (): string => file ?? FILE ?? rel(process.argv[1] ?? '')
 
@@ -148,6 +160,13 @@ let started = false
 const start = (): void => {
   if (started) return
   started = true
+  // The runner watches its children. A process with no runner
+  // watches itself.
+  if (!CHILD) {
+    const data: WatchData = { file: currentFile(), unselected: 0 }
+    watchdog = new Worker(WATCHDOG, { workerData: data })
+    watchdog.unref()
+  }
   openAtStart = openNow()
   file ??= FILE || rel(process.argv[1] ?? '')
   emit({
@@ -204,6 +223,7 @@ const runOne = async (entry: Entry): Promise<void> => {
     ...(entry.at && { at: entry.at }),
   })
   if (entry.skip) {
+    watch({ end: 'skip' })
     emit({
       type: 'test-end',
       id: entry.id,
@@ -235,6 +255,7 @@ const runOne = async (entry: Entry): Promise<void> => {
     },
   }
   active = state
+  watch({ start: entry.id, timeout: entry.timeout, ...(entry.at && { at: entry.at }) })
   const before = openNow()
   const t0 = performance.now()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -274,6 +295,7 @@ const runOne = async (entry: Entry): Promise<void> => {
       message: 'the test ran no assertions',
       ...(entry.at && { at: entry.at }),
     }
+  watch({ end: state.failure ? 'fail' : 'pass' })
   emit({
     type: 'test-end',
     id: entry.id,

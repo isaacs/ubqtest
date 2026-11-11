@@ -179,3 +179,49 @@ Not done in step 3:
   reports come with step 4.
 - Deno and Bun as the runtime of the runner are not tested. The
   runner starts children with its own runtime.
+
+## Step 4: done, without hang reruns (2026-11-11)
+
+Source files:
+
+| File | Contents |
+| --- | --- |
+| `src/capture.ts` | console capture: stdout and stderr text becomes `output` events |
+| `src/probe.ts` | reads the stack of a stuck process through the inspector |
+| `src/watchdog.ts` | worker thread that stops a stuck process that has no runner |
+
+What it does:
+
+- Under `ubq`, a failure block shows the console output of its
+  test (last 20 lines, all lines in CI). `ubq show` prints it. A
+  plain program keeps its console.
+- A promise that can never settle fails the test at once.
+- A timeout names what the test opened and left open
+  (`still open: TCPServerWrap`).
+- Tests that end while the process stays alive: a file error,
+  1000 ms after the last test, and the process exits.
+- A loop that does not return: stopped 500 ms after the limit of
+  the test, with the line of the loop in the failure.
+- When a child ends, the runner kills its process group. The
+  runner passes SIGINT, SIGTERM, and SIGHUP on to all groups.
+
+Checks: `test/runner.test.ts`, fixtures `hang.ts`, `busy.ts`,
+`output.ts`, `orphan.ts`. 43 tests.
+
+Not done:
+
+- **Hang reruns (D14).** The rerun of a timed-out test with async
+  tracking, to get the line that opened each resource. The report
+  has the resource types only.
+- The watchdog thread uses inspector port 9229. If a different
+  process has that port, the failure has no stack, only the
+  message.
+- Leak checks after each test (changed globals, environment
+  variables, working directory) from `01`, section 9.
+
+Known limits:
+
+- When the watchdog thread stops a process with no runner, the
+  run is not written to the store, and the exit code is 137.
+- Node prints "Debugger listening" on stderr when the watchdog
+  starts the inspector.
