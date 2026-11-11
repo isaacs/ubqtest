@@ -1,0 +1,1 @@
+{"compilerOptions":{"module":"nodenext","target":"esnext","strict":true,"noEmit":true,"allowImportingTsExtensions":true,"noUncheckedIndexedAccess":true,"types":["node"],"skipLibCheck":true},"files":["good.ts","bad.ts"]}
