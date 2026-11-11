@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./preload": "./src/preload.ts"
+    "./preload": "./src/preload.ts",
+    "./bun-preload": "./src/bun-preload.ts"
   },
   "engines": {
     "node": ">=24"
@@ -15,10 +16,12 @@
     "test": "node src/cli.ts test",
     "typecheck": "tsc",
     "bench": "npm run build && node experiments/suite/bench.mjs",
-    "build": "esbuild src/index.ts src/cli.ts src/preload.ts src/watchdog.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist"
+    "build": "esbuild src/index.ts src/cli.ts src/preload.ts src/bun-preload.ts src/watchdog.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist"
   },
   "devDependencies": {
+    "@sveltejs/acorn-typescript": "^1.0.13",
     "@types/node": "^26.6.6",
+    "acorn": "^8.19.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   },
