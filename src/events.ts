@@ -1,0 +1,185 @@
+// The event definitions. This file is the wire format: a test process
+// writes these objects as JSON lines, and each sink reads them.
+// See docs/06-events.md for the rules.
+
+/** Changes when an event loses a field or a field changes meaning. */
+export const EVENT_VERSION = 1
+
+/** `test/parse.ts > parse > circle` */
+export type TestId = string
+
+/** A position in a source file. Lines and columns start at 1. */
+export interface Location {
+  /** Path from the project root, with `/` separators. */
+  file: string
+  line: number
+  column: number
+}
+
+export type FailureKind =
+  | 'assert' // an assertion failed
+  | 'error' // the test threw something that is not an assertion failure
+  | 'timeout' // the test ran longer than its limit
+  | 'no-assertions' // the test ended and no assertion ran
+  | 'not-awaited' // the result of assert.rejects was not awaited
+  | 'cleanup' // a cleanup function threw
+  | 'late' // an assertion or an error came after the test ended
+  | 'never-settled' // the process was about to exit while the test was open
+  | 'no-tests' // the file registered no tests
+
+export interface Failure {
+  kind: FailureKind
+  /** One line that states what went wrong. */
+  message: string
+  /** Where the failure is in user code. Absent if no user frame exists. */
+  at?: Location
+  /** Stack frames in user code only, innermost first. */
+  stack?: Location[]
+  /** For `assert`: the assertion function, such as `equal`. */
+  assertion?: string
+  /** For `assert`: the two values as text, each with a size limit. */
+  actual?: string
+  expected?: string
+  /** For `assert`: the differences, each with the path to it. */
+  diff?: string
+}
+
+/** First event of a run. The runner role writes it. */
+export interface RunStart {
+  type: 'run-start'
+  v: typeof EVENT_VERSION
+  /** The number of the run in the store. Absent if the run is not stored. */
+  run?: number
+  /** Epoch milliseconds. */
+  time: number
+  command: string[]
+  cwd: string
+  runtime: { name: 'node' | 'deno' | 'bun'; version: string }
+  platform: string
+  arch: string
+  ci: boolean
+}
+
+/** First event from a test process. */
+export interface FileStart {
+  type: 'file-start'
+  v: typeof EVENT_VERSION
+  file: string
+  pid: number
+  /**
+   * `full`: coverage started before the file loaded.
+   * `partial`: coverage started after the file loaded. Functions
+   * that never ran, and top-level code of modules, are not known.
+   * `none`: the runtime has no collector.
+   */
+  coverage: 'full' | 'partial' | 'none'
+}
+
+export interface TestStart {
+  type: 'test-start'
+  id: TestId
+  /** The `test()` call. */
+  at?: Location
+}
+
+export interface TestEnd {
+  type: 'test-end'
+  id: TestId
+  status: 'pass' | 'fail' | 'skip'
+  /** Milliseconds. 0 for a skipped test. */
+  ms: number
+  /** Count of assertions that ran. */
+  asserts: number
+  /** For `fail`. */
+  failure?: Failure
+  /** For `skip`: the reason from the test options. */
+  reason?: string
+  /** `testdir` folders that stay because the test failed. */
+  kept?: string[]
+}
+
+/** A failure that came after the `test-end` of its test. */
+export interface LateFailure {
+  type: 'late-failure'
+  id: TestId
+  failure: Failure
+}
+
+/** Text that the code wrote to stdout or stderr. */
+export interface Output {
+  type: 'output'
+  /** Absent for text written outside a test. */
+  id?: TestId
+  stream: 'stdout' | 'stderr'
+  text: string
+}
+
+/** Code that ran since the last coverage event of this process. */
+export interface Coverage {
+  type: 'coverage'
+  /** Absent for code that ran while the file loaded. */
+  id?: TestId
+  files: {
+    file: string
+    /**
+     * Flat triples: start offset, end offset, count. The segments do
+     * not overlap. A count of 0 marks code that did not run in a
+     * function that did, or a function that never ran.
+     */
+    ranges: number[]
+  }[]
+}
+
+/** A failure that belongs to no test, such as an error while the file loads. */
+export interface FileError {
+  type: 'file-error'
+  file: string
+  failure: Failure
+}
+
+/** Last event from a test process. */
+export interface FileEnd {
+  type: 'file-end'
+  file: string
+  /** Tests that the selection left out. */
+  unselected: number
+}
+
+/** The test process exited. The runner role writes it. */
+export interface Exit {
+  type: 'exit'
+  file: string
+  code: number | null
+  signal: string | null
+}
+
+/** Last event of a run. The runner role writes it. */
+export interface RunEnd {
+  type: 'run-end'
+  ms: number
+  pass: number
+  fail: number
+  /** Count of `file-error` events, without `no-tests`. */
+  errors: number
+  skip: number
+  unselected: number
+  /** The exit code of the run. See docs/04-architecture.md, section 9. */
+  code: number
+}
+
+export type FileEvent =
+  | FileStart
+  | TestStart
+  | TestEnd
+  | LateFailure
+  | Output
+  | Coverage
+  | FileError
+  | FileEnd
+
+export type RunEvent = RunStart | Exit | RunEnd
+
+export type UbqEvent = FileEvent | RunEvent
+
+/** Receives each event of a run, in order. */
+export type Sink = (event: UbqEvent) => void
