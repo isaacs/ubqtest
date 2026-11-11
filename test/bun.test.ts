@@ -133,7 +133,7 @@ describe('bun', () => {
       'skip pass.ts > not on this platform: needs a GPU',
       'pass: 0 failed, 5 passed, 1 skipped',
     ])
-    assert.equal(sh('bun', [cli, 'pass.ts', 'cov'], fixtures).at(-1), 'pass: 0 failed, 10 passed, 1 skipped')
+    assert.equal(sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], fixtures).at(-1), 'pass: 0 failed, 10 passed, 1 skipped')
     assert.deepEqual(sh('node', [cli, 'sql', "select coverage from test_file where tfile = 'pass.ts'"], fixtures), [
       '{"coverage":"full"}',
     ])

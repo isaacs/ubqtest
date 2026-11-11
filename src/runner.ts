@@ -8,6 +8,7 @@ import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { config, UsageError } from './config.ts'
 import { startCoverage } from './coverage.ts'
 import {
   EVENT_VERSION,
@@ -47,19 +48,38 @@ export interface Selected {
   // With no lines and no IDs, all tests of the file run.
 }
 
-/** An error in the command. Exit code 4. */
-export class UsageError extends Error {}
+export { UsageError }
 
 /** Test files from command arguments, or all test files of the project. */
-/** The test files in a folder, by the name pattern. */
-const under = (dir: string): string[] =>
-  globSync(TEST_FILES, {
-    cwd: dir,
-    // The argument is a path from `dir`.
-    exclude: path => /(^|[\\/])(node_modules$|\.)/.test(path),
-  })
-    .sort()
-    .map(file => rel(join(dir, file)))
+/**
+ * The test files of the project. Not in `node_modules`, not in a
+ * folder whose name starts with a dot, and not in a folder that has
+ * its own `package.json`: that folder is a different project.
+ */
+const testFiles = (): string[] => {
+  const root = projectRoot()
+  const { include, exclude = [] } = config()
+  // The argument is a path from the root.
+  const skip = (path: string): boolean =>
+    /(^|[\\/])(node_modules$|\.)/.test(path) || existsSync(join(root, path, 'package.json'))
+  const find = (patterns: string[]): string[] =>
+    globSync(patterns, { cwd: root, exclude: skip }).map(f => f.split('\\').join('/'))
+  const files = new Set(find(include ?? [TEST_FILES]))
+  if (exclude.length) for (const file of find(exclude)) files.delete(file)
+  return [...files].filter(f => !include || statSync(join(root, f)).isFile()).sort()
+}
+
+/** The test files of the project that are in a folder. */
+const under = (dir: string): string[] => {
+  const root = projectRoot()
+  if (dir === root) return testFiles()
+  if (existsSync(join(dir, 'package.json')))
+    throw new UsageError(
+      `${rel(dir)} is a different project: it has its own package.json. Run ubq in that folder, or name its test files.`,
+    )
+  const prefix = rel(dir) + '/'
+  return testFiles().filter(f => f.startsWith(prefix))
+}
 
 export const select = (args: string[]): Selected[] => {
   const root = projectRoot()
@@ -324,6 +344,9 @@ const runFile = (
 
 /** Runs test files. Returns the exit code of the run. */
 export const run = async (args: string[]): Promise<number> => {
+  // A wrong configuration is an error of the command, before any
+  // test process starts.
+  config()
   const flags = args.filter(a => a.startsWith('--'))
   const rest = args.filter(a => !a.startsWith('--'))
   for (const flag of flags)

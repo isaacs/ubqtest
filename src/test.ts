@@ -2,6 +2,7 @@
 // See docs/05-api.md, sections 3 and 4.
 import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
+import { config } from './config.ts'
 import type { Collector } from './coverage.ts'
 import { emit } from './emit.ts'
 import { EVENT_VERSION, type Failure, type Location } from './events.ts'
@@ -106,7 +107,9 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
     id,
     fn,
     skip: all.find(o => o.skip)?.skip ?? false,
-    timeout: all.findLast(o => o.timeout !== undefined)?.timeout ?? DEFAULT_TIMEOUT,
+    timeout: all.findLast(o => o.timeout !== undefined)?.timeout ??
+      config().timeout ??
+      DEFAULT_TIMEOUT,
     at,
   })
   if (!scheduled) {

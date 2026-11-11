@@ -12,7 +12,9 @@ const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 /** A project of its own, so that its store has only the runs of one test. */
 const project = () => {
   const dir = mkdtempSync(join(tmpdir(), 'ubq-select-'))
-  writeFileSync(join(dir, 'package.json'), '{ "type": "module" }')
+  const configure = (ubq?: unknown) =>
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module', ubq }))
+  configure()
   for (const f of ['flip.ts', 'pass.ts', 'src']) cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
   mkdirSync(join(dir, 'node_modules'))
   symlinkSync(fileURLToPath(new URL('..', import.meta.url)), join(dir, 'node_modules/ubqtest'))
@@ -21,7 +23,7 @@ const project = () => {
     const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', FLIP_FILE: flip } })
     return { code: r.status, last: r.stdout.replace(/ \(run \d+\)\n$/, '').split('\n').at(-1), err: r.stderr, out: r.stdout }
   }
-  return { dir, ubq, set: (v: string) => writeFileSync(flip, v) }
+  return { dir, ubq, configure, set: (v: string) => writeFileSync(flip, v) }
 }
 
 test('a test ID selects one test, and a group ID selects its tests', () => {
@@ -81,5 +83,75 @@ test('--changed runs the test files that loaded a changed file', () => {
   assert.equal(both.last, 'pass: 0 failed, 6 passed')
   assert.equal(p.ubq('--changed').code, 2)
   assert.equal(p.ubq('--changed', '--failed').code, 4)
+  rmSync(p.dir, { recursive: true })
+})
+
+test('ubq does not go into a folder that has its own package.json', () => {
+  const p = project()
+  p.set('pass')
+  mkdirSync(join(p.dir, 'test'))
+  cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/a.test.ts'))
+  mkdirSync(join(p.dir, 'other/test'), { recursive: true })
+  cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'other/test/b.test.ts'))
+  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+  writeFileSync(join(p.dir, 'other/package.json'), '{}')
+  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  const r = p.ubq('other')
+  assert.deepEqual([r.code, r.err], [
+    4,
+    'ubq: other is a different project: it has its own package.json. Run ubq in that folder, or name its test files.\n',
+  ])
+  // A file that is an argument always runs.
+  assert.equal(p.ubq('other/test/b.test.ts').last, 'pass: 0 failed, 3 passed')
+  rmSync(p.dir, { recursive: true })
+})
+
+test('the ubq key of package.json sets include, exclude, and timeout', () => {
+  const p = project()
+  p.set('pass')
+  mkdirSync(join(p.dir, 'test/slow'), { recursive: true })
+  cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/a.test.ts'))
+  cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/slow/b.test.ts'))
+  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+
+  p.configure({ exclude: ['test/slow/**'] })
+  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  // A file that is an argument always runs.
+  assert.equal(p.ubq('test/slow/b.test.ts').last, 'pass: 0 failed, 3 passed')
+
+  // `include` replaces the name pattern.
+  p.configure({ include: ['flip.ts', 'test/**'], exclude: ['test/slow/**'] })
+  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+  assert.equal(p.ubq('test').last, 'pass: 0 failed, 3 passed')
+
+  writeFileSync(join(p.dir, 'wait.ts'), [
+    "import { assert, test } from 'ubqtest'",
+    "test('waits', async () => { assert.equal(1, 1); await new Promise(r => setTimeout(r, 300)) })",
+  ].join('\n'))
+  p.configure({ timeout: 50 })
+  assert.match(p.ubq('wait.ts').out, /the test did not end in 50 ms/)
+  rmSync(p.dir, { recursive: true })
+})
+
+test('a wrong ubq key in package.json is an error that names the keys', () => {
+  const p = project()
+  p.set('pass')
+  const err = (ubq: unknown, ...args: string[]) => {
+    p.configure(ubq)
+    const r = p.ubq(...args)
+    return [r.code, r.err]
+  }
+  assert.deepEqual(err({ testMatch: ['x'] }), [
+    4,
+    'ubq: unknown key "testMatch" in "ubq" in package.json. The keys are: include, exclude, timeout\n',
+  ])
+  assert.deepEqual(err({ include: 'test' }), [
+    4,
+    'ubq: "ubq.include" in package.json must be a list of glob patterns, such as ["test/**/*.test.ts"]\n',
+  ])
+  assert.deepEqual(err({ timeout: '5s' }, 'flip.ts', 'pass.ts'), [
+    4,
+    'ubq: "ubq.timeout" in package.json must be a number of milliseconds, such as 5000\n',
+  ])
   rmSync(p.dir, { recursive: true })
 })

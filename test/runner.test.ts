@@ -34,7 +34,7 @@ test('a line before all tests selects nothing, exit code 2', () => {
 })
 
 test('many files run in child processes', () => {
-  const r = ubq(['pass.ts', 'cov'])
+  const r = ubq(['pass.ts', 'cov/test/calc.test.ts'])
   assert.deepEqual(r, {
     code: 0,
     out: ['skip pass.ts > not on this platform: needs a GPU', 'pass: 0 failed, 10 passed, 1 skipped'],
