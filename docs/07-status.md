@@ -16,12 +16,22 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 50 pass
+node src/cli.ts         # the tool runs its own tests: 54 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
 The suite needs `bun` and `deno` on the path for all tests. A test
-skips itself, with a reason, if its runtime is not installed.
+skips itself, with a reason, if its runtime is not installed (4
+tests need `deno`).
+
+The tool needs Node 24. If `node -v` shows an older version, look
+for a newer one on the machine (a cloud session has
+`/opt/node24/bin`), and put it first on the path.
+
+The budgets of the benchmark are for the machine of the first
+measurements. On a different machine, all rows can be over budget.
+Then run the benchmark on the commit before the change and on the
+change, and compare the two.
 
 If a test fails, `node src/cli.ts failures` prints the failures of
 the last run again, and `node src/cli.ts failures <run>` prints an
@@ -329,13 +339,35 @@ Done:
   schema 3). `coverage` events name their test file.
 - Configuration and the project boundary: `08-config.md`.
 
-Not done: `history`, `diff`, `--repeat`, `--baseline`.
+- `ubq history '<test id>'` prints the result of one test in each
+  stored run. It says that the test is flaky if the test passed
+  in one run and failed in a different run with the same code.
+- `ubq diff [run] [run]` prints the tests whose status differs in
+  two runs. With no run numbers, it compares the last run with the
+  run before it. With one, it compares that run with the last run.
+  The exit code is 1 if the second run has a failure or a file
+  error that the first run does not have.
+- Each test row has a digest of the code that the test loaded
+  (store schema 4, column `test.code`): the content of each file
+  that ran code while the test file loaded or while the test ran.
+  It is null if the run has no coverage for the test.
+
+Not done: `--repeat`, `--baseline`.
 
 Known limits:
 
 - `--changed` does not see a change in a file that no test loaded
   as code: a JSON fixture, a config file, a lock file.
 - With nothing to run, `--failed` and `--changed` exit with code 2.
+- The flaky note of `history` does not see a change in a file that
+  is not code, as for `--changed`. It compares runs on the same
+  runtime only. A test that failed before it could import a file
+  with `import()` has a different digest from a run that passed,
+  so the note can be absent for a flaky test. It cannot be present
+  for a test whose code changed.
+- `diff` compares the tests that ran in the two runs. It counts the
+  tests that ran in only one of them, and lists such a test only if
+  it failed in the second run.
 
 ## Source counters on Node: steps 1 and 2 of D25 done (2026-11-12)
 

@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
 import { projectRoot } from './project.ts'
 
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -18,6 +18,11 @@ const COMMIT_MS = 50
 // row for each test and file keeps the table and its index small.
 // `hash` is the content hash of `file` at the time of the run.
 // `ubq --changed` compares it with the file as it is now.
+//
+// `test.code` is a digest of the content of each file in which the
+// process of the test ran code, up to the end of the test. Two runs
+// of a test with the same digest ran the same code. It is null if
+// the run has no coverage for the test.
 const SCHEMA = `
 create table run (
   id integer primary key,
@@ -42,6 +47,7 @@ create table test (
   asserts integer not null,
   reason text,
   failure text,
+  code text,
   primary key (run, id)
 ) without rowid;
 create table file_error (
@@ -156,6 +162,7 @@ export const openStore = (): Store => {
         "update test set status = 'fail', failure = ? where run = ? and id = ?",
       )
       const addError = db.prepare('insert into file_error (run, file, failure) values (?, ?, ?)')
+      const setCode = db.prepare('update test set code = ? where run = ? and id = ?')
       const dropTestCov = db.prepare('delete from coverage where tfile = ? and test = ?')
       const dropGoneCov = db.prepare('delete from coverage where tfile = ? and run < ?')
       const addCov = db.prepare(
@@ -179,6 +186,23 @@ export const openStore = (): Store => {
         let h = hashes.get(file)
         if (h === undefined) hashes.set(file, (h = fileHash(file)))
         return h
+      }
+      // The files that ran code while each test file loaded, and the
+      // digest of their content.
+      const loaded = new Map<string, { files: Map<string, string>; code: string }>()
+      const digest = (files: Map<string, string>): string =>
+        hash('sha1', [...files].map(([f, h]) => `${f}\0${h}`).sort().join('\n')).slice(0, 16)
+      /** The digest for a test that ran code in `files`. */
+      const codeOf = (tfile: string, files: string[]): string => {
+        let load = loaded.get(tfile)
+        if (!load) {
+          const own = new Map([[tfile, hashOf(tfile)]])
+          loaded.set(tfile, (load = { files: own, code: digest(own) }))
+        }
+        if (files.every(f => load.files.has(f))) return load.code
+        const all = new Map(load.files)
+        for (const f of files) all.set(f, hashOf(f))
+        return digest(all)
       }
       let pending: UbqEvent[] = []
       let timer: ReturnType<typeof setTimeout> | undefined
@@ -231,6 +255,13 @@ export const openStore = (): Store => {
             const file = event.tfile
             for (const f of event.files)
               addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges), hashOf(f.file))
+            const names = event.files.map(f => f.file)
+            if (event.id) setCode.run(codeOf(file, names), run, event.id)
+            else {
+              const files = new Map(names.map(f => [f, hashOf(f)]))
+              files.set(file, hashOf(file))
+              loaded.set(file, { files, code: digest(files) })
+            }
             break
           }
           case 'file-end':

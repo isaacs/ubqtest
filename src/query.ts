@@ -221,3 +221,109 @@ export const filesOf = (db: DatabaseSync, id: string): string[] =>
       .prepare('select distinct file from coverage where test = ? order by file')
       .all(id) as { file: string }[]
   ).map(r => r.file)
+
+export interface HistoryRow {
+  run: number
+  /** Start of the run, in milliseconds since 1970. */
+  time: number
+  status: TestRow['status']
+  ms: number
+  failure: Failure | null
+  /** Runtime and code digest. Null if the code of the run is not known. */
+  code: string | null
+}
+
+/** The results of a test in each stored run, oldest first. */
+export const history = (db: DatabaseSync, id: string): HistoryRow[] =>
+  (
+    db
+      .prepare(
+        "select t.run, r.time, t.status, t.ms, t.failure, r.runtime || ' ' || t.code code from test t join run r on r.id = t.run where t.id = ? order by t.run",
+      )
+      .all(id) as Record<string, unknown>[]
+  ).map(r => ({ ...r, failure: r.failure ? JSON.parse(r.failure as string) : null }) as HistoryRow)
+
+/**
+ * The last two runs in which a test ran the same code on the same
+ * runtime, and passed in one and failed in the other.
+ */
+export const flake = (rows: HistoryRow[]): { pass: number; fail: number } | undefined => {
+  const last = new Map<string, { pass?: number; fail?: number }>()
+  let found: { pass: number; fail: number } | undefined
+  for (const r of rows) {
+    if (r.code === null || r.status === 'skip') continue
+    const seen = last.get(r.code) ?? {}
+    last.set(r.code, seen)
+    seen[r.status] = r.run
+    if (seen.pass !== undefined && seen.fail !== undefined) found = { pass: seen.pass, fail: seen.fail }
+  }
+  return found
+}
+
+/** IDs of stored tests in the group or file `id`. */
+export const testsUnder = (db: DatabaseSync, id: string): string[] =>
+  (
+    db
+      .prepare('select distinct id from test where substr(id, 1, ?) = ? order by id')
+      .all(id.length + 3, id + ' > ') as { id: string }[]
+  ).map(r => r.id)
+
+export interface Change {
+  id: string
+  /** Undefined if the test did not run in that run. */
+  from: TestRow['status'] | undefined
+  to: TestRow['status'] | undefined
+  /** The failure in run `b`. */
+  failure: Failure | null
+}
+
+export interface RunDiff {
+  /** Tests with a different status, and tests that fail in `b` and did not run in `a`. */
+  changes: Change[]
+  same: number
+  onlyA: number
+  onlyB: number
+  /** Files with a file error in `b` and not in `a`. */
+  newErrors: string[]
+  /** Files with a file error in `a` and not in `b`. */
+  goneErrors: string[]
+}
+
+/** What changed from run `a` to run `b`. */
+export const diffRuns = (db: DatabaseSync, a: number, b: number): RunDiff => {
+  const of = (run: number) =>
+    new Map(
+      (
+        db.prepare('select id, status, failure from test where run = ?').all(run) as {
+          id: string
+          status: TestRow['status']
+          failure: string | null
+        }[]
+      ).map(r => [r.id, r]),
+    )
+  const [ta, tb] = [of(a), of(b)]
+  const diff: RunDiff = { changes: [], same: 0, onlyA: 0, onlyB: 0, newErrors: [], goneErrors: [] }
+  for (const [id, to] of tb) {
+    const from = ta.get(id)
+    if (from?.status === to.status) diff.same++
+    else {
+      if (!from) diff.onlyB++
+      if (from || to.status === 'fail')
+        diff.changes.push({
+          id,
+          from: from?.status,
+          to: to.status,
+          failure: to.failure ? JSON.parse(to.failure) : null,
+        })
+    }
+  }
+  for (const id of ta.keys()) if (!tb.has(id)) diff.onlyA++
+  // New failures first, then fixed tests, then the rest.
+  const rank = (c: Change): number => (c.to === 'fail' ? 0 : c.from === 'fail' ? 1 : 2)
+  diff.changes.sort((x, y) => rank(x) - rank(y) || (x.id < y.id ? -1 : 1))
+  const errors = (run: number) => new Set(fileErrors(db, run).map(e => e.file))
+  const [ea, eb] = [errors(a), errors(b)]
+  diff.newErrors = [...eb].filter(f => !ea.has(f)).sort()
+  diff.goneErrors = [...ea].filter(f => !eb.has(f)).sort()
+  return diff
+}

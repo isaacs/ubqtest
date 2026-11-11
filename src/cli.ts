@@ -7,14 +7,18 @@ import { projectRoot, rel } from './project.ts'
 import {
   coveredFiles,
   covers,
+  diffRuns,
   failures,
   fileErrors,
   filesOf,
+  flake,
+  history,
   incomplete,
   lastResult,
   lastRun,
   outputOf,
   runRow,
+  testsUnder,
   uncovered,
 } from './query.ts'
 import { textSink } from './sink-text.ts'
@@ -30,6 +34,8 @@ const USAGE = `usage:
   ubq --changed              run the test files that loaded a file that has changed, and new test files
   ubq failures [run]         the failures of a run (default: the last run)
   ubq show <test id>         the last result of one test
+  ubq history <test id>      the result of one test in each stored run
+  ubq diff [run] [run]       the tests with a different status in two runs (default: the last run and the run before it)
   ubq uncovered [file]       code that no test ran
   ubq covers <file>:<line>   the tests that ran a line
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
@@ -37,7 +43,7 @@ const USAGE = `usage:
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
 
-const QUERIES = ['failures', 'show', 'uncovered', 'covers', 'sql']
+const QUERIES = ['failures', 'show', 'history', 'diff', 'uncovered', 'covers', 'sql']
 
 const main = (args: string[]): number | Promise<number> => {
   const [command, ...rest] = args
@@ -106,6 +112,85 @@ const main = (args: string[]): number | Promise<number> => {
       const files = filesOf(db, id)
       if (files.length) out(`  ran code in: ${files.join(', ')}`)
       return 0
+    }
+
+    case 'history': {
+      const id = rest.join(' ')
+      if (!id) throw new UsageError('ubq history needs a test id')
+      const rows = history(db, id)
+      if (!rows.length) {
+        const tests = testsUnder(db, id)
+        if (!tests.length) throw new UsageError(`no stored result for test: ${id}`)
+        const more = tests.length > 10 ? `\n  and ${tests.length - 10} more` : ''
+        throw new UsageError(
+          `${id} is not a test. It contains these tests:\n  ${tests.slice(0, 10).join('\n  ')}${more}`,
+        )
+      }
+      const width = String(rows.at(-1)!.run).length
+      for (const r of rows) {
+        const time = new Date(r.time).toISOString().slice(0, 19).replace('T', ' ')
+        const message = r.failure ? `  ${r.failure.message.split('\n')[0]}` : ''
+        out(
+          `run ${String(r.run).padStart(width)}  ${time}  ${r.status}  ${r.ms.toFixed(1).padStart(7)} ms${message}`,
+        )
+      }
+      const count = (status: string): number => rows.filter(r => r.status === status).length
+      const skipped = count('skip') ? `, ${count('skip')} skipped` : ''
+      out(`${count('fail')} failed, ${count('pass')} passed${skipped} in ${rows.length} runs (times are UTC)`)
+      const f = flake(rows)
+      if (f)
+        out(
+          `flaky: the test passed in run ${f.pass} and failed in run ${f.fail}, and the code that it loaded was the same in the two runs`,
+        )
+      return 0
+    }
+
+    case 'diff': {
+      if (rest.length > 2) throw new UsageError('ubq diff takes two run numbers at most')
+      const last = lastRun(db)
+      const given = rest.map(text => {
+        if (!/^\d+$/.test(text)) throw new UsageError(`ubq diff needs run numbers, not: ${text}`)
+        return +text
+      })
+      const b = given[1] ?? last
+      // The run before \`b\`, if the command does not name a run.
+      const a =
+        given[0] ??
+        (db.prepare('select max(id) id from run where id < ?').get(b ?? 0) as { id: number | null }).id
+      for (const run of [a, b])
+        if (run == null || !runRow(db, run)) {
+          const first = (db.prepare('select min(id) id from run').get() as { id: number | null }).id
+          const have = first == null ? 'the store has no runs' : `the store has runs ${first} to ${last}`
+          throw new UsageError(
+            run == null ? `ubq diff needs two runs, and ${have}` : `run ${run} is not in the store: ${have}`,
+          )
+        }
+      if (a === b) throw new UsageError(`ubq diff needs two different runs, not run ${a} two times`)
+      const d = diffRuns(db, a!, b!)
+      for (const file of d.newErrors) out(`ERROR ${file} (no error in run ${a})`)
+      for (const c of d.changes) {
+        out(`${c.to} ${c.id} (${c.from ? `was ${c.from}` : 'did not run'} in run ${a})`)
+        if (c.failure) out(`  ${c.failure.message.split('\n')[0]}`)
+      }
+      for (const file of d.goneErrors) out(`no error ${file} (was ERROR in run ${a})`)
+      const failed = d.changes.filter(c => c.to === 'fail').length
+      const fixed = d.changes.filter(c => c.from === 'fail' && c.to === 'pass').length
+      const other = d.changes.length - failed - fixed
+      const parts = [
+        `${failed} new failures`,
+        `${fixed} fixed`,
+        ...(other ? [`${other} other changes`] : []),
+        ...(d.newErrors.length ? [`${d.newErrors.length} new file errors`] : []),
+        `${d.same} the same`,
+        ...(d.onlyA ? [`${d.onlyA} only in run ${a}`] : []),
+        ...(d.onlyB ? [`${d.onlyB} only in run ${b}`] : []),
+      ]
+      out(`run ${a} to run ${b}: ${parts.join(', ')}`)
+      for (const run of [a!, b!])
+        if (runRow(db, run)!.code === null) out(`note: run ${run} did not end`)
+      const bad = failed + d.newErrors.length
+      if (bad) out(`details: ubq failures ${b}`)
+      return bad ? 1 : 0
     }
 
     case 'uncovered': {

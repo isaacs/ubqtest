@@ -1,30 +1,8 @@
 // Selection of tests: by ID, and by the result of the last run.
-import { spawnSync } from 'node:child_process'
-import { appendFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { appendFileSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { assert, test } from 'ubqtest'
-import { fixtures } from './setup.ts'
-
-const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
-
-/** A project of its own, so that its store has only the runs of one test. */
-const project = () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ubq-select-'))
-  const configure = (ubq?: unknown) =>
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module', ubq }))
-  configure()
-  for (const f of ['flip.ts', 'pass.ts', 'src']) cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
-  mkdirSync(join(dir, 'node_modules'))
-  symlinkSync(fileURLToPath(new URL('..', import.meta.url)), join(dir, 'node_modules/ubqtest'))
-  const flip = join(dir, 'flip.txt')
-  const ubq = (...args: string[]) => {
-    const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', FLIP_FILE: flip } })
-    return { code: r.status, last: r.stdout.replace(/ \(run \d+\)\n$/, '').split('\n').at(-1), err: r.stderr, out: r.stdout }
-  }
-  return { dir, ubq, configure, set: (v: string) => writeFileSync(flip, v) }
-}
+import { project } from './setup.ts'
 
 test('a test ID selects one test, and a group ID selects its tests', () => {
   const p = project()
