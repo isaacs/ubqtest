@@ -126,6 +126,8 @@ export interface Output {
 /** Code that ran since the last coverage event of this process. */
 export interface Coverage {
   type: 'coverage'
+  /** The test file whose process ran the code. */
+  tfile: string
   /** Absent for code that ran while the file loaded. */
   id?: TestId
   files: {

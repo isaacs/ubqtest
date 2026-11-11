@@ -48,7 +48,7 @@ run in parallel. Events of one file keep their order.
 | `test-end` | test process | status, duration, assertion count, and the failure if there is one |
 | `late-failure` | test process | a failure for a test that already ended |
 | `output` | test process, runner role | text for stdout or stderr, with the test that wrote it. The runner role writes it for text that did not go through the capture in the test process. |
-| `coverage` | test process | ranges that ran since the last `coverage` event |
+| `coverage` | test process | ranges that ran since the last `coverage` event of that process. `tfile` names the test file, because events of different files mix in a run stream. |
 | `file-error` | test process | a failure that belongs to no test, such as an error while the file loads |
 | `file-end` | test process | the file has no more tests |
 | `exit` | runner role | exit code and signal of the test process |

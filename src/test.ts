@@ -73,7 +73,7 @@ export const setCollector = (c: Collector | undefined): void => {
 const cover = async (id?: string): Promise<void> => {
   if (!collector) return
   const files = await collector.take()
-  if (files.length) emit({ type: 'coverage', ...(id && { id }), files })
+  if (files.length) emit({ type: 'coverage', tfile: currentFile(), ...(id && { id }), files })
 }
 
 const checkName = (kind: string, name: unknown): void => {
