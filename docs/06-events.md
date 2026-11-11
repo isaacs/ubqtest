@@ -47,7 +47,7 @@ run in parallel. Events of one file keep their order.
 | `test-start` | test process | a test started to run |
 | `test-end` | test process | status, duration, assertion count, and the failure if there is one |
 | `late-failure` | test process | a failure for a test that already ended |
-| `output` | test process | text for stdout or stderr, with the test that wrote it |
+| `output` | test process, runner role | text for stdout or stderr, with the test that wrote it. The runner role writes it for text that did not go through the capture in the test process. |
 | `coverage` | test process | ranges that ran since the last `coverage` event |
 | `file-error` | test process | a failure that belongs to no test, such as an error while the file loads |
 | `file-end` | test process | the file has no more tests |
@@ -111,9 +111,9 @@ program:
 ```json
 {"type":"run-start","v":1,"time":1794440000000,"command":["node","test/parse.ts"],"cwd":"/work/app","runtime":{"name":"node","version":"26.5.0"},"platform":"darwin","arch":"arm64","ci":false}
 {"type":"file-start","v":1,"file":"test/parse.ts","pid":4242,"coverage":"partial"}
-{"type":"test-start","id":"test/parse.ts > parse > circle","at":{"file":"test/parse.ts","line":5,"column":3}}
+{"type":"test-start","id":"test/parse.ts > parse > circle","timeout":5000,"at":{"file":"test/parse.ts","line":5,"column":3}}
 {"type":"test-end","id":"test/parse.ts > parse > circle","status":"pass","ms":0.21,"asserts":3}
-{"type":"test-start","id":"test/parse.ts > parse > square","at":{"file":"test/parse.ts","line":12,"column":3}}
+{"type":"test-start","id":"test/parse.ts > parse > square","timeout":5000,"at":{"file":"test/parse.ts","line":12,"column":3}}
 {"type":"test-end","id":"test/parse.ts > parse > square","status":"fail","ms":0.4,"asserts":1,"failure":{"kind":"assert","assertion":"equal","message":"expected values to be equal","at":{"file":"test/parse.ts","line":14,"column":12},"actual":"3","expected":"2","diff":"- 2\n+ 3"}}
 {"type":"file-end","file":"test/parse.ts","unselected":0}
 {"type":"exit","file":"test/parse.ts","code":1,"signal":null}

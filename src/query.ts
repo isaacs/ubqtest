@@ -204,6 +204,16 @@ export const lastResult = (db: DatabaseSync, id: string): TestRow | undefined =>
   return row && testRow(row)
 }
 
+/** The console output of a test in a run. */
+export const outputOf = (db: DatabaseSync, run: number, id: string): string =>
+  (
+    db
+      .prepare('select text from output where test = ? and run = ? order by rowid')
+      .all(id, run) as { text: string }[]
+  )
+    .map(r => r.text)
+    .join('')
+
 /** The files that a test ran code in. */
 export const filesOf = (db: DatabaseSync, id: string): string[] =>
   (

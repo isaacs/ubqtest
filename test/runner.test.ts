@@ -83,3 +83,53 @@ test('a file that does not exist gives exit code 4', () => {
 test('in CI, the first line states the runtime and the command', () => {
   assert.match(ubq(['pass.ts'], { CI: '1' }).out[0]!, /^ubq: node \S+, \S+ \S+, ubq pass\.ts$/)
 })
+
+test('a failed test shows its own console output, a passed test shows none', () => {
+  const r = ubq(['output.ts'])
+  assert.equal(r.err, '')
+  assert.deepEqual(r.out, [
+    'FAIL output.ts > fails and prints',
+    '  expected values to be equal',
+    '  at output.ts:14:10',
+    '  > assert.equal(1 as number, 2)',
+    '  actual:   1',
+    '  expected: 2',
+    '  output:',
+    '  | step 1: start',
+    '  | step 2: about to fail',
+    '  rerun: ubq output.ts:10',
+    '',
+    'fail: 1 failed, 1 passed',
+  ])
+  assert.deepEqual(ubq(['show', 'output.ts > fails and prints']).out.slice(-4, -1), [
+    '  output:',
+    '  | step 1: start',
+    '  | step 2: about to fail',
+  ])
+  assert.deepEqual(ubq(['sql', "select text from output where test is null and text like 'printed%'"]).out, [
+    '{"text":"printed while the file loads\\n"}',
+  ])
+})
+
+test('a plain program keeps its console', () => {
+  const r = spawnSync('node', ['output.ts'], { cwd, encoding: 'utf8' })
+  assert.deepEqual(r.stdout.split('\n').slice(0, 3), [
+    'printed while the file loads',
+    'from a test that passes',
+    'step 1: start',
+  ])
+  assert.equal(r.stderr, 'step 2: about to fail\n')
+})
+
+test('hangs: a promise that never settles, a timeout, a process that stays alive', () => {
+  const t0 = performance.now()
+  const r = ubq(['hang.ts'])
+  // The test that never settles must not wait for its 5000 ms limit.
+  assert(performance.now() - t0 < 4000, 'the run took too long')
+  assert.equal(r.code, 1)
+  const text = r.out.join('\n')
+  assert.match(text, /FAIL hang\.ts > never settles, nothing pending\n  the promise of the test never settled/)
+  assert.match(text, /the test did not end in 50 ms\n.*\n.*\n  still open: TCPServerWrap/)
+  assert.match(text, /ERROR hang\.ts\n  the tests ended, but the process did not exit\..*\n  still open: TCPServerWrap/)
+  assert.equal(r.out.at(-1), 'fail: 1 errors, 2 failed, 1 passed')
+})

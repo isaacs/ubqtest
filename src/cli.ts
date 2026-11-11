@@ -13,6 +13,7 @@ import {
   incomplete,
   lastResult,
   lastRun,
+  outputOf,
   runRow,
   uncovered,
 } from './query.ts'
@@ -62,6 +63,7 @@ const main = (args: string[]): number | Promise<number> => {
         sink({
           type: 'test-start',
           id: t.id,
+          timeout: 0,
           ...(t.line !== null && { at: { file: t.file, line: t.line, column: 1 } }),
         })
         sink({
@@ -96,6 +98,8 @@ const main = (args: string[]): number | Promise<number> => {
           out(`  at ${t.failure.at.file}:${t.failure.at.line}:${t.failure.at.column}`)
         if (t.failure.diff) out('  ' + t.failure.diff.replaceAll('\n', '\n  '))
       }
+      const text = outputOf(db, t.run, id).trimEnd()
+      if (text) out('  output:\n  | ' + text.replaceAll('\n', '\n  | '))
       const files = filesOf(db, id)
       if (files.length) out(`  ran code in: ${files.join(', ')}`)
       return 0

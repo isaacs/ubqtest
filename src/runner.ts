@@ -113,6 +113,7 @@ const runFile = (
           ...process.env,
           NODE_COMPILE_CACHE: cacheDir,
           UBQ_CHILD: '1',
+          UBQ_CAPTURE: '1',
           UBQ_FILE: file,
           UBQ_LINES: lines.join(','),
         },
@@ -134,9 +135,16 @@ const runFile = (
         send(event)
       }
     })
+    // Text that did not go through the capture in the child: a
+    // crash message from the runtime, or a child of the child.
     let stderr = ''
-    child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d))
-    child.stdout!.resume()
+    child.stderr!.setEncoding('utf8').on('data', (text: string) => {
+      stderr += text
+      send({ type: 'output', file, stream: 'stderr', text })
+    })
+    child.stdout!.setEncoding('utf8').on('data', (text: string) => {
+      send({ type: 'output', file, stream: 'stdout', text })
+    })
     child.on('close', (code, signal) => {
       if (!ended)
         send({
@@ -172,6 +180,7 @@ export const run = async (args: string[]): Promise<number> => {
     enableCompileCache(cacheDir)
     startCoverage(true)
     process.env.UBQ_FILE = file
+    process.env.UBQ_CAPTURE = '1'
     process.env.UBQ_LINES = lines.join(',')
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])

@@ -1,12 +1,12 @@
 // The run store: one SQLite file at `.ubq/runs.db` in the project.
 // See docs/04-architecture.md, section 5.
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
 import { projectRoot } from './project.ts'
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -46,6 +46,14 @@ create table file_error (
   file text not null,
   failure text not null
 );
+create table output (
+  run integer not null,
+  file text not null,
+  test text,
+  stream text not null,
+  text text not null
+);
+create index output_test on output (test, run);
 create table coverage (
   tfile text not null,
   test text not null,
@@ -83,16 +91,24 @@ export const stateDir = (): string => {
 }
 
 export const openStore = (): Store => {
-  const db = new DatabaseSync(join(stateDir(), 'runs.db'), { timeout: 5000 })
-  db.exec('pragma journal_mode = wal; pragma synchronous = normal')
-  const { user_version: version } = db.prepare('pragma user_version').get() as {
-    user_version: number
+  const path = join(stateDir(), 'runs.db')
+  const connect = (): DatabaseSync => {
+    const db = new DatabaseSync(path, { timeout: 5000 })
+    db.exec('pragma journal_mode = wal; pragma synchronous = normal')
+    return db
   }
-  if (version === 0) db.exec(`begin; ${SCHEMA} pragma user_version = ${SCHEMA_VERSION}; commit`)
-  else if (version !== SCHEMA_VERSION)
-    throw new Error(
-      `.ubq/runs.db has schema version ${version}, and this ubq needs ${SCHEMA_VERSION}. Delete the .ubq folder.`,
-    )
+  const version = (db: DatabaseSync): number =>
+    (db.prepare('pragma user_version').get() as { user_version: number }).user_version
+  let db = connect()
+  if (version(db) !== 0 && version(db) !== SCHEMA_VERSION) {
+    // The store of a different ubq version. Stored runs are a
+    // record of past work, not a source of truth: start again.
+    db.close()
+    for (const suffix of ['', '-wal', '-shm']) rmSync(path + suffix, { force: true })
+    db = connect()
+  }
+  if (version(db) === 0)
+    db.exec(`begin; ${SCHEMA} pragma user_version = ${SCHEMA_VERSION}; commit`)
 
   return {
     db,
@@ -111,6 +127,7 @@ export const openStore = (): Store => {
           +start.ci,
         )
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
+      db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from file_error where run <= ?').run(
         Number(lastInsertRowid) - KEEP_RUNS,
       )
@@ -129,6 +146,9 @@ export const openStore = (): Store => {
       const dropGoneCov = db.prepare('delete from coverage where tfile = ? and run < ?')
       const addCov = db.prepare(
         'insert or replace into coverage (tfile, test, file, run, ranges) values (?, ?, ?, ?, ?)',
+      )
+      const addOutput = db.prepare(
+        'insert into output (run, file, test, stream, text) values (?, ?, ?, ?, ?)',
       )
       const setFile = db.prepare(
         'insert or replace into test_file (tfile, run, coverage) values (?, ?, ?)',
@@ -178,6 +198,9 @@ export const openStore = (): Store => {
               event.reason ?? null,
               json(event.failure),
             )
+            break
+          case 'output':
+            addOutput.run(run, event.file, event.id ?? null, event.stream, event.text)
             break
           case 'late-failure':
             failTest.run(json(event.failure), run, event.id)
