@@ -3,9 +3,11 @@ import { spawnSync } from 'node:child_process'
 import { assert, test } from 'ubqtest'
 
 const root = new URL('..', import.meta.url)
-// The `tsc` command file is a shell script. Windows cannot start it.
+// The `tsc` command file is a JavaScript program. Windows cannot
+// start it with no runtime. Node, and not the runtime of this test:
+// the command starts a program for the CPU of its runtime.
 const tsc = (...args: string[]) =>
-  spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--pretty', 'false', ...args], {
+  spawnSync('node', ['node_modules/typescript/bin/tsc', '--pretty', 'false', ...args], {
     cwd: root,
     encoding: 'utf8',
   })

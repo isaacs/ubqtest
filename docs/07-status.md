@@ -648,13 +648,20 @@ Known limits:
 The user has a Windows 11 VM (ARM64, Node 24.11.1). `ssh winlocal`
 runs a command in it. The copy of the repository is in
 `C:\Users\isaacs\ubq-vm\ubqtest`. It has no access to GitHub: copy
-files to it with `tar` through `ssh`. Bun, Deno, and the browser
-are not installed there.
+files to it with `tar` through `ssh`. It has Bun 1.4.4, Deno 2.9.8
+(an x64 program, on the ARM machine), and the browser of
+Playwright. The suite passes there with each runtime as the
+runner: 106 pass, 5 skip.
 
 The first run there found that Node 24.11 prints
 "ExperimentalWarning: SQLite is an experimental feature" for each
 `ubq` command. Node 24.22 (CI) and Node 26 do not. `src/sqlite.ts`
 loads the module with no warning.
+
+It also found that the type checker did not start for an x64
+runtime on an ARM machine: the native compiler of the project is
+for ARM, and ubq looked only for the one of the CPU of the
+runtime. `src/typecheck.ts` now looks for each.
 
 ## CI on each runtime, and the release workflow (2026-11-12)
 

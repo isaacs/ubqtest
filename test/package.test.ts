@@ -2,7 +2,7 @@
 // installs it: as a plain program on each runtime, through the
 // `ubq` command, and for the type checker.
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -106,7 +106,10 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   for (const f of ['busy.ts', 'hang.ts', 'output.ts']) cpSync(join(root, 'test/fixtures', f), join(p.dir, f))
-  rmSync(join(p.dir, 'node_modules/ubqtest'))
+  // The link to the source. On Windows it is a junction, which is a
+  // folder: Node 24.11 does not remove it with `rmSync`.
+  if (process.platform === 'win32') rmdirSync(join(p.dir, 'node_modules/ubqtest'))
+  else rmSync(join(p.dir, 'node_modules/ubqtest'))
   cpSync(pkg, join(p.dir, 'node_modules/ubqtest'), { recursive: true })
   const ubq = join(pkg, 'cli.js')
   const run = (cmd: string[], ...args: string[]): Promise<string[]> =>
@@ -180,7 +183,7 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
 })
 
 test('the type declarations of the package', () => {
-  const r = sh(process.execPath, join(root, 'node_modules/typescript/bin/tsc'), '--pretty', 'false')
+  const r = sh('node', join(root, 'node_modules/typescript/bin/tsc'), '--pretty', 'false')
   assert.equal(r.lines.length, 2, r.lines.join('\n'))
   assert.match(r.lines[0]!, /^test\/bad\.ts\(2,6\): error TS2349/)
   assert.match(r.lines[1]!, /ubq has no \.only\. Select tests on the command line/)

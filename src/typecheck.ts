@@ -14,21 +14,25 @@ import { projectRoot, rel, stateDir } from './project.ts'
  * platform, and its `tsc` command is a Node program that starts it.
  * The native program starts 40 ms sooner with no Node program first.
  */
-const compiler = (root: string): string | undefined => {
+const compiler = (root: string): string[] | undefined => {
   try {
     const require = createRequire(join(root, 'package.json'))
     const manifest = require.resolve('typescript/package.json')
-    try {
-      const native = createRequire(manifest).resolve(
-        `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
-      )
-      const exe = join(dirname(native), 'lib', process.platform === 'win32' ? 'tsc.exe' : 'tsc')
-      if (existsSync(exe)) return exe
-    } catch {
-      // An older TypeScript has no native program.
+    // The package is for the CPU of the machine. The runtime can be
+    // for a different one: an x64 program on an ARM machine.
+    for (const arch of new Set([process.arch, 'arm64', 'x64'])) {
+      try {
+        const native = createRequire(manifest).resolve(`@typescript/typescript-${process.platform}-${arch}/package.json`)
+        const exe = join(dirname(native), 'lib', process.platform === 'win32' ? 'tsc.exe' : 'tsc')
+        if (existsSync(exe)) return [exe]
+      } catch {
+        // An older TypeScript has no native program.
+      }
     }
+    // The command file is a JavaScript program. Windows cannot start
+    // it with no runtime.
     const bin = (JSON.parse(readFileSync(manifest, 'utf8')) as { bin?: { tsc?: string } }).bin?.tsc
-    return bin && join(dirname(manifest), bin)
+    return bin ? [process.execPath, ...(process.versions.deno ? ['run', '-A'] : []), join(dirname(manifest), bin)] : undefined
   } catch {
     return undefined
   }
@@ -53,8 +57,8 @@ export const typeCheck = (background = false): Checking | undefined => {
   if (!tsc || !existsSync(join(root, 'tsconfig.json'))) return undefined
   const info = join(stateDir(), 'types', 'tsbuildinfo')
   const child = spawn(
-    tsc,
-    ['--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', info, '-p', root],
+    tsc[0]!,
+    [...tsc.slice(1), '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', info, '-p', root],
     { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
   )
   type Handle = { ref?(): void; unref?(): void }
