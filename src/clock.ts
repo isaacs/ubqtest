@@ -146,7 +146,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   const realPerformanceNow = performance.now
   // A whole number, so that a tick of whole milliseconds moves
   // `performance.now()` by exactly that amount.
-  const origin = Math.floor(realPerformanceNow.call(performance))
+  const origin = Math.ceil(realPerformanceNow.call(performance))
   const hrtime = ((previous?: [number, number]): [number, number] => {
     const ms = origin + (now - start)
     const at: [number, number] = [Math.floor(ms / 1e3), Math.round((ms % 1e3) * 1e6)]
