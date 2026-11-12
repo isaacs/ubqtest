@@ -320,6 +320,40 @@ project, with no install step and no links. No kept results, for
 the reason that `04-architecture.md`, section 6, gives for the
 result cache: a kept result that is wrong hides a difference.
 
-The user can change each of these three points: the exit code,
-the place of the checkout, and kept results.
+The user accepted these points (2026-11-12).
+
+## D27. A run record has the git commit, not the state of the tree (user, 2026-11-12)
+
+Each run record has the hash of the commit that is checked out.
+ubq reads it from the files of git, with no `git` process. The
+record does not say if the tree had changes.
+
+**Reason.** `git status` takes 5 ms or more, and the budget for a
+run of one file is 58 ms. The digest of the loaded code
+(`test.code`) already tells if two runs ran the same code.
+
+## D28. Test files run in a random order. Tests in a file do not (user, 2026-11-12)
+
+The runner starts the test files in a random order. The seed is in
+the run record, and a run with a failure prints it. `ubq --seed
+<n>` gives the order of that seed. The tests of one file run in
+the order of the file.
+
+**Reason.** A fixed order of files hides a test file that depends
+on a different file. A random order of the tests in a file is a
+common source of confusion for people who read the file.
+
+**Result.** The runner no longer starts the slowest files first.
+
+## D29. A test must put back the environment and the working directory (user, 2026-11-12)
+
+A test that ends with a different `process.env` or a different
+working directory fails (kind `leak`). ubq puts the old values
+back, so that the next test is not affected. There is no check
+for globals and no check for listeners.
+
+**Reason.** The cost (0.1 to 0.25 ms for each test) is not
+material. Libraries set globals and add listeners at their first
+call, so a check for these would fail tests that did nothing
+wrong.
 

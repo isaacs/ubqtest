@@ -237,6 +237,8 @@ export interface HistoryRow {
   /** For a run with `--repeat`: how often the test ran, and how often it failed. */
   repeats: number | null
   fails: number | null
+  /** The git commit of the run. */
+  commit: string | null
 }
 
 /** The results of a test in each stored run, oldest first. */
@@ -244,7 +246,7 @@ export const history = (db: DatabaseSync, id: string): HistoryRow[] =>
   (
     db
       .prepare(
-        "select t.run, r.time, t.status, t.ms, t.failure, r.runtime || ' ' || t.code code, t.repeats, t.fails from test t join run r on r.id = t.run where t.id = ? order by t.run",
+        "select t.run, r.time, t.status, t.ms, t.failure, r.runtime || ' ' || t.code code, t.repeats, t.fails, r.commit_hash [commit] from test t join run r on r.id = t.run where t.id = ? order by t.run",
       )
       .all(id) as Record<string, unknown>[]
   ).map(r => ({ ...r, failure: r.failure ? JSON.parse(r.failure as string) : null }) as HistoryRow)

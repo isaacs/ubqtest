@@ -22,7 +22,9 @@ import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
+import { headCommit } from './git.ts'
 import { repeater } from './repeat.ts'
+import { shuffle } from './shuffle.ts'
 import { fileHash, openStore, stateDir, type Store } from './store.ts'
 
 /** The one name pattern for test files. */
@@ -146,25 +148,6 @@ const runtime = (): RunStart['runtime'] => {
     : v.deno ? { name: 'deno', version: v.deno }
     : { name: 'node', version: v.node }
   )
-}
-
-/**
- * Slow files first, so that they do not start last and decide the
- * length of the run. Files that failed in the last run go before all.
- */
-const order = (files: Selected[], store: Store | undefined): Selected[] => {
-  if (!store) return files
-  const rows = store.db
-    .prepare(
-      `with last as (select file, max(run) run from test group by file)
-       select file, sum(ms) ms, sum(status = 'fail') failed
-       from test join last using (file, run) group by file`,
-    )
-    .all() as { file: string; ms: number; failed: number }[]
-  const rank = new Map(rows.map(r => [r.file, (r.failed ? 1e9 : 0) + r.ms]))
-  // A file with no history can be slow. Run it early.
-  const of = (s: Selected): number => rank.get(s.file) ?? 1e8
-  return [...files].sort((a, b) => of(b) - of(a))
 }
 
 /** Process groups of the test processes that run now. */
@@ -361,6 +344,15 @@ export const run = async (args: string[]): Promise<number> => {
     repeat = +count
     selection = args.toSpliced(at, 2)
   }
+  let seed: number | undefined
+  const seedAt = selection.indexOf('--seed')
+  if (seedAt >= 0) {
+    const text = selection[seedAt + 1] ?? ''
+    if (!/^\d+$/.test(text))
+      throw new UsageError('--seed needs the number from a run, such as: ubq --seed 1234')
+    seed = +text
+    selection = selection.toSpliced(seedAt, 2)
+  }
   let baselineRef: string | undefined
   const base = selection.indexOf('--baseline')
   if (base >= 0) {
@@ -446,7 +438,10 @@ export const run = async (args: string[]): Promise<number> => {
     platform: process.platform,
     arch: process.arch,
     ci: !!process.env.CI,
+    seed: (seed ??= Math.floor(Math.random() * 1e6)),
   }
+  const commit = headCommit()
+  if (commit) start.commit = commit
   const write = (text: string): void => void process.stdout.write(text)
   const text = textSink(write)
   const sinks: Sink[] = [
@@ -488,7 +483,7 @@ export const run = async (args: string[]): Promise<number> => {
   }
   send(start)
 
-  const ordered = order(files, store)
+  const ordered = shuffle(files, seed)
   const runAll = async (to: Sink): Promise<void> => {
     const queue = [...ordered]
     const jobs = Math.min(availableParallelism(), queue.length)
@@ -508,6 +503,9 @@ export const run = async (args: string[]): Promise<number> => {
     write(all.summary() + '\n')
   } else await runAll(send)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
+  // The order of the files can be the cause of a failure.
+  if (ordered.length > 1 && ([...status.values()].includes('fail') || errorFiles.size))
+    write(`file order: seed ${seed}. For the same order: ubq --seed ${seed} ...\n`)
 
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')

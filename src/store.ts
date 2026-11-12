@@ -9,7 +9,7 @@ import { projectRoot, stateDir } from './project.ts'
 
 export { stateDir }
 
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -38,6 +38,8 @@ create table run (
   runtime text not null,
   platform text not null,
   ci integer not null,
+  commit_hash text,
+  seed integer,
   ms real,
   pass integer, fail integer, errors integer, skip integer,
   unselected integer,
@@ -140,7 +142,7 @@ export const openStore = (): Store => {
     newRun(start) {
       const { lastInsertRowid } = db
         .prepare(
-          'insert into run (time, command, cwd, runtime, platform, ci) values (?, ?, ?, ?, ?, ?)',
+          'insert into run (time, command, cwd, runtime, platform, ci, commit_hash, seed) values (?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           start.time,
@@ -149,6 +151,8 @@ export const openStore = (): Store => {
           `${start.runtime.name} ${start.runtime.version}`,
           `${start.platform} ${start.arch}`,
           +start.ci,
+          start.commit ?? null,
+          start.seed ?? null,
         )
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)

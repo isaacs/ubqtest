@@ -3,6 +3,7 @@
 import { subscribe } from 'node:diagnostics_channel'
 import { writeSync } from 'node:fs'
 import { CHANNEL } from './emit.ts'
+import { headCommit } from './git.ts'
 import {
   EVENT_VERSION,
   type FileEvent,
@@ -65,6 +66,8 @@ export const startPlain = (): void => {
         arch: process.arch,
         ci: !!process.env.CI,
       }
+      const commit = headCommit()
+      if (commit) start.commit = commit
       try {
         store = openStore()
         start.run = store.newRun(start)

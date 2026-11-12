@@ -34,6 +34,7 @@ const USAGE = `usage:
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
   ubq --changed              run the test files that loaded a file that has changed, and new test files
+  ubq --seed <n> ...         run the test files in the order of an older run (the files run in a random order)
   ubq --repeat <n> ...       run the selected tests n times, and count the failures of each test
   ubq --baseline <commit> ...  run the selected tests, and show only the failures that a clean checkout of the git commit does not have
   ubq failures [run]         the failures of a run (default: the last run)
@@ -146,7 +147,7 @@ const main = (args: string[]): number | Promise<number> => {
         const first = r.failure?.message.split('\n')[0]
         const message = rate || first ? `  ${[rate, first].filter(Boolean).join(': ')}` : ''
         out(
-          `run ${String(r.run).padStart(width)}  ${time}  ${r.status}  ${r.ms.toFixed(1).padStart(7)} ms${message}`,
+          `run ${String(r.run).padStart(width)}  ${time}  ${r.commit ? r.commit.slice(0, 7) + '  ' : ''}${r.status}  ${r.ms.toFixed(1).padStart(7)} ms${message}`,
         )
       }
       const count = (status: string): number => rows.filter(r => r.status === status).length

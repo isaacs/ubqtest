@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, test } from 'ubqtest'
+import { shuffle } from '../src/shuffle.ts'
 import { project } from './setup.ts'
 
 /** Output lines, with the time of each run removed. */
@@ -99,7 +100,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   const p = project()
   p.set('pass')
   const flaky = 'sometimes.ts > fails each third time'
-  const r = p.ubq('--repeat', '7', 'sometimes.ts', 'flip.ts')
+  const r = p.ubq('--repeat', '7', '--seed', '5', 'sometimes.ts', 'flip.ts')
   assert.deepEqual([r.code, r.err], [1, ''])
   assert.deepEqual(lines(r.out.replace(/ \(run \d+\)\n$/, '')), [
     `FAIL ${flaky}`,
@@ -121,6 +122,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
     '  rerun: ubq sometimes.ts:19',
     '',
     'repeat 7: 1 failed some times, 1 failed each time, 4 failed no times',
+    'file order: seed 5. For the same order: ubq --seed 5 ...',
     'fail: 2 failed, 4 passed',
   ])
 
@@ -241,5 +243,29 @@ test('--baseline shows only the failures that the commit does not have', () => {
   assert.deepEqual(err('--baseline'), [4, 'ubq: --baseline needs a git commit, such as: ubq --baseline HEAD\n'])
   assert.deepEqual(err('--baseline', 'HEAD', '--failed'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
   assert.deepEqual(err('--baseline', 'HEAD', '--repeat', '2'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
+  rmSync(p.dir, { recursive: true })
+})
+
+test('the test files run in a random order that a seed repeats', () => {
+  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(file => ({ file }))
+  const order = (seed: number, list = files) => shuffle(list, seed).map(f => f.file).join('')
+  assert.equal(order(1), order(1, files.toReversed()))
+  assert.equal([...order(1)].sort().join(''), 'abcdefgh')
+  assert.equal(new Set([1, 2, 3, 4, 5].map(seed => order(seed))).size, 5)
+
+  const p = project()
+  p.set('fail')
+  const r = p.ubq('--seed', '77', 'flip.ts', 'pass.ts')
+  assert.deepEqual(r.out.trimEnd().split('\n').slice(-3), [
+    'file order: seed 77. For the same order: ubq --seed 77 ...',
+    'skip pass.ts > not on this platform: needs a GPU',
+    'fail: 1 failed, 7 passed, 1 skipped (run 1)',
+  ])
+  assert.equal(p.ubq('sql', 'select seed from run').out, '{"seed":77}\n')
+  p.set('pass')
+  // A run with no failure does not print the seed. The store has it.
+  assert.equal(p.ubq('flip.ts', 'pass.ts').out.includes('seed'), false)
+  assert.match(p.ubq('sql', 'select seed from run where id = 2').out, /^\{"seed":\d+\}\n$/)
+  assert.deepEqual([p.ubq('--seed', 'x').code, p.ubq('--seed', 'x').err], [4, 'ubq: --seed needs the number from a run, such as: ubq --seed 1234\n'])
   rmSync(p.dir, { recursive: true })
 })

@@ -25,6 +25,7 @@ export type FailureKind =
   | 'cleanup' // a cleanup function threw
   | 'late' // an assertion or an error came after the test ended
   | 'never-settled' // the process was about to exit while the test was open
+  | 'leak' // the test changed the process and did not put the change back
   | 'no-tests' // the file registered no tests
 
 export interface Failure {
@@ -63,6 +64,10 @@ export interface RunStart {
   platform: string
   arch: string
   ci: boolean
+  /** The git commit that is checked out. Absent if the project is not in git. */
+  commit?: string
+  /** The seed of the order of the test files. Absent in a run of one file. */
+  seed?: number
 }
 
 /** First event from a test process. */

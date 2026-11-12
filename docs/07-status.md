@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 61 pass
+node src/cli.ts         # the tool runs its own tests: 63 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -374,8 +374,8 @@ makes a project in a temporary folder.
 
 Not done in step 6:
 
-- Run records do not have the git commit and the state of the
-  tree (`01`, section 3).
+- (Done later: D27.) Run records have the git commit
+  (`src/git.ts`, store schema 6). `history` prints it.
 - `--changed` at the level of ranges, and "run all tests" for a
   changed file that is not code.
 
@@ -438,17 +438,21 @@ Done (`05-api.md`, sections 6 and 7):
   compile. Coverage of a mocked instance goes to the real file.
   It works with the V8 collector and with source counters.
 
-Checks: `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`
-and `test/fixtures/mock.ts`.
+- The test files run in a random order (D28, `src/shuffle.ts`).
+  A run with a failure prints the seed, and `ubq --seed <n>`
+  repeats the order.
+- A test that changes `process.env` or the working directory and
+  does not put the change back fails, and ubq puts the old values
+  back (D29).
+
+Checks: `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`,
+`test/fixtures/mock.ts`, and `test/fixtures/leak.ts`.
 
 Not done:
 
 - `mockImport` on Bun (the call throws an error that says so) and
   a check of it on Deno.
-- Fake clock and snapshots. `05-api.md`, section 11, says that
-  they need their own design. See `09-questions.md`.
-- Random order with a seed. See `09-questions.md`, Q5.
-- Leak checks after each test, from step 4. See Q6.
+- Fake clock and snapshots: decided, see `09-questions.md`.
 
 Known limits:
 
