@@ -133,8 +133,14 @@ export const openStore = (): Store => {
     for (const suffix of ['', '-wal', '-shm']) rmSync(path + suffix, { force: true })
     db = connect()
   }
-  if (version(db) === 0)
-    db.exec(`begin; ${SCHEMA} pragma user_version = ${SCHEMA_VERSION}; commit`)
+  if (version(db) === 0) {
+    // Two processes can start in a project with no store at the
+    // same time. The one that gets the write lock second must see
+    // that the tables exist.
+    db.exec('begin immediate')
+    if (version(db) === 0) db.exec(`${SCHEMA} pragma user_version = ${SCHEMA_VERSION}`)
+    db.exec('commit')
+  }
 
   return {
     db,
