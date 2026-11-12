@@ -494,3 +494,39 @@ file takes 82 ms, and 51 ms with no type check.
 
 This is the answer to Q7.
 
+## D39. Bun coverage: an issue to Bun, and inspector coverage as an option (user, 2026-11-12)
+
+The answer to Q8 has two parts.
+
+1. The proposal of `10-bun-coverage-api.md` is an issue on the Bun
+   project. The agent does not work on a patch for Bun until the
+   Bun project accepts the issue. The user tells the agent when to
+   look.
+2. `"bunInspectorCoverage": true` in the `ubq` key turns on
+   inspector coverage for a test file that runs as a plain program
+   on Bun. It is off by default, because it can record more
+   coverage, but cannot be correct in all cases.
+
+How part 2 works (`src/bun-coverage.ts`): the transpiler of Bun
+with `target: 'bun'` makes almost the same JavaScript as the Bun
+runtime. The collector matches the words of that JavaScript with
+the words of the source, and changes each offset with the match.
+
+What it gives, measured on Bun 1.4.3:
+
+- Each file that a test ran is in the store, so `--changed` is
+  correct.
+- Functions with a branch get ranges, on the correct line in the
+  samples.
+- A function with no branch can be absent.
+- The blocks of class methods got places in different functions
+  of the same file.
+- A `.tsx` or `.jsx` file gets only a mark that it ran.
+- Code that never ran is not listed, so `ubq uncovered` is not
+  complete. The mode of the test file is `partial`.
+- With `NODE_COMPILE_CACHE` set, Bun gives no ranges for code
+  that comes from the cache, so the second run records nothing.
+
+Under the runner, all coverage comes from counters, with or
+without the option.
+

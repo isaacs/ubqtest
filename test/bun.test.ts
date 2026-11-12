@@ -1,8 +1,10 @@
 // Coverage on Bun, through counters in the source.
 import { spawnSync } from 'node:child_process'
-import { cpSync, rmSync } from 'node:fs'
+import { cpSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, describe, test } from 'ubqtest'
+import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
 import { instrument } from '../src/instrument.ts'
@@ -166,5 +168,48 @@ describe('bun', () => {
     ])
     // In a child process.
     assert.equal(sh('bun', [cli, 'mock.ts', 'pass.ts'], p.dir).at(-1), 'fail: 2 failed, 7 passed, 1 skipped')
+  })
+
+  test('the inspector of a plain program gives places in the source, from a guess', { skip }, () => {
+    // Offsets in JavaScript with no types, to offsets in the source.
+    const source = "// if (a) return\nexport function f(a: number): string {\n  if (a > 1) return 'big'\n  return 'small'\n}\n"
+    const made = 'export function f(a) {\n  if (a > 1)\n    return "big";\n  return "small";\n}\n'
+    const toSource = mapper(source, made)
+    const place = (text: string) => [toSource(made.indexOf(text), false), toSource(made.indexOf(text) + text.length, true)]
+    assert.deepEqual(place('return "big"'), [source.indexOf("return 'big'"), source.indexOf("return 'big'") + 12])
+    assert.deepEqual(place('(a) {'), [source.indexOf('(a:'), source.indexOf('{') + 1])
+
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    writeFileSync(join(p.dir, 'src/size.ts'), source + "export function never(): number {\n  return 1\n}\n")
+    writeFileSync(
+      join(p.dir, 'size.ts'),
+      "import { assert, test } from 'ubqtest'\nimport { f } from './src/size.ts'\ntest('small', () => {\n  assert.equal(f(1), 'small')\n})\n",
+    )
+    // The runner gives its test processes a compile cache. Bun gives
+    // no ranges for code from a cache, and a plain program has none.
+    const plain = () => {
+      const { NODE_COMPILE_CACHE: _, ...env } = process.env
+      const r = spawnSync('bun', ['size.ts'], { cwd: p.dir, encoding: 'utf8', env })
+      return r.stdout.replace(/ \(run \d+\)\n$/, '')
+    }
+    // Off by default: a plain program on Bun records no coverage.
+    assert.equal(plain(), 'pass: 0 failed, 1 passed')
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:4'], p.dir), ['0 tests run src/size.ts:4'])
+    p.configure({ bunInspectorCoverage: true })
+    assert.equal(plain(), 'pass: 0 failed, 1 passed')
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:4'], p.dir), ['size.ts > small', '1 tests run src/size.ts:4'])
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:7'], p.dir), ['0 tests run src/size.ts:7'])
+    assert.deepEqual(sh('node', [cli, 'uncovered', 'src/size.ts'], p.dir).slice(0, 2), [
+      "src/size.ts:3:14  return 'big'",
+      '1 uncovered ranges in 1 files',
+    ])
+    // The runner uses counters, with or without the option.
+    assert.deepEqual(sh('bun', [cli, 'size.ts'], p.dir), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('node', [cli, 'uncovered', 'src/size.ts'], p.dir), [
+      "src/size.ts:3:14  return 'big'",
+      'src/size.ts:6:8  function never(): number { (+2 lines)',
+      '2 uncovered ranges in 1 files',
+    ])
   })
 })

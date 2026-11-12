@@ -594,6 +594,15 @@ Known limits:
   that does not return gets no stack (the watchdog thread has no
   inspector there).
 
+## Bun inspector coverage as an option: done (2026-11-12)
+
+D39. `"bunInspectorCoverage": true` gives a plain `bun
+test/foo.ts` coverage from `node:inspector`, with places from a
+guess (`src/bun-coverage.ts`). D39 lists what it gives and what it
+does not. The issue to Bun is
+https://github.com/oven-sh/bun/issues/48712. Checks:
+`test/bun.test.ts`.
+
 ## Background server: done (2026-11-12)
 
 `ubq server` and `ubq server stop` (D36, D37, `11-server.md`).

@@ -25,7 +25,7 @@ test('doctor states the fix for each problem of the setup', () => {
   })
 
   p.configure({ include: ['*.ts'], retries: 2 })
-  assert.equal(doctor().lines[1], 'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, timeout, hangRerun')
+  assert.equal(doctor().lines[1], 'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, timeout, hangRerun, bunInspectorCoverage')
 
   p.configure({ include: ['*.ts'] })
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ // comment\n  "compilerOptions": { "strict": true, "erasableSyntaxOnly": true, },\n}')

@@ -41,6 +41,7 @@ that are in it. A folder that is a different project is an error.
 | `exclude` | list of glob patterns | none | Files that are not test files, after `include`. |
 | `timeout` | number | 5000 | The time limit of a test in milliseconds, if the test and its groups set none. |
 | `hangRerun` | boolean | true | `false` turns off the rerun of a test that timed out with something open (D14). |
+| `bunInspectorCoverage` | boolean | false | `true` records coverage for a test file that runs as a plain program on Bun (`bun test/foo.ts`). The places are a guess and can be wrong (D39). |
 
 Rules:
 

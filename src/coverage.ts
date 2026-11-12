@@ -2,6 +2,8 @@
 import { Session } from 'node:inspector'
 import { sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { startBunInspector } from './bun-coverage.ts'
+import { config } from './config.ts'
 import type { Coverage, FileStart } from './events.ts'
 import { projectRoot, rel } from './project.ts'
 
@@ -64,8 +66,9 @@ const shared = globalThis as { [KEY]?: Collector }
 
 /**
  * Starts V8 precise coverage, or returns the collector that the
- * preload module started. Returns undefined on Bun and Deno: they
- * get coverage from source counters only.
+ * preload module started. Returns undefined on Deno, and on Bun
+ * with no `bunInspectorCoverage`: they get coverage from source
+ * counters only.
  *
  * `early` is true if no user module loaded yet. V8 lists a function
  * that never ran only if coverage started before the function's
@@ -75,7 +78,11 @@ export const startCoverage = (early = false): Collector | undefined => {
   if (shared[KEY]) return shared[KEY]
   // Deno has the inspector, but the positions are those of the
   // JavaScript that Deno makes from TypeScript, not of the source.
-  if (process.versions.bun || process.versions.deno) return undefined
+  if (process.versions.deno) return undefined
+  // A Bun process with no counters is a plain program. A project can
+  // turn on inspector coverage for it (D39).
+  if (process.versions.bun)
+    return config().bunInspectorCoverage ? (shared[KEY] = startBunInspector()) : undefined
   const session = new Session()
   session.connect()
   // On Node, `post` runs the command before it returns, so these

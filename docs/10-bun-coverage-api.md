@@ -2,7 +2,10 @@
 
 What ubq needs from Bun, what Bun 1.4.3 has, and the smallest
 change to Bun that closes the gap. This text is the base of a
-proposal to the Bun project (D10). Nothing is sent yet.
+proposal to the Bun project (D10). It is issue
+https://github.com/oven-sh/bun/issues/48712 (2026-11-12). Work on
+a patch for Bun starts only if the Bun project accepts the issue
+(D39).
 
 Measurements: `03-measurements.md`, section 11.
 

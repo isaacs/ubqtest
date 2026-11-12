@@ -239,9 +239,12 @@ minutes with no use, or with `ubq server stop`. It is optional.
 
 Most projects need none. The `ubq` key of `package.json` can have
 `include` and `exclude` (lists of glob patterns for test files),
-`timeout` (milliseconds), and `hangRerun` (`false` turns off the
-rerun of a test that timed out). A folder with its own `package.json`
-is a different project: run `ubq` in that folder.
+`timeout` (milliseconds), `hangRerun` (`false` turns off the rerun
+of a test that timed out), and `bunInspectorCoverage` (`true`
+records coverage for a plain `bun <test file>`, with places that
+can be wrong. `ubq <test file>` on Bun does not need it). A folder
+with its own `package.json` is a different project: run `ubq` in
+that folder.
 
 ## Requirements
 

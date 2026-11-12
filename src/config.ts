@@ -13,6 +13,8 @@ export interface Config {
   timeout?: number
   /** False turns off the rerun of a test that timed out (D14). */
   hangRerun?: boolean
+  /** True adds inspector coverage on Bun, with places from a guess (D39). */
+  bunInspectorCoverage?: boolean
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -26,6 +28,7 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   exclude: [globs, 'a list of glob patterns, such as ["test/slow/**"]'],
   timeout: [v => typeof v === 'number' && v > 0, 'a number of milliseconds, such as 5000'],
   hangRerun: [v => typeof v === 'boolean', 'true or false'],
+  bunInspectorCoverage: [v => typeof v === 'boolean', 'true or false'],
 }
 
 let cached: Config | undefined
