@@ -129,6 +129,7 @@ assert.deepEqual(actual, expected, message?)
 assert.match(actual, pattern, message?)
 assert.throws(fn, expected, message?)          // returns the Error
 await assert.rejects(promise, expected, message?)  // resolves to the Error
+assert.snapshot(value, message?)               // compares with saved text
 assert.fail(message)                           // returns never
 ```
 
@@ -174,6 +175,26 @@ assert.equal(err.message, 'unknown shape: ?')
 
 **`rejects` must be awaited.** If the test ends and nothing awaited
 the result, the test fails with a message that says so.
+
+**`snapshot`** compares the text of a value with the text that an
+older run saved (D31).
+
+- The text of a string is the string. The text of any other value
+  is its `util.inspect` form, with sorted keys and no size limit.
+- Each test file has one snapshot file:
+  `ubq-snapshots/<test file path>.snap`. Commit it. The key of an
+  entry is the names of the test and the number of the call in
+  the test: `parse > circle 1`.
+- A value with no saved text fails. A plain run never writes the
+  file. `ubq --update <file>` or `ubq --update '<test id>'` runs
+  the named tests and writes their snapshots. `--update` with no
+  test is an error.
+- An update of one test keeps the entries of the other tests. An
+  entry of a test that the file no longer has is removed.
+- The failure shows the lines that differ, and the command that
+  writes the new text.
+- The text can differ between runtimes: Node, Deno, and Bun do not
+  print each value the same way.
 
 **Types.**
 
@@ -376,6 +397,7 @@ test.skip('x', () => {})
 | `assert.ok` | `Use assert(value)` |
 | `assert.strictEqual` | `Use assert.equal (it is always strict)` |
 | `assert.deepStrictEqual` | `Use assert.deepEqual (it is always strict)` |
+| `assert.toMatchSnapshot`, `assert.matchSnapshot` | `Use assert.snapshot(value)` |
 
 `it`, `expect`, and the hook names are not exports. An import of
 one fails with the normal "no exported member" error. The agent
@@ -398,4 +420,6 @@ guide in the package lists the replacement for each.
 
 - **`match` patterns have no type matchers** (tap permits
   `{ id: Number }`). Add them only if tests need them often.
-- **Snapshots** are decided (`assert.snapshot`), not built yet.
+- **Snapshots across runtimes.** The text comes from `util.inspect`,
+  which differs between runtimes. A formatter of our own would fix
+  this.

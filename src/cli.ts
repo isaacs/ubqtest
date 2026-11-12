@@ -34,6 +34,7 @@ const USAGE = `usage:
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
   ubq --changed              run the test files that loaded a file that has changed, and new test files
+  ubq --update <file or test id>...  run these tests and write their snapshots (assert.snapshot)
   ubq --seed <n> ...         run the test files in the order of an older run (the files run in a random order)
   ubq --repeat <n> ...       run the selected tests n times, and count the failures of each test
   ubq --baseline <commit> ...  run the selected tests, and show only the failures that a clean checkout of the git commit does not have

@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 68 pass
+node src/cli.ts         # the tool runs its own tests: 69 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -45,7 +45,10 @@ older run.
   `UBQ_*` variables on. The library removes them when it loads.
 - Two test files must not share one fixture store. Test files run
   in parallel. `test/bun.test.ts` works on a copy of the coverage
-  fixture for this reason.
+  fixture for this reason. `test/plain.test.ts` removed the store
+  of `test/fixtures/` while `test/runner.test.ts` wrote to it; the
+  random order of files (D28) made this fail. It has its own
+  project now (`project()` in `test/setup.ts`).
 - A change to a sink must not throw on a closed pipe. An error
   handler that writes to the same pipe makes a loop.
 - The benchmark guards catch real regressions. A watchdog thread
@@ -422,6 +425,7 @@ Source files:
 | `src/spy.ts` | `spy`, `spyOn` |
 | `src/clock.ts` | `fakeClock` |
 | `src/real.ts` | the real timers and clocks, for the library itself |
+| `src/snapshot.ts` | `assert.snapshot`: the snapshot file, compare, write |
 | `src/mock.ts` | `mockImport`: resolve and load hooks, registered at the first call |
 
 Done (`05-api.md`, sections 6 and 7):
@@ -450,14 +454,18 @@ Done (`05-api.md`, sections 6 and 7):
 - `fakeClock` (D30). The library takes its own timers from
   `src/real.ts`, so the time limit of a test stays real.
 
-Checks: `test/clock.test.ts`, `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`,
+- `assert.snapshot` and `ubq --update` (D31).
+- The check for a process that does not exit waits one more time
+  if nothing is open. On a slow machine, it reported a process
+  that was about to exit.
+
+Checks: `test/snapshot.test.ts`, `test/clock.test.ts`, `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`,
 `test/fixtures/mock.ts`, and `test/fixtures/leak.ts`.
 
 Not done:
 
 - `mockImport` on Bun (the call throws an error that says so) and
   a check of it on Deno.
-- Snapshots: decided, see `09-questions.md`.
 
 Known limits:
 

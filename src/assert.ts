@@ -4,6 +4,7 @@ import { emit } from './emit.ts'
 import type { Failure } from './events.ts'
 import { type Diff, diffDeep, diffEqual, show, showDiffs } from './format.ts'
 import { type Hint, hint } from './hint.ts'
+import { checkSnapshot } from './snapshot.ts'
 import { userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
 
@@ -90,8 +91,15 @@ export interface Assert {
     expected: ErrorMatch,
     message?: string,
   ): Promise<Error>
+  /**
+   * Passes if the text of `value` is the text in the snapshot file
+   * of the test file. `ubq --update <test>` writes the file.
+   */
+  snapshot(value: unknown, message?: string): void
   /** Fails the test. */
   fail(message: string): never
+  toMatchSnapshot: Hint<'Use assert.snapshot(value)'>
+  matchSnapshot: Hint<'Use assert.snapshot(value)'>
   ok: Hint<'Use assert(value)'>
   strictEqual: Hint<'Use assert.equal (it is always strict)'>
   deepStrictEqual: Hint<'Use assert.deepEqual (it is always strict)'>
@@ -288,11 +296,27 @@ const methods = {
     }
     return result
   },
+  snapshot(value: unknown, message?: string): void {
+    const state = begin()
+    if (!state) return
+    const file = state.id.slice(0, state.id.indexOf(' > '))
+    const result = checkSnapshot(file, state.id, value)
+    if (!result.ok)
+      fail(
+        state,
+        'snapshot',
+        result.message!,
+        message,
+        result.diffs && { diffs: result.diffs, more: result.more ?? 0 },
+      )
+  },
   fail(message: string): never {
     const state = begin()
     if (state) fail(state, 'fail', message, undefined)
     throw new Error(message)
   },
+  toMatchSnapshot: hint('Use assert.snapshot(value)'),
+  matchSnapshot: hint('Use assert.snapshot(value)'),
   ok: hint('Use assert(value)'),
   strictEqual: hint('Use assert.equal (it is always strict)'),
   deepStrictEqual: hint('Use assert.deepEqual (it is always strict)'),

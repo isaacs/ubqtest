@@ -368,3 +368,16 @@ section 2), and nothing needs a reset in the next test. A clock
 that takes over only some functions gives code that is half in
 fake time, which is hard to understand.
 
+## D31. Snapshots: `assert.snapshot`, one file for each test file, explicit update (user, 2026-11-12)
+
+`assert.snapshot(value)` compares with saved text. Each test file
+has one snapshot file, as in tap. Only `ubq --update` with the
+names of tests writes it.
+
+**Reason.** The user's experience with tap: this design did not
+have to change much. An update with no list of tests accepts
+changes that nobody looked at (`01`, section 7).
+
+The agent chose the place (`ubq-snapshots/<test file path>.snap`,
+as `tap-snapshots/` in tap) and the form of the file.
+

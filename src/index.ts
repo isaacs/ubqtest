@@ -4,6 +4,7 @@ import { startCoverage } from './coverage.ts'
 import { type Files, makeTestdir } from './fixtures.ts'
 import { startPlain } from './plain.ts'
 import { startPipe } from './sink-pipe.ts'
+import { setUpdate } from './snapshot.ts'
 import { currentFile, setCollector } from './test.ts'
 
 export { assert, type Assert, type Pattern } from './assert.ts'
@@ -34,6 +35,7 @@ else startPlain()
 // keeps its console, so that it is easy to debug.
 if (process.env.UBQ_CAPTURE) startCapture(currentFile)
 // Processes that the tests start must not get these.
-for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_COMMAND', 'UBQ_CAPTURE'])
+setUpdate(!!process.env.UBQ_UPDATE)
+for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_COMMAND', 'UBQ_CAPTURE', 'UBQ_UPDATE'])
   delete process.env[name]
 setCollector(startCoverage())

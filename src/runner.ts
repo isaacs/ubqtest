@@ -222,6 +222,7 @@ const runFile = (
   { file, lines, ids }: Selected,
   send: Sink,
   cacheDir: string,
+  update = false,
 ): Promise<void> =>
   new Promise(done => {
     const child = spawn(
@@ -241,6 +242,7 @@ const runFile = (
           UBQ_FILE: file,
           UBQ_LINES: lines.join(','),
           UBQ_IDS: JSON.stringify(ids),
+          ...(update && { UBQ_UPDATE: '1' }),
         },
       },
     )
@@ -353,6 +355,15 @@ export const run = async (args: string[]): Promise<number> => {
     seed = +text
     selection = selection.toSpliced(seedAt, 2)
   }
+  const update = selection.includes('--update')
+  if (update) {
+    selection = selection.filter(a => a !== '--update')
+    // An update of all snapshots hides changes that nobody looked at.
+    if (repeat || !selection.length || selection.some(a => a.startsWith('--')))
+      throw new UsageError(
+        "--update needs the tests whose snapshots it writes, and no other option: ubq --update <file>, or ubq --update '<test id>'",
+      )
+  }
   let baselineRef: string | undefined
   const base = selection.indexOf('--baseline')
   if (base >= 0) {
@@ -414,6 +425,7 @@ export const run = async (args: string[]): Promise<number> => {
     process.env.UBQ_CAPTURE = '1'
     process.env.UBQ_LINES = lines.join(',')
     process.env.UBQ_IDS = JSON.stringify(ids)
+    if (update) process.env.UBQ_UPDATE = '1'
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])
     await import(pathToFileURL(join(projectRoot(), file)).href)
@@ -490,7 +502,7 @@ export const run = async (args: string[]): Promise<number> => {
     await Promise.all(
       Array.from({ length: jobs }, async () => {
         for (let next = queue.shift(); next; next = queue.shift())
-          await runFile(next, to, cacheDir)
+          await runFile(next, to, cacheDir, update)
       }),
     )
   }

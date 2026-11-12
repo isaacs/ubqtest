@@ -10,6 +10,7 @@ import { type CleanupFn, fileCleanups, fileState } from './fixtures.ts'
 import { EVENT_VERSION, type Failure, type Location } from './events.ts'
 import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
+import { saveSnapshots } from './snapshot.ts'
 import { callSite, userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
 import type { WatchData, WatchMessage } from './watchdog.ts'
@@ -304,6 +305,7 @@ const runOne = async (entry: Entry): Promise<void> => {
     })
     return
   }
+  ran.add(entry.id)
   let stop!: (reason: unknown) => void
   const stopped = new Promise<never>((_, reject) => (stop = reject))
   stopped.catch(() => {})
@@ -435,15 +437,38 @@ const drain = async (): Promise<void> => {
   idle ??= setTimeout(leaked, IDLE_MS).unref()
 }
 
+/** The tests that ran in this process. */
+const ran = new Set<string>()
+
+/** The last event of the file. With `ubq --update`, the snapshot file is written first. */
+const fileEnd = (): void => {
+  let updated = 0
+  try {
+    updated = saveSnapshots(file!, ran, ids)
+  } catch (error) {
+    emit({ type: 'file-error', file: file!, failure: errorFailure(error) })
+  }
+  emit({ type: 'file-end', file: file!, unselected, ...(updated && { updated }) })
+}
+
 const IDLE_MS = 1000
 let idle: ReturnType<typeof setTimeout> | undefined
+let waitedAgain = false
 
 // The tests ended, but the process did not exit.
 const leaked = (): void => {
   idle = undefined
   if (finished || draining || queue.length) return
-  finished = true
   const pending = stillOpen()
+  // On a slow machine, this timer and the last timer of a test can
+  // be due in the same turn. Then nothing is open, and the process
+  // is about to exit. One more wait tells the two cases apart.
+  if (!pending.length && !waitedAgain) {
+    waitedAgain = true
+    idle = setTimeout(leaked, IDLE_MS).unref()
+    return
+  }
+  finished = true
   emit({
     type: 'file-error',
     file: file!,
@@ -454,7 +479,7 @@ const leaked = (): void => {
       ...(pending.length && { pending }),
     },
   })
-  emit({ type: 'file-end', file: file!, unselected })
+  fileEnd()
   process.exit()
 }
 
@@ -496,7 +521,7 @@ process.on('exit', code => {
       message: `process.exit(${code}) was called before the tests ended${active ? `, in test: ${active.id}` : ''}`,
     },
   })
-  emit({ type: 'file-end', file: file!, unselected })
+  fileEnd()
 })
 
 // `beforeExit` means that the process has no more work, so no more
@@ -526,5 +551,5 @@ process.on('beforeExit', () => {
           : `no test starts at or before line ${lines.join(', ')} of this file`,
       },
     })
-  emit({ type: 'file-end', file: file!, unselected })
+  fileEnd()
 })

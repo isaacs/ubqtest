@@ -101,6 +101,10 @@ export const textSink = (write: (text: string) => void): Sink => {
       case 'file-error':
         block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
         break
+      case 'file-end':
+        if (event.updated)
+          write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
+        break
       case 'run-end': {
         if (skips.length) write(skips.join('\n') + '\n')
         const parts = [`${event.fail} failed`, `${event.pass} passed`]

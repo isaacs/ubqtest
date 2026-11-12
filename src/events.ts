@@ -172,6 +172,8 @@ export interface FileEnd {
   file: string
   /** Tests that the selection left out. */
   unselected: number
+  /** With `ubq --update`: the count of snapshots that are new or changed. */
+  updated?: number
 }
 
 /** The test process exited. The runner role writes it. */
