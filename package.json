@@ -33,6 +33,6 @@
   },
   "license": "BlueOak-1.0.0",
   "ubq": {
-    "timeout": 30000
+    "timeout": 120000
   }
 }

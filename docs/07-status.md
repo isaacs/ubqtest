@@ -279,7 +279,7 @@ What it does:
   (`still open: TCPServerWrap`).
 - Tests that end while the process stays alive: a file error,
   1000 ms after the last test, and the process exits.
-- A loop that does not return: stopped 500 ms after the limit of
+- A loop that does not return: stopped 2000 ms after the limit of
   the test, with the line of the loop in the failure.
 - When a child ends, the runner kills its process group. The
   runner passes SIGINT, SIGTERM, and SIGHUP on to all groups.

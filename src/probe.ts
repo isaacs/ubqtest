@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import type { Location } from './events.ts'
 
 /** Time after the limit of a test before a watchdog acts. */
-export const GRACE_MS = 500
+export const GRACE_MS = 2000
 /** The longest time to wait for a stack. */
 export const PROBE_MS = 1500
 

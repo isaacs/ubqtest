@@ -321,7 +321,7 @@ await-heavy code 5 times slower (M 8).
 | --- | --- | --- |
 | Test waits on something that never comes, handles are open | timer in the test process | handle types from `getActiveResourcesInfo` (no cost) |
 | Test waits, no handles | process is about to exit with an open test | "promise never settled, nothing was pending" |
-| Loop that does not return | a watchdog sees no test end after the time limit plus 500 ms | the watchdog sends `SIGUSR1`, connects to the inspector, reads the stack (40 ms, M 8), and stops the process |
+| Loop that does not return | a watchdog sees no test end after the time limit plus 2000 ms | the watchdog sends `SIGUSR1`, connects to the inspector, reads the stack (40 ms, M 8), and stops the process |
 
 The watchdog for a child process is a timer in the runner. It
 costs the child nothing. A process with no runner above it (a
