@@ -2,10 +2,15 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { mutants } from '../src/instrument.ts'
 import { project } from './setup.ts'
+
+// The load hook of the counters loads the parser with `require`,
+// while this file loads. A static import of the same module from
+// this file is an error in Node (a cycle of `require` and `import`).
+const { mutants } = createRequire(import.meta.url)('../src/instrument.ts') as typeof import('../src/instrument.ts')
 
 const SOURCE = `export const price = (cents: number, coupon?: string): number => {
   if (coupon === 'FIVEOFF') return Math.max(0, cents - 500)
@@ -15,6 +20,7 @@ export const never = (): boolean => !price(1)
 `
 const TEST = `import { assert, test } from 'ubqtest'
 import { price } from './src/price.ts'
+
 test('no coupon', () => {
   assert.equal(price(700), 700)
 })

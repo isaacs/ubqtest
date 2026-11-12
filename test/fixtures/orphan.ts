@@ -5,6 +5,7 @@ import { assert, test } from 'ubqtest'
 test('starts a process and does not stop it', () => {
   const child = spawn('sleep', ['30'], { stdio: 'ignore' })
   child.unref()
-  writeFileSync(process.env.ORPHAN_PID_FILE!, String(child.pid))
+  // The test of the runner gives the file. A different run has none.
+  if (process.env.ORPHAN_PID_FILE) writeFileSync(process.env.ORPHAN_PID_FILE, String(child.pid))
   assert(child.pid)
 })

@@ -56,7 +56,7 @@ for (const [name, text] of Object.entries(files)) {
   mkdirSync(join(dir, name, '..'), { recursive: true })
   writeFileSync(join(dir, name), text)
 }
-symlinkSync(join(root, 'node_modules/@types'), join(dir, 'node_modules/@types'))
+symlinkSync(join(root, 'node_modules/@types'), join(dir, 'node_modules/@types'), 'junction')
 
 const sh = (cmd: string, ...args: string[]) => {
   const r = spawnSync(cmd, args, { cwd: dir, encoding: 'utf8' })

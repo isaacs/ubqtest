@@ -29,7 +29,7 @@ test('passes at run time', () => {
       include: ['typed.test.ts'],
     }),
   )
-  for (const name of ['typescript', '@types']) symlinkSync(join(modules, name), join(p.dir, 'node_modules', name))
+  for (const name of ['typescript', '@types']) symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
   const all = p.ubq()
   assert.equal(all.code, 1)
   assert.deepEqual(all.out.replace(/ \(run \d+\)\n$/, '').split('\n').slice(-12), [

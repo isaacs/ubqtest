@@ -2,13 +2,18 @@
 import { spawnSync } from 'node:child_process'
 import { cpSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, describe, test } from 'ubqtest'
 import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
-import { instrument } from '../src/instrument.ts'
 import { addJsx, fixtures, project, resetStore } from './setup.ts'
+
+// The load hook of the counters loads the parser with `require`,
+// while this file loads. A static import of the same module from
+// this file is an error in Node (a cycle of `require` and `import`).
+const { instrument } = createRequire(import.meta.url)('../src/instrument.ts') as typeof import('../src/instrument.ts')
 
 // Plain JavaScript with each construct that gets a counter. The
 // value of `out` shows which paths ran.

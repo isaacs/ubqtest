@@ -22,7 +22,8 @@ mkdirSync(`${fixtures}node_modules`, { recursive: true })
 if (current() !== target) {
   try {
     rmSync(link, { force: true })
-    symlinkSync(target, link)
+    // A junction needs no special right on Windows.
+    symlinkSync(target, link, 'junction')
   } catch (error) {
     // Test files run in parallel, and each one loads this module.
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
@@ -46,7 +47,7 @@ export const project = () => {
   configure()
   for (const f of ['empty.ts', 'fail.ts', 'fix.ts', 'flip.ts', 'load-error.ts', 'leak.ts', 'mock.ts', 'pass.ts', 'snap.ts', 'sometimes.ts', 'src']) cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
   mkdirSync(join(dir, 'node_modules'))
-  symlinkSync(fileURLToPath(new URL('..', import.meta.url)), join(dir, 'node_modules/ubqtest'))
+  symlinkSync(fileURLToPath(new URL('..', import.meta.url)), join(dir, 'node_modules/ubqtest'), 'junction')
   const flip = join(dir, 'flip.txt')
   const ubq = (...args: string[]) => {
     const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', FLIP_FILE: flip } })
