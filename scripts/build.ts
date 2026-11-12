@@ -42,6 +42,8 @@ const manifest = {
   version: pkg.version,
   description: pkg.description,
   license: pkg.license,
+  // npm compares this with the repository of the release workflow.
+  repository: pkg.repository,
   type: 'module',
   engines: pkg.engines,
   peerDependencies: { 'playwright-core': '>=1.49' },
