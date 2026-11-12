@@ -12,6 +12,7 @@ import {
   type RunStart,
   type Sink,
   type TestId,
+  type TypeCheckError,
 } from './events.ts'
 import { textSink } from './sink-text.ts'
 import { openStore, type Store } from './store.ts'
@@ -23,6 +24,16 @@ const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
     : v.deno ? { name: 'deno', version: v.deno }
     : { name: 'node', version: v.node }
   )
+}
+
+/** The key of the type check that `ubq` started in this process. */
+export const TYPES = Symbol.for('ubqtest.types')
+
+/** A type check that runs at the same time as the tests. */
+export interface Checking {
+  errors: Promise<TypeCheckError[]>
+  /** Keeps the process open until the check ends. */
+  wait(): void
 }
 
 export const startPlain = (): void => {
@@ -51,6 +62,20 @@ export const startPlain = (): void => {
   let noTests = false
   let begun = false
   let store: Store | undefined
+  const checking = (globalThis as { [TYPES]?: Checking })[TYPES]
+  /** Writes the end of the run. Set when the file ends. */
+  let end: ((types?: TypeCheckError[]) => void) | undefined
+  let exiting = false
+  /** The result of the type check, when it has one. */
+  let known: TypeCheckError[] | undefined
+  // A process that exits cannot wait for the type check.
+  if (checking) {
+    void checking.errors.then(types => (known = types))
+    process.on('exit', () => {
+      exiting = true
+      end?.(known)
+    })
+  }
 
   subscribe(CHANNEL, message => {
     const event = message as FileEvent
@@ -102,17 +127,28 @@ export const startPlain = (): void => {
       process.exitCode = code
       send({ type: 'exit', file: event.file, code, signal: null })
       for (const hang of hangReruns(hung)) send(hang)
-      send({
-        type: 'run-end',
-        ms: now() - t0,
-        pass: count('pass'),
-        fail,
-        errors,
-        skip: count('skip'),
-        unselected: event.unselected,
-        code,
-      })
-      store?.close()
+      end = types => {
+        end = undefined
+        for (const error of types ?? []) send(error)
+        if (types?.length) process.exitCode = 1
+        send({
+          type: 'run-end',
+          ms: now() - t0,
+          pass: count('pass'),
+          fail,
+          errors,
+          skip: count('skip'),
+          unselected: event.unselected,
+          ...(types && { types: types.length }),
+          code: types?.length ? 1 : code,
+        })
+        store?.close()
+      }
+      if (!checking || exiting) end(known)
+      else {
+        checking.wait()
+        void checking.errors.then(types => end?.(types))
+      }
     }
   })
 }

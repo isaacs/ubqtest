@@ -488,8 +488,9 @@ The checker keeps its data for the next run in `.ubq/types/`.
 
 **Reason.** A test tool that does not check types lets a wrong
 type through until a different tool finds it. The cost is small:
-TypeScript 7 checks this project in 100 ms, and in 70 ms with the
-data of the run before.
+TypeScript 7 checks this project in 40 ms with the data of the run
+before. A run of all files takes no more time. A run of one small
+file takes 82 ms, and 51 ms with no type check.
 
 This is the answer to Q7.
 

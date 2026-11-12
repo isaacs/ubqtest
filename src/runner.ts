@@ -23,6 +23,7 @@ import { type TestProcess, warmProcess } from './pool.ts'
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
+import { type Checking, TYPES } from './plain.ts'
 import { typeCheck } from './typecheck.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
 import { headCommit } from './git.ts'
@@ -443,10 +444,13 @@ export const run = async (args: string[]): Promise<number> => {
   const cacheDir = join(stateDir(), 'compile-cache')
 
   // Each run of a TypeScript project also checks the types (D38).
-  const checking = typeCheck()
+  const lone = files.length === 1 && !repeat && !baselineRef
+  const checking = typeCheck(lone)
 
   // One file runs in this process. It has the runner role for itself.
-  if (files.length === 1 && !repeat && !baselineRef && !checking) {
+  if (lone) {
+    // The runner role of the library waits for the type check.
+    if (checking) (globalThis as { [TYPES]?: Checking })[TYPES] = checking
     const { file, lines, ids } = files[0]!
     // Deno has no compile cache of this form.
     nodeModule.enableCompileCache?.(cacheDir)
@@ -558,7 +562,7 @@ export const run = async (args: string[]): Promise<number> => {
     await runAll(send)
     for (const hang of hangReruns(hung)) send(hang)
   }
-  const typeErrors = (await checking) ?? []
+  const typeErrors = (await checking?.errors) ?? []
   for (const error of typeErrors) send(error)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
   // The order of the files can be the cause of a failure.

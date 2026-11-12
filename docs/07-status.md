@@ -547,6 +547,15 @@ Done:
   `type-error` event and a `TYPE` block in the text (20 blocks at
   most). The summary counts them, and the exit code is 1. The
   tests run in any case. Checks: `test/typecheck.test.ts`.
+  - TypeScript 7 has a native program. The runner starts it with
+    no Node launcher first, which saves 40 ms.
+  - A run of one file still runs the file in the process of the
+    runner. The type check runs in the background (its handles
+    do not keep the process open), and the runner role of the
+    library waits for it after the file ends.
+  - Times of the built package, in a project of three small
+    files: one file 82 ms (51 ms with no `tsconfig.json`), all
+    files 95 ms (93 ms with no `tsconfig.json`).
 - The check of step 8 passed (2026-11-12). An agent on the
   smallest model, with `ubq guide` as its only document, wrote 10
   tests for a small module (with `mockImport`, `spy`, and
@@ -572,11 +581,8 @@ Known limits:
 - Type errors are not in the store. `ubq failures` does not print
   them again.
 - The type check reads only `tsconfig.json` in the project root.
-- A run of one file in a TypeScript project runs the file in a
-  child process, not in the process of the runner. In a project
-  of three small files, a run of one file takes 152 ms, and
-  92 ms with no `tsconfig.json` (source, not the built package).
-  The type check alone takes 73 ms there.
+- A run of one file that ends with `process.exit`, before the
+  type check ends, reports no type errors.
 - A plain `deno run -A test/foo.ts` records coverage `none`, as a
   plain program on Bun does.
 - On Deno, the changed source of a file is in the cache, but the
