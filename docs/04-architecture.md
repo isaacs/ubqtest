@@ -41,7 +41,7 @@ test file ──imports──> core library
 | --- | --- |
 | **Core library** | `test`, assertions, fixtures. Runs tests, publishes events. Works in a plain program. |
 | **Events** | The typed, versioned event definitions. All other parts depend on these and on nothing else in the core. |
-| **Coverage collector** | Takes a snapshot at each test end, publishes a coverage event. Two implementations: V8 precise coverage (Node, Deno) and source counters (Bun). |
+| **Coverage collector** | Takes a snapshot at each test end, publishes a coverage event. Two implementations: source counters (all runtimes), and V8 precise coverage (Node: a plain program, and the reference for counters). |
 | **Sinks** | Consumers of events: compact text, CI text, database, JSON lines pipe, JSON lines dump. |
 | **Store** | The SQLite schema, the writer, and the queries. |
 | **Runner** | Finds test files, selects tests, starts a process for each file, reads events from each child, feeds the sinks, handles timeouts. |
@@ -137,10 +137,9 @@ end of that test.
 Children do not write to the database. Writers to one SQLite file
 wait for each other (M 6).
 
-Deno does not give a child access to fd 3 (M 9). The pipe sink
-hides the method, so Deno can use a different one. The choice for
-Deno is open (a socket path in an environment variable is one
-option) and needs a test in step 7.
+On Deno, `writeSync(3)` fails (M 9): Deno has its own numbers for
+open files. The process still has the descriptor, so the pipe sink
+opens `/dev/fd/3` there and writes to that.
 
 ## 4. Coverage
 
@@ -393,16 +392,15 @@ proven.
 | --- | --- | --- | --- |
 | Run tests, events, text output | yes | yes | yes |
 | Store | yes | yes | yes |
-| Per-test coverage | V8, sync API | V8, async API | source counters (section 4) |
+| Per-test coverage | source counters, or V8 (D25) | source counters (D33) | source counters (section 4) |
 | Module mocks | `registerHooks` | `registerHooks` | `Bun.plugin` resolve and load hooks |
-| Transport from a child | fd 3 | not fd 3 (M 9), method open | fd 3 |
-| Hang reports | yes | not tested | handle list is empty (M 9), needs its own method |
+| Transport from a child | fd 3 | `/dev/fd/3` | fd 3 |
+| Hang reports | yes | yes | handle list is empty (M 9), needs its own method |
 
 The order is Node, then Bun, then Deno. Bun comes before Deno
 because of its growth in agent workflows (D10).
 
-The V8 collector must use the promise form of the inspector API so
-that one code path works on Node and Deno.
+The V8 collector is for Node only (D33).
 
 ## 12. Speed budget
 
@@ -493,7 +491,6 @@ points are still open, and each one has a step that settles it:
 - Source counters on Node in place of V8 snapshots, to get nearer
   to the 200-file target. The instrumenter exists (D22). The user
   has not decided this.
-- The child transport on Deno (step 8).
-- Hang reports on Bun and Deno (steps 5 and 8).
+- Hang reports on Bun (step 5).
 - Retention limits for the store, against real project sizes
   (step 2).

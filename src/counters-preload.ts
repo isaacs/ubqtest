@@ -2,21 +2,48 @@
 // snapshots: `node --import ubqtest/counters-preload test/foo.ts`.
 // A load hook adds counters to each project file.
 // See docs/03-measurements.md, section 12.
-import { registerHooks } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { registerHooks, stripTypeScriptTypes } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { startCounters } from './counter-collector.ts'
 
 const FORMATS = new Set(['module', 'commonjs', 'module-typescript', 'commonjs-typescript'])
+
+const deno = !!process.versions.deno
+/**
+ * A source map that changes no position. The parts are separate so
+ * that the bundle of this file does not contain the marker itself:
+ * a runtime reads the marker as the source map of the bundle.
+ */
+const NO_MAP = [
+  '\n//# source',
+  'MappingURL=data:application/json;base64,',
+  btoa('{"version":3,"sources":[],"names":[],"mappings":""}'),
+].join('')
 
 const counters = startCounters()
 if (counters)
   registerHooks({
     load(url, context, next) {
       const result = next(url, context)
-      if (!url.startsWith('file:') || !FORMATS.has(result.format as string)) return result
+      if (!url.startsWith('file:')) return result
       // A mocked module instance has a query on its URL.
       const path = fileURLToPath(url.replace(/\?.*$/, ''))
       if (!counters.wants(path)) return result
+      if (deno) {
+        // Deno gives the JavaScript that it made from TypeScript, with
+        // different positions, and it gives no format. The counters
+        // need the positions of the source, so this hook reads the
+        // file and removes the types.
+        const ts = /\.[cm]?ts$/.test(path)
+        if (!ts && !/\.[cm]?js$/.test(path)) return result
+        const source = counters.change(path, readFileSync(path, 'utf8'))
+        if (source === undefined) return result
+        // With no map in the text, Deno changes the positions in a
+        // stack trace with the map of its own JavaScript.
+        return { ...result, source: ts ? stripTypeScriptTypes(source) + NO_MAP : source }
+      }
+      if (!FORMATS.has(result.format as string)) return result
       const source = counters.change(path, result.source?.toString())
       return source === undefined ? result : { ...result, source }
     },

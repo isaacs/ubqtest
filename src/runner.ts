@@ -3,7 +3,7 @@
 // See docs/04-architecture.md, section 2.
 import { spawn } from 'node:child_process'
 import { existsSync, globSync, statSync } from 'node:fs'
-import { enableCompileCache } from 'node:module'
+import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
@@ -44,10 +44,15 @@ const NODE_PRELOAD = new URL(`./${V8 ? 'preload' : 'counters-preload'}${EXT}`, i
 
 /** The arguments that make a test process collect full coverage. */
 const coverageArgs = (): string[] =>
-  process.versions.bun ?
-    ['--preload', fileURLToPath(BUN_PRELOAD)]
+  process.versions.bun ? ['--preload', fileURLToPath(BUN_PRELOAD)]
+    // Deno has no signal that starts the inspector, and the
+    // inspector adds no time to the start of a process.
+  : process.versions.deno ? ['run', '-A', '--inspect=127.0.0.1:0', '--preload', NODE_PRELOAD.href]
     // With port 0, SIGUSR1 starts the inspector on a free port.
   : ['--inspect-port=0', '--import', NODE_PRELOAD.href]
+
+/** The lines that a runtime prints when its inspector starts. */
+const INSPECTOR = /Debugger listening on (ws:\/\/\S+)\n(?:(?:For help, see:|Visit chrome:)[^\n]*\n)?/
 
 /** A test file, and the lines that select tests in it. */
 export interface Selected {
@@ -262,12 +267,10 @@ const runFile = (
     // that does not return.
     const stuck = async (start: TestStart): Promise<void> => {
       ended = true
-      child.kill('SIGUSR1')
-      let url: string | undefined
-      for (let i = 0; i < 20 && !url; i++) {
-        await new Promise(r => setTimeout(r, 25))
-        url = /ws:\/\/\S+/.exec(stderr)?.[0]
-      }
+      // SIGUSR1 starts the inspector of Node. It ends a Deno process,
+      // which has its inspector from the start.
+      if (!process.versions.deno) child.kill('SIGUSR1')
+      for (let i = 0; i < 20 && !url; i++) await new Promise(r => setTimeout(r, 25))
       const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
       // With source counters, the columns are those of the changed source.
       const stack =
@@ -310,10 +313,17 @@ const runFile = (
     // Text that did not go through the capture in the child: a
     // crash message from the runtime, or a child of the child.
     let stderr = ''
+    /** The address of the inspector of the child. */
+    let url: string | undefined
     child.stderr!.setEncoding('utf8').on('data', (text: string) => {
+      // The inspector start message is not output of the test.
+      const m = INSPECTOR.exec(text)
+      if (m) {
+        url = m[1]
+        text = text.replace(INSPECTOR, '')
+      }
       stderr += text
-      // The inspector start message is from the watchdog, not the test.
-      if (!ended) send({ type: 'output', file, stream: 'stderr', text })
+      if (!ended && text) send({ type: 'output', file, stream: 'stderr', text })
     })
     child.stdout!.setEncoding('utf8').on('data', (text: string) => {
       send({ type: 'output', file, stream: 'stdout', text })
@@ -428,7 +438,8 @@ export const run = async (args: string[]): Promise<number> => {
   // One file runs in this process. It has the runner role for itself.
   if (files.length === 1 && !repeat && !baselineRef) {
     const { file, lines, ids } = files[0]!
-    enableCompileCache(cacheDir)
+    // Deno has no compile cache of this form.
+    nodeModule.enableCompileCache?.(cacheDir)
     // On Bun, the load plugin must exist before the test file loads.
     if (process.versions.bun) await import(BUN_PRELOAD.href)
     else if (V8) startCoverage(true)

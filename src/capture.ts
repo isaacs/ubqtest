@@ -1,5 +1,6 @@
 // Console capture: text that the code under test writes to stdout
 // or stderr becomes `output` events, with the test that wrote it.
+import { Console } from 'node:console'
 import { emit } from './emit.ts'
 import { current } from './state.ts'
 
@@ -20,4 +21,6 @@ export const startCapture = (file: () => string): void => {
       return true
     }) as typeof process.stdout.write
   }
+  // The console of Deno does not write through `process.stdout`.
+  if (process.versions.deno) globalThis.console = new Console(process.stdout, process.stderr)
 }

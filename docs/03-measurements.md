@@ -278,6 +278,11 @@ the code must use the promise API. Deno does not give a child
 access to fd 3 (`runtimes/fd3-parent.mjs`), so Deno needs a different
 transport.
 
+Later results (step 8): a Deno child can open `/dev/fd/3` and
+write to it in the same tick. V8 coverage on Deno has the
+positions of the JavaScript that Deno makes from TypeScript, not
+of the source (D33).
+
 ## 10. Module hooks
 
 Script: `hooks/use.ts`.

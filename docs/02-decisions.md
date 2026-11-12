@@ -396,3 +396,16 @@ does not strip types from a file in `node_modules`, so the
 published package must name JavaScript files. One `package.json`
 cannot do the two jobs. `test/package.test.ts` builds the package
 into a new project and uses it there.
+
+## D33. Coverage on Deno is source counters only (agent, 2026-11-12)
+
+On Deno, the V8 collector is off. The runner gives each Deno test
+process the counters preload. A plain `deno run -A test/foo.ts`
+records coverage `none`, as on Bun.
+
+**Reason.** Deno compiles TypeScript to JavaScript with different
+positions, and V8 coverage on Deno has the positions of that
+JavaScript. `ubq uncovered` printed wrong lines for a plain Deno
+run of the coverage fixture (`'A' (+2 lines)` at `src/calc.ts:5:12`
+in place of `return 'fail'` at `8:3`). Counters have the positions
+of the source on all runtimes.

@@ -64,8 +64,8 @@ const shared = globalThis as { [KEY]?: Collector }
 
 /**
  * Starts V8 precise coverage, or returns the collector that the
- * preload module started. Returns undefined on a runtime that has no
- * V8 inspector (Bun).
+ * preload module started. Returns undefined on Bun and Deno: they
+ * get coverage from source counters only.
  *
  * `early` is true if no user module loaded yet. V8 lists a function
  * that never ran only if coverage started before the function's
@@ -73,7 +73,9 @@ const shared = globalThis as { [KEY]?: Collector }
  */
 export const startCoverage = (early = false): Collector | undefined => {
   if (shared[KEY]) return shared[KEY]
-  if (process.versions.bun) return undefined
+  // Deno has the inspector, but the positions are those of the
+  // JavaScript that Deno makes from TypeScript, not of the source.
+  if (process.versions.bun || process.versions.deno) return undefined
   const session = new Session()
   session.connect()
   // On Node, `post` runs the command before it returns, so these

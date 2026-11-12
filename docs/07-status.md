@@ -16,12 +16,12 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 83 pass
+node src/cli.ts         # the tool runs its own tests: 86 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
 The suite needs `bun` and `deno` on the path for all tests. A test
-skips itself, with a reason, if its runtime is not installed (5
+skips itself, with a reason, if its runtime is not installed (8
 tests need `deno`).
 
 The tool needs Node 24. If `node -v` shows an older version, look
@@ -147,7 +147,8 @@ What was learned:
 - A plain run cannot know the import order, so it records its
   coverage as `partial`. `ubq uncovered` prints a note for such
   files. A run with `--import ubqtest/preload` records `full`.
-- On Deno the collector works. On Bun there is no collector yet
+- On Deno the collector works (later: its positions are wrong for
+  TypeScript, see D33). On Bun there is no collector yet
   (`none`), as planned for step 5.
 - The fixtures are their own project (`test/fixtures/package.json`)
   so that test runs do not write to the store of this repository.
@@ -221,7 +222,8 @@ Not done in step 3:
   it for each test.
 - The CI text has only the header line. Console output and hang
   reports come with step 4.
-- Deno and Bun as the runtime of the runner are not tested. The
+- (Done later, in steps 5 and 8.) Deno and Bun as the runtime of
+  the runner are not tested. The
   runner starts children with its own runtime.
 
 ## Step 4: done, without hang reruns (2026-11-11)
@@ -506,6 +508,23 @@ Done:
   Deno, and Bun, `ubq` runs with coverage on Node and Bun, and the
   type checker gives the hint for a wrong guess.
 
+- Deno parity (D33). `deno run -A node_modules/ubqtest/cli.js`
+  gives the same text as Node for the fixtures `fail.ts`,
+  `mock.ts`, `output.ts`, `hang.ts`, and `busy.ts`, and the same
+  answers from `covers` and `uncovered`
+  (`test/package.test.ts`). What it needed:
+  - A child on Deno writes its events to `/dev/fd/3`.
+  - Coverage on Deno is source counters. The load hook reads the
+    file, adds the counters, removes the types
+    (`stripTypeScriptTypes`), and adds an empty source map.
+    With no map in the text, Deno changes stack positions with
+    the map of its own JavaScript.
+  - The console of Deno does not write through `process.stdout`,
+    so the capture replaces `console` there.
+  - A Deno child starts with `--inspect=127.0.0.1:0`. Deno has no
+    signal that starts the inspector, and SIGUSR1 ends a Deno
+    process. The flag adds no time that the benchmark can see
+    (10 starts: 90 ms with it, 86 ms with no flag).
 - The agent guide: `GUIDE.md` at the package root. `ubq guide`
   prints it. It has the API, the rules that fail a test, the
   names that do not exist with their replacements, and the
@@ -521,6 +540,16 @@ Done:
 Known limits:
 
 - `doctor` does not read a `tsconfig.json` that has `extends`.
+- A plain `deno run -A test/foo.ts` records coverage `none`, as a
+  plain program on Bun does.
+- On Deno, the changed source of a file is in the cache, but the
+  removal of the types runs again in each process.
+- The Deno tests use the built package. From the source
+  (`deno run -A src/cli.ts`) in a different project, Deno does
+  not find the parser, which is a development dependency here.
+- A test process on Deno that has no runner and is in a loop
+  that does not return gets no stack (the watchdog thread has no
+  inspector there).
 
 ## Source counters on Node: D25 done (2026-11-12)
 
