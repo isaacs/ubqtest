@@ -32,6 +32,7 @@ const USAGE = `usage:
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
   ubq --changed              run the test files that loaded a file that has changed, and new test files
+  ubq --repeat <n> ...       run the selected tests n times, and count the failures of each test
   ubq failures [run]         the failures of a run (default: the last run)
   ubq show <test id>         the last result of one test
   ubq history <test id>      the result of one test in each stored run
@@ -99,6 +100,7 @@ const main = (args: string[]): number | Promise<number> => {
       if (!t) throw new UsageError(`no stored result for test: ${id}`)
       out(`${t.status} ${t.id}`)
       out(`  run ${t.run}, ${t.asserts} assertions, ${t.ms.toFixed(1)} ms`)
+      if (t.repeats) out(`  failed ${t.fails} of ${t.repeats} times`)
       if (t.line !== null) out(`  at ${t.file}:${t.line}`)
       if (t.reason) out(`  skip reason: ${t.reason}`)
       if (t.failure) {
@@ -129,7 +131,9 @@ const main = (args: string[]): number | Promise<number> => {
       const width = String(rows.at(-1)!.run).length
       for (const r of rows) {
         const time = new Date(r.time).toISOString().slice(0, 19).replace('T', ' ')
-        const message = r.failure ? `  ${r.failure.message.split('\n')[0]}` : ''
+        const rate = r.repeats ? `failed ${r.fails} of ${r.repeats} times` : ''
+        const first = r.failure?.message.split('\n')[0]
+        const message = rate || first ? `  ${[rate, first].filter(Boolean).join(': ')}` : ''
         out(
           `run ${String(r.run).padStart(width)}  ${time}  ${r.status}  ${r.ms.toFixed(1).padStart(7)} ms${message}`,
         )
@@ -140,7 +144,9 @@ const main = (args: string[]): number | Promise<number> => {
       const f = flake(rows)
       if (f)
         out(
-          `flaky: the test passed in run ${f.pass} and failed in run ${f.fail}, and the code that it loaded was the same in the two runs`,
+          'run' in f ?
+            `flaky: the test failed ${f.fails} of ${f.repeats} times in run ${f.run}`
+          : `flaky: the test passed in run ${f.pass} and failed in run ${f.fail}, and the code that it loaded was the same in the two runs`,
         )
       return 0
     }

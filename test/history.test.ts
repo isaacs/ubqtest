@@ -1,4 +1,4 @@
-// Questions about more than one stored run: history and diff.
+// Results from more than one run: history, diff, and --repeat.
 import { appendFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, test } from 'ubqtest'
@@ -91,5 +91,64 @@ test('diff shows the tests with a different status in two runs', () => {
   assert.deepEqual(err('x'), [4, 'ubq: ubq diff needs run numbers, not: x\n'])
   assert.deepEqual(err('2', '2'), [4, 'ubq: ubq diff needs two different runs, not run 2 two times\n'])
   assert.deepEqual(err('1', '2', '3'), [4, 'ubq: ubq diff takes two run numbers at most\n'])
+  rmSync(p.dir, { recursive: true })
+})
+
+test('--repeat runs the tests many times and counts the failures of each test', () => {
+  const p = project()
+  p.set('pass')
+  const flaky = 'sometimes.ts > fails each third time'
+  const r = p.ubq('--repeat', '7', 'sometimes.ts', 'flip.ts')
+  assert.deepEqual([r.code, r.err], [1, ''])
+  assert.deepEqual(lines(r.out.replace(/ \(run \d+\)\n$/, '')), [
+    `FAIL ${flaky}`,
+    '  failed 2 of 7 times. The first failure:',
+    '  expected values to differ, both are 0',
+    '  at sometimes.ts:12:10',
+    '  > assert.notEqual(n % 3, 0)',
+    '  output:',
+    '  | time 3',
+    '  rerun: ubq sometimes.ts:10',
+    '',
+    'FAIL sometimes.ts > fails',
+    '  failed 7 of 7 times.',
+    '  expected values to be equal',
+    '  at sometimes.ts:20:10',
+    '  > assert.equal(1 as number, 2)',
+    '  actual:   1',
+    '  expected: 2',
+    '  rerun: ubq sometimes.ts:19',
+    '',
+    'repeat 7: 1 failed some times, 1 failed each time, 4 failed no times',
+    'fail: 2 failed, 4 passed',
+  ])
+
+  // The store has one run, with the first failure of each test.
+  assert.deepEqual(lines(p.ubq('history', flaky).out), [
+    'run 1  TIME  fail N ms  failed 2 of 7 times: expected values to differ, both are 0',
+    '1 failed, 0 passed in 1 runs (times are UTC)',
+    'flaky: the test failed 2 of 7 times in run 1',
+  ])
+  assert.deepEqual(lines(p.ubq('show', flaky).out).slice(0, 3), [
+    `fail ${flaky}`,
+    '  run 1, 1 assertions, N ms',
+    '  failed 2 of 7 times',
+  ])
+  assert.equal(p.ubq('failures').last, 'fail: 2 failed, 4 passed')
+
+  // With a selection. One file runs in its own processes too.
+  const one = p.ubq('--repeat', '3', 'flip.ts > c')
+  assert.deepEqual([one.code, lines(one.out.replace(/ \(run \d+\)\n$/, ''))], [0, [
+    'repeat 3: 0 failed some times, 0 failed each time, 1 failed no times',
+    'pass: 0 failed, 1 passed, 2 not selected',
+  ]])
+  assert.match(p.ubq('--failed', '--repeat', '2').out, /\nrepeat 2: \d failed some times, 1 failed each time, 0 failed no times\n/)
+
+  // A file error.
+  appendFileSync(join(p.dir, 'flip.ts'), '\nthrow new Error("at load")\n')
+  assert.match(p.ubq('--repeat', '2', 'flip.ts').out, /^ERROR flip\.ts\n  failed 2 of 2 times\.\n  Error: at load\n/)
+
+  const usage = "ubq: --repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'\n"
+  assert.deepEqual([p.ubq('--repeat').err, p.ubq('--repeat', '1', 'flip.ts').err, p.ubq('--repeat', 'flip.ts').code], [usage, usage, 4])
   rmSync(p.dir, { recursive: true })
 })

@@ -2,7 +2,7 @@
 // failure, one summary line. See docs/04-architecture.md, section 9.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Failure, Location, Sink, TestId } from './events.ts'
+import type { Failure, Location, Repeat, Sink, TestId } from './events.ts'
 import { projectRoot } from './project.ts'
 
 const sourceLine = (at: Location): string | undefined => {
@@ -30,8 +30,13 @@ export const textSink = (write: (text: string) => void): Sink => {
   let ci = false
   let run: number | undefined
 
-  const block = (head: string, failure: Failure, id?: TestId): void => {
+  const repeats = new Map<TestId, Repeat>()
+  const rate = (r: Repeat, what: string): string =>
+    `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
+
+  const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat): void => {
     const lines = [head, indent(failure.message)]
+    if (repeat) lines.splice(1, 0, rate(repeat, id === undefined ? 'error' : 'failure'))
     if (failure.at) {
       lines.push(`  at ${loc(failure.at)}`)
       const source = sourceLine(failure.at)
@@ -76,17 +81,18 @@ export const textSink = (write: (text: string) => void): Sink => {
         if (event.id) output.set(event.id, (output.get(event.id) ?? '') + event.text)
         break
       case 'test-end':
+        if (event.repeat) repeats.set(event.id, event.repeat)
         if (event.status === 'fail' && event.failure)
-          block(`FAIL ${event.id}`, event.failure, event.id)
+          block(`FAIL ${event.id}`, event.failure, event.id, event.repeat)
         else if (event.status === 'skip')
           skips.push(`skip ${event.id}: ${event.reason}`)
         output.delete(event.id)
         break
       case 'late-failure':
-        block(`FAIL ${event.id}`, event.failure, event.id)
+        block(`FAIL ${event.id}`, event.failure, event.id, repeats.get(event.id))
         break
       case 'file-error':
-        block(`ERROR ${event.file}`, event.failure)
+        block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
         break
       case 'run-end': {
         if (skips.length) write(skips.join('\n') + '\n')

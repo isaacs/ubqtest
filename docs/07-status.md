@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 54 pass
+node src/cli.ts         # the tool runs its own tests: 55 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -352,7 +352,15 @@ Done:
   that ran code while the test file loaded or while the test ran.
   It is null if the run has no coverage for the test.
 
-Not done: `--repeat`, `--baseline`.
+- `ubq --repeat <n> <selection>` runs the selected tests n times
+  and counts the failures of each test (`src/repeat.ts`). The
+  exit code is 1 if a test failed one time or more. The store has
+  one run for all the repeats (store schema 5, columns
+  `test.repeats` and `test.fails`). `history` and `show` print
+  the counts, and `--failed` selects a test that failed some
+  times.
+
+Not done: `--baseline`.
 
 Known limits:
 
@@ -365,6 +373,14 @@ Known limits:
   with `import()` has a different digest from a run that passed,
   so the note can be absent for a flaky test. It cannot be present
   for a test whose code changed.
+- The repeats of `--repeat` run one after the other, so 100
+  repeats of a file of 50 ms take 5 seconds or more. Two processes
+  of one test file at the same time can fail for that reason only,
+  and the count must not include such failures.
+- A new schema version removes the old store. If two `ubq`
+  processes start at the same time after such a change, one of
+  them can fail one time. This occurred one time in the fixture
+  store that the test files share.
 - `diff` compares the tests that ran in the two runs. It counts the
   tests that ran in only one of them, and lists such a test only if
   it failed in the second run.

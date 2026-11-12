@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
 import { projectRoot } from './project.ts'
 
-const SCHEMA_VERSION = 4
+const SCHEMA_VERSION = 5
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -23,6 +23,10 @@ const COMMIT_MS = 50
 // process of the test ran code, up to the end of the test. Two runs
 // of a test with the same digest ran the same code. It is null if
 // the run has no coverage for the test.
+//
+// `test.repeats` and `test.fails` are for a run with `--repeat`: how
+// often the test ran in the run, and how often it failed. The other
+// columns are from the first failure.
 const SCHEMA = `
 create table run (
   id integer primary key,
@@ -48,6 +52,8 @@ create table test (
   reason text,
   failure text,
   code text,
+  repeats integer,
+  fails integer,
   primary key (run, id)
 ) without rowid;
 create table file_error (
@@ -156,7 +162,7 @@ export const openStore = (): Store => {
     },
     sink(run) {
       const addTest = db.prepare(
-        'insert into test (run, id, file, line, status, ms, asserts, reason, failure) values (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into test (run, id, file, line, status, ms, asserts, reason, failure, repeats, fails) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       const failTest = db.prepare(
         "update test set status = 'fail', failure = ? where run = ? and id = ?",
@@ -240,6 +246,8 @@ export const openStore = (): Store => {
               event.asserts,
               event.reason ?? null,
               json(event.failure),
+              event.repeat?.runs ?? null,
+              event.repeat?.fails ?? null,
             )
             break
           case 'output':

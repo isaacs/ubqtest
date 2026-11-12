@@ -103,6 +103,17 @@ export interface TestEnd {
   reason?: string
   /** `testdir` folders that stay because the test failed. */
   kept?: string[]
+  /**
+   * For `ubq --repeat`: how often the test ran and how often it
+   * failed. The other fields are from the first failure, or from the
+   * last time if the test did not fail.
+   */
+  repeat?: Repeat
+}
+
+export interface Repeat {
+  runs: number
+  fails: number
 }
 
 /** A failure that came after the `test-end` of its test. */
@@ -146,6 +157,8 @@ export interface FileError {
   type: 'file-error'
   file: string
   failure: Failure
+  /** For `ubq --repeat`: in how many of the repeats the file had an error. */
+  repeat?: Repeat
 }
 
 /** Last event from a test process. */

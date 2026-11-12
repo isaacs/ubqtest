@@ -268,6 +268,14 @@ The first version works at file level. A later version can use
 ranges, so that a change in one function selects only the tests
 that ran that function.
 
+`--repeat <n>` goes with each selection. It runs the selected
+tests n times, one repeat after the other, each in new processes.
+The run has one result for each test: `fail` if the test failed
+one time or more, with the events of its first failure and the
+two counts (`test-end.repeat`). The sinks get these results after
+the last repeat, so the store has one run, and the text has one
+block for each failed test.
+
 **No result cache in the first version.** A cache that skips a test
 by mistake reports a pass that did not happen. File reads and
 environment variables are inputs that the dependency list does not

@@ -159,6 +159,9 @@ export interface TestRow {
   asserts: number
   reason: string | null
   failure: Failure | null
+  /** For a run with `--repeat`: how often the test ran, and how often it failed. */
+  repeats: number | null
+  fails: number | null
 }
 
 const testRow = (r: Record<string, unknown>): TestRow =>
@@ -231,6 +234,9 @@ export interface HistoryRow {
   failure: Failure | null
   /** Runtime and code digest. Null if the code of the run is not known. */
   code: string | null
+  /** For a run with `--repeat`: how often the test ran, and how often it failed. */
+  repeats: number | null
+  fails: number | null
 }
 
 /** The results of a test in each stored run, oldest first. */
@@ -238,24 +244,33 @@ export const history = (db: DatabaseSync, id: string): HistoryRow[] =>
   (
     db
       .prepare(
-        "select t.run, r.time, t.status, t.ms, t.failure, r.runtime || ' ' || t.code code from test t join run r on r.id = t.run where t.id = ? order by t.run",
+        "select t.run, r.time, t.status, t.ms, t.failure, r.runtime || ' ' || t.code code, t.repeats, t.fails from test t join run r on r.id = t.run where t.id = ? order by t.run",
       )
       .all(id) as Record<string, unknown>[]
   ).map(r => ({ ...r, failure: r.failure ? JSON.parse(r.failure as string) : null }) as HistoryRow)
 
+export type Flake =
+  | { pass: number; fail: number }
+  | { run: number; repeats: number; fails: number }
+
 /**
- * The last two runs in which a test ran the same code on the same
- * runtime, and passed in one and failed in the other.
+ * The newest evidence that a test is flaky: a run with `--repeat` in
+ * which the test failed some times, or two runs in which the test
+ * ran the same code on the same runtime, and passed in one and
+ * failed in the other.
  */
-export const flake = (rows: HistoryRow[]): { pass: number; fail: number } | undefined => {
+export const flake = (rows: HistoryRow[]): Flake | undefined => {
   const last = new Map<string, { pass?: number; fail?: number }>()
-  let found: { pass: number; fail: number } | undefined
+  let found: Flake | undefined
   for (const r of rows) {
+    if (r.repeats && r.fails && r.fails < r.repeats)
+      found = { run: r.run, repeats: r.repeats, fails: r.fails }
     if (r.code === null || r.status === 'skip') continue
     const seen = last.get(r.code) ?? {}
     last.set(r.code, seen)
     seen[r.status] = r.run
-    if (seen.pass !== undefined && seen.fail !== undefined) found = { pass: seen.pass, fail: seen.fail }
+    if (seen.pass !== undefined && seen.fail !== undefined && !(found && 'run' in found && found.run === r.run))
+      found = { pass: seen.pass, fail: seen.fail }
   }
   return found
 }

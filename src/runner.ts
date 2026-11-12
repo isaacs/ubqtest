@@ -21,6 +21,7 @@ import {
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
+import { repeater } from './repeat.ts'
 import { fileHash, openStore, stateDir, type Store } from './store.ts'
 
 /** The one name pattern for test files. */
@@ -347,8 +348,20 @@ export const run = async (args: string[]): Promise<number> => {
   // A wrong configuration is an error of the command, before any
   // test process starts.
   config()
-  const flags = args.filter(a => a.startsWith('--'))
-  const rest = args.filter(a => !a.startsWith('--'))
+  let repeat = 0
+  let selection = args
+  const at = args.indexOf('--repeat')
+  if (at >= 0) {
+    const count = args[at + 1] ?? ''
+    if (!/^\d+$/.test(count) || +count < 2)
+      throw new UsageError(
+        "--repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'",
+      )
+    repeat = +count
+    selection = args.toSpliced(at, 2)
+  }
+  const flags = selection.filter(a => a.startsWith('--'))
+  const rest = selection.filter(a => !a.startsWith('--'))
   for (const flag of flags)
     if (flag !== '--failed' && flag !== '--changed')
       throw new UsageError(`unknown option: ${flag}`)
@@ -388,7 +401,7 @@ export const run = async (args: string[]): Promise<number> => {
   const cacheDir = join(stateDir(), 'compile-cache')
 
   // One file runs in this process. It has the runner role for itself.
-  if (files.length === 1) {
+  if (files.length === 1 && !repeat) {
     const { file, lines, ids } = files[0]!
     enableCompileCache(cacheDir)
     // On Bun, the load plugin must exist before the test file loads.
@@ -440,14 +453,25 @@ export const run = async (args: string[]): Promise<number> => {
   }
   send(start)
 
-  const queue = order(files, store)
-  const jobs = Math.min(availableParallelism(), queue.length)
-  await Promise.all(
-    Array.from({ length: jobs }, async () => {
-      for (let next = queue.shift(); next; next = queue.shift())
-        await runFile(next, send, cacheDir)
-    }),
-  )
+  const ordered = order(files, store)
+  const runAll = async (to: Sink): Promise<void> => {
+    const queue = [...ordered]
+    const jobs = Math.min(availableParallelism(), queue.length)
+    await Promise.all(
+      Array.from({ length: jobs }, async () => {
+        for (let next = queue.shift(); next; next = queue.shift())
+          await runFile(next, to, cacheDir)
+      }),
+    )
+  }
+  if (repeat) {
+    // One repeat after the other, each as a usual run: two processes
+    // of one test file at the same time can fail for that reason only.
+    const all = repeater(repeat, send)
+    for (let i = 0; i < repeat; i++) await runAll(all.collect)
+    all.flush()
+    write(all.summary() + '\n')
+  } else await runAll(send)
 
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')

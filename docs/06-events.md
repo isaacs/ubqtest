@@ -88,6 +88,13 @@ run in parallel. Events of one file keep their order.
     died.** The `exit` event from the runner role has the code and
     the signal.
 
+11. **A run with `--repeat` has one `test-end` for each test
+    also.** The runner makes it from the results of the repeats:
+    the events of the first failure, or of the last repeat if the
+    test did not fail. `test-end.repeat` has the count of the
+    repeats and the count of the failures. A sink does not see the
+    events of the other repeats.
+
 ## 4. Test IDs
 
 `<file> > <group> > <name>`, for example
