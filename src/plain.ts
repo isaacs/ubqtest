@@ -5,6 +5,7 @@ import { subscribe } from 'node:diagnostics_channel'
 import { writeSync } from 'node:fs'
 import { CHANNEL } from './emit.ts'
 import { headCommit } from './git.ts'
+import { hangReruns } from './hang.ts'
 import {
   EVENT_VERSION,
   type FileEvent,
@@ -45,6 +46,8 @@ export const startPlain = (): void => {
   const t0 = now()
   const status = new Map<TestId, 'pass' | 'fail' | 'skip'>()
   let errors = 0
+  /** Tests that timed out with something open. */
+  const hung: TestId[] = []
   let noTests = false
   let begun = false
   let store: Store | undefined
@@ -79,7 +82,10 @@ export const startPlain = (): void => {
       send(start)
     }
     send(event)
-    if (event.type === 'test-end') status.set(event.id, event.status)
+    if (event.type === 'test-end') {
+      status.set(event.id, event.status)
+      if (event.failure?.kind === 'timeout' && event.failure.pending) hung.push(event.id)
+    }
     else if (event.type === 'late-failure') status.set(event.id, 'fail')
     else if (event.type === 'file-error') {
       if (event.failure.kind === 'no-tests') noTests = true
@@ -95,6 +101,7 @@ export const startPlain = (): void => {
         : 0
       process.exitCode = code
       send({ type: 'exit', file: event.file, code, signal: null })
+      for (const hang of hangReruns(hung)) send(hang)
       send({
         type: 'run-end',
         ms: now() - t0,

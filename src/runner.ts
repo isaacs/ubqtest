@@ -25,6 +25,7 @@ import { textSink } from './sink-text.ts'
 import { typeCheck } from './typecheck.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
 import { headCommit } from './git.ts'
+import { hangReruns } from './hang.ts'
 import { repeater } from './repeat.ts'
 import { shuffle } from './shuffle.ts'
 import { fileHash, openStore, stateDir, type Store } from './store.ts'
@@ -521,8 +522,13 @@ export const run = async (args: string[]): Promise<number> => {
   let errors = 0
   const errorFiles = new Set<string>()
   let unselected = 0
+  /** Tests that timed out with something open. */
+  const hung: string[] = []
   const send = (event: UbqEvent): void => {
-    if (event.type === 'test-end') status.set(event.id, event.status)
+    if (event.type === 'test-end') {
+      status.set(event.id, event.status)
+      if (event.failure?.kind === 'timeout' && event.failure.pending) hung.push(event.id)
+    }
     else if (event.type === 'late-failure') status.set(event.id, 'fail')
     else if (event.type === 'file-error') {
       errors++
@@ -551,7 +557,10 @@ export const run = async (args: string[]): Promise<number> => {
     for (let i = 0; i < repeat; i++) await runAll(all.collect)
     all.flush()
     write(all.summary() + '\n')
-  } else await runAll(send)
+  } else {
+    await runAll(send)
+    for (const hang of hangReruns(hung)) send(hang)
+  }
   const typeErrors = (await checking) ?? []
   for (const error of typeErrors) send(error)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')

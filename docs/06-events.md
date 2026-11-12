@@ -27,6 +27,7 @@ run-start
   <file stream> exit
   <file stream> exit
   ...
+  hang ...
   type-error ...
 run-end
 ```
@@ -53,6 +54,7 @@ run in parallel. Events of one file keep their order.
 | `file-error` | test process | a failure that belongs to no test, such as an error while the file loads |
 | `file-end` | test process | the file has no more tests |
 | `exit` | runner role | exit code and signal of the test process |
+| `hang` | runner role | the result of a hang rerun: the places that opened what a timed-out test left open |
 | `type-error` | runner role | one error from the type checker of the project, after all file streams |
 | `run-end` | runner role | totals and the exit code of the run |
 

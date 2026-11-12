@@ -8,8 +8,14 @@ import { CHANNEL } from './emit.ts'
 export const startPipe = (): void => {
   // Deno has its own numbers for open files. The path gives the
   // descriptor that the process got from the runner.
-  const fd = process.versions.deno ? openSync('/dev/fd/3', 'w') : 3
+  let fd = 3
   let closed = false
+  try {
+    if (process.versions.deno) fd = openSync('/dev/fd/3', 'w')
+  } catch {
+    // The process has no pipe to a runner (a hang rerun on Deno).
+    closed = true
+  }
   subscribe(CHANNEL, event => {
     if (closed) return
     try {

@@ -88,7 +88,9 @@ FAIL test/parse.test.ts > parse > circle
 - A test that changes `process.env` or the working directory and
   does not put the change back fails. Use `env()` and `cleanup()`.
 - A test that takes more than its time limit fails (default 5000
-  ms). The message lists what the test left open.
+  ms). The message lists what the test left open. Then ubq runs
+  that test one more time, and a `HANG` block names the line that
+  opened each thing: `Timeout opened at test/a.test.ts:18:32`.
 - Two tests with the same name in one group are an error.
 - A call to `process.exit` in a test file is an error.
 
@@ -215,7 +217,8 @@ failure block of its test, and in `ubq show`.
 
 Most projects need none. The `ubq` key of `package.json` can have
 `include` and `exclude` (lists of glob patterns for test files),
-and `timeout` (milliseconds). A folder with its own `package.json`
+`timeout` (milliseconds), and `hangRerun` (`false` turns off the
+rerun of a test that timed out). A folder with its own `package.json`
 is a different project: run `ubq` in that folder.
 
 ## Requirements

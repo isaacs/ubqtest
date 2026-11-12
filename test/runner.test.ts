@@ -1,6 +1,6 @@
 // The runner: many files, selection, exit codes, and dead processes.
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -123,7 +123,7 @@ test('a plain program keeps its console', () => {
   assert.equal(r.stderr, 'step 2: about to fail\n')
 })
 
-test('hangs: a promise that never settles, a timeout, a process that stays alive', () => {
+test('hangs: a promise that never settles, a timeout, a process that stays alive', { timeout: 20_000 }, () => {
   const t0 = performance.now()
   const r = ubq(['hang.ts'])
   // The test that never settles must not wait for its 5000 ms limit.
@@ -133,7 +133,29 @@ test('hangs: a promise that never settles, a timeout, a process that stays alive
   assert.match(text, /FAIL hang\.ts > never settles, nothing pending\n  the promise of the test never settled/)
   assert.match(text, /the test did not end in 50 ms\n.*\n.*\n  still open: TCPServerWrap/)
   assert.match(text, /ERROR hang\.ts\n  the tests ended, but the process did not exit\..*\n  still open: TCPServerWrap/)
-  assert.equal(r.out.at(-1), 'fail: 1 errors, 2 failed, 1 passed')
+  // The rerun with async tracking names the lines that opened them (D14).
+  assert.deepEqual(r.out.slice(-9, -1), [
+    'HANG hang.ts > times out with a server open',
+    '  TCPServerWrap opened at hang.ts:11:33',
+    '  > const server = createServer().listen(0)',
+    '',
+    'HANG hang.ts > times out with a timer',
+    '  Timeout opened at hang.ts:18:32',
+    '  > await new Promise(resolve => setTimeout(resolve, 3000))',
+    '',
+  ])
+  assert.equal(r.out.at(-1), 'fail: 1 errors, 3 failed, 1 passed')
+  // The store has them too.
+  assert(ubq(['failures']).out.includes('  Timeout opened at hang.ts:18:32'))
+})
+
+test('the hangRerun switch turns the rerun off', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  cpSync(join(cwd, 'hang.ts'), join(p.dir, 'hang.ts'))
+  p.configure({ hangRerun: false })
+  const off = p.ubq('hang.ts')
+  assert.deepEqual([off.last, off.out.includes('HANG ')], ['fail: 1 errors, 3 failed, 1 passed', false])
 })
 
 test('a loop that does not return is stopped, with the line of the loop', () => {

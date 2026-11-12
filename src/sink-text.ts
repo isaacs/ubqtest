@@ -57,6 +57,7 @@ export const textSink = (write: (text: string) => void): Sink => {
     }
     if (failure.diff) lines.push(indent(failure.diff))
     if (failure.pending) lines.push(`  still open: ${failure.pending.join(', ')}`)
+    for (const o of failure.opened ?? []) lines.push(`  ${o.type} opened at ${loc(o.at)}`)
     const text = id === undefined ? undefined : output.get(id)?.trimEnd()
     if (text) {
       // In CI, stdout is all that a reader has, so nothing is cut.
@@ -109,6 +110,16 @@ export const textSink = (write: (text: string) => void): Sink => {
         if (event.updated)
           write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
         break
+      case 'hang': {
+        const lines = [`HANG ${event.id}`]
+        for (const o of event.opened) {
+          lines.push(`  ${o.type} opened at ${loc(o.at)}`)
+          const source = sourceLine(o.at)
+          if (source) lines.push(`  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`)
+        }
+        write(lines.join('\n') + '\n\n')
+        break
+      }
       case 'type-error':
         if (++typeErrors <= TYPE_ERRORS)
           block(`TYPE ${event.at?.file ?? '(no file)'}`, {

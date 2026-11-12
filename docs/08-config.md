@@ -40,6 +40,7 @@ that are in it. A folder that is a different project is an error.
 | `include` | list of glob patterns | the `.test.` name pattern | Replaces the name pattern. Paths are from the project root. |
 | `exclude` | list of glob patterns | none | Files that are not test files, after `include`. |
 | `timeout` | number | 5000 | The time limit of a test in milliseconds, if the test and its groups set none. |
+| `hangRerun` | boolean | true | `false` turns off the rerun of a test that timed out with something open (D14). |
 
 Rules:
 
@@ -58,5 +59,4 @@ Source: `src/config.ts`. Tests: `test/select.test.ts`.
 
 ## Not built
 
-- `hangRerun` (D14), because hang reruns are not built.
 - A run of all workspaces from the root of a monorepo.

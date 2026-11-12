@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 87 pass
+node src/cli.ts         # the tool runs its own tests: 88 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -256,9 +256,9 @@ Checks: `test/runner.test.ts`, fixtures `hang.ts`, `busy.ts`,
 
 Not done:
 
-- **Hang reruns (D14).** The rerun of a timed-out test with async
-  tracking, to get the line that opened each resource. The report
-  has the resource types only.
+- (Done later: "Hang reruns" below.) **Hang reruns (D14).** The
+  rerun of a timed-out test with async tracking, to get the line
+  that opened each resource.
 - The watchdog thread uses inspector port 9229. If a different
   process has that port, the failure has no stack, only the
   message.
@@ -569,6 +569,40 @@ Known limits:
 - A test process on Deno that has no runner and is in a loop
   that does not return gets no stack (the watchdog thread has no
   inspector there).
+
+## Hang reruns: D14 done (2026-11-12)
+
+The part of step 4 that was not built. Source: `src/hang.ts`.
+
+- A test that timed out with something open runs one more time,
+  alone, in a new process with an `async_hooks` init hook. The
+  hook keeps the stack of each resource that the test opens. At
+  the time limit, the process writes the user code location of
+  each resource that is still open to a file in `.ubq/`, and
+  exits.
+- The result is a `hang` event. The text has a `HANG` block with
+  the type, the location, and the source line. The store adds
+  the locations to the failure of the test, so `ubq failures`
+  prints them.
+- The runner does the reruns after all files ended. A plain
+  program, and a file that runs in the process of the runner, do
+  them when the file ends. 3 reruns at most for each run.
+- `"ubq": { "hangRerun": false }` turns the reruns off.
+- Checks: `test/runner.test.ts`, and for Deno
+  `test/package.test.ts`.
+
+Known limits:
+
+- The reruns go one after the other, and each one waits for the
+  time limit of its test: 15 seconds more for 3 tests with the
+  default limit.
+- Bun has no reruns: its `async_hooks` gives no events.
+- On Deno, the rerun names the place that started a timer, but
+  not the place that opened a server: Deno gives no event for
+  it.
+- The rerun runs the top-level code of the test file again.
+- With `--repeat`, there are no reruns.
+- `ubq show` does not print what a test left open.
 
 ## Source counters on Node: D25 done (2026-11-12)
 

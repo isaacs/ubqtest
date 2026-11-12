@@ -333,14 +333,12 @@ When a child ends, the runner kills the process group of the
 child, so processes that its tests started and did not stop die
 too.
 
-Not built yet: the rerun for creation stacks, below.
-
 For creation stacks ("which line opened this server?"), the runner
 runs a timed-out test one more time, alone, with the init hook on.
-It stores the result as a `hang` event. The limit is 3 such reruns
-for each run. This is on by default, and a config switch turns it
-off (D14). With the switch off, the failure block prints the
-command that does the rerun.
+The result is a `hang` event. The limit is 3 such reruns for each
+run. This is on by default, and the `hangRerun` key of the
+configuration turns it off (D14). Built in `src/hang.ts`; the
+status document has the limits.
 
 ## 9. Output
 

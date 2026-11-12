@@ -170,6 +170,7 @@ export const openStore = (): Store => {
       const failTest = db.prepare(
         "update test set status = 'fail', failure = ? where run = ? and id = ?",
       )
+      const getFailure = db.prepare('select failure from test where run = ? and id = ?')
       const addError = db.prepare('insert into file_error (run, file, failure) values (?, ?, ?)')
       const setCode = db.prepare('update test set code = ? where run = ? and id = ?')
       const dropTestCov = db.prepare('delete from coverage where tfile = ? and test = ?')
@@ -259,6 +260,12 @@ export const openStore = (): Store => {
           case 'late-failure':
             failTest.run(json(event.failure), run, event.id)
             break
+          case 'hang': {
+            const row = getFailure.get(run, event.id) as { failure: string | null } | undefined
+            if (row?.failure)
+              failTest.run(JSON.stringify({ ...JSON.parse(row.failure), opened: event.opened }), run, event.id)
+            break
+          }
           case 'file-error':
             addError.run(run, event.file, json(event.failure))
             break

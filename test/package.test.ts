@@ -109,9 +109,14 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
       child.stdout.on('data', data => (text += data))
       child.stderr.on('data', data => (text += data))
       // The run number and the seed change with each run.
-      child.on('close', () =>
-        done(text.split('\n').filter(l => !l.startsWith('file order:')).map(l => l.replace(/ \(run \d+\)$/, ''))),
-      )
+      child.on('close', () => {
+        const lines = text.split('\n').filter(l => !l.startsWith('file order:')).map(l => l.replace(/ \(run \d+\)$/, ''))
+        // Deno has no async tracking for a server, so its hang rerun
+        // does not name the line that opened one.
+        const server = lines.indexOf('HANG hang.ts > times out with a server open')
+        if (server >= 0) lines.splice(server, 4)
+        done(lines)
+      })
     })
   const deno = ['deno', 'run', '-A']
   // The runs are at the same time: some of them wait for a time limit.
@@ -123,6 +128,8 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
         (async () => assert.deepEqual(await run(deno, file), await run(['node'], file), `${file} alone`))(),
     ]),
   )
+  // The hang rerun on Deno names the line that started a timer.
+  assert((await run(deno, 'hang.ts')).includes('  Timeout opened at hang.ts:18:32'))
   // Coverage, also of a mocked instance.
   await run(deno, 'mock.ts', 'pass.ts')
   assert.deepEqual(await run(['node'], 'covers', 'src/word.ts:3'), [

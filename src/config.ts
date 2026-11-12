@@ -11,6 +11,8 @@ export interface Config {
   exclude?: string[]
   /** The default time limit of a test, in milliseconds. */
   timeout?: number
+  /** False turns off the rerun of a test that timed out (D14). */
+  hangRerun?: boolean
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -23,6 +25,7 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   include: [globs, 'a list of glob patterns, such as ["test/**/*.test.ts"]'],
   exclude: [globs, 'a list of glob patterns, such as ["test/slow/**"]'],
   timeout: [v => typeof v === 'number' && v > 0, 'a number of milliseconds, such as 5000'],
+  hangRerun: [v => typeof v === 'boolean', 'true or false'],
 }
 
 let cached: Config | undefined

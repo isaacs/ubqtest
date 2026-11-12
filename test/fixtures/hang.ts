@@ -13,6 +13,11 @@ test('times out with a server open', { timeout: 50 }, async () => {
   server.close()
 })
 
+test('times out with a timer', { timeout: 50 }, async () => {
+  assert.equal(1, 1)
+  await new Promise(resolve => setTimeout(resolve, 3000))
+})
+
 test('runs after the hangs', () => {
   assert.equal(1, 1)
 })

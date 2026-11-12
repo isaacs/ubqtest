@@ -48,6 +48,15 @@ export interface Failure {
    * the process alive, such as `Timeout x2` or `TCPServerWrap`.
    */
   pending?: string[]
+  /** For `timeout`, after a hang rerun: the places that opened what is in `pending`. */
+  opened?: Opened[]
+}
+
+/** A resource that a test opened, and the user code that opened it. */
+export interface Opened {
+  /** `TCPServerWrap`, `Timeout` */
+  type: string
+  at: Location
 }
 
 /** First event of a run. The runner role writes it. */
@@ -197,6 +206,17 @@ export interface TypeCheckError {
   at?: Location
 }
 
+/**
+ * The result of a hang rerun (D14): what a test that timed out left
+ * open, with the places that opened it. The runner role writes it,
+ * after the events of the test files.
+ */
+export interface Hang {
+  type: 'hang'
+  id: TestId
+  opened: Opened[]
+}
+
 /** Last event of a run. The runner role writes it. */
 export interface RunEnd {
   type: 'run-end'
@@ -223,7 +243,7 @@ export type FileEvent =
   | FileError
   | FileEnd
 
-export type RunEvent = RunStart | Exit | TypeCheckError | RunEnd
+export type RunEvent = RunStart | Exit | Hang | TypeCheckError | RunEnd
 
 export type UbqEvent = FileEvent | RunEvent
 

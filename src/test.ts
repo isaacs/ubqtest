@@ -9,6 +9,7 @@ import type { Collector } from './coverage.ts'
 import { emit } from './emit.ts'
 import { type CleanupFn, fileCleanups, fileState } from './fixtures.ts'
 import { EVENT_VERSION, type Failure, type Location } from './events.ts'
+import { trackOpened } from './hang.ts'
 import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
 import { saveSnapshots } from './snapshot.ts'
@@ -207,6 +208,9 @@ const errorFailure = (error: unknown): Failure => {
 
 const TIMEOUT = Symbol('timeout')
 
+/** In a hang rerun: gives the places that opened what is still open. */
+const opened = process.env.UBQ_HANG ? trackOpened(process.env.UBQ_HANG) : undefined
+
 /** Counts of what keeps the process alive now, by type. */
 const openNow = (): Map<string, number> => {
   const counts = new Map<string, number>()
@@ -351,6 +355,7 @@ const runOne = async (entry: Entry): Promise<void> => {
   } catch (error) {
     if (error === TIMEOUT) {
       const pending = stillOpen(before)
+      opened?.(pending)
       state.failure ??= {
         kind: 'timeout',
         message: `the test did not end in ${entry.timeout} ms`,

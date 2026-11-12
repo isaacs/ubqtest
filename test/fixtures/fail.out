@@ -120,4 +120,8 @@ FAIL fail.ts > rules > an assertion after the end
   > setTimeout(() => assert.equal(1, 1), 5)
   rerun: ubq fail.ts:67
 
+HANG fail.ts > rules > timeout
+  Timeout opened at fail.ts:60:29
+  > await new Promise(() => setTimeout(() => {}, 1000))
+
 fail: 15 failed, 0 passed

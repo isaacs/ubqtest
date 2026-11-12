@@ -121,7 +121,7 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
   }
   assert.deepEqual(err({ testMatch: ['x'] }), [
     4,
-    'ubq: unknown key "testMatch" in "ubq" in package.json. The keys are: include, exclude, timeout\n',
+    'ubq: unknown key "testMatch" in "ubq" in package.json. The keys are: include, exclude, timeout, hangRerun\n',
   ])
   assert.deepEqual(err({ include: 'test' }), [
     4,
