@@ -229,6 +229,15 @@ describe('bun', () => {
       'view.tsx > a view of two items',
       '2 tests run src/view.tsx:12',
     ])
+    writeFileSync(
+      join(p.dir, 'plain.ts'),
+      "import { assert, test } from 'ubqtest'\nimport { Plain } from './src/plain.js'\ntest('on', () => {\n  assert.equal(Plain(true).type, 'b')\n})\n",
+    )
+    assert.deepEqual(sh('bun', [cli, 'plain.ts'], p.dir), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/plain.js'], p.dir), [
+      'src/plain.js:1:44  : <i>off</i>',
+      '1 uncovered ranges in 1 files',
+    ])
     // The mutation check makes its changes in the JSX source.
     assert.deepEqual(sh('bun', [cli, 'mutate', 'src/view.tsx:5'], p.dir), ['mutate: 0 of 2 changes survived'])
   })

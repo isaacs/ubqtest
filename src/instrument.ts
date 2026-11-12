@@ -40,6 +40,22 @@ const parser = Parser.extend(tsPlugin() as never)
 const jsxParser = Parser.extend(tsPlugin({ jsx: true }) as never)
 const JSX = /\.[jt]sx$/
 
+/**
+ * The syntax tree of a source file. Throws if no parser can read
+ * it. Bun reads JSX in a `.js` file, so such a file gets a second
+ * try with the JSX parser.
+ */
+const parse = (source: string, file: string): Node => {
+  const options = { ecmaVersion: 'latest', sourceType: 'module', locations: true, allowHashBang: true } as const
+  if (JSX.test(file)) return jsxParser.parse(source, options) as unknown as Node
+  try {
+    return parser.parse(source, options) as unknown as Node
+  } catch (error) {
+    if (!file.endsWith('.js')) throw error
+    return jsxParser.parse(source, options) as unknown as Node
+  }
+}
+
 const FUNCTIONS = new Set([
   'FunctionDeclaration',
   'FunctionExpression',
@@ -84,12 +100,7 @@ const jumps = (node: Node): boolean =>
 export const instrument = (source: string, file: string): Instrumented | undefined => {
   let program: Node
   try {
-    program = (JSX.test(file) ? jsxParser : parser).parse(source, {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      locations: true,
-      allowHashBang: true,
-    }) as unknown as Node
+    program = parse(source, file)
   } catch {
     return undefined
   }
@@ -276,12 +287,7 @@ const TS_VALUES = new Set(['TSAsExpression', 'TSNonNullExpression', 'TSSatisfies
 export const mutants = (source: string, file: string): Mutant[] | undefined => {
   let program: Node
   try {
-    program = (JSX.test(file) ? jsxParser : parser).parse(source, {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      locations: true,
-      allowHashBang: true,
-    }) as unknown as Node
+    program = parse(source, file)
   } catch {
     return undefined
   }

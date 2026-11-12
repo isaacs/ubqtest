@@ -99,6 +99,8 @@ test('a view of two items', () => {
 })
 `,
   )
+  // Bun reads JSX in a `.js` file too.
+  writeFileSync(join(dir, 'src/plain.js'), 'export const Plain = on => (on ? <b>on</b> : <i>off</i>)\n')
   const react = join(dir, 'node_modules/react')
   mkdirSync(react)
   writeFileSync(join(react, 'package.json'), '{"type":"module","exports":{"./jsx-dev-runtime":"./jsx.js","./jsx-runtime":"./jsx.js"}}')

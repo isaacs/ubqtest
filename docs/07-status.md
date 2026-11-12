@@ -578,8 +578,6 @@ Done:
 Known limits:
 
 - `doctor` does not read a `tsconfig.json` that has `extends`.
-- Type errors are not in the store. `ubq failures` does not print
-  them again.
 - The type check reads only `tsconfig.json` in the project root.
 - A run of one file that ends with `process.exit`, before the
   type check ends, reports no type errors.
@@ -593,6 +591,19 @@ Known limits:
 - A test process on Deno that has no runner and is in a loop
   that does not return gets no stack (the watchdog thread has no
   inspector there).
+
+## Smaller gaps closed (2026-11-12)
+
+- Type errors are in the store (table `type_error`, schema 7).
+  `ubq failures` prints them again.
+- A test file that does not load (a syntax error, an import of a
+  file that does not exist) is an `ERROR` block with the line of
+  the error and its place (`loadFailure` in `src/runner.ts`), with
+  exit code 1. Before, a run of one such file printed a stack and
+  had exit code 4. Checks: `test/load.test.ts`.
+- A `.js` file with JSX gets counters on Bun.
+- A test process loads the Bun inspector collector only with
+  `bunInspectorCoverage`.
 
 ## Commands that work on a change: done (2026-11-12)
 
@@ -630,7 +641,6 @@ runner.
 
 Known limits:
 
-- A `.js` file with JSX in it (Bun reads that) gets no counters.
 - A project that runs JSX on Node through its own load hook is
   not tried.
 

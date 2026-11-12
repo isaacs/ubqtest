@@ -10,7 +10,7 @@ import { projectRoot, stateDir } from './project.ts'
 
 export { stateDir }
 
-const SCHEMA_VERSION = 6
+const SCHEMA_VERSION = 7
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -65,6 +65,10 @@ create table file_error (
   run integer not null,
   file text not null,
   failure text not null
+);
+create table type_error (
+  run integer not null,
+  error text not null
 );
 create table output (
   run integer not null,
@@ -219,6 +223,7 @@ export const openStore = (): Store => {
       const setFile = db.prepare(
         'insert or replace into test_file (tfile, run, coverage, hash) values (?, ?, ?, ?)',
       )
+      const addTypeError = db.prepare('insert into type_error (run, error) values (?, ?)')
       const endRun = db.prepare(
         'update run set ms = ?, pass = ?, fail = ?, errors = ?, skip = ?, unselected = ?, code = ? where id = ?',
       )
@@ -320,6 +325,9 @@ export const openStore = (): Store => {
           }
           case 'file-error':
             addError.run(run, event.file, json(event.failure))
+            break
+          case 'type-error':
+            addTypeError.run(run, JSON.stringify(event))
             break
           case 'coverage': {
             const file = event.tfile

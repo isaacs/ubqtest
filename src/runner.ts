@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
@@ -13,6 +13,7 @@ import { columnFromCache } from './counter-collector.ts'
 import { startCoverage } from './coverage.ts'
 import {
   EVENT_VERSION,
+  type Failure,
   type FileEvent,
   type RunStart,
   type Sink,
@@ -299,6 +300,29 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
   }
 }
 
+/**
+ * The failure of a test file that did not load, from the text that
+ * the runtime wrote: the line of the error, and its place if the
+ * place is in the project. Undefined if the text has no such line.
+ */
+export const loadFailure = (text: string): Failure | undefined => {
+  const root = projectRoot()
+  // Deno writes colors. A URL of a project file becomes its path.
+  const plain = text
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replaceAll(pathToFileURL(root).href + '/', '')
+    .replaceAll(root + sep, '')
+  const error = /^(?:\w*Error\b[^\n]*?|error): (.+)$/m.exec(plain)
+  if (!error) return undefined
+  const at = /^(?:\s+at )?([^\s:()'"]+\.[cm]?[jt]sx?):(\d+)(?::(\d+))?$/m.exec(plain)
+  const inProject = at && !at[1]!.startsWith('/') && !at[1]!.includes('node_modules') && !/^\w+:/.test(at[1]!)
+  return {
+    kind: 'error',
+    message: `the test file did not load: ${error[1]}`,
+    ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
+  }
+}
+
 /** Runs one test file in a new process. Sends its events to `send`. */
 export const runFile = async (
   { file, lines, ids }: Selected,
@@ -332,6 +356,8 @@ export const runFile = async (
     })
   return new Promise(done => {
     let ended = false
+    /** True after the first event of the file. */
+    let started = false
     let open: string | undefined
     let watchdog: ReturnType<typeof setTimeout> | undefined
     // The test has a timer for its limit in its own process. If no
@@ -371,6 +397,7 @@ export const runFile = async (
       for (let i = buffer.indexOf('\n'); i >= 0; i = buffer.indexOf('\n')) {
         const event = JSON.parse(buffer.slice(0, i)) as FileEvent
         buffer = buffer.slice(i + 1)
+        started = true
         if (event.type === 'file-end') ended = true
         else if (event.type === 'test-start') {
           open = event.id
@@ -405,7 +432,9 @@ export const runFile = async (
       clearTimeout(watchdog)
       // Processes that the tests started and did not stop.
       killGroup(child.pid!)
-      if (!ended)
+      const load = started ? undefined : loadFailure(stderr)
+      if (load) send({ type: 'file-error', file, failure: load })
+      else if (!ended)
         send({
           type: 'file-error',
           file,
@@ -532,9 +561,18 @@ export const run = async (args: string[]): Promise<number> => {
     if (update) process.env.UBQ_UPDATE = '1'
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])
-    await import(pathToFileURL(join(projectRoot(), file)).href)
-    // The library sets the exit code when the file ends.
-    return 0
+    try {
+      await import(pathToFileURL(join(projectRoot(), file)).href)
+      // The library sets the exit code when the file ends.
+      return 0
+    } catch (error) {
+      // The library reports an error of the file, if the library
+      // loaded. If not, the file runs again in a child process, which
+      // gives the report of a file that did not load.
+      if (process.emit('uncaughtException', error as Error)) return 0
+      checking?.wait()
+      delete (globalThis as { [TYPES]?: Checking })[TYPES]
+    }
   }
 
   // The baseline runs first, so that the text of this run can leave

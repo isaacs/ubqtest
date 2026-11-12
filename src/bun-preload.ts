@@ -35,7 +35,8 @@ if (counters) {
       const filter = new RegExp(`^${escaped}[\\\\/](?!.*node_modules).*\\.([cm]?[jt]s|[jt]sx)$`)
       build.onLoad({ filter }, ({ path }) => ({
         contents: read(path),
-        loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : 'js'),
+        // Bun reads JSX in a `.js` file.
+        loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
       }))
     },
   })

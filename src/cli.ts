@@ -26,6 +26,7 @@ import {
   stale,
   testFiles,
   testsUnder,
+  typeErrors,
   uncovered,
 } from './query.ts'
 import { textSink } from './sink-text.ts'
@@ -119,10 +120,12 @@ const main = async (args: string[]): Promise<number> => {
           ...(kept(t).length && { kept: kept(t) }),
         })
       }
+      const types = typeErrors(db, row.id)
+      for (const e of types) sink(e)
       if (row.code === null) out(`run ${row.id} did not end`)
       else
         out(
-          `${row.code ? 'fail' : 'pass'}: ${row.fail} failed, ${row.pass} passed (run ${row.id})`,
+          `${row.code ? 'fail' : 'pass'}: ${row.fail} failed, ${row.pass} passed${types.length ? `, ${types.length} type errors` : ''} (run ${row.id})`,
         )
       return row.code ?? 1
     }

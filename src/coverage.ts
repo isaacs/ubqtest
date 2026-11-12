@@ -1,8 +1,8 @@
 // The V8 coverage collector. See docs/04-architecture.md, section 4.
 import { Session } from 'node:inspector'
+import { createRequire } from 'node:module'
 import { sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { startBunInspector } from './bun-coverage.ts'
 import { config } from './config.ts'
 import type { Coverage, FileStart } from './events.ts'
 import { projectRoot, rel } from './project.ts'
@@ -59,6 +59,10 @@ export const flatten = (functions: V8Script['functions']): number[] => {
   return out
 }
 
+// Only a Bun process with the option loads this code. The source
+// is `.ts`, and the bundle is `.js`.
+const BUN_INSPECTOR = import.meta.url.endsWith('.ts') ? './bun-coverage.ts' : './bun-coverage.js'
+
 // The preload module and the library can be two copies of this
 // code. They share the collector through this key.
 const KEY = Symbol.for('ubqtest.collector')
@@ -82,7 +86,10 @@ export const startCoverage = (early = false): Collector | undefined => {
   // A Bun process with no counters is a plain program. A project can
   // turn on inspector coverage for it (D39).
   if (process.versions.bun)
-    return config().bunInspectorCoverage ? (shared[KEY] = startBunInspector()) : undefined
+    return config().bunInspectorCoverage ?
+        (shared[KEY] = (createRequire(import.meta.url)(BUN_INSPECTOR) as typeof import('./bun-coverage.ts'))
+          .startBunInspector())
+      : undefined
   const session = new Session()
   session.connect()
   // On Node, `post` runs the command before it returns, so these

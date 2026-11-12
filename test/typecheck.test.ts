@@ -46,6 +46,9 @@ test('passes at run time', () => {
     '',
     'fail: 1 failed, 0 passed, 2 type errors',
   ])
+  // The store has the type errors of the run.
+  const again = p.ubq('failures')
+  assert.deepEqual([again.code, again.out.includes('\nTYPE typed.test.ts\n'), again.last], [1, true, 'fail: 1 failed, 0 passed, 2 type errors'])
   // A run of a selection checks the types too. The second run reads
   // the data of the first one, and reports the same errors.
   assert(existsSync(join(p.dir, '.ubq', 'types', 'tsbuildinfo')))

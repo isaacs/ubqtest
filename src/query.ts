@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import type { Failure } from './events.ts'
+import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
 import { fileHash } from './store.ts'
 
@@ -230,6 +230,12 @@ export const fileErrors = (db: DatabaseSync, run: number): { file: string; failu
       failure: string
     }[]
   ).map(r => ({ file: r.file, failure: JSON.parse(r.failure) }))
+
+/** The type errors of a run. */
+export const typeErrors = (db: DatabaseSync, run: number): TypeCheckError[] =>
+  (db.prepare('select error from type_error where run = ? order by rowid').all(run) as { error: string }[]).map(
+    r => JSON.parse(r.error) as TypeCheckError,
+  )
 
 /** The last stored result of a test. */
 export const lastResult = (db: DatabaseSync, id: string): TestRow | undefined => {
