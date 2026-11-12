@@ -501,6 +501,54 @@ export const runFile = async (
   })
 }
 
+/** The folders of the `workspaces` of the root `package.json` that are projects. */
+const workspaces = (): string[] => {
+  const root = projectRoot()
+  let field: unknown
+  try {
+    field = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { workspaces?: unknown }).workspaces
+  } catch {
+    return []
+  }
+  const patterns = Array.isArray(field) ? field : (field as { packages?: unknown } | undefined)?.packages
+  if (!Array.isArray(patterns)) return []
+  return globSync(patterns as string[], { cwd: root })
+    .filter(dir => !dir.includes('node_modules') && existsSync(join(root, dir, 'package.json')))
+    .map(dir => dir.split(sep).join('/'))
+    .sort()
+}
+
+/**
+ * Runs the command in each workspace, one after the other. Each
+ * workspace has its own store, and the paths of its report are
+ * from its own folder.
+ */
+const runWorkspaces = (folders: string[], args: string[]): number => {
+  const failed: string[] = []
+  let ran = 0
+  for (const folder of folders) {
+    process.stdout.write(`workspace ${folder}:\n`)
+    const r = spawnSync(
+      process.execPath,
+      [...(process.versions.deno ? ['run', '-A'] : []), process.argv[1]!, ...args],
+      { cwd: join(projectRoot(), folder), stdio: 'inherit' },
+    )
+    // Exit code 2: the workspace has no tests.
+    if (r.status !== 2) ran++
+    if (r.status !== 0 && r.status !== 2) failed.push(folder)
+  }
+  process.stdout.write(
+    failed.length ?
+      `workspaces: ${failed.length} of ${ran} failed: ${failed.join(', ')}. Run ubq in the folder of a workspace for its tests.\n`
+    : `workspaces: ${ran} passed\n`,
+  )
+  return (
+    failed.length ? 1
+    : ran ? 0
+    : 2
+  )
+}
+
 /** Runs test files. Returns the exit code of the run. */
 export const run = async (args: string[]): Promise<number> => {
   // A wrong configuration is an error of the command, before any
@@ -551,6 +599,12 @@ export const run = async (args: string[]): Promise<number> => {
   for (const flag of flags)
     if (flag !== '--failed' && flag !== '--changed')
       throw new UsageError(`unknown option: ${flag}`)
+  // The root of a monorepo with no tests of its own: each workspace
+  // is a project, and gets its own run of the command.
+  if (!rest.length) {
+    const folders = workspaces()
+    if (folders.length && !select([]).length) return runWorkspaces(folders, args)
+  }
   let files: Selected[]
   if (flags.length) {
     if (rest.length || flags.length > 1)

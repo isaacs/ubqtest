@@ -17,8 +17,6 @@ jobs:
     name: ${{ matrix.os }}, node ${{ matrix.node }}, ${{ matrix.shell }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
-    # Windows is not complete. Its jobs show what is left to do.
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
       matrix:

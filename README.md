@@ -6,10 +6,10 @@ and the people who work with them.
 The package is `ubqtest`. The command is `ubq`. It runs on Node 24
 or later, Bun, and Deno, with no build step and no configuration.
 
-> **Status:** not released yet. Linux and macOS pass CI. On
-> Windows, the tests of the tool pass except for three known gaps:
-> `ubq server`, `mockImport` on Bun, and the stack of a test that
-> is in a loop that does not return.
+> **Status:** not released yet. CI passes on Linux, macOS, and
+> Windows. Windows has three known gaps: `ubq server`,
+> `mockImport` on Bun, and the stack of a test that is in a loop
+> that does not return.
 
 ## Why a different test tool
 

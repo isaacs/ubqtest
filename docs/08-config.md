@@ -58,6 +58,15 @@ Rules:
 
 Source: `src/config.ts`. Tests: `test/select.test.ts`.
 
-## Not built
+## A monorepo
 
-- A run of all workspaces from the root of a monorepo.
+At a project root that has `workspaces` in its `package.json` and
+no test files of its own, `ubq` runs the command in each
+workspace, one after the other (`ubq`, `ubq --failed`, `ubq
+--changed`). Each workspace is a project with its own store, and
+the paths in its report are from its own folder. The last line
+is `workspaces: 3 passed`, or `workspaces: 1 of 3 failed:
+packages/b`. A workspace with no tests does not count.
+
+For a question about stored runs, or for one test, run `ubq` in
+the folder of the workspace.

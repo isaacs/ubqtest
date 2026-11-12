@@ -258,7 +258,8 @@ of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
 can be wrong. `ubq <test file>` on Bun does not need it). A folder
 with its own `package.json` is a different project: run `ubq` in
-that folder.
+that folder. At the root of a monorepo with no tests of its own,
+`ubq` runs each workspace.
 
 ## Requirements
 

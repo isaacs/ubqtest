@@ -70,6 +70,23 @@ older run.
   have (`stripTypeScriptTypes` on Bun) stops each process on that
   runtime at load. Import the module as a whole, and test for the
   function.
+- A push to `main` cancels the CI run of the push before it. To
+  see a result, wait for the run to end before the next push
+  (`gh run list --limit 1`).
+- CI starts with no `.ubq/` folder. A defect that needs an empty
+  counters cache, or two runners that make the store at the same
+  time, shows there first. `rm -rf .ubq` before a run finds it on
+  a developer machine.
+- CI has a newer Bun and Deno than the developer machine. A test
+  must not depend on data that changes with the version of a
+  runtime (the ranges of the Bun inspector).
+- The tests remove `CI` from their environment (`test/setup.ts`).
+  A test that needs it gives it to the run that it starts.
+- Windows: a path has `\`, a temporary folder can have a short
+  name (`RUNNER~1`), a command file of `node_modules/.bin` does
+  not start with `spawn`, a link to a folder must be a junction,
+  and there is no `SIGUSR1`, no process group, no socket file,
+  and no `/dev/fd`.
 - The machine gets slower during long sessions (Node start went
   from 28.7 ms to 31.3 ms). Compare against `node -e 0` on the
   same day.
@@ -600,8 +617,12 @@ Known limits:
   not used: it does not work with TypeScript 7.
 - CI (`.github/workflows/ci.yml`): Linux and macOS with Node 24
   and the newest Node, and Windows with bash and PowerShell. Bun
-  and Deno are installed in each job. The Windows jobs are not
-  required yet.
+  and Deno are installed in each job. All six jobs pass.
+- Windows: 5 tests skip there, with the reason. The gaps are `ubq
+  server` (it needs a socket file), `mockImport` on Bun, and the
+  stack of a test that is in a loop that does not return (no
+  `SIGUSR1`). Processes that a test started and did not stop stay
+  after a test file ends (no process group).
 - For agents: `GUIDE.md`, `CONVERT.md`, the `use-ubq` skill, and a
   text for `AGENTS.md` in the README.
 - `npm publish ./dist` is not done. The user does it.
@@ -634,6 +655,9 @@ Known limits:
 - A `.js` file with JSX gets counters on Bun.
 - A test process loads the Bun inspector collector only with
   `bunInspectorCoverage`.
+- At the root of a monorepo with no tests of its own, `ubq` runs
+  each workspace (`08-config.md`).
+- An import of `./a.js` finds `./a.ts` on Node and Deno (D42).
 
 ## Commands that work on a change: done (2026-11-12)
 

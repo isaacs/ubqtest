@@ -133,3 +133,32 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
   ])
   rmSync(p.dir, { recursive: true })
 })
+
+test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
+  const p = project()
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', workspaces: ['packages/*'] }))
+  for (const [name, value] of [['a', 1], ['b', 2], ['empty', 0]] as const) {
+    mkdirSync(join(p.dir, 'packages', name), { recursive: true })
+    writeFileSync(join(p.dir, 'packages', name, 'package.json'), JSON.stringify({ name, type: 'module' }))
+    if (value)
+      writeFileSync(
+        join(p.dir, 'packages', name, 'one.test.ts'),
+        `import { assert, test } from 'ubqtest'\ntest('one', () => {\n  assert.equal(${value}, 1)\n})\n`,
+      )
+  }
+  const r = p.ubq()
+  assert.equal(r.code, 1)
+  assert.deepEqual(r.out.replace(/ \(run \d+\)/g, '').split('\n').filter(l => /^(workspace|pass|fail|FAIL)/.test(l)), [
+    'workspace packages/a:',
+    'pass: 0 failed, 1 passed',
+    'workspace packages/b:',
+    'FAIL one.test.ts > one',
+    'fail: 1 failed, 0 passed',
+    'workspace packages/empty:',
+    'workspaces: 1 of 2 failed: packages/b. Run ubq in the folder of a workspace for its tests.',
+  ])
+  // A command for all workspaces.
+  assert.equal(p.ubq('--failed').out.replace(/ \(run \d+\)/g, '').split('\n').filter(l => /^(pass|fail|workspaces)/.test(l)).join('|'), 'fail: 1 failed, 0 passed|workspaces: 1 of 1 failed: packages/b. Run ubq in the folder of a workspace for its tests.')
+  rmSync(p.dir, { recursive: true })
+})
+
