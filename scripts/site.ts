@@ -4,7 +4,7 @@
 //
 // Each link in the output is relative, so the site works at any URL
 // and from a folder of a disk.
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, posix, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Marked, type Tokens } from 'marked'
@@ -80,6 +80,22 @@ const link = (page: { source: string; slug: string }, href: string, markdown: bo
   return url + (hash ? '#' + hash : '')
 }
 
+/**
+ * The URL for a file name in code text, such as `02-decisions.md`.
+ * The name is from the folder of the source, from the root, or from
+ * `docs/`. Undefined if it is not a markdown file of the repository,
+ * or if it is the page itself.
+ */
+const mention = (page: { source: string; slug: string }, text: string): string | undefined => {
+  if (!/^[\w./-]+\.md$/.test(text)) return undefined
+  for (const base of [posix.dirname(page.source), '.', 'docs']) {
+    const file = posix.normalize(posix.join(base, text))
+    if (file === page.source || file.startsWith('..')) continue
+    if (bySource.has(file) || existsSync(resolve(root, file))) return link({ source: 'x', slug: page.slug }, file, false)
+  }
+  return undefined
+}
+
 const KEYWORDS = new Set(
   'as async await break case catch class const continue default do else export extends false finally for from function if import in instanceof interface let new null of return satisfies switch this throw true try type typeof undefined void while'.split(' '),
 )
@@ -112,10 +128,18 @@ const render = (page: { source: string; slug: string }, markdown: string): { htm
   let title = ''
   const marked = new Marked({
     walkTokens: token => {
-      if (token.type === 'link') token.href = link(page, token.href, false)
+      if (token.type === 'link') {
+        token.href = link(page, token.href, false)
+        for (const child of token.tokens ?? []) if (child.type === 'codespan') (child as { linked?: boolean }).linked = true
+      }
     },
     renderer: {
       code: ({ text, lang }: Tokens.Code) => code(text, lang),
+      // A file name of a document, in code text, is a link.
+      codespan: ({ text, linked }: Tokens.Codespan & { linked?: boolean }) => {
+        const href = linked ? undefined : mention(page, text)
+        return href ? `<a href="${href}"><code>${text}</code></a>` : `<code>${text}</code>`
+      },
       heading(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { tokens, depth, text }: Tokens.Heading) {
         const inner = this.parser.parseInline(tokens)
         if (depth === 1) {
