@@ -333,6 +333,35 @@ Scripts: `bun/jsc.ts`, `bun/plugin.ts`, `bun/static.ts`.
 Not measured: the cost to parse and change each file. That needs a
 real instrumenter.
 
+### Bun 1.4.3: precise coverage through `node:inspector` (2026-11-12)
+
+Scripts: `bun/inspector.ts`, `bun/inspector-map.ts`,
+`bun/inspector-cost.ts`.
+
+- `Profiler.startPreciseCoverage` and `takePreciseCoverage` work
+  in the process, with no flag. Each call gives the counts since
+  the call before it, so the data is per test. Section 9 said "no
+  data" for an older Bun.
+- A module that loaded before the start gives data for the
+  functions that run later, as on V8.
+- **The positions are not those of the source.** Bun compiles each
+  module to its own JavaScript (no types, different white space,
+  `"` for `'`). The ranges are offsets in that text. `src.ts` has
+  241 characters, and its last range ends at 115.
+- A program cannot get that text or its source map.
+  `Debugger.getScriptSource` does not exist, and
+  `Debugger.enable` needs `inspector.open()`.
+  `Bun.Transpiler.transformSync` gave text with the same offsets
+  for this file, but it gives no map, and nothing states that it
+  is the same text in all cases.
+- `node:module` on Bun has no `stripTypeScriptTypes`.
+- One snapshot costs 1.33 ms with 9 scripts (the parser of ubq
+  loaded). Counters cost microseconds.
+
+Result: counters stay the method on Bun. The inspector could give
+coverage to a plain `bun test/foo.ts` and to files with no
+counters, but only with positions from a guess (question Q8).
+
 ## 12. Source counters on Node
 
 Scripts: `experiments/counters/` (`preload.ts`, `run.mjs`,

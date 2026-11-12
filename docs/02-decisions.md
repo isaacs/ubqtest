@@ -409,3 +409,15 @@ JavaScript. `ubq uncovered` printed wrong lines for a plain Deno
 run of the coverage fixture (`'A' (+2 lines)` at `src/calc.ts:5:12`
 in place of `return 'fail'` at `8:3`). Counters have the positions
 of the source on all runtimes.
+
+## D34. No worker threads and no shared processes. Order of the later work (user, 2026-11-12)
+
+ubq will not run test files in worker threads or in shared
+processes. One process for each test file stays the only mode (D9).
+
+**Reason.** These modes have too many edge cases, and the goal is
+that the tool is correct with no setting. A mode that is faster
+and can leak state between files is against that goal.
+
+The order of the later work is: per-test coverage on Bun, then
+mutation checks, then the background server.

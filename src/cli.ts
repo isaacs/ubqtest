@@ -257,7 +257,7 @@ const main = (args: string[]): number | Promise<number> => {
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')
         out(
-          `note: coverage is not complete for ${weak.length} test files: ${names}. Code can be missing from this list. For full coverage, run: node --import ubqtest/preload <test file>`,
+          `note: coverage is not complete for ${weak.length} test files: ${names}. Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>`,
         )
       }
       return 0

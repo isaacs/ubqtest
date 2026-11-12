@@ -458,9 +458,9 @@ Later speed work, in order of expected gain:
 
 1. A background server that keeps warm child processes ready. It
    removes most of the 27 ms start from the edit loop.
-2. Worker threads or shared processes as an opt-in for projects
-   that accept the risk.
-3. Range-level `--changed`.
+2. Range-level `--changed`.
+
+Worker threads and shared processes are not planned (D34).
 
 ## 13. Build order
 
@@ -477,7 +477,7 @@ Each step ends with a check that must pass before the next step.
 | 6 | Test IDs, `--failed`, `--changed`, `diff`, `history`, `--repeat`, `--baseline`. | An edit to one source file runs only the tests that cover it. |
 | 7 | Module mocks, fixtures, fake clock, snapshots, random order with a seed. | Typed mock fixture fails to compile when the shape is wrong. Mocks work on Node and Bun. |
 | 8 | Agent guide in the package, `doctor`, type checks next to tests, Deno parity, single bundle build. | An agent with no prior knowledge of the tool writes and fixes a test with only the guide. |
-| Later | Background server, worker threads or shared processes, mutation checks, a per-test coverage API for Bun. | |
+| Later | In this order (D34): a per-test coverage API for Bun, mutation checks, the background server. | |
 
 Until step 3, the tool's own tests run on `node:test`.
 
