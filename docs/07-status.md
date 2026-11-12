@@ -9,14 +9,14 @@ section 13. Update this file when a step ends.
 | --- | --- |
 | `npm test` | runs the tool's own tests with ubq itself: `node src/cli.ts` |
 | `npm run typecheck` | must print nothing |
-| `npm run build` | makes `dist/index.js`, one bundled file |
+| `npm run build` | makes the package in `dist/` (D32): bundled JavaScript, type declarations, `package.json` |
 | `npm run bench` | builds, then times ubq and other tools. `-- --check` fails if a ubq row is over its budget. `-- --only ubq` runs only ubq rows. |
 
 ## Checks before each commit
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 73 pass
+node src/cli.ts         # the tool runs its own tests: 80 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -494,6 +494,17 @@ Known limits:
   through them.
 - Two tests whose names differ only in characters that are not
   safe in a path have the same `testdir` folder.
+
+## Step 8: in progress (2026-11-12)
+
+Done:
+
+- The package build (D32, `scripts/build.ts`). The JavaScript is
+  minified: 320 KB, of which the parser for source counters is
+  232 KB. `test/package.test.ts` builds the package into a new
+  project. There, a test file runs as a plain program on Node,
+  Deno, and Bun, `ubq` runs with coverage on Node and Bun, and the
+  type checker gives the hint for a wrong guess.
 
 ## Source counters on Node: D25 done (2026-11-12)
 

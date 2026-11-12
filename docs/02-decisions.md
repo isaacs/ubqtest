@@ -382,3 +382,17 @@ changes that nobody looked at (`01`, section 7).
 The agent chose the place (`ubq-snapshots/<test file path>.snap`,
 as `tap-snapshots/` in tap) and the form of the file.
 
+
+## D32. The build makes the package in `dist/`, and the package is published from there (agent, 2026-11-12)
+
+`npm run build` writes all files of the published package to
+`dist/`: the bundled and minified JavaScript, the type declarations
+(`types/`), and a `package.json` whose `exports` and `bin` name the
+built files. `npm publish ./dist` publishes it.
+
+**Reason.** In this repository, `ubqtest` must resolve to the
+source (`src/index.ts`), so that the tests run with no build. Node
+does not strip types from a file in `node_modules`, so the
+published package must name JavaScript files. One `package.json`
+cannot do the two jobs. `test/package.test.ts` builds the package
+into a new project and uses it there.
