@@ -663,6 +663,9 @@ The folder is not in git.
 - In the HTML, a path in code text is a link. A document of the
   site goes to its page. A different file or folder that git
   tracks goes to the repository on GitHub.
+- In the HTML, the number of a decision (D14) is a link to the
+  heading of that decision. Not in a heading, and not in code
+  text.
 - The page has no script. `marked` makes the HTML. The colors of
   code come from a small function in the script.
 

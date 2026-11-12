@@ -143,10 +143,33 @@ const code = (text: string, lang = ''): string =>
   `<pre class="${lang ? 'lang-' + escape(lang) : 'plain'}"><code>${/^[jt]sx?$/.test(lang) ? typescript(text) : lang ? escape(text) : terminal(text)}</code></pre>\n`
 
 /** The HTML of a markdown source, and its first heading. */
+/** The text of a heading as the first part of its `id`. */
+const headingId = (text: string): string => text.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'section'
+
+// The documents name a decision by its number: D14. Each number is
+// a link to the heading of the decision.
+const DECISIONS = 'docs/02-decisions.md'
+const decisions = new Map<string, string>()
+for (const [, text = '', number = ''] of read(DECISIONS).matchAll(/^## ((D\d+)\..*)$/gm)) decisions.set(number, headingId(text))
+
 const render = (page: { source: string; slug: string }, markdown: string): { html: string; title: string } => {
   const ids = new Map<string, number>()
   let title = ''
+  /** True in a heading, and in the text of a link. A number there is not a link. */
+  let plain = false
   const marked = new Marked({
+    extensions: [
+      {
+        name: 'decision',
+        level: 'inline',
+        start: (src: string) => /\bD\d+\b/.exec(src)?.index,
+        tokenizer: (src: string) => {
+          const m = /^D\d+\b/.exec(src)
+          return m && decisions.has(m[0]) ? { type: 'decision', raw: m[0] } : undefined
+        },
+        renderer: ({ raw }) => (plain ? raw : `<a href="${link(page, `${posix.relative(posix.dirname(page.source), DECISIONS)}#${decisions.get(raw)}`, false)}">${raw}</a>`),
+      },
+    ],
     walkTokens: token => {
       if (token.type === 'link') {
         token.href = link(page, token.href, false)
@@ -160,13 +183,21 @@ const render = (page: { source: string; slug: string }, markdown: string): { htm
         const href = linked ? undefined : mention(page, text)
         return href ? `<a href="${href}"><code>${escape(text)}</code></a>` : `<code>${escape(text)}</code>`
       },
-      heading(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { tokens, depth, text }: Tokens.Heading) {
+      link(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { href, title: tip, tokens }: Tokens.Link) {
+        plain = true
         const inner = this.parser.parseInline(tokens)
+        plain = false
+        return `<a href="${escape(href)}"${tip ? ` title="${escape(tip)}"` : ''}>${inner}</a>`
+      },
+      heading(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { tokens, depth, text }: Tokens.Heading) {
+        plain = true
+        const inner = this.parser.parseInline(tokens)
+        plain = false
         if (depth === 1) {
           title ||= text.replace(/`/g, '')
           return `<h1>${inner}</h1>\n`
         }
-        const base = text.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'section'
+        const base = headingId(text)
         const count = ids.get(base) ?? 0
         ids.set(base, count + 1)
         const id = count ? `${base}-${count}` : base

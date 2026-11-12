@@ -35,6 +35,10 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   }
   assert.deepEqual(missing, [])
   assert.match(readFileSync(join(dir, '404.html'), 'utf8'), /<base href="\/">[^]*href="guide\/"/)
+  // The number of a decision is a link to the heading of the decision.
+  const to = /href="\.\.\/docs\/decisions\/#(d24-[^"]+)">D24<\/a>/.exec(readFileSync(join(dir, 'config/index.html'), 'utf8'))
+  assert(to, 'a link for D24')
+  assert(readFileSync(join(dir, 'docs/decisions/index.html'), 'utf8').includes(`<h2 id="${to[1]}">D24. `))
   // Code text with `<` stays text.
   assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<code>ubq &lt;file&gt;:&lt;line&gt;<\/code>|&lt;test id&gt;/)
   assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<link rel="alternate" type="text\/markdown" href="\.\.\/guide\.md"/)
