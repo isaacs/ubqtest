@@ -1,3 +1,14 @@
+# Goals of This Project
+
+_The initial prompt that kicked the project off. It starts by
+asking the Agent what kind of test framework would help it
+write better code._
+
+_Throughout this diary, "Agent" is Claude Fable 5.2, "user" is
+[isaacs](http://izs.me)_
+
+---
+
 We are going to build a new test framework, with a focus on human
 and coding agent ergonomics, flexibility across runtimes, highly
 optimized rapid feedback loops, "batteries included" features,

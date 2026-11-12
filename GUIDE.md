@@ -100,6 +100,8 @@ test that would pass for the wrong reason.
 
 ## API
 
+[Complete API reference](/api)
+
 ```ts
 test(name, fn)
 test(name, { skip?: string | false, timeout?: number }, fn)

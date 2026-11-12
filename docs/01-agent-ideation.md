@@ -1,5 +1,7 @@
 # Agent Ideation: What Is Lacking in JavaScript Test Tools
 
+_Agent's response (Claude Fable 5.2)_
+
 This is the answer to the question in `00-initial-prompt.md`: what
 do current JavaScript test tools lack for a coding agent, and what
 would help an agent write better code more reliably?

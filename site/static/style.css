@@ -70,7 +70,6 @@ code,
 pre {
   font-family: var(--mono);
   font-variant-ligatures: none;
-  font-size: 0.875em;
 }
 :not(pre) > code {
   background: var(--inline-code);
@@ -85,7 +84,6 @@ pre {
   border-radius: 6px;
   overflow-x: auto;
   line-height: 1.5;
-  font-size: 0.85rem;
 }
 pre .c {
   color: #999;
@@ -109,6 +107,10 @@ pre .good {
 }
 pre .cmd {
   color: #fff;
+}
+.split pre.md {
+  padding: 0.5rem;
+  white-space: normal;
 }
 blockquote {
   margin: 1rem 0;
@@ -197,12 +199,12 @@ footer p {
   gap: 2.5rem;
   max-width: 72rem;
   margin: 0 auto;
-  padding: 2rem 1.25rem 0;
+  padding: 0 1.25rem;
 }
 .side {
   flex: 0 0 12.5rem;
   position: sticky;
-  top: 5rem;
+  top: 7rem;
   align-self: flex-start;
   max-height: calc(100vh - 6rem);
   overflow-y: auto;
@@ -234,6 +236,7 @@ footer p {
   flex: 1;
   min-width: 0;
   max-width: 48rem;
+  padding-top: 1rem;
 }
 .doc h1 {
   margin-top: 0;
@@ -276,6 +279,9 @@ td {
 }
 th {
   font-family: var(--head);
+}
+table tr td:first-child code {
+  text-wrap:nowrap;
 }
 @media (max-width: 760px) {
   .columns {
@@ -370,6 +376,7 @@ th {
   color: #fff;
   font-size: 0.9rem;
   transition: background-color 0.3s ease;
+  text-align: center;
 }
 .button-link:hover,
 .button-link:focus {
