@@ -477,6 +477,9 @@ export const run = async (args: string[]): Promise<number> => {
   }
   const commit = headCommit()
   if (commit) start.commit = commit
+  // The reader of stdout can go away (`ubq | head`). The run goes
+  // on, so that the store has its results.
+  process.stdout.on('error', () => {})
   const write = (text: string): void => void process.stdout.write(text)
   const text = textSink(write)
   const sinks: Sink[] = [

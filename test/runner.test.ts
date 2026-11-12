@@ -4,8 +4,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assert, test } from 'ubqtest'
-import { fixtures as cwd } from './setup.ts'
+import { assert, cleanup, test } from 'ubqtest'
+import { fixtures as cwd, project } from './setup.ts'
 
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 const ubq = (args: string[], env: Record<string, string> = {}) => {
@@ -168,4 +168,12 @@ test('processes that a test file leaves behind are stopped', () => {
   if (state === 'Z') return void assert.equal(state, 'Z')
   // Signal 0 tests for the process and sends nothing.
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
+})
+
+test('a closed stdout does not stop a run of many files', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const r = spawnSync('sh', ['-c', `node ${cli} fail.ts pass.ts | head -2`], { cwd: p.dir, encoding: 'utf8' })
+  assert.deepEqual([r.stdout.split('\n').length, r.stderr], [3, ''])
+  assert.equal(p.ubq('failures').last, 'fail: 15 failed, 5 passed')
 })
