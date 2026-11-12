@@ -447,8 +447,8 @@ Not done:
   a check of it on Deno.
 - Fake clock and snapshots. `05-api.md`, section 11, says that
   they need their own design. See `09-questions.md`.
-- Random order with a seed.
-- Leak checks after each test, from step 4.
+- Random order with a seed. See `09-questions.md`, Q5.
+- Leak checks after each test, from step 4. See Q6.
 
 Known limits:
 

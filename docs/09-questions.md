@@ -63,3 +63,52 @@ Not blocked.
 The runner still uses V8 on Node. D25 says that the switch waits
 "until the comparison has run for some time with no new
 difference". The user decides when that time is over. Not started.
+
+## Q5. Random test order: the default, and the scope (step 7)
+
+**Blocked:** random order with a seed. `01`, section 9, wants
+random order by default, with the seed in the run record and in
+each failure report. `05-api.md`, section 3, says only that "a
+later step adds random order with a seed".
+
+**To decide.**
+
+- Is random order the default, or an option (`ubq --random`)? As
+  the default, the order of the failure blocks changes from run to
+  run, and each failure block gets a line with the seed.
+- What moves: the tests in a file, or the tests in each `describe`
+  group only (the groups keep their order)?
+- A plain `node test/file.ts` run: random too, or the order of the
+  file?
+
+The agent would do: default on under `ubq` and in a plain run,
+tests move in the full file, `ubq --seed <n>` repeats an order, and
+`rerun:` lines include the seed. The tests of this repository
+compare output text, so they would set a seed.
+
+## Q6. Leak checks after each test: cost and strictness (step 4)
+
+**Blocked:** the check that a test left the process as it found it
+(`01`, section 9): environment variables, working directory,
+globals, listeners.
+
+**Measured (Node 24, this machine):** a copy of `process.env` with
+173 variables takes 0.23 ms. A check for each test needs one copy
+for each test. `process.cwd()` takes 0.0001 ms, and the list of the
+names of the globals 0.01 ms.
+
+**To decide.**
+
+- Is 0.1 to 0.25 ms for each test acceptable for the environment
+  check? The other three checks are almost free.
+- Is a leak a failure of the test (D2), with no opt-out? A library
+  that sets a global or a variable at its first call would fail the
+  first test that calls it. The fix for the user is to call it at
+  the top level of the file.
+- Listeners of `process`: libraries add these at their first call
+  too (`signal-exit`).
+
+The agent would do: working directory and environment as failures,
+and put the old values back so that later tests are not affected.
+Globals and listeners not yet.
+
