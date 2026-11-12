@@ -17,6 +17,7 @@ are measurement tools, not product code. Run `npm install` here first.
 | `counters/` | Are source counters on Node faster than V8 snapshots, and are they safe? | `npx esbuild preload.ts --bundle --platform=node --format=esm --outfile=dist/preload.js`, `node run.mjs dist/preload.js`, `node corpus.ts ../node_modules`, `node --stack-size=4000 semantic.ts` |
 | `bun/` | How can Bun record per-test coverage? | `BUN_JSC_useControlFlowProfiler=1 bun jsc.ts`, `bun plugin.ts`, `bun static.ts`, `bun inspector.ts`, `bun inspector-map.ts`, `bun inspector-cost.ts` |
 | `server/` | What does a test file cost in a process that is already started? | from `suite/`, after `npm run build`: `node ../server/warm.mjs` |
+| `browser/` | What does a browser cost for front-end tests, and does Playwright work on each runtime? | `npx playwright-core install chromium --only-shell`, then `node pw.ts`, `bun pw.ts`, `deno run -A pw.ts`, `node cdp.ts <path of chrome-headless-shell>`, `node cov.ts` |
 | `hooks/` | Do typed, scoped module mocks work with no flags? | `node use.ts` |
 
 `hang/wd.mjs` and `hang/watchdog.mjs` record two methods that did not

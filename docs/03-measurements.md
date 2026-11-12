@@ -435,3 +435,36 @@ verified.
 - Files with JSX, and CommonJS files with a top-level `return`,
   get no counters.
 - Only one machine and one Node version.
+
+## 13. A browser for front-end tests (2026-11-12)
+
+Scripts: `browser/pw.ts`, `browser/cdp.ts`, `browser/cov.ts`.
+Playwright (`playwright-core` 1.65.0) with its Chromium headless
+shell (158.0).
+
+| Step | Node 26.5 | Bun 1.4.3 | Deno 2.9.6 |
+| --- | --- | --- | --- |
+| Start the browser | 73 ms | 71 ms | 85 ms |
+| First page | 35 ms | 34 ms | 35 ms |
+| A new context with a page | 59 ms | 60 ms | 58 ms |
+| Close the browser | 17 ms | 16 ms | 16 ms |
+| Connect to a browser that is already started, and a page | 68 ms | 75 ms | 71 ms |
+
+1. Playwright works on the three runtimes with no change.
+2. The first start after the download took 1413 ms. Each later
+   start took about 75 ms.
+3. A browser that the runner starts one time and shares saves
+   about 40 ms for each test file (68 ms against 73 + 35 ms). A
+   browser for each test file is simpler and costs little more.
+4. The package is 14 MB. The browser is a download of 100 MB
+   (205 MB on disk, 18 s on this connection). It is too large to
+   put in the ubq package.
+5. With no driver package, the same browser starts and connects
+   in 80 ms, and makes a page and runs an expression in 25 ms
+   (`browser/cdp.ts`, 40 lines). That is 28 ms less than
+   Playwright. The driver does not cost much.
+6. Playwright reports a page error and a `console.error` of the
+   page as events. So ubq can fail a test for them.
+7. Chromium gives the call count of each function of a script
+   file that the page loads (`browser/cov.ts`): `a` 1, `b` 0. A
+   script that is text in the HTML is not in the report.
