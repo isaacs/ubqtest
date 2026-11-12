@@ -1,7 +1,7 @@
 // The web site, as a Cloudflare Worker that has only static files.
 // `npm run site` makes the files. The release workflow deploys them.
 {
-  "name": "ubqtest-site",
+  "name": "ubq-website",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./_site",
