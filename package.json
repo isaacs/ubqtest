@@ -1,7 +1,6 @@
 {
   "name": "ubqtest",
   "version": "0.0.0",
-  "private": true,
   "description": "The test framework designed specifically for coding agents who write TypeScript, and their humans.",
   "type": "module",
   "exports": {
@@ -21,7 +20,9 @@
     "bench": "npm run build && node experiments/suite/bench.mjs",
     "build": "node scripts/build.ts",
     "docs": "npm run build && node scripts/api-docs.ts",
-    "site": "node scripts/site.ts"
+    "site": "node scripts/site.ts",
+    "preversion": "npm test",
+    "postversion": "git push origin --follow-tags"
   },
   "devDependencies": {
     "@sveltejs/acorn-typescript": "^1.0.13",
