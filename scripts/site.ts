@@ -158,6 +158,11 @@ const layout = (slug: string, title: string, body: string, bodyClass: string): s
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(title)}</title>
 <meta name="description" content="${escape(pkg.description)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ubq">
+<meta property="og:title" content="${escape(title)}">
+<meta property="og:description" content="${escape(pkg.description)}">
+<meta name="twitter:card" content="summary">
 <link rel="icon" type="image/svg+xml" href="${rel(slug, 'static/logo.svg')}">
 <link rel="stylesheet" href="${rel(slug, 'static/style.css')}">
 <link rel="alternate" type="text/markdown" href="${rel(slug, slug + '.md')}" title="This page as markdown">

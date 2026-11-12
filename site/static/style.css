@@ -76,6 +76,7 @@ pre {
   background: var(--inline-code);
   border-radius: 3px;
   padding: 0.1em 0.3em;
+  overflow-wrap: anywhere;
 }
 pre {
   background: #2d2d2d;
@@ -308,13 +309,13 @@ th {
   transform: translate(-50%, -50%);
 }
 .hero::before {
-  width: min(56rem, 150vw);
-  height: min(56rem, 150vw);
+  width: clamp(48rem, 150vw, 56rem);
+  height: clamp(48rem, 150vw, 56rem);
   background: var(--ring-outer);
 }
 .hero::after {
-  width: min(44rem, 118vw);
-  height: min(44rem, 118vw);
+  width: clamp(38rem, 118vw, 44rem);
+  height: clamp(38rem, 118vw, 44rem);
   background: var(--bg);
   box-shadow: var(--shadow) 1px 1px 15px 0;
 }
@@ -520,4 +521,51 @@ th {
 }
 .center {
   text-align: center;
+}
+
+/* A phone. */
+@media (max-width: 520px) {
+  #top {
+    padding: 0.4rem 0.5rem;
+  }
+  #top nav a {
+    padding: 0.35rem 0.45rem;
+    font-size: 0.8rem;
+    letter-spacing: 0;
+  }
+  .hero {
+    padding: 2.5rem 1rem 7rem;
+  }
+  .hero img {
+    width: 6.5rem;
+    height: 6.5rem;
+  }
+  .hero .wordmark {
+    font-size: 2.75rem;
+  }
+  .hero h1 {
+    font-size: 1.55rem;
+  }
+  .install {
+    font-size: 0.8rem;
+  }
+  .features {
+    padding: 1.5rem 1.25rem;
+  }
+  .band {
+    padding: 2.5rem 1rem 0;
+  }
+  .columns {
+    padding: 1.25rem 1rem 0;
+  }
+  .doc h1 {
+    font-size: 1.7rem;
+  }
+  .side li a {
+    padding: 0.5rem;
+  }
+  pre {
+    padding: 0.85rem 1rem;
+    font-size: 0.8rem;
+  }
 }
