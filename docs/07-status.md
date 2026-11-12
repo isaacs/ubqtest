@@ -534,10 +534,11 @@ Source files:
 - After that change, the checks of `03-measurements.md`, section
   12, gave the same results again.
 
-Before step 3:
+Known limits:
 
-- Let the comparison run through more changes to the code.
-- The runner needs a way to choose the preload, and the benchmark
-  needs a row for it.
-- `src/assert.ts` has no counters (parser limit), so a run of this
-  repository with counters records coverage `partial`.
+- The parser does not read `src/assert.ts` (a `const` type
+  parameter in an interface method). A project file like it runs
+  with no counters, and its test files record coverage `partial`.
+- In this repository, the files in `src/` are the library, and the
+  collectors leave the library out. So `ubq uncovered src/...` has
+  no data here.
