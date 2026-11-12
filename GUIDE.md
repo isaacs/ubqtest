@@ -231,7 +231,8 @@ failure block of its test, and in `ubq show`.
 
 `ubq server` starts a background server for the project. It keeps
 test processes ready, so a run of a few files is about 30 ms
-faster, and the first run after an edit about 45 ms. The commands,
+faster, and the first run after an edit about 45 ms. `--repeat`
+is about 3 times faster. The commands,
 the output, and the exit codes do not change. It stops after 30
 minutes with no use, or with `ubq server stop`. It is optional.
 

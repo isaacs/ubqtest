@@ -76,6 +76,8 @@ Script: `experiments/server/warm.mjs`, and the benchmark suite.
 | One test process, start to end | 45 ms | 17 ms |
 | `ubq` with 3 files | 80 ms | 55 ms |
 | `ubq` with 2 files, first run after an edit of a source file | 120 ms | 75 ms |
+| `ubq --repeat 50` of one file with 9 tests | 2200 ms | 760 ms |
+| `ubq mutate` of one file, 12 changes | 930 ms | 630 ms |
 | `ubq` with 200 files | 850 ms | 850 ms |
 | `ubq` with 1 file (runs in the process of the runner) | 51 ms | 51 ms |
 
