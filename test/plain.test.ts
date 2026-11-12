@@ -1,10 +1,13 @@
 // Test files run as plain programs on each runtime.
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { assert, test } from 'ubqtest'
-import { fixtures as dir, resetStore } from './setup.ts'
+import { readFileSync, rmSync } from 'node:fs'
+import { assert, cleanup, test } from 'ubqtest'
+import { fixtures, project } from './setup.ts'
 
-resetStore(dir)
+// A project of its own: test files run in parallel, and they must
+// not share a run store that one of them removes.
+const dir = project().dir + '/'
+cleanup(() => rmSync(dir, { recursive: true }))
 const runtimes: [string, string[]][] = [
   ['node', []],
   ['deno', ['run', '-A']],
@@ -30,7 +33,7 @@ for (const [cmd, args] of runtimes) {
       // Node and Deno print values the same way. Bun differs in one
       // location, so only the summary and the exit code are checked.
       if (cmd !== 'bun')
-        assert.equal(stdout, readFileSync(`${dir}${file}.out`, 'utf8'))
+        assert.equal(stdout, readFileSync(`${fixtures}${file}.out`, 'utf8'))
     })
   }
 }
