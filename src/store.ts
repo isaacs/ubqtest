@@ -115,8 +115,17 @@ export const openStore = (): Store => {
   const path = join(stateDir(), 'runs.db')
   const connect = (): DatabaseSync => {
     const db = new DatabaseSync(path, { timeout: 5000 })
-    db.exec('pragma journal_mode = wal; pragma synchronous = normal')
-    return db
+    // The change to WAL mode does not wait for a lock. Processes
+    // that make the store at the same time must try again.
+    for (let tries = 0; ; tries++) {
+      try {
+        db.exec('pragma journal_mode = wal; pragma synchronous = normal')
+        return db
+      } catch (error) {
+        if (tries === 100 || !/locked/.test((error as Error).message)) throw error
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20)
+      }
+    }
   }
   const version = (db: DatabaseSync): number =>
     (db.prepare('pragma user_version').get() as { user_version: number }).user_version
