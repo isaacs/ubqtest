@@ -643,6 +643,34 @@ Known limits:
 - The text between the arguments of a changed call (a comment
   there) goes away.
 
+## CI on each runtime, and the release workflow (2026-11-12)
+
+`.github/workflows/ci.yml` runs the suite with Node, with Bun,
+and with Deno as the runner, on Linux, macOS, and Windows. Each
+job installs the three runtimes: npm and the build need Node, and
+the suite has tests that start each runtime.
+
+`.github/workflows/release.yml` runs on a `v*` tag. It builds
+`dist/`, runs the suite on Node, and runs `npm stage publish` in
+`dist/`. The tests of Bun, of Deno, and of the browser skip there.
+
+Known limit: Deno runs the suite with the built runner
+(`deno run -A dist/cli.js`), not from the source. With a module
+hook, Deno 2.9.6 does not load `@sveltejs/acorn-typescript` for a
+module that `require` loaded, so `deno run -A src/cli.ts` cannot
+add counters to a file that is not in the cache. The built
+package has the parser in its bundle, so a project that installs
+ubq does not have this problem.
+
+Facts about the runtimes that the tests now allow for:
+
+- Bun does not run an `import()` of a `data:` URL.
+- On Bun and Deno, a name that a file imported from `node:timers`
+  keeps the real function after `fakeClock()`. The global names
+  and the module object change.
+- A child process of Deno keeps each environment variable that is
+  missing from the `env` option.
+
 ## Tests in a browser: done (2026-11-12)
 
 D45. Source: `src/browser.ts` (the `ubqtest/browser` export),

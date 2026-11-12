@@ -10,7 +10,9 @@ import { project } from './setup.ts'
 // The load hook of the counters loads the parser with `require`,
 // while this file loads. A static import of the same module from
 // this file is an error in Node (a cycle of `require` and `import`).
-const { mutants } = createRequire(import.meta.url)('../src/instrument.ts') as typeof import('../src/instrument.ts')
+// Deno cannot load this module with `require`.
+const { mutants }: typeof import('../src/instrument.ts') =
+  process.versions.deno ? await import('../src/instrument.ts') : createRequire(import.meta.url)('../src/instrument.ts')
 
 const SOURCE = `export const price = (cents: number, coupon?: string): number => {
   if (coupon === 'FIVEOFF') return Math.max(0, cents - 500)

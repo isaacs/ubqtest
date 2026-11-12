@@ -14,22 +14,23 @@ concurrency:
 
 jobs:
   test:
-    name: ${{ matrix.os }}, node ${{ matrix.node }}, ${{ matrix.shell }}
+    name: ${{ matrix.runtime }} on ${{ matrix.os }}, node ${{ matrix.node }}, ${{ matrix.shell }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        node: [24, latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # The runtime that runs the suite. Each job installs the three
+        # runtimes: npm and the build need Node, and the suite has
+        # tests that start each runtime.
+        runtime: [node, bun, deno]
+        node: [24]
         shell: [bash]
         include:
-          - os: windows-latest
-            node: 24
-            shell: bash
-          - os: windows-latest
-            node: 24
-            shell: pwsh
+          - { os: ubuntu-latest, runtime: node, node: latest, shell: bash }
+          - { os: macos-latest, runtime: node, node: latest, shell: bash }
+          - { os: windows-latest, runtime: node, node: 24, shell: pwsh }
     defaults:
       run:
         shell: ${{ matrix.shell }}
@@ -49,5 +50,14 @@ jobs:
         run: npm run build
       - name: Browser for the front-end tests
         run: node src/cli.ts browser install
-      - name: Test
+      - name: Test on Node
+        if: matrix.runtime == 'node'
         run: node src/cli.ts
+      - name: Test on Bun
+        if: matrix.runtime == 'bun'
+        run: bun src/cli.ts
+      # Deno runs the built runner. From the source, Deno 2.9 does not
+      # load the parser of the counters (docs/07-status.md).
+      - name: Test on Deno
+        if: matrix.runtime == 'deno'
+        run: deno run -A dist/cli.js

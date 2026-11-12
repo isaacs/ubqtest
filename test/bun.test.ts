@@ -1,9 +1,10 @@
 // Coverage on Bun, through counters in the source.
 import { spawnSync } from 'node:child_process'
-import { cpSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, describe, test } from 'ubqtest'
 import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
@@ -13,7 +14,9 @@ import { addJsx, fixtures, project, resetStore } from './setup.ts'
 // The load hook of the counters loads the parser with `require`,
 // while this file loads. A static import of the same module from
 // this file is an error in Node (a cycle of `require` and `import`).
-const { instrument } = createRequire(import.meta.url)('../src/instrument.ts') as typeof import('../src/instrument.ts')
+// Deno cannot load this module with `require`.
+const { instrument }: typeof import('../src/instrument.ts') =
+  process.versions.deno ? await import('../src/instrument.ts') : createRequire(import.meta.url)('../src/instrument.ts')
 
 // Plain JavaScript with each construct that gets a counter. The
 // value of `out` shows which paths ran.
@@ -46,8 +49,15 @@ out.push(((a = 1, { b = a || 2 } = {}) => a + b)(), [1, 2].map(n => n * 2).join(
 globalThis.__sampleOut = out
 `
 
+// A file outside the project, so that it gets no counters of the
+// runner. Bun does not run an import of a `data:` URL.
+const runDir = mkdtempSync(join(tmpdir(), 'ubq-sample-'))
+cleanup(() => rmSync(runDir, { recursive: true }))
+let runs = 0
 const run = async (code: string): Promise<unknown> => {
-  await import(`data:text/javascript,${encodeURIComponent(code)}`)
+  const file = join(runDir, `${++runs}.mjs`)
+  writeFileSync(file, code)
+  await import(pathToFileURL(file).href)
   return (globalThis as { __sampleOut?: unknown }).__sampleOut
 }
 
@@ -195,7 +205,9 @@ describe('bun', () => {
     // The runner gives its test processes a compile cache. Bun gives
     // no ranges for code from a cache, and a plain program has none.
     const plain = () => {
-      const { NODE_COMPILE_CACHE: _, ...env } = process.env
+      // An empty value, and not a missing one: a child of a Deno
+      // process keeps each variable that is missing from `env`.
+      const env = { ...process.env, NODE_COMPILE_CACHE: '' }
       const r = spawnSync('bun', ['size.ts'], { cwd: p.dir, encoding: 'utf8', env })
       return r.stdout.replace(/ \(run \d+\)\n$/, '')
     }

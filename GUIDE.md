@@ -138,6 +138,10 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 - `skip` is the reason, as text: `{ skip: 'needs a GPU' }`. A
   condition: `{ skip: process.platform === 'win32' && 'needs fork' }`.
 - Tests of a file run one at a time, in the order of the file.
+- `fakeClock` replaces the global timers and `Date`. On Node, it
+  also replaces a name that a file imported from `node:timers` or
+  `node:timers/promises`. On Bun and Deno, such a name keeps the
+  real timer: use the global `setTimeout` there.
   Test files run in parallel, each in its own process, in a random
   order. A run with a failure prints the seed. `ubq --seed <n>`
   repeats the order.

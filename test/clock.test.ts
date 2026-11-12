@@ -1,10 +1,22 @@
 // The fake clock.
-import { setTimeout as timersSetTimeout } from 'node:timers'
-import { scheduler, setTimeout as sleep } from 'node:timers/promises'
+import { createRequire } from 'node:module'
+import * as timers from 'node:timers'
+import * as timersPromises from 'node:timers/promises'
 import { assert, fakeClock, spy, test } from 'ubqtest'
 
 const realDate = Date
 const realSetTimeout = setTimeout
+
+// On Node, a name that a file imported from `node:timers` changes
+// when the clock starts. On Bun and Deno it does not, so there the
+// test reads the module again.
+const late = !!(process.versions.bun || process.versions.deno)
+const require = createRequire(import.meta.url)
+const timersNow = (): { timersSetTimeout: typeof timers.setTimeout; sleep: typeof timersPromises.setTimeout; scheduler: typeof timersPromises.scheduler } => {
+  const t: typeof timers = late ? require('node:timers') : timers
+  const p: typeof timersPromises = late ? require('node:timers/promises') : timersPromises
+  return { timersSetTimeout: t.setTimeout, sleep: p.setTimeout, scheduler: p.scheduler }
+}
 
 test('tick runs the timers that are due, in the order of their times', async () => {
   const clock = fakeClock({ now: 1000 })
@@ -54,6 +66,7 @@ test('the clock takes over Date, performance, hrtime, node:timers, and AbortSign
   const h0 = process.hrtime.bigint()
   assert.equal(t0 >= before, true)
 
+  const { timersSetTimeout, sleep, scheduler } = timersNow()
   const done = spy()
   timersSetTimeout(done, 500)
   const slept = sleep(1000, 'value')
@@ -88,7 +101,7 @@ test('restore puts the real clock back, and the end of a test does it too', asyn
   const clock = fakeClock({ now: 5 })
   assert.throws(() => fakeClock(), /a fake clock is active/)
   clock.restore()
-  assert.deepEqual([Date, setTimeout, timersSetTimeout === realSetTimeout || true], [realDate, realSetTimeout, true])
+  assert.deepEqual([Date, setTimeout, timersNow().timersSetTimeout === realSetTimeout || true], [realDate, realSetTimeout, true])
   assert.equal(Date.now() > 1e12, true)
   await assert.rejects(clock.tick(1), /the fake clock was restored/)
   {
