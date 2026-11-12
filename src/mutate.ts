@@ -9,6 +9,7 @@ import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { UsageError } from './config.ts'
+import { changedLines, diffOption } from './git.ts'
 import type { Mutant } from './instrument.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
 import { coversAt, coveredFiles } from './query.ts'
@@ -36,8 +37,12 @@ export const mutate = async (
   args: string[],
   out: (text: string) => void,
 ): Promise<number> => {
-  if (!args.length)
-    throw new UsageError('ubq mutate needs a source file, or a line of one: ubq mutate src/a.ts, or ubq mutate src/a.ts:12')
+  args = [...args]
+  const commit = diffOption(args)
+  if (!args.length && commit === undefined)
+    throw new UsageError(
+      'ubq mutate needs a source file, a line of one, or --diff: ubq mutate src/a.ts, ubq mutate src/a.ts:12, or ubq mutate --diff',
+    )
   if (process.env.UBQ_COVERAGE === 'v8')
     throw new UsageError('ubq mutate needs source counters. Remove UBQ_COVERAGE=v8.')
   const { mutants } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
@@ -46,11 +51,17 @@ export const mutate = async (
   const last = db.prepare('select status, ms from test where id = ? order by run desc limit 1')
   const hashes = db.prepare('select distinct hash from coverage where file = ?')
 
+  // With `--diff`: only the lines that differ from the commit.
+  const diff = commit === undefined ? undefined : changedLines(commit)
+  if (diff && !args.length) args = [...diff.keys()].filter(f => known.includes(f)).map(f => join(root, f))
+
   const jobs: Job[] = []
   let uncovered = 0
   for (const arg of args) {
     const m = /^(.*?)(?::(\d+))?$/.exec(arg)!
     const file = rel(resolve(m[1]!))
+    const lines = diff?.get(file)
+    if (diff && !lines) continue
     if (!known.includes(file))
       throw new UsageError(`no test loaded ${file}. Run the tests first: ubq`)
     // The lines of the stored coverage must be the lines of the file.
@@ -64,6 +75,7 @@ export const mutate = async (
     if (!all) throw new UsageError(`ubq cannot read the syntax of ${file}`)
     for (const mutant of all) {
       if (m[2] && mutant.line !== +m[2]) continue
+      if (lines && !lines.some(([first, last]) => first <= mutant.line && mutant.line <= last)) continue
       const c = coversAt(db, file, mutant.start)
       const tests = new Map<string, string[]>()
       let ms = 0

@@ -2,7 +2,7 @@
 // See docs/04-architecture.md, section 5.
 import { clearTimeout, setTimeout } from './real.ts'
 import { hash } from 'node:crypto'
-import { readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
@@ -100,6 +100,32 @@ export interface Store {
   /** A sink that writes the events of run `run`. */
   sink(run: number): Sink
   close(): void
+}
+
+const sourcePath = (hash: string): string => join(stateDir(), 'sources', hash)
+
+/**
+ * The content of a project file that had this hash when a test
+ * recorded coverage of it. `--changed` finds the part of the file
+ * that changed with it. Undefined if the store does not have it.
+ */
+export const storedSource = (hash: string): string | undefined => {
+  try {
+    return readFileSync(sourcePath(hash), 'utf8')
+  } catch {
+    return undefined
+  }
+}
+
+/** Removes the stored content that no coverage row names. */
+export const pruneSources = (db: DatabaseSync): void => {
+  const used = new Set((db.prepare('select distinct hash from coverage').all() as { hash: string }[]).map(r => r.hash))
+  try {
+    for (const name of readdirSync(join(stateDir(), 'sources')))
+      if (!used.has(name)) rmSync(sourcePath(name), { force: true })
+  } catch {
+    // No stored content.
+  }
 }
 
 /** The content hash of a project file. Empty if the file does not exist. */
@@ -206,6 +232,23 @@ export const openStore = (): Store => {
         if (h === undefined) hashes.set(file, (h = fileHash(file)))
         return h
       }
+      // The content of each file with coverage, under its hash.
+      const kept = new Set<string>()
+      const keep = (file: string): string => {
+        const h = hashOf(file)
+        if (h && !kept.has(h)) {
+          kept.add(h)
+          try {
+            if (!existsSync(sourcePath(h))) {
+              mkdirSync(join(stateDir(), 'sources'), { recursive: true })
+              copyFileSync(join(projectRoot(), file), sourcePath(h))
+            }
+          } catch {
+            // `--changed` then selects by file, not by range.
+          }
+        }
+        return h
+      }
       // The files that ran code while each test file loaded, and the
       // digest of their content.
       const loaded = new Map<string, { files: Map<string, string>; code: string }>()
@@ -281,7 +324,7 @@ export const openStore = (): Store => {
           case 'coverage': {
             const file = event.tfile
             for (const f of event.files)
-              addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges), hashOf(f.file))
+              addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges), keep(f.file))
             const names = event.files.map(f => f.file)
             if (event.id) setCode.run(codeOf(file, names), run, event.id)
             else {

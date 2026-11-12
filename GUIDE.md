@@ -46,7 +46,7 @@ ubq test/parse.test.ts   one file (or a folder)
 ubq test/parse.test.ts:9 the test at that line
 ubq '<test id>'          one test, or the tests of a group
 ubq --failed             the tests that failed in their last run
-ubq --changed            the test files that loaded a file that changed
+ubq --changed            the tests that ran code that changed
 node test/parse.test.ts  a test file is a plain program (also: deno run -A, bun)
 ```
 
@@ -193,20 +193,32 @@ ubq history '<test id>'   the result of a test in each stored run. Says if the t
 ubq diff [run] [run]      the tests whose status differs in two runs
 ubq slow [run]            the slowest tests
 ubq uncovered [file]      code that no test ran
+ubq uncovered --diff      code that no test ran, in the lines that you changed (from the last git commit)
 ubq covers <file>:<line>  the tests that ran a line
 ubq sql '<query>'         a read-only SQL query, as JSON lines
 ```
 
-Coverage is always on, for each test. After a change to a source
-file, `ubq --changed` runs only the test files that loaded it.
-Before a change to a line, `ubq covers <file>:<line>` names the
-tests that protect it.
+Coverage is always on, for each test. Before a change to a line,
+`ubq covers <file>:<line>` names the tests that protect it.
+
+After a change to the source, do these in order:
+
+```
+ubq --changed           runs only the tests that ran the code that changed
+ubq uncovered --diff    lists the code that you changed and that no test runs: write a test for it
+ubq mutate --diff       a mutation check of the lines that you changed (see below)
+```
+
+`--diff` is the difference from the last git commit, with files
+that git does not have yet. `--diff=main` is the difference from
+a different commit.
 
 A mutation check tells if the tests of a file are strong:
 
 ```
 ubq mutate src/cart.ts       makes small changes to the file, one at a time, and runs the tests of the changed code
 ubq mutate src/cart.ts:20    only the changes on that line
+ubq mutate --diff            only the lines that you changed
 ```
 
 It changes an operator, a number, or a boolean (`-` to `+`, `<` to

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Failure } from './events.ts'
 import { projectRoot } from './project.ts'
+import { fileHash } from './store.ts'
 
 type Span = [start: number, end: number]
 
@@ -102,6 +103,18 @@ export const coveredFiles = (db: DatabaseSync): string[] =>
       )
       .all() as { file: string }[]
   ).map(r => r.file)
+
+/** The test files of the store. */
+export const testFiles = (db: DatabaseSync): string[] =>
+  (db.prepare('select tfile from test_file order by tfile').all() as { tfile: string }[]).map(r => r.tfile)
+
+/** True if `file` changed after a test recorded coverage of it. */
+export const stale = (db: DatabaseSync, file: string): boolean => {
+  const now = fileHash(file)
+  return (db.prepare('select distinct hash from coverage where file = ?').all(file) as { hash: string }[]).some(
+    r => r.hash !== now,
+  )
+}
 
 /** The code in `file` that no test ran. */
 export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {

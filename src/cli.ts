@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { doctor } from './doctor.ts'
 import { mutate } from './mutate.ts'
 import { testdirPath } from './fixtures.ts'
+import { changedLines, diffOption } from './git.ts'
 import { join, resolve } from 'node:path'
 import { projectRoot, rel } from './project.ts'
 import {
@@ -22,12 +23,17 @@ import {
   outputOf,
   runRow,
   slowest,
+  stale,
+  testFiles,
   testsUnder,
   uncovered,
 } from './query.ts'
 import { textSink } from './sink-text.ts'
 import { run, UsageError } from './runner.ts'
-import { openStore } from './store.ts'
+import { fileHash, openStore } from './store.ts'
+
+/** A file that can have code. */
+const CODE = /\.([cm]?[jt]s|[jt]sx)$/
 
 const USAGE = `usage:
   ubq                        run all test files (names that end in .test.ts, .test.js, ...)
@@ -35,7 +41,7 @@ const USAGE = `usage:
   ubq <file>:<line>          run the test at that line
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
-  ubq --changed              run the test files that loaded a file that has changed, and new test files
+  ubq --changed              run the tests that ran code that has changed, and new test files
   ubq --update <file or test id>...  run these tests and write their snapshots (assert.snapshot)
   ubq --seed <n> ...         run the test files in the order of an older run (the files run in a random order)
   ubq --repeat <n> ...       run the selected tests n times, and count the failures of each test
@@ -46,8 +52,10 @@ const USAGE = `usage:
   ubq diff [run] [run]       the tests with a different status in two runs (default: the last run and the run before it)
   ubq slow [run]             the slowest tests of a run (default: the last run)
   ubq uncovered [file]       code that no test ran
+  ubq uncovered --diff       code that no test ran, in the lines that differ from the last git commit (--diff=<commit>: from that commit)
   ubq covers <file>:<line>   the tests that ran a line
   ubq mutate <file>[:<line>] a mutation check: makes small changes to the file, one at a time, and lists each change that no test fails for
+  ubq mutate --diff          a mutation check of the lines that differ from the last git commit (--diff=<commit>: from that commit)
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
   ubq server                 starts a background server that makes runs faster: it keeps test processes ready. ubq server stop stops it
   ubq guide                  how to write and run tests, for the installed version
@@ -244,18 +252,40 @@ const main = async (args: string[]): Promise<number> => {
     }
 
     case 'uncovered': {
-      const files = rest[0] ? [file(rest[0])] : coveredFiles(db)
-      if (rest[0] && !coveredFiles(db).includes(files[0]!))
+      const commit = diffOption(rest)
+      const diff = commit === undefined ? undefined : changedLines(commit)
+      const covered = coveredFiles(db)
+      let files = rest[0] ? [file(rest[0])] : covered
+      if (rest[0] && !covered.includes(files[0]!))
         throw new UsageError(`no test loaded ${files[0]}`)
+      /** Changed files with code that no test loads. */
+      const unloaded: string[] = []
+      if (diff) {
+        files = files.filter(f => diff.has(f))
+        const tests = new Set(testFiles(db))
+        if (!rest[0])
+          for (const f of diff.keys())
+            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && fileHash(f)) unloaded.push(f)
+        // The places of the stored coverage must be the places of the file.
+        for (const f of files)
+          if (stale(db, f))
+            throw new UsageError(`${f} changed after the last run of its tests. Run them first: ubq --changed`)
+      }
       let total = 0
       for (const f of files) {
         for (const u of uncovered(db, f)) {
+          if (diff && !diff.get(f)!.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
+            continue
           total++
           const more = u.moreLines ? ` (+${u.moreLines} lines)` : ''
           out(`${u.file}:${u.line}:${u.column}  ${u.text}${more}`)
         }
       }
-      out(`${total} uncovered ranges in ${files.length} files`)
+      for (const f of unloaded) out(`${f}  no test loads this file`)
+      if (diff) {
+        const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
+        out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
+      } else out(`${total} uncovered ranges in ${files.length} files`)
       const weak = incomplete(db)
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')

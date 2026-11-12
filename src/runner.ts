@@ -2,7 +2,7 @@
 // of each one, and feeds the sinks.
 // See docs/04-architecture.md, section 2.
 import { spawn } from 'node:child_process'
-import { existsSync, globSync, statSync } from 'node:fs'
+import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -30,7 +30,7 @@ import { headCommit } from './git.ts'
 import { hangReruns } from './hang.ts'
 import { repeater } from './repeat.ts'
 import { shuffle } from './shuffle.ts'
-import { fileHash, openStore, stateDir, type Store } from './store.ts'
+import { fileHash, openStore, pruneSources, stateDir, storedSource, type Store } from './store.ts'
 
 /** The one name pattern for test files. */
 const TEST_FILES = '**/*.test.{ts,mts,cts,tsx,js,mjs,cjs,jsx}'
@@ -185,51 +185,116 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const)
     process.exit(signal === 'SIGINT' ? 130 : 143)
   })
 
+/** The part of a file that changed: its start, and its end in the old and in the new content. */
+type Change = [from: number, oldTo: number, newTo: number]
+
+const changeOf = (old: string, now: string): Change => {
+  const max = Math.min(old.length, now.length)
+  let from = 0
+  while (from < max && old[from] === now[from]) from++
+  let same = 0
+  while (same < max - from && old[old.length - 1 - same] === now[now.length - 1 - same]) same++
+  return [from, old.length - same, now.length - same]
+}
+
+/** The ranges of the old content as ranges of the new content. For ranges that did not run the change. */
+const moved = (ranges: number[], [from, oldTo, newTo]: Change): number[] => {
+  const at = (offset: number, end: boolean): number =>
+    offset <= from ? offset
+    : offset >= oldTo ? offset + newTo - oldTo
+    : end ? newTo
+    : from
+  const out: number[] = []
+  for (let i = 0; i < ranges.length; i += 3) {
+    const start = Math.max(at(ranges[i]!, false), out.at(-2) ?? 0)
+    const end = at(ranges[i + 1]!, true)
+    if (end > start) out.push(start, end, ranges[i + 2]!)
+  }
+  return out
+}
+
 /**
- * The test files that a change can affect: a file that a test file
- * loaded has different content now, the test file is new, or its
- * loaded files are not known. `changed` lists the files that differ.
+ * The tests that a change can affect: a test that ran code that is
+ * different now, all tests of a test file that is new or changed,
+ * or whose coverage is not complete. `changed` lists the files that
+ * differ.
+ *
+ * A test that did not run the changed part of a file stays as it
+ * is. Its coverage in the store gets the places of the new content.
  */
 export const selectChanged = (store: Store): { files: Selected[]; changed: string[] } => {
+  const { db } = store
   const now = new Map<string, string>()
-  const differs = (file: string, hash: string): boolean => {
+  const hashNow = (file: string): string => {
     let h = now.get(file)
     if (h === undefined) now.set(file, (h = fileHash(file)))
-    return h !== hash
+    return h
   }
-  const tfiles = new Set<string>()
+  /** Test files that run all their tests. */
+  const whole = new Set<string>()
+  const ids = new Map<string, Set<string>>()
   const changed = new Set<string>()
-  const known = store.db.prepare('select tfile, coverage, hash from test_file').all() as {
+  const known = db.prepare('select tfile, coverage, hash from test_file').all() as {
     tfile: string
     coverage: string
     hash: string
   }[]
+  /** Test files whose coverage has all the code that they ran. */
+  const full = new Set<string>()
   for (const { tfile, coverage, hash } of known) {
-    if (differs(tfile, hash)) changed.add(tfile)
-    else if (coverage !== 'none') continue
-    tfiles.add(tfile)
-  }
-  const rows = store.db.prepare('select distinct tfile, file, hash from coverage').all() as {
-    tfile: string
-    file: string
-    hash: string
-  }[]
-  for (const { tfile, file, hash } of rows)
-    if (differs(file, hash)) {
-      changed.add(file)
-      tfiles.add(tfile)
+    if (hashNow(tfile) !== hash) changed.add(tfile)
+    else if (coverage !== 'none') {
+      if (coverage === 'full') full.add(tfile)
+      continue
     }
+    whole.add(tfile)
+  }
+  const pairs = db.prepare('select distinct file, hash from coverage').all() as { file: string; hash: string }[]
+  const rowsOf = db.prepare('select tfile, test, ranges from coverage where file = ? and hash = ?')
+  const update = db.prepare('update coverage set ranges = ?, hash = ? where tfile = ? and test = ? and file = ?')
+  db.exec('begin')
+  for (const { file, hash } of pairs) {
+    if (hashNow(file) === hash) continue
+    changed.add(file)
+    const old = storedSource(hash)
+    let text: string | undefined
+    try {
+      text = readFileSync(join(projectRoot(), file), 'utf8')
+    } catch {
+      // The file went away.
+    }
+    const change = old === undefined || text === undefined ? undefined : changeOf(old, text)
+    for (const row of rowsOf.all(file, hash) as { tfile: string; test: string; ranges: string }[]) {
+      // Coverage that is not complete cannot show that a test did
+      // not run the change.
+      if (!full.has(row.tfile)) whole.add(row.tfile)
+      if (whole.has(row.tfile)) continue
+      const ranges = JSON.parse(row.ranges) as number[]
+      let ran = !change
+      // New text with nothing removed has no length in the old
+      // content. A range that touches its place counts.
+      const edge = change && change[0] === change[1] ? 1 : 0
+      for (let i = 0; !ran && i < ranges.length; i += 3)
+        ran = ranges[i + 2]! > 0 && ranges[i]! < change![1] + edge && ranges[i + 1]! > change![0] - edge
+      if (!ran) update.run(JSON.stringify(moved(ranges, change!)), hashNow(file), row.tfile, row.test, file)
+      // Code that ran while the test file loaded can change each test.
+      else if (!row.test) whole.add(row.tfile)
+      else ids.set(row.tfile, (ids.get(row.tfile) ?? new Set()).add(row.test))
+    }
+  }
+  db.exec('commit')
+  pruneSources(db)
   const old = new Set(known.map(k => k.tfile))
   for (const file of under(projectRoot()))
     if (!old.has(file)) {
       changed.add(file)
-      tfiles.add(file)
+      whole.add(file)
     }
   return {
-    files: [...tfiles]
+    files: [...new Set([...whole, ...ids.keys()])]
       .filter(file => existsSync(join(projectRoot(), file)))
       .sort()
-      .map(file => ({ file, lines: [], ids: [] })),
+      .map(file => ({ file, lines: [], ids: whole.has(file) ? [] : [...ids.get(file)!].sort() })),
     changed: [...changed].sort(),
   }
 }
@@ -426,7 +491,9 @@ export const run = async (args: string[]): Promise<number> => {
       files = affected
       if (!files.length) {
         process.stderr.write(
-          'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new\n',
+          changed.length ?
+            `ubq: no test ran the code that changed in ${changed.join(', ')}\n`
+          : 'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new\n',
         )
         return 2
       }

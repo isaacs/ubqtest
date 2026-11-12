@@ -594,6 +594,22 @@ Known limits:
   that does not return gets no stack (the watchdog thread has no
   inspector there).
 
+## Commands that work on a change: done (2026-11-12)
+
+D41. `ubq --changed` selects the tests that ran the changed part
+of a file (`selectChanged` in `src/runner.ts`). `ubq uncovered
+--diff` and `ubq mutate --diff` work on the lines that differ from
+a git commit (`changedLines` in `src/git.ts`). Checks:
+`test/diff.test.ts`, `test/select.test.ts`.
+
+Known limits:
+
+- The changed part of a file is one span. Two changes far apart
+  select each test that ran code between them.
+- `--diff` reads file names from `git diff` as text. A name that
+  git puts in quotes (a name with a special character) is not
+  found.
+
 ## Coverage of JSX files: done on Bun and Deno (2026-11-12)
 
 D40. A `.tsx` or `.jsx` file gets counters, so coverage, `ubq

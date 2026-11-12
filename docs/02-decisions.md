@@ -562,3 +562,35 @@ step, so `ubq mutate` of a JSX file on Deno is an error.
 compiles it. Option 2 could work there too, if that hook gives an
 inline source map. This is not built and not tried.
 
+## D41. Commands that work on a change: `--changed` by range, and `--diff` (agent, on a request from the user, 2026-11-12)
+
+**`ubq --changed` selects tests, not test files.** The store keeps
+the content of each file that has coverage, under its hash
+(`.ubq/sources/`). `--changed` finds the part of a file that is
+different (the text between the equal start and the equal end of
+the old and the new content), and selects the tests that ran a
+range in that part.
+
+- A test file runs all its tests if the changed code ran while
+  the file loaded, if the test file changed, or if its coverage
+  is not `full`.
+- A test that did not run the changed part does not run. Its
+  coverage in the store gets the places of the new content, so
+  `ubq covers`, `ubq uncovered`, and `ubq mutate` stay correct.
+- Two changes in one file give one part, from the first change to
+  the last. That selects more tests, never fewer.
+
+**Reason.** A test that ran none of the changed code takes the
+same path through the same code, so its result is the same. The
+type check of the run finds a change that is only in types.
+
+**`--diff` is the difference from a git commit.** `ubq uncovered
+--diff` and `ubq mutate --diff` use the lines of `git diff -U0`,
+and all lines of a file that git does not have. `--diff` is
+`HEAD`. `--diff=<commit>` names a different commit. These
+commands start `git`. A run of tests does not.
+
+`ubq uncovered --diff` also lists each changed file with code that
+no test loads. Its exit code is 0, as for `ubq uncovered` and
+`ubq mutate` (D35).
+
