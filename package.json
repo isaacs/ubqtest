@@ -26,7 +26,9 @@
     "docs": "npm run build && node scripts/api-docs.ts",
     "site": "node scripts/site.ts",
     "preversion": "npm test",
-    "postversion": "git push origin --follow-tags"
+    "postversion": "git push origin --follow-tags",
+    "site:go": "npx -y wrangler@4 deploy",
+    "site:dev": "npx -y wrangler@4 dev"
   },
   "devDependencies": {
     "@sveltejs/acorn-typescript": "^1.0.13",
