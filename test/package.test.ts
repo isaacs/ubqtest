@@ -140,6 +140,14 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     '',
   ])
   assert.deepEqual(await run(['node'], 'uncovered', 'src/shape.ts'), await run(deno, 'uncovered', 'src/shape.ts'))
+  // An import of `./two.js` finds `./two.ts`, as on Node.
+  writeFileSync(join(p.dir, 'src/one.ts'), "import { two } from './two.js'\nexport const one = (): number => two() - 1\n")
+  writeFileSync(join(p.dir, 'src/two.ts'), 'export const two = (): number => 2\n')
+  writeFileSync(
+    join(p.dir, 'one.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.js'\ntest('one', () => {\n  assert.equal(one(), 1)\n})\n",
+  )
+  assert.deepEqual(await run(deno, 'one.ts'), ['pass: 0 failed, 1 passed', ''])
   // Deno compiles JSX before a load hook sees the file. The
   // counters go into its JavaScript, and its source map gives the
   // places in the source.

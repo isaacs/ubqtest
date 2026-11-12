@@ -36,6 +36,7 @@ describe('parse', () => {
   folder of the project.
 - Import each function from `'ubqtest'`. There are no globals.
 - Import source files with their extension: `'../src/parse.ts'`.
+  Under `ubq`, `'../src/parse.js'` also finds `parse.ts`.
 - A test file needs no build step and no configuration.
 
 ## Run

@@ -594,3 +594,19 @@ commands start `git`. A run of tests does not.
 no test loads. Its exit code is 0, as for `ubq uncovered` and
 `ubq mutate` (D35).
 
+## D42. An import of `./a.js` finds `./a.ts` (agent, 2026-11-12)
+
+Much TypeScript source imports `./a.js` for the file `./a.ts`,
+because that is the name after a build. Bun finds the file. Node
+and Deno do not. The preload of the runner has a resolve hook: if
+a relative import that ends in `.js`, `.mjs`, `.cjs`, or `.jsx`
+names no file, the hook tries `.ts` (then `.tsx`), `.mts`, `.cts`,
+or `.tsx`.
+
+**Reason.** A project that moves to ubq must not have to change
+each import of its source first (D24: as little configuration as
+possible, and the tool guesses correctly).
+
+A test file that runs as a plain program on Node (`node
+test/a.test.ts`) has no preload, so it needs the `.ts` names.
+

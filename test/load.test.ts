@@ -39,3 +39,21 @@ test('a test file that does not load is an error of the file, with the place', (
   const again = p.ubq('failures').out.split('\n')
   assert.deepEqual(again.slice(again.indexOf(bad[0]!), again.indexOf(bad[0]!) + 4), bad)
 })
+
+test('an import of ./a.js finds the file ./a.ts', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(join(p.dir, 'src/one.ts'), "import { two } from './two.js'\nexport const one = (): number => two() - 1\n")
+  writeFileSync(join(p.dir, 'src/two.ts'), 'export const two = (): number => 2\n')
+  writeFileSync(
+    join(p.dir, 'one.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.js'\ntest('one', () => {\n  assert.equal(one(), 1)\n})\n",
+  )
+  // In the process of the runner, and in a child process.
+  assert.equal(p.ubq('one.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')
+  assert.equal(p.ubq('covers', 'src/two.ts:1').out, 'one.ts > one\none.ts (while the file loads)\n1 tests run src/two.ts:1\n')
+  // A file that does not exist with either name.
+  writeFileSync(join(p.dir, 'src/two.ts'), "import './three.js'\n")
+  assert.match(p.ubq('one.ts').out, /the test file did not load: Cannot find module 'src\/three.js' imported from src\/two.ts/)
+})
