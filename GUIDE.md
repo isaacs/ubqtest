@@ -2,7 +2,9 @@
 
 How to write and run tests with `ubqtest`. This text comes from
 the installed package, so it is correct for the installed version.
-`ubq guide` prints it. `ubq doctor` checks the setup of a project.
+`ubq guide` prints it. `ubq doctor` checks the setup of a project:
+it prints one `FIX` line for each problem, and its exit code is 1
+if there is a problem.
 
 ## A test file
 
@@ -30,7 +32,8 @@ describe('parse', () => {
 ```
 
 - The name of a test file ends in `.test.ts` (or `.test.js`,
-  `.test.mts`, `.test.tsx`, and so on).
+  `.test.mts`, `.test.tsx`, and so on). The file can be in any
+  folder of the project.
 - Import each function from `'ubqtest'`. There are no globals.
 - Import source files with their extension: `'../src/parse.ts'`.
 - A test file needs no build step and no configuration.
@@ -46,6 +49,11 @@ ubq --failed             the tests that failed in their last run
 ubq --changed            the test files that loaded a file that changed
 node test/parse.test.ts  a test file is a plain program (also: deno run -A, bun)
 ```
+
+`ubq` with no arguments also runs the type checker, if the project
+has `tsconfig.json` and the `typescript` package. Each type error
+is a `TYPE` block, and the run fails. The tests run in any case.
+`ubq --types <selection>` adds the type check to a smaller run.
 
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/.bin/ubq`.
@@ -136,7 +144,19 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   prints the path.
 - The mock of `mockImport` must have the types of the real
   exports. It exists only in the returned module instance. The
-  two loaders must have the form `() => import('...')`.
+  two loaders must have the form `() => import('...')`. A mock
+  with a spy:
+
+  ```ts
+  test('checkout charges the card', async () => {
+    const charge = spy(async (card: string, cents: number) => ({ id: 'r1', cents }))
+    const { checkout } = await mockImport(() => import('../src/cart.ts'), [
+      [() => import('../src/payment.ts'), { charge }],
+    ])
+    await checkout(items, 'card-1')
+    assert.deepEqual(charge.calls[0]?.args, ['card-1', 700])
+  })
+  ```
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
   saved text fails. Only `ubq --update <file or test id>` writes
   them. Read the new text before you commit it.

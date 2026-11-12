@@ -22,6 +22,7 @@ import {
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
+import { typeCheck } from './typecheck.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
 import { headCommit } from './git.ts'
 import { repeater } from './repeat.ts'
@@ -376,6 +377,11 @@ export const run = async (args: string[]): Promise<number> => {
     seed = +text
     selection = selection.toSpliced(seedAt, 2)
   }
+  // A run of all tests also checks the types. `--types` adds the
+  // check to a run of a selection.
+  const typesFlag = selection.includes('--types')
+  selection = selection.filter(a => a !== '--types')
+  const types = typesFlag || (!selection.length && !repeat)
   const update = selection.includes('--update')
   if (update) {
     selection = selection.filter(a => a !== '--update')
@@ -435,8 +441,14 @@ export const run = async (args: string[]): Promise<number> => {
   }
   const cacheDir = join(stateDir(), 'compile-cache')
 
+  const checking = types ? typeCheck() : undefined
+  if (typesFlag && !checking)
+    throw new UsageError(
+      '--types needs tsconfig.json in the project root, and the typescript package: npm install --save-dev typescript',
+    )
+
   // One file runs in this process. It has the runner role for itself.
-  if (files.length === 1 && !repeat && !baselineRef) {
+  if (files.length === 1 && !repeat && !baselineRef && !checking) {
     const { file, lines, ids } = files[0]!
     // Deno has no compile cache of this form.
     nodeModule.enableCompileCache?.(cacheDir)
@@ -540,6 +552,8 @@ export const run = async (args: string[]): Promise<number> => {
     all.flush()
     write(all.summary() + '\n')
   } else await runAll(send)
+  const typeErrors = (await checking) ?? []
+  for (const error of typeErrors) send(error)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
   // The order of the files can be the cause of a failure.
   if (ordered.length > 1 && ([...status.values()].includes('fail') || errorFiles.size))
@@ -548,7 +562,7 @@ export const run = async (args: string[]): Promise<number> => {
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')
   const code =
-    fail || errors ? 1
+    fail || errors || typeErrors.length ? 1
     : count('pass') === 0 ? 2
     : 0
   send({
@@ -559,6 +573,7 @@ export const run = async (args: string[]): Promise<number> => {
     errors,
     skip: count('skip'),
     unselected,
+    ...(checking && { types: typeErrors.length }),
     code,
   })
   store?.close()

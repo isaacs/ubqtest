@@ -15,6 +15,9 @@ const sourceLine = (at: Location): string | undefined => {
   }
 }
 
+/** Type errors that get a block. A wrong type can give hundreds. */
+const TYPE_ERRORS = 20
+
 /** Lines of console output in a failure block, outside CI. */
 const OUTPUT_LINES = 20
 
@@ -30,6 +33,7 @@ export const textSink = (write: (text: string) => void): Sink => {
   let ci = false
   let run: number | undefined
 
+  let typeErrors = 0
   const repeats = new Map<TestId, Repeat>()
   const rate = (r: Repeat, what: string): string =>
     `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
@@ -105,12 +109,23 @@ export const textSink = (write: (text: string) => void): Sink => {
         if (event.updated)
           write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
         break
+      case 'type-error':
+        if (++typeErrors <= TYPE_ERRORS)
+          block(`TYPE ${event.at?.file ?? '(no file)'}`, {
+            kind: 'error',
+            message: `${event.code}: ${event.message}`,
+            ...(event.at && { at: event.at }),
+          })
+        break
       case 'run-end': {
+        if (typeErrors > TYPE_ERRORS)
+          write(`and ${typeErrors - TYPE_ERRORS} more type errors. For all of them: npx tsc --noEmit\n`)
         if (skips.length) write(skips.join('\n') + '\n')
         const parts = [`${event.fail} failed`, `${event.pass} passed`]
         if (event.errors) parts.unshift(`${event.errors} errors`)
         if (event.skip) parts.push(`${event.skip} skipped`)
         if (event.unselected) parts.push(`${event.unselected} not selected`)
+        if (event.types) parts.push(`${event.types} type errors`)
         const stored = run === undefined ? '' : ` (run ${run})`
         write(`${event.code ? 'fail' : 'pass'}: ${parts.join(', ')}${stored}\n`)
         break

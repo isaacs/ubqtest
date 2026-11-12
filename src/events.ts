@@ -184,6 +184,19 @@ export interface Exit {
   signal: string | null
 }
 
+/**
+ * An error from the type checker of the project. The runner role
+ * writes it, after the events of the test files.
+ */
+export interface TypeCheckError {
+  type: 'type-error'
+  /** `TS2322` */
+  code: string
+  message: string
+  /** Absent for an error that belongs to no file. */
+  at?: Location
+}
+
 /** Last event of a run. The runner role writes it. */
 export interface RunEnd {
   type: 'run-end'
@@ -194,6 +207,8 @@ export interface RunEnd {
   errors: number
   skip: number
   unselected: number
+  /** Count of `type-error` events. Absent if the run had no type check. */
+  types?: number
   /** The exit code of the run. See docs/04-architecture.md, section 9. */
   code: number
 }
@@ -208,7 +223,7 @@ export type FileEvent =
   | FileError
   | FileEnd
 
-export type RunEvent = RunStart | Exit | RunEnd
+export type RunEvent = RunStart | Exit | TypeCheckError | RunEnd
 
 export type UbqEvent = FileEvent | RunEvent
 
