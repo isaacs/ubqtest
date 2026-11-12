@@ -643,6 +643,13 @@ Known limits:
 - The text between the arguments of a changed call (a comment
   there) goes away.
 
+## Web site: done (2026-11-12)
+
+D44. `npm run site` makes `_site/` from `site/` and the markdown
+documents. `test/site.test.ts` checks that each page has a
+markdown copy and that each link goes to a file. The upload to a
+host is not built: the host is not chosen.
+
 ## Smaller gaps closed (2026-11-12)
 
 - Type errors are in the store (table `type_error`, schema 7).

@@ -19,13 +19,15 @@
     "typecheck": "tsc",
     "bench": "npm run build && node experiments/suite/bench.mjs",
     "build": "node scripts/build.ts",
-    "docs": "npm run build && node scripts/api-docs.ts"
+    "docs": "npm run build && node scripts/api-docs.ts",
+    "site": "node scripts/site.ts"
   },
   "devDependencies": {
     "@sveltejs/acorn-typescript": "^1.0.13",
     "@types/node": "^26.6.6",
     "acorn": "^8.19.0",
     "esbuild": "^0.28.2",
+    "marked": "^18.2.0",
     "typescript": "^7.0.2"
   },
   "bin": {

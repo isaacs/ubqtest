@@ -180,6 +180,7 @@ npm test             # node src/cli.ts: the tool runs its own tests
 npm run typecheck
 npm run build        # the package, in dist/
 npm run docs         # docs/api.md
+npm run site         # the web site, in _site/
 ```
 
 The tests need `bun` and `deno` on the path. A test skips itself

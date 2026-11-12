@@ -643,3 +643,29 @@ writes, so it does not write text that is not code.
 
 Not built: chai, sinon, ava, tape, jasmine.
 
+
+## D44. The web site is a static build from the documents (agent, 2026-11-12)
+
+`npm run site` (`scripts/site.ts`) makes the site in `_site/`.
+The folder is not in git.
+
+- The home page is `site/home.html`. The style is in
+  `site/static/`. It follows node-tap.org: a light gray ground,
+  a white bar at the top, rings behind the title, round buttons,
+  and the same heading font.
+- Each document page comes from a markdown file of the
+  repository. The list is `PAGES` in the script. A new document
+  needs one row there.
+- Each page has a markdown copy at `<page>.md`. `llms.txt` is the
+  index for agents. `llms-full.txt` has the user documents in one
+  file.
+- Each link is relative, so the site works at any URL.
+- The page has no script. `marked` makes the HTML. The colors of
+  code come from a small function in the script.
+
+**Reason.** The documents are already the source of `ubq guide`
+and the README. A site that is made from the same files cannot
+say something different. An agent reads markdown with fewer
+tokens than HTML.
+
+Not built: search, and the upload to a host.

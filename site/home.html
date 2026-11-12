@@ -1,0 +1,152 @@
+<main>
+<div class="hero">
+  <img src="static/logo.svg" alt="" width="136" height="136">
+  <p class="wordmark">ubq</p>
+  <h1>The best test tool for coding agents. Their humans like it too.</h1>
+  <p class="sub">Tests for TypeScript and JavaScript, on Node, Bun, and Deno. No build step. No configuration. No output that nobody reads.</p>
+  <code class="install">npm install --save-dev ubqtest</code>
+  <div class="buttons">
+    <a class="button-link" href="guide/">Get started</a>
+    <a class="button-link quiet" href="llms.txt">I am an agent</a>
+  </div>
+</div>
+
+<div class="band">
+  <div class="features">
+    <div class="grid">
+      <section>
+        <h3>Short output</h3>
+        <p>A pass is one line. A failure is one block: the place, the source line, the difference, and the command that runs that one test again.</p>
+      </section>
+      <section>
+        <h3>Tests that cannot pass for the wrong reason</h3>
+        <p>A test with no assertion fails. A promise that nothing waits for fails. Work that goes on after the test ended fails.</p>
+      </section>
+      <section>
+        <h3>Coverage for each test, always on</h3>
+        <p>ubq knows which tests ran each line. After a change, it runs only the tests that the change can affect.</p>
+      </section>
+      <section>
+        <h3>One small API</h3>
+        <p><code>test</code>, <code>describe</code>, <code>assert</code>, and a few helpers. No globals, no hooks, no <code>.only</code>. Less to remember, and less to get wrong.</p>
+      </section>
+      <section>
+        <h3>Type errors are failures</h3>
+        <p>Each run also runs the type checker of the project. A test suite that passes with code that does not compile is not a pass.</p>
+      </section>
+      <section>
+        <h3>A store of past runs</h3>
+        <p>Failures, history, and coverage are in a local SQLite file. A question about the last run is a command, not a second run.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="band">
+  <h2>Made for the loop that an agent runs</h2>
+  <p class="lead">An agent changes code, runs tests, reads the output, and decides. It does that many times in one task. Each step of ubq is short, and each one gives the next command.</p>
+  <div class="split">
+    <ol class="steps">
+      <li><code>ubq --changed</code><br>Runs the tests that ran the code you changed. Not the tests of the files near it. The tests that ran those lines.</li>
+      <li><code>ubq uncovered --diff</code><br>Lists the code that you changed and that no test runs. This is the code that needs a test now.</li>
+      <li><code>ubq mutate --diff</code><br>Makes small changes to the lines you changed, one at a time, and lists each change that no test fails for. It tells you if the new tests are strong.</li>
+      <li><code>ubq failures</code><br>Prints the failures of the last run again. Nothing runs.</li>
+    </ol>
+    <div>
+<pre class="plain"><code>$ npx ubq --changed
+FAIL test/parse.test.ts &gt; parse &gt; circle
+  expected values to be equal
+  at test/parse.test.ts:9:12
+  &gt; assert.equal(shape.kind, 'circle')
+  actual:   'square'
+  expected: 'circle'
+  rerun: ubq test/parse.test.ts:6
+
+fail: 1 failed, 1 passed (run 2)</code></pre>
+<pre class="plain"><code>$ npx ubq test/parse.test.ts:6
+pass: 0 failed, 1 passed (run 3)</code></pre>
+      <p class="center"><small>That is all the output. There is no more to scroll past.</small></p>
+    </div>
+  </div>
+</div>
+
+<div class="band">
+  <h2>A test file is a plain program</h2>
+  <p class="lead">Each name comes from one import. The file runs with <code>ubq</code>, and also with <code>node</code>, <code>bun</code>, or <code>deno run</code>.</p>
+  <div class="split">
+<pre class="ts"><code>// test/parse.test.ts
+import { assert, describe, test } from 'ubqtest'
+import { parse } from '../src/parse.ts'
+
+describe('parse', () =&gt; {
+  test('circle', () =&gt; {
+    const shape = parse('c')
+    assert(shape) // narrows away undefined
+    assert.equal(shape.kind, 'circle')
+  })
+
+  test('unknown input', () =&gt; {
+    assert.throws(() =&gt; parse('?'), /unknown shape/)
+  })
+})</code></pre>
+    <div>
+      <h3>Wrong forms are type errors that teach</h3>
+      <p>An agent that learned a different test tool writes <code>assert.ok</code> or <code>test.only</code> from habit. In ubq, each of those is a type error, and the message gives the form to use.</p>
+      <h3>Moving from a different tool</h3>
+      <p><code>ubq convert</code> changes the tests of tap, <code>node:test</code>, vitest, jest, and mocha. It makes the changes that are certain. Where a decision is necessary, it writes a <code>TODO(ubq)</code> comment with the instruction. <a href="convert/">The steps are in the guide.</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="band">
+  <h2>Why a different test tool?</h2>
+  <p class="lead">Most test tools print for a person at a terminal: progress, colors, and a long report. An agent pays for each of those lines, and then must find the three that matter. These are the opinions that ubq has about that.</p>
+  <dl class="rules">
+    <dt>Output is a cost.</dt>
+    <dd>If a line does not help with the next decision, ubq does not print it. The report of a run with no failures is one line.</dd>
+    <dt>A green run must mean something.</dt>
+    <dd>A test that asserts nothing, or that ends before its work ends, tells you nothing. Other tools let it pass. ubq fails it, and says why.</dd>
+    <dt>Coverage is not a report at the end.</dt>
+    <dd>It is data that the tool uses on each run: to select tests, to find code with no test, and to answer <code>ubq covers src/parse.ts:12</code>.</dd>
+    <dt>A stuck test must say where it is stuck.</dt>
+    <dd>A test that goes over its time limit fails, and the report names what it left open and the line that opened it.</dd>
+    <dt>The documents are in the package.</dt>
+    <dd><code>ubq guide</code> prints the API and the rules for the installed version. An agent does not need to guess from an older version that it remembers.</dd>
+    <dt>Fewer ways to do a thing.</dt>
+    <dd>One assertion for equality. One way to group tests. No setting that changes what a test means. Tests from different authors look the same.</dd>
+  </dl>
+</div>
+
+<div class="band center">
+  <h2>Three runtimes, the same results</h2>
+  <ul class="runtimes">
+    <li>Node 24 and later</li>
+    <li>Bun</li>
+    <li>Deno</li>
+  </ul>
+  <p class="lead">Linux, macOS, and Windows. Each test file runs in its own process, in parallel, in a random order. A run with a failure prints its seed. <a href="index.md">The limits are in the overview.</a></p>
+</div>
+
+<div class="band">
+  <h2>For agents, and for the people who set them up</h2>
+  <div class="split">
+    <div>
+      <h3>If you are an agent</h3>
+      <p>Each page of this site is also a markdown file. Start at <a href="llms.txt">llms.txt</a>, or read all the user documents in one file: <a href="llms-full.txt">llms-full.txt</a>.</p>
+      <p>In a project that has the package, use <code>npx ubq guide</code>. That text is correct for the installed version.</p>
+    </div>
+    <div>
+      <h3>If you work with an agent</h3>
+      <p>Put this in <code>AGENTS.md</code> or <code>CLAUDE.md</code>:</p>
+<pre class="md"><code>Tests use ubq (the ubqtest package). Before you write or run
+tests, read `npx ubq guide`. Run `npx ubq --changed` after a
+change, then `npx ubq uncovered --diff`.</code></pre>
+      <p>For Claude Code, <code>npx ubq skill</code> writes <a href="skill/">a skill</a> to the project.</p>
+    </div>
+  </div>
+  <div class="buttons">
+    <a class="button-link" href="guide/">Read the guide</a>
+    <a class="button-link quiet" href="docs/">How it was designed</a>
+  </div>
+</div>
+</main>

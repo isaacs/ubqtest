@@ -2,3 +2,4 @@ node_modules/
 .ubq/
 dist/
 .tmp-*/
+_site/
