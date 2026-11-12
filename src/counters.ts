@@ -2,6 +2,9 @@
 // for, and snapshots of the counts. Separate from the instrumenter,
 // so that a process can read counters and not load the parser.
 
+/** The name of the counter array in the code of a file with counters. */
+export const COUNTER_NAME = '__ubqc'
+
 /** The key of the global Map from file path to counter array. */
 export const COUNTERS = 'ubqtest.counters'
 

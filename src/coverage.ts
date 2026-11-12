@@ -59,6 +59,29 @@ export const flatten = (functions: V8Script['functions']): number[] => {
   return out
 }
 
+/**
+ * Two lists of flat triples for the same file, as one list. Where
+ * both have a count, the result has the sum.
+ */
+export const mergeRanges = (a: number[], b: number[]): number[] => {
+  const at = (ranges: number[], pos: number): number | undefined => {
+    for (let i = 0; i < ranges.length; i += 3) if (ranges[i]! <= pos && pos < ranges[i + 1]!) return ranges[i + 2]
+    return undefined
+  }
+  const cuts = [...new Set([...a, ...b].filter((_, i) => i % 3 !== 2))].sort((x, y) => x - y)
+  const out: number[] = []
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const x = at(a, cuts[i]!)
+    const y = at(b, cuts[i]!)
+    if (x === undefined && y === undefined) continue
+    const count = (x ?? 0) + (y ?? 0)
+    const n = out.length
+    if (n && out[n - 2] === cuts[i] && out[n - 1] === count) out[n - 2] = cuts[i + 1]!
+    else out.push(cuts[i]!, cuts[i + 1]!, count)
+  }
+  return out
+}
+
 // Only a Bun process with the option loads this code. The source
 // is `.ts`, and the bundle is `.js`.
 const BUN_INSPECTOR = import.meta.url.endsWith('.ts') ? './bun-coverage.ts' : './bun-coverage.js'

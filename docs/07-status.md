@@ -694,7 +694,10 @@ To do next:
 
 - `ubq convert` for Playwright tests that use vitest, jest,
   `@playwright/test`, or no test tool (asked by the user).
-- Coverage of code that runs in the browser.
+
+Coverage of code that runs in a page: done (D47). Source:
+`src/browser-coverage.ts`. Not done: a bundle of many files, and
+a source map in a separate file.
 
 ## Web site: done (2026-11-12)
 

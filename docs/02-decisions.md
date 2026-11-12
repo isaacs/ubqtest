@@ -712,8 +712,8 @@ user to Q9 set points 2, 3, and 5.
    Playwright, so the failure comes before the time limit of the
    test and names the element.
 
-Not built: coverage of code that runs in the browser (Chromium
-gives call counts for each function). Firefox and WebKit. A
+Coverage of code that runs in the browser is D47. Not built:
+Firefox and WebKit. A
 compile step for TypeScript that a static page loads.
 
 A fault of Deno 2.9.6 that this work found: with a load hook, a
@@ -742,3 +742,35 @@ tag or branch.
 Checked with `wrangler deploy --dry-run` and `wrangler dev`: the
 pages, the markdown copies (`text/markdown`), `llms.txt`, and the
 404 page. A real deploy is not tested.
+
+## D47. Coverage of code that runs in a page (user and agent, 2026-11-12)
+
+The `Page` that `browser()` gives records coverage in Chromium
+(`page.coverage` of Playwright). When the test ends, the ranges of
+each script go into the `coverage` event of the test, with the
+ranges of the test process. The store and the commands do not
+know the difference.
+
+- **The file of a script** is the file at the path of its URL,
+  from the project root. The URL must start with `browser.url`,
+  or be a file that ubq gave to the page.
+- **The script is the file:** the positions are the same.
+- **A server made the script from the file:** the script must end
+  with a source map that has one source. `src/source-map.ts`
+  changes the ranges to positions of the file. This is the case
+  of a development server that compiles each module (Vite).
+- **No coverage:** a bundle of many files, a script with a source
+  map in a separate file, a script in the text of the HTML, a
+  file in `node_modules`, and a page that the test did not get
+  from `browser()` (a popup).
+- If the test process and a page run the same file, the counts
+  are added (`mergeRanges` in `src/coverage.ts`).
+
+**Reason.** A browser test with no coverage cannot be selected by
+`--changed`, and `uncovered` lists all front-end code. The data
+is there in Chromium at almost no cost.
+
+A defect that this work found: under `ubq` on Node, a function
+that a test gave to `page.evaluate` had counters of the test file
+in its text, and failed in the page (`__ubqc is not defined`).
+Each page now has an object with that name that keeps nothing.

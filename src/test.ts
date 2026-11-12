@@ -5,7 +5,7 @@ import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
 import { config } from './config.ts'
 import { COLUMN } from './counters.ts'
-import type { Collector } from './coverage.ts'
+import { type Collector, mergeRanges } from './coverage.ts'
 import { emit } from './emit.ts'
 import { type CleanupFn, fileCleanups, fileState } from './fixtures.ts'
 import { EVENT_VERSION, type Failure, type Location } from './events.ts'
@@ -14,7 +14,7 @@ import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
 import { saveSnapshots } from './snapshot.ts'
 import { callSite, userFrames } from './stack.ts'
-import { current, type TestState } from './state.ts'
+import { current, moreCoverage, type TestState } from './state.ts'
 import type { WatchData, WatchMessage } from './watchdog.ts'
 
 export interface TestContext {
@@ -77,8 +77,14 @@ export const setCollector = (c: Collector | undefined): void => {
 
 /** Emits a `coverage` event for the code that ran since the last one. */
 const cover = async (id?: string): Promise<void> => {
+  const more = moreCoverage.splice(0)
   if (!collector) return
   const files = await collector.take()
+  for (const extra of more) {
+    const same = files.find(f => f.file === extra.file)
+    if (same) same.ranges = mergeRanges(same.ranges, extra.ranges)
+    else files.push(extra)
+  }
   if (files.length) emit({ type: 'coverage', tfile: currentFile(), ...(id && { id }), files })
 }
 

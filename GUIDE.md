@@ -284,6 +284,14 @@ test('the button counts', async () => {
 - `browser(options)` takes the options of `browser.newContext`
   of Playwright, such as `viewport` and `locale`.
 
+Coverage: the code of the project that a page runs is coverage of
+the test, as the code that the test process runs. So `ubq
+--changed`, `ubq uncovered`, and `ubq covers` work for it. This
+needs a script whose URL path is the path of a project file. The
+script is the file as it is, or a server made it from that one
+file and put a source map at its end (Vite in development does
+this). A bundle of many files has no coverage.
+
 Which page `page.goto('/path')` loads:
 
 - With no configuration: the file at that path from the project

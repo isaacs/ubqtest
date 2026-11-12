@@ -1,6 +1,6 @@
 // The state of the test that is running.
 import { AsyncLocalStorage } from 'node:async_hooks'
-import type { Failure, TestId } from './events.ts'
+import type { Coverage, Failure, TestId } from './events.ts'
 
 export interface TestState {
   id: TestId
@@ -25,14 +25,21 @@ export interface TestState {
 interface Shared {
   current: AsyncLocalStorage<TestState>
   fileCleanups: (() => void | Promise<void>)[]
+  coverage: Coverage['files']
 }
 // `ubqtest/browser` is a separate file of the built package, with
 // its own copy of this module. The two copies must have the same
 // state.
 const KEY = Symbol.for('ubqtest.state')
-const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= { current: new AsyncLocalStorage<TestState>(), fileCleanups: [] })
+const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= { current: new AsyncLocalStorage<TestState>(), fileCleanups: [], coverage: [] })
 
 /** The test that owns the code that runs now, through all its async work. */
 export const current = shared.current
 /** Cleanup functions from fixture calls outside a test. They run when the file ends. */
 export const fileCleanups = shared.fileCleanups
+/**
+ * Coverage of the current test from a place that is not this
+ * process, such as a page of a browser. It goes into the next
+ * `coverage` event.
+ */
+export const moreCoverage = shared.coverage

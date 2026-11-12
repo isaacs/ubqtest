@@ -3,10 +3,10 @@
 // See docs/04-architecture.md, section 4.
 import { tsPlugin } from '@sveltejs/acorn-typescript'
 import { Parser } from 'acorn'
-import { COUNTERS, type Region } from './counters.ts'
+import { COUNTER_NAME, COUNTERS, type Region } from './counters.ts'
 
 /** The name of the counter array in a changed file. */
-const NAME = '__ubqc'
+const NAME = COUNTER_NAME
 
 export interface Instrumented {
   /** The source with counters. Each line has the same number as before. */

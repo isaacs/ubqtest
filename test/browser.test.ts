@@ -1,7 +1,9 @@
 // `ubqtest/browser`: a page of a real browser, and `assert.eventually`.
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright-core'
 import { assert, cleanup, test } from 'ubqtest'
 import { browser } from 'ubqtest/browser'
@@ -128,4 +130,97 @@ check()`,
   assert.match(bad.err, /"ubq\.browser\.command" in package\.json \(node app\/absent\.js\) ended with exit code 1\. Its output is in \.ubq[\\/]browser-server\.log/)
   p.configure({ browser: { command: 'x' } })
   assert.match(p.ubq('pass.ts').err, /"ubq\.browser" in package\.json must be an object with "url"/)
+})
+
+const APP = `export const add = (a, b) => a + b
+export const never = () => 'never'
+export const sign = n => (n < 0 ? 'minus' : 'plus')
+document.title = String(add(1, 2)) + sign(1)
+`
+
+test('the code that a page runs is coverage of the test', { ...skip, timeout: 30_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(join(p.dir, 'src/app.js'), APP)
+  writeFileSync(join(p.dir, 'page.html'), '<script type="module" src="/src/app.js"></script>')
+  writeFileSync(
+    join(p.dir, 'app.test.ts'),
+    `import { assert, test } from 'ubqtest'
+import { browser } from 'ubqtest/browser'
+test('title', { timeout: 30_000 }, async () => {
+  const page = await browser()
+  await page.goto('/page.html')
+  await assert.eventually(() => page.title(), '3plus')
+})
+test('minus', async () => {
+  const page = await browser()
+  await page.goto('/page.html')
+  // The function runs in the page. It has counters of this file in its text.
+  assert.equal(await page.evaluate(() => import('/src/app.js').then(m => m.sign(-1))), 'minus')
+})
+`,
+  )
+  assert.equal(p.ubq('app.test.ts:3').last, 'pass: 0 failed, 1 passed, 1 not selected')
+  assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), [
+    "src/app.js:2:22  () => 'never'",
+    "src/app.js:3:33  ? 'minus'",
+    '2 uncovered ranges in 1 files',
+    '',
+  ])
+  assert.equal(p.ubq('app.test.ts').last, 'pass: 0 failed, 2 passed')
+  assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), ["src/app.js:2:22  () => 'never'", '1 uncovered ranges in 1 files', ''])
+  assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), ['app.test.ts > minus', 'app.test.ts > title', '2 tests run src/app.js:3', ''])
+  // A change to code that the pages ran selects the tests. A change
+  // to code that no page ran selects none.
+  writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a'))
+  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 2), ['changed: src/app.js', 'pass: 0 failed, 2 passed (run 3)'])
+  writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a').replace("'never'", "'not one time'"))
+  assert.equal(p.ubq('--changed').err, 'ubq: no test ran the code that changed in src/app.js\n')
+})
+
+test('a script that a server made from a file has coverage through its source map', { ...skip, timeout: 30_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const port = 20000 + ((process.pid + 1) % 20000)
+  const esbuild = pathToFileURL(createRequire(import.meta.url).resolve('esbuild')).href
+  writeFileSync(
+    join(p.dir, 'src/app.ts'),
+    `export const add = (a: number, b: number): number => a + b
+export const never = (): string => 'never'
+// A comment, so that the lines of the script are not the lines of the file.
+export const sign = (n: number): string => (n < 0 ? 'minus' : 'plus')
+document.title = String(add(1, 2)) + sign(1)
+`,
+  )
+  writeFileSync(
+    join(p.dir, 'server.js'),
+    `import { createServer } from 'node:http'
+import { readFileSync } from 'node:fs'
+import { transformSync } from ${JSON.stringify(esbuild)}
+createServer((req, res) => {
+  if (req.url === '/src/app.ts')
+    res.setHeader('content-type', 'text/javascript').end(transformSync(readFileSync('src/app.ts', 'utf8'), { loader: 'ts', sourcemap: 'inline', sourcefile: 'app.ts' }).code)
+  else res.setHeader('content-type', 'text/html').end('<script type="module" src="/src/app.ts"></script>')
+}).listen(${port})
+`,
+  )
+  writeFileSync(
+    join(p.dir, 'app.test.ts'),
+    `import { assert, test } from 'ubqtest'
+import { browser } from 'ubqtest/browser'
+test('title', { timeout: 30_000 }, async () => {
+  const page = await browser()
+  await page.goto('/')
+  await assert.eventually(() => page.title(), '3plus')
+})
+`,
+  )
+  p.configure({ browser: { url: `http://localhost:${port}`, command: 'node server.js' } })
+  assert.equal(p.ubq('app.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.deepEqual(p.ubq('uncovered', 'src/app.ts').out.split('\n'), [
+    "src/app.ts:2:22  (): string => 'never'",
+    "src/app.ts:4:53  'minus'",
+    '2 uncovered ranges in 1 files',
+    '',
+  ])
 })

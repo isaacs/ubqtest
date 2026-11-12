@@ -5,10 +5,12 @@
 import { existsSync, statSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import type { Browser, BrowserContextOptions, Page } from 'playwright-core'
+import { pageCoverage } from './browser-coverage.ts'
 import { config } from './config.ts'
+import { COUNTER_NAME } from './counters.ts'
 import { fileCleanups } from './fixtures.ts'
 import { projectRoot } from './project.ts'
-import { current } from './state.ts'
+import { current, moreCoverage } from './state.ts'
 
 /**
  * The address of the files of the project, if the configuration has
@@ -85,7 +87,17 @@ export const browser = async (options: BrowserContextOptions = {}): Promise<Page
         : route.fulfill({ status: 404, body: 'no such file in the project' })
     })
   }
+  // A function that the test gives to `page.evaluate` can have
+  // counters of the test file in its text. In the page, they count
+  // into an object that keeps nothing.
+  await context.addInitScript(`globalThis.${COUNTER_NAME} = new Proxy({}, { get: () => 0, set: () => true })`)
   const page = await context.newPage()
+  // The code of the project that the page runs is coverage of the
+  // test. This cleanup runs before the one that closes the context.
+  await page.coverage.startJSCoverage({ resetOnNavigation: false })
+  state.cleanups.push(async () => {
+    if (!page.isClosed()) moreCoverage.push(...pageCoverage(await page.coverage.stopJSCoverage(), url ?? STATIC))
+  })
   page.on('pageerror', error => {
     if (!state.ended) state.fail({ kind: 'error', message: `an error in the page: ${error.message}` })
   })

@@ -59,6 +59,17 @@ const points = (mappings: string, made: string, source: string): [made: number, 
   return out
 }
 
+/** The source map at the end of `made`, or undefined if it has none. */
+export const inlineMap = (made: string): { mappings: string; sources?: string[] } | undefined => {
+  const inline = INLINE.exec(made)
+  if (!inline) return undefined
+  try {
+    return JSON.parse(Buffer.from(inline[1]!, 'base64').toString())
+  } catch {
+    return undefined
+  }
+}
+
 // A word, a string, or one character.
 const TOKEN = /[\w$]+|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|[^]/y
 
@@ -70,11 +81,10 @@ const TOKEN = /[\w$]+|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|[^]/y
  * at its first token, and ends at the end of its last token.
  */
 export const sourceRegions = (regions: Region[], made: string, source: string): Region[] | undefined => {
-  const inline = INLINE.exec(made)
-  if (!inline) return undefined
+  const map = inlineMap(made)
+  if (!map) return undefined
   let all: [number, number][]
   try {
-    const map = JSON.parse(Buffer.from(inline[1]!, 'base64').toString()) as { mappings: string }
     all = points(map.mappings, made, source)
   } catch {
     return undefined
