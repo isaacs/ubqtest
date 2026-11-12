@@ -44,7 +44,7 @@ export const project = () => {
   const configure = (ubq?: unknown) =>
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module', ubq }))
   configure()
-  for (const f of ['fix.ts', 'flip.ts', 'pass.ts', 'sometimes.ts', 'src']) cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
+  for (const f of ['fix.ts', 'flip.ts', 'mock.ts', 'pass.ts', 'sometimes.ts', 'src']) cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
   mkdirSync(join(dir, 'node_modules'))
   symlinkSync(fileURLToPath(new URL('..', import.meta.url)), join(dir, 'node_modules/ubqtest'))
   const flip = join(dir, 'flip.txt')

@@ -8,6 +8,7 @@ import { currentFile, setCollector } from './test.ts'
 
 export { assert, type Assert, type Pattern } from './assert.ts'
 export { cleanup, env, type Files } from './fixtures.ts'
+export { mockImport, type MockOf } from './mock.ts'
 export { spy, spyOn, type Spy, type SpyCall } from './spy.ts'
 export {
   describe,

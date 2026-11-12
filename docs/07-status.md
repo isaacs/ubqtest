@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 59 pass
+node src/cli.ts         # the tool runs its own tests: 61 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -96,7 +96,6 @@ Checks (`test/plain.ts`, `test/types.ts`):
   TypeScript file as a plain program (budget 65), 35 ms with the
   compile cache (budget 40).
 
-Not in step 1: `mockImport` (step 7).
 
 Known limits:
 
@@ -421,6 +420,7 @@ Source files:
 | --- | --- |
 | `src/fixtures.ts` | `cleanup`, `env`, `testdir`, and the cleanup functions of the file |
 | `src/spy.ts` | `spy`, `spyOn` |
+| `src/mock.ts` | `mockImport`: resolve and load hooks, registered at the first call |
 
 Done (`05-api.md`, sections 6 and 7):
 
@@ -433,11 +433,18 @@ Done (`05-api.md`, sections 6 and 7):
   that ran at that time. On Bun, this is so for a thrown error only,
   not for a rejected promise.
 
-Checks: `test/fixtures.test.ts`, fixture `test/fixtures/fix.ts`.
+- `mockImport` on Node. A mock has the types of the real module,
+  and `test/fixtures/types-bad.ts` has wrong mocks that must not
+  compile. Coverage of a mocked instance goes to the real file.
+  It works with the V8 collector and with source counters.
+
+Checks: `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`
+and `test/fixtures/mock.ts`.
 
 Not done:
 
-- `mockImport` on Node, Deno, and Bun.
+- `mockImport` on Bun (the call throws an error that says so) and
+  a check of it on Deno.
 - Fake clock and snapshots. `05-api.md`, section 11, says that
   they need their own design. See `09-questions.md`.
 - Random order with a seed.
@@ -449,6 +456,12 @@ Known limits:
   empty. A file that calls `test` after an `await` that comes
   after the first `test` call gets an error, if the file has
   top-level fixtures.
+- `mockImport` does not replace a dependency that the code loads
+  with `require`, and a mock of a package does not reach the code
+  of other packages.
+- The module hooks stay for the life of the process after the
+  first `mockImport` call. Each later import in the process goes
+  through them.
 - Two tests whose names differ only in characters that are not
   safe in a path have the same `testdir` folder.
 

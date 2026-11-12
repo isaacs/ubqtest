@@ -239,8 +239,19 @@ The loaders must be arrow functions of the form
 `import()` call through a resolve hook. A mock loader does not load
 the real dependency.
 
-Proven on Node and Deno. Bun needs a different hook (`Bun.plugin`),
-not tested yet.
+- A mock of a function with overloads (`readFileSync`) can be a
+  function that fits the last overload.
+- The module under test gets a new instance, and so does each
+  project module that it imports. Packages in `node_modules` and
+  builtins are not loaded again.
+- If the code under test imports a name that the mock does not
+  have, the call fails with an error that names the export to add.
+- A mock with no `default` export gets one: the mock object. So
+  `import fs from 'node:fs'` works with a mock of named exports.
+
+Built on Node (`src/mock.ts`). The same hook exists on Deno, not
+tested yet. On Bun, the call throws an error that says so: Bun
+needs a different hook (`Bun.plugin`).
 
 ## 7. Fixtures and cleanup
 

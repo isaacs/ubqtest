@@ -1,7 +1,8 @@
-// Fixtures and spies: cleanup, env, testdir, spy, spyOn.
+// Fixtures, spies, and module mocks: cleanup, env, testdir, spy,
+// spyOn, mockImport.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, cleanup, env, spy, spyOn, test, testdir } from 'ubqtest'
+import { assert, cleanup, env, mockImport, spy, spyOn, test, testdir } from 'ubqtest'
 import { project } from './setup.ts'
 
 test('fixtures end with their test, and a failed test keeps its testdir', () => {
@@ -69,4 +70,43 @@ test('a spy records its calls', () => {
   assert.equal(counter.add(), 7)
   assert.equal(count.calls.length, 1)
   assert.throws(() => spyOn(object, 'name' as 'greet'), /name is not a function of the object/)
+})
+
+test('mockImport gives a new module instance with mocked dependencies', async () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const r = p.ubq('mock.ts')
+  assert.equal(r.err, '')
+  assert.deepEqual(r.out.replace(/ \(run \d+\)\n$/, '').split('\n'), [
+    'FAIL mock.ts > a mock that lacks an export',
+    '  Error: the mock of ./db.ts has no export "fetchUser", and the code under test imports it. Add "fetchUser" to the mock.',
+    '  at mock.ts:29:3',
+    "  > await mockImport(() => import('./src/greet.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])",
+    '  rerun: ubq mock.ts:28',
+    '',
+    'FAIL mock.ts > a loader that is not an import',
+    "  TypeError: the first argument of mockImport must be an arrow function of the form () => import('...')",
+    '  at mock.ts:35:9',
+    '  > await mockImport(() => Promise.resolve(real), [])',
+    '  rerun: ubq mock.ts:33',
+    '',
+    'fail: 2 failed, 2 passed',
+  ])
+  // Code that ran in a mocked instance is coverage of the real file.
+  assert.deepEqual(p.ubq('covers', 'src/word.ts:3').out.trimEnd().split('\n'), [
+    'mock.ts > a mock reaches the modules that the module imports, and builtins',
+    'mock.ts > a mock replaces a dependency in a new instance of the module',
+    'mock.ts > a mock that lacks an export',
+    'mock.ts (while the file loads)',
+    '3 tests run src/word.ts:3',
+  ])
+  // In a child process, and as a plain program.
+  assert.equal(p.ubq('mock.ts', 'pass.ts').last, 'fail: 2 failed, 7 passed, 1 skipped')
+})
+
+test('mockImport works in this file', async () => {
+  const { join } = await mockImport(() => import('./fixtures/src/joiner.ts'), [
+    [() => import('node:path'), { join: (...parts) => parts.join('+') }],
+  ])
+  assert.equal(join('a', 'b'), 'a+b')
 })
