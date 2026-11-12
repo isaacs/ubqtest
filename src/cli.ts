@@ -50,6 +50,7 @@ const USAGE = `usage:
   ubq covers <file>:<line>   the tests that ran a line
   ubq mutate <file>[:<line>] a mutation check: makes small changes to the file, one at a time, and lists each change that no test fails for
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
+  ubq server                 starts a background server that makes runs faster: it keeps test processes ready. ubq server stop stops it
   ubq guide                  how to write and run tests, for the installed version
   ubq doctor                 checks the setup of the project, and states the fix for each problem
 `
@@ -58,7 +59,7 @@ const out = (text: string): void => void process.stdout.write(text + '\n')
 
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
 
-const main = (args: string[]): number | Promise<number> => {
+const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
   if (command === 'help' || command === '--help') {
     out(USAGE.trimEnd())
@@ -71,6 +72,7 @@ const main = (args: string[]): number | Promise<number> => {
     return 0
   }
   if (command === 'doctor') return doctor(out) ? 1 : 0
+  if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')

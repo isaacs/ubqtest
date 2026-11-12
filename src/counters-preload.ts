@@ -37,14 +37,19 @@ if (counters)
         // file and removes the types.
         const ts = /\.[cm]?ts$/.test(path)
         if (!ts && !/\.[cm]?js$/.test(path)) return result
-        const source = counters.change(path, readFileSync(path, 'utf8'))
-        if (source === undefined) return result
+        const changed = counters.change(path, readFileSync(path, 'utf8'))
+        if (!changed) return result
+        const js = ts && !changed.js ? stripTypeScriptTypes(changed.source) : changed.source
         // With no map in the text, Deno changes the positions in a
         // stack trace with the map of its own JavaScript.
-        return { ...result, source: ts ? stripTypeScriptTypes(source) + NO_MAP : source }
+        return { ...result, source: ts ? js + NO_MAP : js }
       }
       if (!FORMATS.has(result.format as string)) return result
-      const source = counters.change(path, result.source?.toString())
-      return source === undefined ? result : { ...result, source }
+      const changed = counters.change(path, result.source?.toString())
+      if (!changed) return result
+      // The cache can have the source with no types. Node then does
+      // not load its code that removes types.
+      const format = result.format === 'commonjs-typescript' ? 'commonjs' : 'module'
+      return { ...result, source: changed.source, ...(changed.js && { format }) }
     },
   })

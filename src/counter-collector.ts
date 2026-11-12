@@ -3,7 +3,7 @@
 // `.ubq/counters/`, so that most processes do not load the parser.
 import { hash } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
+import * as nodeModule from 'node:module'
 import { join, sep } from 'node:path'
 import { type Collector, flatten } from './coverage.ts'
 import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
@@ -23,7 +23,7 @@ let instrument: typeof import('./instrument.ts').instrument | undefined
 
 /** Loads the parser. Most processes find their files in the cache and do not need it. */
 const parse = (): typeof import('./instrument.ts').instrument =>
-  (instrument ??= (createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts'))
+  (instrument ??= (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts'))
     .instrument)
 
 export interface Counters {
@@ -34,7 +34,7 @@ export interface Counters {
    * if the parser cannot read the source: the file then runs with no
    * counters, and coverage is not complete.
    */
-  change(path: string, source: string | undefined): string | undefined
+  change(path: string, source: string | undefined): { source: string; js: boolean } | undefined
 }
 
 const cachePath = (file: string, source: string): string =>
@@ -52,6 +52,57 @@ export const columnFromCache = (file: string, line: number, column: number): num
     return originalColumn(shifts[line], column)
   } catch {
     return column
+  }
+}
+
+let madeDir = false
+
+/**
+ * The changed source of a file, from the cache. Makes the entry if
+ * it is absent. With `strip`, the entry of a TypeScript file also
+ * gets the source with the types removed.
+ */
+const cached = (file: string, source: string, strip = false): Instrumented | undefined => {
+  const path = cachePath(file, source)
+  let result: Instrumented | undefined
+  try {
+    result = JSON.parse(readFileSync(path, 'utf8')) as Instrumented
+  } catch {
+    // Not in the cache.
+  }
+  // Bun has no function that removes types and keeps each position.
+  const needsJs = strip && /\.[cm]?ts$/.test(file) && !!nodeModule.stripTypeScriptTypes
+  if (result && (result.js !== undefined || !needsJs)) return result
+  result ??= parse()(source, file)
+  if (result) {
+    try {
+      if (needsJs) result.js = nodeModule.stripTypeScriptTypes(result.code)
+      if (!madeDir) mkdirSync(join(projectRoot(), '.ubq', 'counters'), { recursive: true })
+      madeDir = true
+      // Other processes read the cache at the same time, so the
+      // file must be complete when it gets its name.
+      const tmp = `${path}.${process.pid}.tmp`
+      writeFileSync(tmp, JSON.stringify(result))
+      renameSync(tmp, path)
+    } catch {
+      // The cache is an aid. The run does not need it.
+    }
+  }
+  return result
+}
+
+/**
+ * Makes the cache entry of a project file, so that the next test
+ * process that loads the file does not need the parser. The
+ * background server calls this when a file changes. Returns true if
+ * the entry exists after the call.
+ */
+export const prepareCounters = (path: string): boolean => {
+  try {
+    return !!cached(rel(path), readFileSync(path, 'utf8'), true)
+  } catch {
+    // The file went away.
+    return false
   }
 }
 
@@ -76,32 +127,6 @@ export const startCounters = (): Counters | undefined => {
   const root = projectRoot() + sep
   const own = import.meta.dirname + sep
   const modules = `${sep}node_modules${sep}`
-  const cacheDir = join(root, '.ubq', 'counters')
-  let madeDir = false
-
-  const cached = (file: string, source: string): Instrumented | undefined => {
-    const path = cachePath(file, source)
-    try {
-      return JSON.parse(readFileSync(path, 'utf8')) as Instrumented
-    } catch {
-      // Not in the cache.
-    }
-    const result = parse()(source, file)
-    if (result) {
-      try {
-        if (!madeDir) mkdirSync(cacheDir, { recursive: true })
-        madeDir = true
-        // Other processes read the cache at the same time, so the
-        // file must be complete when it gets its name.
-        const tmp = `${path}.${process.pid}.tmp`
-        writeFileSync(tmp, JSON.stringify(result))
-        renameSync(tmp, path)
-      } catch {
-        // The cache is an aid. The run does not need it.
-      }
-    }
-    return result
-  }
 
   shared[KEY] = {
     // Coverage is not complete if a project file has no counters.
@@ -141,7 +166,7 @@ export const startCounters = (): Counters | undefined => {
         counters.set(file, new Uint32Array(result.regions.length))
       regions.set(file, result.regions)
       shifts.set(file, result.shifts)
-      return result.code
+      return result.js === undefined ? { source: result.code, js: false } : { source: result.js, js: true }
     },
   }
 }

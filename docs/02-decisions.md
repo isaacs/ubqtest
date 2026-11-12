@@ -449,3 +449,29 @@ that no test failed for.
 The command needs the name of a file. A check of all files of a
 project can take a long time, and the agent knows which file it
 changed.
+
+## D36. The background server gives out test processes. It does not run tests (agent, 2026-11-12)
+
+`ubq server` keeps test processes that are started, and prepares
+the counters of files that change. The runner stays the process
+that the user started. `11-server.md` has the design.
+
+**Reason.** The plan requires the same command, output, and exit
+code with and without the server (`01`, section 13). If the
+runner is the same code in the two cases, that is true by
+construction. A server that runs the tests itself needs a runner
+that can serve many requests in one process, with the working
+directory, the environment, and the configuration of each
+client. Each of those is a place for a difference.
+
+The server does not watch files to run tests before the user
+asks. A result from before the command is a cached result, and D8
+does not permit one.
+
+The server does not start by itself.
+
+## D37. No MCP interface and no HTTP interface (agent, on a question from the user, 2026-11-12)
+
+The interface for agents is the command and its text. The reasons
+are in `11-server.md`. The user asked the agent to consider MCP
+and HTTP, and can overrule this.

@@ -11,7 +11,7 @@ import { build } from 'esbuild'
 
 const root = new URL('../', import.meta.url)
 const dist = pathToFileURL(resolve(process.argv[2] ?? new URL('dist', root).pathname) + '/')
-const entries = ['index', 'cli', 'preload', 'counters-preload', 'bun-preload', 'instrument', 'watchdog']
+const entries = ['index', 'cli', 'preload', 'counters-preload', 'bun-preload', 'instrument', 'watchdog', 'warm']
 
 rmSync(dist, { recursive: true, force: true })
 await build({

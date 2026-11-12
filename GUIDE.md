@@ -227,6 +227,14 @@ ubq --baseline <commit> <selection> show only the failures that the git commit d
 Console output of a test is captured. It shows only in the
 failure block of its test, and in `ubq show`.
 
+## Faster runs
+
+`ubq server` starts a background server for the project. It keeps
+test processes ready, so a run of a few files is about 30 ms
+faster, and the first run after an edit about 45 ms. The commands,
+the output, and the exit codes do not change. It stops after 30
+minutes with no use, or with `ubq server stop`. It is optional.
+
 ## Configuration
 
 Most projects need none. The `ubq` key of `package.json` can have

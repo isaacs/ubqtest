@@ -19,6 +19,7 @@ import {
   type TestStart,
   type UbqEvent,
 } from './events.ts'
+import { type TestProcess, warmProcess } from './pool.ts'
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
@@ -45,7 +46,7 @@ const V8 = process.env.UBQ_COVERAGE === 'v8'
 const NODE_PRELOAD = new URL(`./${V8 ? 'preload' : 'counters-preload'}${EXT}`, import.meta.url)
 
 /** The arguments that make a test process collect full coverage. */
-const coverageArgs = (): string[] =>
+export const coverageArgs = (): string[] =>
   process.versions.bun ? ['--preload', fileURLToPath(BUN_PRELOAD)]
     // Deno has no signal that starts the inspector, and the
     // inspector adds no time to the start of a process.
@@ -233,36 +234,37 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
 }
 
 /** Runs one test file in a new process. Sends its events to `send`. */
-export const runFile = (
+export const runFile = async (
   { file, lines, ids }: Selected,
   send: Sink,
   cacheDir: string,
   update = false,
   env: Record<string, string> = {},
-): Promise<void> =>
-  new Promise(done => {
-    const child = spawn(
-      process.execPath,
-      [...coverageArgs(), join(projectRoot(), file)],
-      {
-        cwd: projectRoot(),
-        // The child leads its own process group, so that one signal
-        // stops it and all processes that its tests started.
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          NODE_COMPILE_CACHE: cacheDir,
-          UBQ_CHILD: '1',
-          UBQ_CAPTURE: '1',
-          UBQ_FILE: file,
-          UBQ_LINES: lines.join(','),
-          UBQ_IDS: JSON.stringify(ids),
-          ...(update && { UBQ_UPDATE: '1' }),
-          ...env,
-        },
-      },
-    )
+): Promise<void> => {
+  const base = { ...process.env, NODE_COMPILE_CACHE: cacheDir }
+  const job = {
+    UBQ_CHILD: '1',
+    UBQ_CAPTURE: '1',
+    UBQ_FILE: file,
+    UBQ_LINES: lines.join(','),
+    UBQ_IDS: JSON.stringify(ids),
+    ...(update && { UBQ_UPDATE: '1' }),
+    ...env,
+  }
+  const path = join(projectRoot(), file)
+  // The background server of the project has processes that are
+  // started. With no server, the process starts here.
+  const child: TestProcess =
+    (await warmProcess({ file: path, base, job })) ??
+    spawn(process.execPath, [...coverageArgs(), path], {
+      cwd: projectRoot(),
+      // The child leads its own process group, so that one signal
+      // stops it and all processes that its tests started.
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+      env: { ...base, ...job },
+    })
+  return new Promise(done => {
     let ended = false
     let open: string | undefined
     let watchdog: ReturnType<typeof setTimeout> | undefined
@@ -353,6 +355,7 @@ export const runFile = (
       done()
     })
   })
+}
 
 /** Runs test files. Returns the exit code of the run. */
 export const run = async (args: string[]): Promise<number> => {

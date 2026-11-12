@@ -410,7 +410,7 @@ in the repository must check these in each change.
 | 1 file through the CLI, coverage on | 45 ms | 54 ms, target not met |
 | 1 file as a plain TypeScript program | 70 ms | 75 ms (52 ms with the compile cache), target not met |
 | 200 files, full run, coverage on | 650 ms | 917 ms, target not met |
-| Edit loop with `--changed`, 1 to 5 files | 40 to 80 ms | not built yet |
+| Edit loop with `--changed`, 1 to 5 files | 40 to 80 ms | 3 files: 80 ms, and 55 ms with the server. First run after an edit, 2 files: 120 ms, and 75 ms with the server (`11-server.md`). |
 | Query on a stored run | 35 ms | not measured yet |
 
 **The one-file targets were met in step 3 (45.5 ms and 64.6 ms)
@@ -457,7 +457,8 @@ matter, and stored results answer questions with no run at all.
 Later speed work, in order of expected gain:
 
 1. A background server that keeps warm child processes ready. It
-   removes most of the 27 ms start from the edit loop.
+   removes most of the 27 ms start from the edit loop. Built:
+   `11-server.md`.
 2. Range-level `--changed`.
 
 Worker threads and shared processes are not planned (D34).

@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 90 pass
+node src/cli.ts         # the tool runs its own tests: 92 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -65,6 +65,10 @@ older run.
 - A bundle must not contain the text of a source map marker at
   the start of a line. Deno read one in a string as the map of
   the bundle.
+- A named import from a `node:` module that one runtime does not
+  have (`stripTypeScriptTypes` on Bun) stops each process on that
+  runtime at load. Import the module as a whole, and test for the
+  function.
 - The machine gets slower during long sessions (Node start went
   from 28.7 ms to 31.3 ms). Compare against `node -e 0` on the
   same day.
@@ -580,6 +584,26 @@ Known limits:
 - A test process on Deno that has no runner and is in a loop
   that does not return gets no stack (the watchdog thread has no
   inspector there).
+
+## Background server: done (2026-11-12)
+
+`ubq server` and `ubq server stop` (D36, D37, `11-server.md`).
+Source: `src/server.ts`, `src/pool.ts`, `src/warm.ts`.
+
+- A runner gets its test processes from the server of the
+  project, if there is one. The server has 8 that are started.
+- The server makes the counters of a source file when the file
+  changes, with the source with no types (`js` in the cache
+  entry).
+- It works on Node, Deno, and Bun. On Bun, the cache entry has no
+  source with no types: Bun has no function for that.
+- Checks: `test/server.test.ts`. Numbers: `11-server.md`.
+
+Known limits:
+
+- A run of many files does not get faster.
+- The server does not start by itself.
+- `experiments/server/warm.mjs` needs the built package.
 
 ## Mutation check: done (2026-11-12)
 

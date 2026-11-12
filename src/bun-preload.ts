@@ -23,7 +23,7 @@ const counters = startCounters()
 if (counters) {
   const read = (path: string): string => {
     const source = readFileSync(path, 'utf8')
-    return (counters.wants(path) ? counters.change(path, source) : undefined) ?? source
+    return (counters.wants(path) ? counters.change(path, source)?.source : undefined) ?? source
   }
   ;(globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] = read
   Bun.plugin({

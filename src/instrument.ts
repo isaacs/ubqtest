@@ -19,6 +19,12 @@ export interface Instrumented {
    * length of the added text.
    */
   shifts: Record<number, number[]>
+  /**
+   * `code` with the types removed, each position the same. Only in a
+   * cache entry that the background server made: a test process then
+   * does not have to load the code that removes types.
+   */
+  js?: string
 }
 
 interface Node {
