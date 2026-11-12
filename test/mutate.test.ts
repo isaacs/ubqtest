@@ -26,7 +26,7 @@ test('five off', () => {
 test('the changes of a source: operators, numbers, booleans, and not types', () => {
   const list = mutants(`const a: 0 | 1 = x === 1 ? 0 : (y as number) + 2 // a - b
 const b = !a && { 1: true }[1] /* || */ || import('./x.ts')
-`)
+`, 'a.ts')
   assert(list)
   assert.deepEqual(
     list.map(m => `${m.line}:${m.column} ${m.from} ${m.text}`),
@@ -43,7 +43,7 @@ const b = !a && { 1: true }[1] /* || */ || import('./x.ts')
       '2:41 || &&',
     ],
   )
-  assert.equal(mutants('const = 1'), undefined)
+  assert.equal(mutants('const = 1', 'a.ts'), undefined)
 })
 
 test('mutate lists each change that no test fails for, and does not change the file', { timeout: 30_000 }, () => {

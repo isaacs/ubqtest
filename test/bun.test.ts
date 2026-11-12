@@ -8,7 +8,7 @@ import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
 import { instrument } from '../src/instrument.ts'
-import { fixtures, project, resetStore } from './setup.ts'
+import { addJsx, fixtures, project, resetStore } from './setup.ts'
 
 // Plain JavaScript with each construct that gets a counter. The
 // value of `out` shows which paths ran.
@@ -211,5 +211,25 @@ describe('bun', () => {
       'src/size.ts:6:8  function never(): number { (+2 lines)',
       '2 uncovered ranges in 1 files',
     ])
+  })
+
+  test('a .tsx file gets counters on Bun', { skip }, () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    addJsx(p.dir)
+    assert.deepEqual(sh('bun', [cli, 'view.tsx'], p.dir), ['pass: 0 failed, 3 passed'])
+    assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/view.tsx'], p.dir), [
+      'src/view.tsx:2:32  (type: unknown, props: unknown) => ({ type, props })',
+      'src/view.tsx:8:35  ? <b>many</b>',
+      'src/view.tsx:17:22  <T,>({ value }: { value: T }) => <i>{String(value)}</i>',
+      '3 uncovered ranges in 1 files',
+    ])
+    assert.deepEqual(sh('bun', [cli, 'covers', 'src/view.tsx:12'], p.dir), [
+      'view.tsx > a view of no items',
+      'view.tsx > a view of two items',
+      '2 tests run src/view.tsx:12',
+    ])
+    // The mutation check makes its changes in the JSX source.
+    assert.deepEqual(sh('bun', [cli, 'mutate', 'src/view.tsx:5'], p.dir), ['mutate: 0 of 2 changes survived'])
   })
 })

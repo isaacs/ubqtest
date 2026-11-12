@@ -253,3 +253,6 @@ step, so the code must use only syntax that can be erased: no
 `enum`, no `namespace`, no parameter properties. In
 `tsconfig.json`, set `"allowImportingTsExtensions": true`,
 `"noEmit": true`, and `"erasableSyntaxOnly": true`.
+
+Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
+does not run them.

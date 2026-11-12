@@ -530,3 +530,35 @@ What it gives, measured on Bun 1.4.3:
 Under the runner, all coverage comes from counters, with or
 without the option.
 
+## D40. JSX files get counters: in the source on Bun, in the compiled JavaScript on Deno (agent, on a request from the user, 2026-11-12)
+
+The user asked for coverage of `.tsx` and `.jsx` files with no
+setup, and permitted experiments.
+
+**Bun.** The parser of ubq has a JSX mode. The counters go into
+the JSX source, as for a `.ts` file, and Bun compiles the result.
+A counter is an expression, and each expression of JSX is in
+`{...}`, so no new rule was necessary.
+
+**Deno.** Deno compiles a file before a load hook sees it, and the
+hook must return JavaScript. Three options:
+
+1. Counters in the source, then a JSX compiler in ubq. ubq has
+   none, and one in the package is a large dependency.
+2. Counters in the JavaScript of Deno, and the inline source map
+   of Deno for the places. **Chosen.** It needs a reader for
+   source maps (60 lines) and no dependency.
+3. No coverage for JSX on Deno.
+
+Option 2 is less exact than counters in the source. A source map
+has the start of each token, not the end of a region. So a region
+ends at the end of its last token that is in the map. The lines
+were correct in the checks.
+
+A mutation check needs a change in the source before the compile
+step, so `ubq mutate` of a JSX file on Deno is an error.
+
+**Node** does not run JSX. A project can add a load hook that
+compiles it. Option 2 could work there too, if that hook gives an
+inline source map. This is not built and not tried.
+

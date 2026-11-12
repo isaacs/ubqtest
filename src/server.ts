@@ -206,7 +206,7 @@ const serve = (): Promise<number> =>
     let watcher: ReturnType<typeof watch> | undefined
     try {
       watcher = watch(root, { recursive: true }, (_event, name) => {
-        if (!name || !/\.[cm]?[jt]s$/.test(name) || /(^|[\\/])(node_modules|\.[^\\/]+)[\\/]/.test(name)) return
+        if (!name || !/\.([cm]?[jt]s|[jt]sx)$/.test(name) || /(^|[\\/])(node_modules|\.[^\\/]+)[\\/]/.test(name)) return
         active()
         clearTimeout(timers.get(name))
         timers.set(

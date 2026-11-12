@@ -32,10 +32,10 @@ if (counters) {
       // Bun has no way to pass a file on to its own loader, so the
       // filter must match only project files.
       const escaped = projectRoot().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const filter = new RegExp(`^${escaped}[\\\\/](?!.*node_modules).*\\.[cm]?[jt]s$`)
+      const filter = new RegExp(`^${escaped}[\\\\/](?!.*node_modules).*\\.([cm]?[jt]s|[jt]sx)$`)
       build.onLoad({ filter }, ({ path }) => ({
         contents: read(path),
-        loader: /ts$/.test(path) ? 'ts' : 'js',
+        loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : 'js'),
       }))
     },
   })

@@ -10,6 +10,7 @@ import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from
 import type { Coverage } from './events.ts'
 import type { Instrumented } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
+import { sourceRegions } from './source-map.ts'
 
 /** Changes when the form of the changed source or the regions changes. */
 const CACHE_VERSION = 2
@@ -35,6 +36,12 @@ export interface Counters {
    * counters, and coverage is not complete.
    */
   change(path: string, source: string | undefined): { source: string; js: boolean } | undefined
+  /**
+   * The same for JavaScript that the runtime made from a project
+   * file, with an inline source map. The regions get the places of
+   * the source file. Returns undefined with no map.
+   */
+  compiled(path: string, made: string): string | undefined
 }
 
 const cachePath = (file: string, source: string): string =>
@@ -146,8 +153,32 @@ export const startCounters = (): Counters | undefined => {
     },
   }
 
+  const use = (file: string, result: Instrumented): void => {
+    // A second instance of a module (mockImport) counts in the same
+    // array. A new array would lose the counts of the first one.
+    if (counters.get(file)?.length !== result.regions.length)
+      counters.set(file, new Uint32Array(result.regions.length))
+    regions.set(file, result.regions)
+  }
+
   return {
     wants: path => path.startsWith(root) && !path.startsWith(own) && !path.includes(modules),
+    compiled(path, made) {
+      const file = rel(path)
+      const result = cached(file, made)
+      let mapped: Region[] | undefined
+      try {
+        mapped = result && sourceRegions(result.regions, made, readFileSync(path, 'utf8'))
+      } catch {
+        // The file went away.
+      }
+      if (!result || !mapped) {
+        unread++
+        return undefined
+      }
+      use(file, { ...result, regions: mapped })
+      return result.code
+    },
     change(path, source) {
       const file = rel(path)
       // The source of a mutation check is not for the cache.
@@ -160,11 +191,7 @@ export const startCounters = (): Counters | undefined => {
         unread++
         return undefined
       }
-      // A second instance of a module (mockImport) counts in the same
-      // array. A new array would lose the counts of the first one.
-      if (counters.get(file)?.length !== result.regions.length)
-        counters.set(file, new Uint32Array(result.regions.length))
-      regions.set(file, result.regions)
+      use(file, result)
       shifts.set(file, result.shifts)
       return result.js === undefined ? { source: result.code, js: false } : { source: result.js, js: true }
     },

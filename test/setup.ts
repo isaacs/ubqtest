@@ -54,3 +54,57 @@ export const project = () => {
   }
   return { dir, ubq, configure, set: (v: string) => writeFileSync(flip, v) }
 }
+
+/**
+ * Adds a JSX component (`src/view.tsx`) and its test file
+ * (`view.tsx`) to a project. Bun and Deno can run them.
+ */
+export const addJsx = (dir: string): void => {
+  writeFileSync(
+    join(dir, 'src/view.tsx'),
+    `// Deno makes calls to this name. Bun imports the functions of React.
+const React = { createElement: (type: unknown, props: unknown) => ({ type, props }) }
+void React
+
+export const many = (n: number): boolean => n > 2
+
+export function View({ items }: { items: string[] }) {
+  const size = many(items.length) ? <b>many</b> : <i>few</i>
+  return (
+    <div className="view">
+      {size}
+      {items.length > 0 && <ul>{items.map(i => <li key={i}>{i}</li>)}</ul>}
+    </div>
+  )
+}
+
+export const Never = <T,>({ value }: { value: T }) => <i>{String(value)}</i>
+`,
+  )
+  writeFileSync(
+    join(dir, 'view.tsx'),
+    `import { assert, test } from 'ubqtest'
+import { many, View } from './src/view.tsx'
+
+const shape = (v: unknown) => JSON.stringify(v)
+
+test('a view of no items', () => {
+  assert.match(shape(View({ items: [] })), /"view"/)
+})
+test('many is more than two', () => {
+  assert.deepEqual([many(2), many(3)], [false, true])
+})
+test('a view of two items', () => {
+  assert.match(shape(View({ items: ['a', 'b'] })), /"view"/)
+})
+`,
+  )
+  const react = join(dir, 'node_modules/react')
+  mkdirSync(react)
+  writeFileSync(join(react, 'package.json'), '{"type":"module","exports":{"./jsx-dev-runtime":"./jsx.js","./jsx-runtime":"./jsx.js"}}')
+  writeFileSync(
+    join(react, 'jsx.js'),
+    'export const jsxDEV = (type, props) => ({ type, props })\nexport const jsx = jsxDEV\nexport const jsxs = jsxDEV\nexport const Fragment = "f"\n',
+  )
+}
+

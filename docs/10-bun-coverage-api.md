@@ -20,7 +20,6 @@ This is correct and fast. It has these limits:
 - A plain `bun test/foo.ts` has no preload, so it records no
   coverage. On Node, such a run records partial coverage.
 - A file that the parser of ubq cannot read gets no counters.
-  `.tsx` and `.jsx` files get none.
 - The package carries a TypeScript parser (232 KB) for this.
 
 ## What a test tool needs

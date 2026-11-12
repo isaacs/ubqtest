@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { project } from './setup.ts'
+import { addJsx, project } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = mkdtempSync(join(tmpdir(), 'ubq-package-'))
@@ -140,6 +140,27 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     '',
   ])
   assert.deepEqual(await run(['node'], 'uncovered', 'src/shape.ts'), await run(deno, 'uncovered', 'src/shape.ts'))
+  // Deno compiles JSX before a load hook sees the file. The
+  // counters go into its JavaScript, and its source map gives the
+  // places in the source.
+  addJsx(p.dir)
+  assert.deepEqual(await run(deno, 'view.tsx'), ['pass: 0 failed, 3 passed', ''])
+  assert.deepEqual(await run(deno, 'uncovered', 'src/view.tsx'), [
+    'src/view.tsx:8:37  <b>many',
+    'src/view.tsx:17:22  <T,>({ value }: { value: T }) => <i>{String(value',
+    '2 uncovered ranges in 1 files',
+    '',
+  ])
+  assert.deepEqual(await run(deno, 'covers', 'src/view.tsx:12'), [
+    'view.tsx > a view of no items',
+    'view.tsx > a view of two items',
+    '2 tests run src/view.tsx:12',
+    '',
+  ])
+  assert.deepEqual(await run(deno, 'mutate', 'src/view.tsx'), [
+    'ubq: ubq mutate cannot change src/view.tsx on Deno. Run it on Node or Bun.',
+    '',
+  ])
 })
 
 test('the type declarations of the package', () => {

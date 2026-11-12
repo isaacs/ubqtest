@@ -57,7 +57,10 @@ export const mutate = async (
     const stored = (hashes.all(file) as { hash: string }[]).map(r => r.hash)
     if (stored.some(hash => hash !== fileHash(file)))
       throw new UsageError(`${file} changed after the last run of its tests. Run them first: ubq --changed`)
-    const all = mutants(readFileSync(join(root, file), 'utf8'))
+    // Deno compiles JSX before a load hook can change the source.
+    if (process.versions.deno && /\.[jt]sx$/.test(file))
+      throw new UsageError(`ubq mutate cannot change ${file} on Deno. Run it on Node or Bun.`)
+    const all = mutants(readFileSync(join(root, file), 'utf8'), file)
     if (!all) throw new UsageError(`ubq cannot read the syntax of ${file}`)
     for (const mutant of all) {
       if (m[2] && mutant.line !== +m[2]) continue

@@ -35,6 +35,10 @@ interface Node {
 }
 
 const parser = Parser.extend(tsPlugin() as never)
+// In a `.tsx` or `.jsx` file, `<` can start an element. In a `.ts`
+// file, it can start a type assertion.
+const jsxParser = Parser.extend(tsPlugin({ jsx: true }) as never)
+const JSX = /\.[jt]sx$/
 
 const FUNCTIONS = new Set([
   'FunctionDeclaration',
@@ -80,7 +84,7 @@ const jumps = (node: Node): boolean =>
 export const instrument = (source: string, file: string): Instrumented | undefined => {
   let program: Node
   try {
-    program = parser.parse(source, {
+    program = (JSX.test(file) ? jsxParser : parser).parse(source, {
       ecmaVersion: 'latest',
       sourceType: 'module',
       locations: true,
@@ -269,10 +273,10 @@ const TS_VALUES = new Set(['TSAsExpression', 'TSNonNullExpression', 'TSSatisfies
  * different operator, a different boolean or number, a `!` removed.
  * Returns undefined if the parser cannot read the source.
  */
-export const mutants = (source: string): Mutant[] | undefined => {
+export const mutants = (source: string, file: string): Mutant[] | undefined => {
   let program: Node
   try {
-    program = parser.parse(source, {
+    program = (JSX.test(file) ? jsxParser : parser).parse(source, {
       ecmaVersion: 'latest',
       sourceType: 'module',
       locations: true,

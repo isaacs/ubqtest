@@ -35,6 +35,12 @@ if (counters)
         // different positions, and it gives no format. The counters
         // need the positions of the source, so this hook reads the
         // file and removes the types.
+        if (/\.[jt]sx$/.test(path)) {
+          // Deno made JavaScript from the JSX, with a source map. The
+          // counters go into that JavaScript.
+          const made = counters.compiled(path, String(result.source))
+          return made === undefined ? result : { ...result, source: made }
+        }
         const ts = /\.[cm]?ts$/.test(path)
         if (!ts && !/\.[cm]?js$/.test(path)) return result
         const changed = counters.change(path, readFileSync(path, 'utf8'))

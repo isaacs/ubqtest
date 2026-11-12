@@ -323,7 +323,7 @@ Not done:
 - (Done later, in step 7.) Module mocks on Bun.
 - A hang report on Bun has no stack. `SIGUSR1` does not start an
   inspector there.
-- `.tsx` and `.jsx` files get no counters.
+- (Done later, D40.) `.tsx` and `.jsx` files get no counters.
 - The changed source is not cached. The parser reads about 3 MB
   of source for each second, so a large project pays for it in
   each process.
@@ -594,6 +594,30 @@ Known limits:
   that does not return gets no stack (the watchdog thread has no
   inspector there).
 
+## Coverage of JSX files: done on Bun and Deno (2026-11-12)
+
+D40. A `.tsx` or `.jsx` file gets counters, so coverage, `ubq
+uncovered`, `ubq covers`, and `--changed` work for it under the
+runner.
+
+- Bun: the parser reads JSX (`src/instrument.ts`), and the load
+  plugin gives Bun the source with counters and the `tsx` or
+  `jsx` loader. `ubq mutate` works.
+- Deno: Deno compiles the file before the load hook. The
+  counters go into the JavaScript of Deno, and the inline source
+  map of Deno gives the place of each region in the source
+  (`src/source-map.ts`). A region ends at the start of its last
+  token plus that token, so it can end some characters early
+  (`<b>many` for `<b>many</b>`). `ubq mutate` gives an error.
+- Node cannot run a JSX file, so there is nothing to do there.
+- Checks: `test/bun.test.ts`, `test/package.test.ts`.
+
+Known limits:
+
+- A `.js` file with JSX in it (Bun reads that) gets no counters.
+- A project that runs JSX on Node through its own load hook is
+  not tried.
+
 ## Bun inspector coverage as an option: done (2026-11-12)
 
 D39. `"bunInspectorCoverage": true` gives a plain `bun
@@ -647,7 +671,7 @@ a test process in `src/counters.ts` (`mutated`).
 Known limits:
 
 - No list of changes for a file that the parser cannot read, and
-  none for `.tsx` and `.jsx`.
+  none for `.tsx` and `.jsx` on Deno (D40).
 - A file with many changes whose tests are all in one test file
   runs one process at a time.
 - No option that names the kinds of changes, and no way to mark
