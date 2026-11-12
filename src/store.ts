@@ -1,11 +1,13 @@
 // The run store: one SQLite file at `.ubq/runs.db` in the project.
 // See docs/04-architecture.md, section 5.
 import { hash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
-import { projectRoot } from './project.ts'
+import { projectRoot, stateDir } from './project.ts'
+
+export { stateDir }
 
 const SCHEMA_VERSION = 5
 const KEEP_RUNS = 50
@@ -95,16 +97,6 @@ export interface Store {
   /** A sink that writes the events of run `run`. */
   sink(run: number): Sink
   close(): void
-}
-
-/** The folder for all ubq state in a project. Git ignores it. */
-export const stateDir = (): string => {
-  const dir = join(projectRoot(), '.ubq')
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, '.gitignore'), '*\n')
-  }
-  return dir
 }
 
 /** The content hash of a project file. Empty if the file does not exist. */

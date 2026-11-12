@@ -13,6 +13,7 @@ Read this file first. Open only the documents that the task needs.
 | `06-events.md` | The event model and rules. Exact fields are in `src/events.ts`. | You write or read events: a sink, the runner, the store. |
 | `07-status.md` | What is built, by step. Commands, source file map, known limits. | First, in each new session. |
 | `08-config.md` | Which files ubq runs by default, and the `ubq` key of `package.json`. | You change test file selection, or you add a setting. |
+| `09-questions.md` | Points that wait for a decision from the user, with options. | You look for work that is not blocked, or the user is present. |
 
 Measurement scripts are in `experiments/` (see its `README.md`).
 

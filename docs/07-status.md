@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 56 pass
+node src/cli.ts         # the tool runs its own tests: 59 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -96,8 +96,7 @@ Checks (`test/plain.ts`, `test/types.ts`):
   TypeScript file as a plain program (budget 65), 35 ms with the
   compile cache (budget 40).
 
-Not in step 1: `spy`, `spyOn`, `mockImport`, `testdir`, `env`,
-`cleanup` (step 7), console capture (step 4), coverage (step 2).
+Not in step 1: `mockImport` (step 7).
 
 Known limits:
 
@@ -413,6 +412,45 @@ Known limits:
 - `diff` compares the tests that ran in the two runs. It counts the
   tests that ran in only one of them, and lists such a test only if
   it failed in the second run.
+
+## Step 7: in progress (2026-11-12)
+
+Source files:
+
+| File | Contents |
+| --- | --- |
+| `src/fixtures.ts` | `cleanup`, `env`, `testdir`, and the cleanup functions of the file |
+| `src/spy.ts` | `spy`, `spyOn` |
+
+Done (`05-api.md`, sections 6 and 7):
+
+- `cleanup`, `env`, `testdir`, `spy`, `spyOn`, in a test and at the
+  top level of a file. They work on Node and Bun.
+- A failed test keeps its `testdir` folder. The failure block, `ubq
+  show`, and `ubq failures` print the path while the folder exists.
+- An error from a callback of a test that ended before is a
+  `late-failure` of that test. Before, it was a failure of the test
+  that ran at that time. On Bun, this is so for a thrown error only,
+  not for a rejected promise.
+
+Checks: `test/fixtures.test.ts`, fixture `test/fixtures/fix.ts`.
+
+Not done:
+
+- `mockImport` on Node, Deno, and Bun.
+- Fake clock and snapshots. `05-api.md`, section 11, says that
+  they need their own design. See `09-questions.md`.
+- Random order with a seed.
+- Leak checks after each test, from step 4.
+
+Known limits:
+
+- The cleanup functions of the file run when the queue of tests is
+  empty. A file that calls `test` after an `await` that comes
+  after the first `test` call gets an error, if the file has
+  top-level fixtures.
+- Two tests whose names differ only in characters that are not
+  safe in a path have the same `testdir` folder.
 
 ## Source counters on Node: steps 1 and 2 of D25 done (2026-11-12)
 

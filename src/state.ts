@@ -14,6 +14,10 @@ export interface TestState {
   late: boolean
   /** Results of `assert.rejects` that nothing awaited yet. */
   unawaited: Set<object>
+  /** Functions from fixtures. They run in reverse order when the test ends. */
+  cleanups: (() => void | Promise<void>)[]
+  /** `testdir` folders that stay because the test failed. */
+  kept: string[]
   /** Records a failure and stops the wait for the test function. */
   fail: (failure: Failure) => void
 }

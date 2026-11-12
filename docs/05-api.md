@@ -205,6 +205,11 @@ spyOn(object, key, impl?): Spy<typeof object[key]>
   test ends.
 - There are no special assertions for spies. Use `assert.equal`
   and `assert.deepEqual` on `calls`.
+- With no `impl`, `spy()` returns `undefined`, and `spyOn` calls
+  the original method. `result` of an async function is its
+  promise. `error` is present only if the call threw.
+- The key of `spyOn` must name a function of the object. A
+  different key is a compile error.
 
 ### `mockImport`
 
@@ -269,6 +274,13 @@ cleanup(fn: () => void | Promise<void>): void         // run fn at test end
   lasts until the file ends. This is the way to share a costly
   resource: `const server = await startServer(); cleanup(() =>
   server.close())`.
+
+- A fixture at the top level must come before the first `test`
+  call, and the `test` calls must have no `await` between them.
+  The cleanup functions of the file run after the last test in the
+  queue. A `test` call or a fixture call after that is an error.
+- A fixture call after its test ended is a failure of that test
+  (`late`). Each cleanup function has the time limit of its test.
 
 To share setup between tests, write a function:
 

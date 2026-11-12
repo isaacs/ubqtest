@@ -2,6 +2,7 @@
 // The `ubq` command. In this step it answers questions about stored
 // runs. See docs/04-architecture.md, section 5.
 import { existsSync } from 'node:fs'
+import { testdirPath } from './fixtures.ts'
 import { join, resolve } from 'node:path'
 import { projectRoot, rel } from './project.ts'
 import {
@@ -64,6 +65,11 @@ const main = (args: string[]): number | Promise<number> => {
     return rest[0]
   }
   const file = (path: string): string => rel(resolve(path))
+  /** The \`testdir\` folder that a failed test left. */
+  const kept = (t: { file: string; id: string }): string[] => {
+    const dir = testdirPath(t.file, t.id)
+    return existsSync(dir) ? [rel(dir)] : []
+  }
 
   switch (command) {
     case 'failures': {
@@ -86,6 +92,7 @@ const main = (args: string[]): number | Promise<number> => {
           ms: t.ms,
           asserts: t.asserts,
           failure: t.failure!,
+          ...(kept(t).length && { kept: kept(t) }),
         })
       }
       if (row.code === null) out(`run ${row.id} did not end`)
@@ -112,6 +119,7 @@ const main = (args: string[]): number | Promise<number> => {
           out(`  at ${t.failure.at.file}:${t.failure.at.line}:${t.failure.at.column}`)
         if (t.failure.diff) out('  ' + t.failure.diff.replaceAll('\n', '\n  '))
       }
+      for (const dir of kept(t)) out(`  testdir: ${dir}`)
       const text = outputOf(db, t.run, id).trimEnd()
       if (text) out('  output:\n  | ' + text.replaceAll('\n', '\n  | '))
       const files = filesOf(db, id)

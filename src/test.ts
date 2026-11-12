@@ -5,6 +5,7 @@ import { AssertionFailure } from './assert.ts'
 import { config } from './config.ts'
 import type { Collector } from './coverage.ts'
 import { emit } from './emit.ts'
+import { type CleanupFn, fileCleanups, fileState } from './fixtures.ts'
 import { EVENT_VERSION, type Failure, type Location } from './events.ts'
 import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
@@ -91,6 +92,10 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   if (current.getStore())
     throw new Error(
       'test() was called inside a running test. Put each test at the top level or in describe().',
+    )
+  if (fileState.ran)
+    throw new Error(
+      'test() was called after the cleanup functions of the file ran. Call test() with no await between the first call and the last call.',
     )
   checkName('test', name)
   if (typeof fn !== 'function')
@@ -218,6 +223,40 @@ const stillOpen = (before = openAtStart): string[] =>
     )
   })
 
+/**
+ * Runs cleanup functions, last first. Each one has `timeout`
+ * milliseconds. Returns the first failure.
+ */
+const runCleanups = async (
+  fns: CleanupFn[],
+  timeout: number,
+  call: (fn: CleanupFn) => void | Promise<void>,
+): Promise<Failure | undefined> => {
+  let failure: Failure | undefined
+  for (let fn = fns.pop(); fn; fn = fns.pop()) {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const result = call(fn)
+      if (result instanceof Promise)
+        await Promise.race([
+          result,
+          new Promise((_, reject) => (timer = setTimeout(reject, timeout, TIMEOUT).unref())),
+        ])
+    } catch (error) {
+      const cause = error === TIMEOUT ? undefined : errorFailure(error)
+      failure ??= {
+        kind: 'cleanup',
+        message:
+          cause ? `a cleanup function failed: ${cause.message}`
+          : `a cleanup function did not end in ${timeout} ms`,
+        ...(cause?.at && { at: cause.at, stack: cause.stack }),
+      }
+    }
+    clearTimeout(timer)
+  }
+  return failure
+}
+
 const runOne = async (entry: Entry): Promise<void> => {
   emit({
     type: 'test-start',
@@ -246,6 +285,8 @@ const runOne = async (entry: Entry): Promise<void> => {
     ended: false,
     late: false,
     unawaited: new Set(),
+    cleanups: [],
+    kept: [],
     fail: failure => {
       state.failure ??= failure
       stop(failure)
@@ -283,9 +324,6 @@ const runOne = async (entry: Entry): Promise<void> => {
     } else state.failure ??= errorFailure(error)
   }
   clearTimeout(timer)
-  const ms = performance.now() - t0
-  state.ended = true
-  active = undefined
   if (!state.failure && state.unawaited.size)
     state.failure = {
       kind: 'not-awaited',
@@ -298,6 +336,13 @@ const runOne = async (entry: Entry): Promise<void> => {
       message: 'the test ran no assertions',
       ...(entry.at && { at: entry.at }),
     }
+  // The fixtures of the test. A `testdir` folder stays if the test
+  // has a failure at this point.
+  const failure = await runCleanups(state.cleanups, entry.timeout, fn => current.run(state, fn))
+  if (failure) state.failure ??= { ...failure, ...(!failure.at && entry.at && { at: entry.at }) }
+  const ms = performance.now() - t0
+  state.ended = true
+  active = undefined
   watch({ end: state.failure ? 'fail' : 'pass' })
   emit({
     type: 'test-end',
@@ -306,6 +351,7 @@ const runOne = async (entry: Entry): Promise<void> => {
     ms,
     asserts: state.asserts,
     ...(state.failure && { failure: state.failure }),
+    ...(state.kept.length && { kept: state.kept }),
   })
   await cover(entry.id)
 }
@@ -340,6 +386,14 @@ const drain = async (): Promise<void> => {
     if (selected(entry)) await runOne(entry)
     else unselected++
   }
+  // The fixtures of the file. All tests of a file are in the queue
+  // before the first one runs, if the file calls `test` with no
+  // `await` between the calls.
+  if (fileCleanups.length) {
+    fileState.ran = true
+    const failure = await runCleanups(fileCleanups, DEFAULT_TIMEOUT, fn => fn())
+    if (failure) emit({ type: 'file-error', file: file!, failure })
+  }
   draining = false
   scheduled = false
   // This timer does not keep the process alive. It fires only if
@@ -373,6 +427,18 @@ const leaked = (): void => {
 // An error that nothing caught belongs to the test that runs now.
 // With no test, it belongs to the file.
 const stray = (error: unknown): void => {
+  // The error can come from a callback of a test that ended before.
+  const owner = current.getStore()
+  if (owner?.ended) {
+    if (owner.failure || owner.late) return
+    owner.late = true
+    const failure = errorFailure(error)
+    return emit({
+      type: 'late-failure',
+      id: owner.id,
+      failure: { ...failure, kind: 'late', message: `after the test ended: ${failure.message}` },
+    })
+  }
   if (active) return active.fail(errorFailure(error))
   if (error instanceof AssertionFailure) return
   start()

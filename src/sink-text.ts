@@ -34,7 +34,13 @@ export const textSink = (write: (text: string) => void): Sink => {
   const rate = (r: Repeat, what: string): string =>
     `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
 
-  const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat): void => {
+  const block = (
+    head: string,
+    failure: Failure,
+    id?: TestId,
+    repeat?: Repeat,
+    kept: string[] = [],
+  ): void => {
     const lines = [head, indent(failure.message)]
     if (repeat) lines.splice(1, 0, rate(repeat, id === undefined ? 'error' : 'failure'))
     if (failure.at) {
@@ -58,6 +64,7 @@ export const textSink = (write: (text: string) => void): Sink => {
     }
     for (const frame of failure.stack?.slice(1) ?? [])
       lines.push(`  at ${loc(frame)}`)
+    for (const dir of kept) lines.push(`  testdir: ${dir}`)
     const at = id === undefined ? undefined : starts.get(id)
     if (at) lines.push(`  rerun: ubq ${at.file}:${at.line}`)
     write(lines.join('\n') + '\n\n')
@@ -83,7 +90,7 @@ export const textSink = (write: (text: string) => void): Sink => {
       case 'test-end':
         if (event.repeat) repeats.set(event.id, event.repeat)
         if (event.status === 'fail' && event.failure)
-          block(`FAIL ${event.id}`, event.failure, event.id, event.repeat)
+          block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
         else if (event.status === 'skip')
           skips.push(`skip ${event.id}: ${event.reason}`)
         output.delete(event.id)
