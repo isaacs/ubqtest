@@ -3,7 +3,6 @@
 // place that opened each thing that was still open.
 // See docs/04-architecture.md, section 8.
 import { createHook } from 'node:async_hooks'
-import { spawnSync } from 'node:child_process'
 import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { config } from './config.ts'
@@ -60,6 +59,9 @@ export const trackOpened = (file: string): ((pending: string[]) => never) => {
  */
 const rerun = (file: string, id: TestId): Opened[] => {
   const result = join(stateDir(), `hang-${process.pid}.json`)
+  // Not an import: each test process loads this file, and few need
+  // `node:child_process`, which takes time to load.
+  const { spawnSync } = process.getBuiltinModule('node:child_process')
   spawnSync(
     process.execPath,
     [...(process.versions.deno ? ['run', '-A'] : []), join(projectRoot(), file)],
