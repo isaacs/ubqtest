@@ -27,7 +27,7 @@ export interface Instrumented {
   js?: string
 }
 
-interface Node {
+export interface Node {
   type: string
   start: number
   end: number
@@ -45,7 +45,7 @@ const JSX = /\.[jt]sx$/
  * it. Bun reads JSX in a `.js` file, so such a file gets a second
  * try with the JSX parser.
  */
-const parse = (source: string, file: string): Node => {
+export const parse = (source: string, file: string): Node => {
   const options = { ecmaVersion: 'latest', sourceType: 'module', locations: true, allowHashBang: true } as const
   if (JSX.test(file)) return jsxParser.parse(source, options) as unknown as Node
   try {
@@ -78,7 +78,7 @@ const JUMPS = new Set([
 const isNode = (v: unknown): v is Node =>
   typeof v === 'object' && v !== null && typeof (v as Node).type === 'string'
 
-const children = (node: Node): Node[] => {
+export const children = (node: Node): Node[] => {
   const out: Node[] = []
   for (const key in node) {
     const v = node[key]

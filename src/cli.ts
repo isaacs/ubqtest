@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The `ubq` command: runs tests, and answers questions about stored
 // runs. See docs/04-architecture.md, section 5.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { doctor } from './doctor.ts'
 import { mutate } from './mutate.ts'
 import { testdirPath } from './fixtures.ts'
@@ -60,7 +60,10 @@ const USAGE = `usage:
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
   ubq server                 starts a background server that makes runs faster: it keeps test processes ready. ubq server stop stops it
   ubq guide                  how to write and run tests, for the installed version
+  ubq guide convert          how to move a project from a different test tool to ubq
+  ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq doctor                 checks the setup of the project, and states the fix for each problem
+  ubq skill                  writes the use-ubq skill for coding agents to .claude/skills/use-ubq/SKILL.md of the project
 `
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
@@ -74,12 +77,24 @@ const main = async (args: string[]): Promise<number> => {
     return 0
   }
   if (command === 'guide') {
-    // The guide is at the package root. The bundle is there too.
-    const path = import.meta.url.endsWith('.ts') ? '../GUIDE.md' : './GUIDE.md'
+    // The guides are at the package root. The bundle is there too.
+    if (rest[0] && rest[0] !== 'convert') throw new UsageError('the guides are: ubq guide, ubq guide convert')
+    const name = rest[0] ? 'CONVERT.md' : 'GUIDE.md'
+    const path = import.meta.url.endsWith('.ts') ? `../${name}` : `./${name}`
     out(readFileSync(new URL(path, import.meta.url), 'utf8').trimEnd())
     return 0
   }
   if (command === 'doctor') return doctor(out) ? 1 : 0
+  if (command === 'convert') return (await import('./convert.ts')).convertCommand(rest, out)
+  if (command === 'skill') {
+    // The skill is at the package root. The bundle is there too.
+    const from = new URL(import.meta.url.endsWith('.ts') ? '../skills/use-ubq/SKILL.md' : './skills/use-ubq/SKILL.md', import.meta.url)
+    const to = join(projectRoot(), '.claude', 'skills', 'use-ubq')
+    mkdirSync(to, { recursive: true })
+    writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
+    out(`wrote ${rel(join(to, 'SKILL.md'))}`)
+    return 0
+  }
   if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))

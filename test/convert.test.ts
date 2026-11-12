@@ -1,0 +1,181 @@
+// `ubq convert`: test files of a different test tool, as ubq tests.
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { join } from 'node:path'
+import { assert, cleanup, test } from 'ubqtest'
+import { convertSource } from '../src/convert.ts'
+import { project } from './setup.ts'
+
+// The load hook of the counters loads the parser with `require`,
+// while this file loads. A static import of the same module from
+// this file is an error in Node (a cycle of `require` and `import`).
+const { parse, children } = createRequire(import.meta.url)('../src/instrument.ts') as typeof import('../src/instrument.ts')
+
+const convert = (source: string, file = 'a.ts') => {
+  const r = convertSource(source, file, parse, children)
+  return r && { ...r, code: r.code.trimEnd().split('\n') }
+}
+
+test('tap: tests, assertions, messages, end and plan, subtests, mockImport', () => {
+  const r = convert(`import t from 'tap'
+import { parse, load } from '../src/shape.js'
+
+t.test('basic', t => {
+  t.equal(parse('c')?.kind, 'circle', 'the kind')
+  t.strictSame(parse('s'), { kind: 'square', side: 2 })
+  t.notOk(parse('x') || false)
+  t.throws(() => parse('?'), 'throws')
+  t.type(parse('c'), 'object')
+  t.end()
+})
+t.test('async', async t => {
+  t.plan(1)
+  t.rejects(load('x'), /no shape/)
+  t.teardown(() => {})
+})
+t.test('group', t => {
+  t.test('one', async t => {
+    const m = await t.mockImport<typeof import('../src/a.js')>('../src/a.js', { '../src/b.js': { f: () => 1 } })
+    t.ok(m)
+  })
+  t.end()
+})
+t.beforeEach(() => {})
+t.equal(1, 1)
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, cleanup, describe, mockImport, test } from 'ubqtest'",
+    "import { parse, load } from '../src/shape.js'",
+    '',
+    "test('basic', () => {",
+    "  assert.equal(parse('c')?.kind, 'circle') // the kind",
+    "  assert.deepEqual(parse('s'), { kind: 'square', side: 2 })",
+    "  assert(!(parse('x') || false))",
+    "  assert.throws(() => parse('?'), Error) // throws",
+    "  assert.equal(typeof parse('c'), 'object')",
+    '})',
+    "test('async', async () => {",
+    "  await assert.rejects(load('x'), /no shape/)",
+    '  cleanup(() => {})',
+    '})',
+    "describe('group', () => {",
+    "  test('one', async () => {",
+    "    const m = await mockImport(() => import('../src/a.js'), [[() => import('../src/b.js'), { f: () => 1 }]])",
+    '    assert(m)',
+    '  })',
+    '})',
+    '// TODO(ubq): ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
+    't.beforeEach(() => {})',
+    '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
+    'assert.equal(1, 1)',
+  ])
+  assert.deepEqual([r.framework, r.todos.map(t => t.line)], ['tap', [21, 23]])
+})
+
+test('vitest: expect, not, promises, spies, skip, a time limit', () => {
+  const r = convert(`import { describe, it, expect, vi } from 'vitest'
+describe('g', () => {
+  it('a', async () => {
+    expect(f()).toEqual({ a: 1 })
+    expect(f().a).not.toBe(2)
+    expect(a || b).toBeFalsy()
+    expect([1]).not.toContain(2)
+    expect(() => f()).toThrow('bad (x)')
+    await expect(p).rejects.toThrow(TypeError)
+    expect(p).resolves.toBe(1)
+    const s = vi.fn(() => 1)
+    expect(s).toHaveBeenCalledWith(1, 2)
+    expect(f()).toBeCloseTo(1)
+  })
+  it.skip('b', () => {})
+  it('c', () => {}, 100)
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, describe, spy, test } from 'ubqtest'",
+    "describe('g', () => {",
+    "  test('a', async () => {",
+    '    assert.deepEqual(f(), { a: 1 })',
+    '    assert.notEqual(f().a, 2)',
+    '    assert(!(a || b))',
+    '    assert(!([1].includes(2)))',
+    '    assert.throws(() => f(), /bad \\(x\\)/)',
+    '    await assert.rejects(p, TypeError)',
+    '    assert.equal(await p, 1)',
+    '    const s = spy(() => 1)',
+    '    assert.deepEqual(s.calls.at(-1)?.args, [1, 2])',
+    '    // TODO(ubq): ubq has no toBeCloseTo. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+    '    expect(f()).toBeCloseTo(1)',
+    '  })',
+    "  // TODO(ubq): Give the reason: { skip: 'the reason' }.",
+    "  test('b', { skip: 'TODO(ubq): the reason' }, () => {})",
+    "  test('c', { timeout: 100 }, () => {})",
+    '})',
+  ])
+})
+
+test('node:test with require, jest with globals, and a file of no known tool', () => {
+  const node = convert(
+    `const { test, it } = require('node:test')
+const assert = require('node:assert/strict')
+it('a', (t) => {
+  assert.strictEqual(1, 1, 'one')
+  assert.ok(x)
+  assert.rejects(p)
+})
+`,
+    'a.cjs',
+  )
+  assert.deepEqual(node?.code, [
+    "const { assert, test } = require('ubqtest')",
+    "test('a', async () => {",
+    '  assert.equal(1, 1) // one',
+    '  assert(x)',
+    '  await assert.rejects(p, Error)',
+    '})',
+  ])
+  const jest = convert("describe('g', () => {\n  it('a', () => {\n    expect(1).toBe(1)\n  })\n})\n")
+  assert.deepEqual([jest?.framework, jest?.code[0], jest?.code[3]], ['jest', "import { assert, describe, test } from 'ubqtest'", '    assert.equal(1, 1)'])
+  assert.equal(convert("import { x } from './x.ts'\nx()\n"), undefined)
+  assert.equal(convert("import { expect } from 'chai'\ndescribe('g', () => { it('a', () => { expect(1).to.equal(1) }) })\n"), undefined)
+})
+
+test('the command changes the files, and the converted tests pass', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const file = join(p.dir, 'old.ts')
+  writeFileSync(
+    file,
+    `import t from 'tap'
+import { parse, load } from './src/shape.js'
+
+t.test('parse', t => {
+  t.equal(parse('c')?.kind, 'circle')
+  t.same(parse('s'), { kind: 'square', side: 2 }, 'a square')
+  t.throws(() => parse('?'), RangeError)
+  t.end()
+})
+t.test('load', async t => {
+  t.rejects(load('x'), /no shape/)
+  t.match(await load('s'), { kind: 'square' })
+})
+`,
+  )
+  const dry = p.ubq('convert', '--dry', 'old.ts')
+  assert.deepEqual(dry.out.split('\n').slice(0, 2), ['converted old.ts (tap): 9 changes, 0 TODO', 'convert: 1 files to change, 0 TODO comments'])
+  assert.match(readFileSync(file, 'utf8'), /from 'tap'/)
+  assert.deepEqual(p.ubq('convert', 'old.ts').out.split('\n'), [
+    'converted old.ts (tap): 9 changes, 0 TODO',
+    'convert: 1 files changed, 0 TODO comments',
+    'note: 1 of these files do not have a name that ubq runs (*.test.ts). Rename them, or add to package.json: "ubq": { "include": ["old.ts"] }. Use "exclude" for files in that folder that are not test files.',
+    'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
+    '',
+  ])
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 2 passed')
+  // A second conversion finds nothing to do.
+  assert.equal(p.ubq('convert', 'old.ts').out, 'convert: 0 files changed, 0 TODO comments, 1 files with no known test tool\n')
+  assert.deepEqual([p.ubq('convert').code, p.ubq('convert', 'nope').code], [4, 4])
+  assert.match(p.ubq('guide', 'convert').out, /^# ubq guide: convert\n/)
+})

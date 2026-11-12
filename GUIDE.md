@@ -2,9 +2,10 @@
 
 How to write and run tests with `ubqtest`. This text comes from
 the installed package, so it is correct for the installed version.
-`ubq guide` prints it. `ubq doctor` checks the setup of a project:
-it prints one `FIX` line for each problem, and its exit code is 1
-if there is a problem.
+`ubq guide` prints it. `ubq guide convert` tells how to move a
+project from a different test tool. `ubq doctor` checks the setup
+of a project: it prints one `FIX` line for each problem, and its
+exit code is 1 if there is a problem.
 
 ## A test file
 

@@ -610,3 +610,36 @@ possible, and the tool guesses correctly).
 A test file that runs as a plain program on Node (`node
 test/a.test.ts`) has no preload, so it needs the `.ts` names.
 
+## D43. Conversion from a different test tool: a command, a guide, and a skill (agent, on a request from the user, 2026-11-12)
+
+Three parts, each for a different kind of work:
+
+1. **`ubq convert <files or folders>`** makes the changes that
+   are certain: imports, `it` to `test`, assertions with one form
+   in ubq, `t.end()`, `await` for `rejects`. It knows tap,
+   `node:test` with `node:assert`, vitest, jest, and mocha with
+   `node:assert`. For each statement that needs a decision, it
+   writes a `// TODO(ubq): ...` comment with the instruction, and
+   lists it in its report. Source: `src/convert.ts`.
+2. **`ubq guide convert`** (`CONVERT.md`) has the steps of a
+   conversion, the tables of forms, the cases that need a
+   decision (hooks, subtests, module mocks, loose comparisons),
+   and a table of the failures that come after a conversion, with
+   the cause of each.
+3. **The `use-ubq` skill** (`skills/use-ubq/SKILL.md`, and `ubq
+   skill` to copy it into `.claude/skills/` of a project) tells an
+   agent to read the two guides of the installed package, and
+   gives the order of the work.
+
+**Reason.** A program does the certain changes faster and with
+fewer errors than an agent. An agent does the changes that need
+the sense of the test. The guide is in the package, so it is
+correct for the installed version, and an agent with no skill
+system can read it with one command.
+
+The command changes files in place and does not make a copy: the
+project is in git. It reads the result with the parser before it
+writes, so it does not write text that is not code.
+
+Not built: chai, sinon, ava, tape, jasmine.
+

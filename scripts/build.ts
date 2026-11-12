@@ -51,4 +51,5 @@ const manifest = {
   },
 }
 writeFileSync(new URL('package.json', dist), JSON.stringify(manifest, null, 2) + '\n')
-for (const file of ['README.md', 'LICENSE.md', 'GUIDE.md']) cpSync(new URL(file, root), new URL(file, dist))
+for (const file of ['README.md', 'LICENSE.md', 'GUIDE.md', 'CONVERT.md', 'skills'])
+  cpSync(new URL(file, root), new URL(file, dist), { recursive: true })

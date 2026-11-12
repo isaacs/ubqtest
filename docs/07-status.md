@@ -592,6 +592,22 @@ Known limits:
   that does not return gets no stack (the watchdog thread has no
   inspector there).
 
+## Conversion from a different test tool: first version (2026-11-12)
+
+D43. `ubq convert`, `ubq guide convert` (`CONVERT.md`), and the
+`use-ubq` skill (`ubq skill`). Checks: `test/convert.test.ts`.
+
+Not checked yet: a conversion of a real project by a different
+agent. The user plans that check.
+
+Known limits:
+
+- A name of the old tool that a local variable hides gets the
+  rule of the old tool.
+- A helper file that gets `t` as an argument is not converted.
+- The text between the arguments of a changed call (a comment
+  there) goes away.
+
 ## Smaller gaps closed (2026-11-12)
 
 - Type errors are in the store (table `type_error`, schema 7).
