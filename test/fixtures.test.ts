@@ -110,3 +110,25 @@ test('mockImport works in this file', async () => {
   ])
   assert.equal(join('a', 'b'), 'a+b')
 })
+
+test('a test that changes the environment or the working directory fails', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  env({ LEAK_B: 'b' })
+  const r = p.ubq('leak.ts')
+  assert.deepEqual(r.out.replace(/ \(run \d+\)\n$/, '').split('\n').map(l => l.replace(/to \/.* and/, 'to DIR and')), [
+    'FAIL leak.ts > sets a variable',
+    '  the test changed the environment variable LEAK_A, LEAK_B and did not put it back. Use env({ LEAK_A: value }): it puts the old value back when the test ends.',
+    '  at leak.ts:6:1',
+    "  > test('sets a variable', () => {",
+    '  rerun: ubq leak.ts:6',
+    '',
+    'FAIL leak.ts > changes the working directory',
+    '  the test changed the working directory to DIR and did not put it back. Put it back with cleanup(): const old = process.cwd(); cleanup(() => process.chdir(old))',
+    '  at leak.ts:17:1',
+    "  > test('changes the working directory', () => {",
+    '  rerun: ubq leak.ts:17',
+    '',
+    'fail: 2 failed, 2 passed',
+  ])
+})

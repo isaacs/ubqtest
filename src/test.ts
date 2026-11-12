@@ -257,6 +257,33 @@ const runCleanups = async (
   return failure
 }
 
+/**
+ * Puts back the environment variables and the working directory
+ * that a test changed. Returns a message if it changed one.
+ */
+const restore = (envBefore: NodeJS.ProcessEnv, cwdBefore: string): string | undefined => {
+  const changed: string[] = []
+  const now = { ...process.env }
+  for (const name in now)
+    if (now[name] !== envBefore[name]) {
+      changed.push(name)
+      if (name in envBefore) process.env[name] = envBefore[name]
+      else delete process.env[name]
+    }
+  for (const name in envBefore)
+    if (!(name in now)) {
+      changed.push(name)
+      process.env[name] = envBefore[name]
+    }
+  const cwd = process.cwd()
+  if (cwd !== cwdBefore) process.chdir(cwdBefore)
+  if (changed.length)
+    return `the test changed the environment variable ${changed.sort().join(', ')} and did not put it back. Use env({ ${changed[0]}: value }): it puts the old value back when the test ends.`
+  if (cwd !== cwdBefore)
+    return `the test changed the working directory to ${cwd} and did not put it back. Put it back with cleanup(): const old = process.cwd(); cleanup(() => process.chdir(old))`
+  return undefined
+}
+
 const runOne = async (entry: Entry): Promise<void> => {
   emit({
     type: 'test-start',
@@ -292,6 +319,8 @@ const runOne = async (entry: Entry): Promise<void> => {
       stop(failure)
     },
   }
+  const envBefore = { ...process.env }
+  const cwdBefore = process.cwd()
   let controller: AbortController | undefined
   const ctx: TestContext = {
     get signal() {
@@ -340,6 +369,10 @@ const runOne = async (entry: Entry): Promise<void> => {
   // has a failure at this point.
   const failure = await runCleanups(state.cleanups, entry.timeout, fn => current.run(state, fn))
   if (failure) state.failure ??= { ...failure, ...(!failure.at && entry.at && { at: entry.at }) }
+  // The test must leave the process as it found it (D29). The old
+  // values come back, so that the next test is not affected.
+  const leak = restore(envBefore, cwdBefore)
+  if (leak) state.failure ??= { kind: 'leak', message: leak, ...(entry.at && { at: entry.at }) }
   const ms = performance.now() - t0
   state.ended = true
   active = undefined
