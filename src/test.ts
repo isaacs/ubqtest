@@ -1,5 +1,6 @@
 // `test`, `describe`, and the loop that runs tests one at a time.
 // See docs/05-api.md, sections 3 and 4.
+import { clearTimeout, now, setImmediate, setTimeout } from './real.ts'
 import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
 import { config } from './config.ts'
@@ -330,7 +331,7 @@ const runOne = async (entry: Entry): Promise<void> => {
   active = state
   watch({ start: entry.id, timeout: entry.timeout, ...(entry.at && { at: entry.at }) })
   const before = openNow()
-  const t0 = performance.now()
+  const t0 = now()
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const result = current.run(state, entry.fn, ctx)
@@ -373,7 +374,7 @@ const runOne = async (entry: Entry): Promise<void> => {
   // values come back, so that the next test is not affected.
   const leak = restore(envBefore, cwdBefore)
   if (leak) state.failure ??= { kind: 'leak', message: leak, ...(entry.at && { at: entry.at }) }
-  const ms = performance.now() - t0
+  const ms = now() - t0
   state.ended = true
   active = undefined
   watch({ end: state.failure ? 'fail' : 'pass' })

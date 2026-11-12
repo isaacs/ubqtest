@@ -5,15 +5,11 @@ stopped. Each entry states what is blocked, the options, and what
 the agent would do. Remove an entry when its decision is in
 `02-decisions.md`.
 
-## Q1. Fake clock and snapshots
+## Q1. Snapshots
 
-Decided (2026-11-12), not built yet:
-
-- The fake clock is a function that returns a clock object for the
-  current test. The object has a method that ends it, and it ends
-  with the test. It takes over all that it can.
-- Snapshots are `assert.snapshot(value)`, with one file for each
-  test file, as in tap, and an explicit `--update` flag.
+Decided (2026-11-12), not built yet: `assert.snapshot(value)`, with
+one file for each test file, as in tap, and an explicit `--update`
+flag. (The fake clock is built: D30.)
 
 ## Q4. Source counters on Node, step 3 of D25
 

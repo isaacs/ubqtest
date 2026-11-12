@@ -1,5 +1,6 @@
 // The runner role for a test file that runs as a plain program.
 // See docs/06-events.md, section 1.
+import { now, time } from './real.ts'
 import { subscribe } from 'node:diagnostics_channel'
 import { writeSync } from 'node:fs'
 import { CHANNEL } from './emit.ts'
@@ -41,7 +42,7 @@ export const startPlain = (): void => {
   const send: Sink = event => {
     for (const sink of sinks) sink(event)
   }
-  const t0 = performance.now()
+  const t0 = now()
   const status = new Map<TestId, 'pass' | 'fail' | 'skip'>()
   let errors = 0
   let noTests = false
@@ -55,7 +56,7 @@ export const startPlain = (): void => {
       const start: RunStart = {
         type: 'run-start',
         v: EVENT_VERSION,
-        time: Date.now(),
+        time: time(),
         command:
           command ? (JSON.parse(command) as string[]) : (
             [process.argv0, ...process.argv.slice(1)]
@@ -96,7 +97,7 @@ export const startPlain = (): void => {
       send({ type: 'exit', file: event.file, code, signal: null })
       send({
         type: 'run-end',
-        ms: performance.now() - t0,
+        ms: now() - t0,
         pass: count('pass'),
         fail,
         errors,

@@ -1,5 +1,6 @@
 // The run store: one SQLite file at `.ubq/runs.db` in the project.
 // See docs/04-architecture.md, section 5.
+import { clearTimeout, setTimeout } from './real.ts'
 import { hash } from 'node:crypto'
 import { readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'

@@ -357,3 +357,14 @@ material. Libraries set globals and add listeners at their first
 call, so a check for these would fail tests that did nothing
 wrong.
 
+## D30. The fake clock is an object that belongs to its test (user, 2026-11-12)
+
+`fakeClock()` returns a clock object for the current test. The
+object has a method that ends it (`restore`), and it ends with the
+test. It takes over all the timers and clocks that it can.
+
+**Reason.** A test contains all that it needs (`05-api.md`,
+section 2), and nothing needs a reset in the next test. A clock
+that takes over only some functions gives code that is half in
+fake time, which is hard to understand.
+

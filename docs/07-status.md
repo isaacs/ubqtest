@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 63 pass
+node src/cli.ts         # the tool runs its own tests: 68 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -420,6 +420,8 @@ Source files:
 | --- | --- |
 | `src/fixtures.ts` | `cleanup`, `env`, `testdir`, and the cleanup functions of the file |
 | `src/spy.ts` | `spy`, `spyOn` |
+| `src/clock.ts` | `fakeClock` |
+| `src/real.ts` | the real timers and clocks, for the library itself |
 | `src/mock.ts` | `mockImport`: resolve and load hooks, registered at the first call |
 
 Done (`05-api.md`, sections 6 and 7):
@@ -445,14 +447,17 @@ Done (`05-api.md`, sections 6 and 7):
   does not put the change back fails, and ubq puts the old values
   back (D29).
 
-Checks: `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`,
+- `fakeClock` (D30). The library takes its own timers from
+  `src/real.ts`, so the time limit of a test stays real.
+
+Checks: `test/clock.test.ts`, `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`,
 `test/fixtures/mock.ts`, and `test/fixtures/leak.ts`.
 
 Not done:
 
 - `mockImport` on Bun (the call throws an error that says so) and
   a check of it on Deno.
-- Fake clock and snapshots: decided, see `09-questions.md`.
+- Snapshots: decided, see `09-questions.md`.
 
 Known limits:
 
@@ -460,6 +465,11 @@ Known limits:
   empty. A file that calls `test` after an `await` that comes
   after the first `test` call gets an error, if the file has
   top-level fixtures.
+- On Bun, `import { setTimeout } from 'node:timers'` keeps the real
+  timer under a fake clock. Bun does not update the names of a
+  builtin module. The globals are replaced.
+- Timers that wait when a fake clock ends are dropped, with no
+  message.
 - `mockImport` does not replace a dependency that the code loads
   with `require`, and a mock of a package does not reach the code
   of other packages.

@@ -293,6 +293,33 @@ cleanup(fn: () => void | Promise<void>): void         // run fn at test end
 - A fixture call after its test ended is a failure of that test
   (`late`). Each cleanup function has the time limit of its test.
 
+### `fakeClock`
+
+```ts
+const clock = fakeClock({ now?: number | Date })
+clock.now                 // milliseconds since 1970
+clock.timers              // count of timers that wait
+await clock.tick(ms)      // move forward, run each timer that is due
+await clock.runAll()      // move from timer to timer until none waits
+clock.restore()           // the real clock comes back
+```
+
+- The clock belongs to the test that made it. The real clock comes
+  back when the test ends, or at `clock.restore()`, or at the end
+  of a `using clock = fakeClock()` block. One clock at a time.
+- It replaces all that it can (D30): `setTimeout`, `setInterval`,
+  `setImmediate` and their `clear` functions, `Date`,
+  `performance.now`, `process.hrtime`, `AbortSignal.timeout`, and
+  the same functions in `node:timers` and `node:timers/promises`.
+- Time moves only in `tick` and `runAll`. Timers run in the order
+  of their times. Promise callbacks run after each timer, so a
+  chain of `await sleep(10)` calls ends in one `tick`.
+- `tick` and `runAll` return promises. There is no sync form.
+- `runAll` fails after 10000 timers: a `setInterval` never ends.
+- The time limit of the test, and the times in reports, use the
+  real clock.
+- `queueMicrotask` and `process.nextTick` are not replaced.
+
 To share setup between tests, write a function:
 
 ```ts
@@ -371,5 +398,4 @@ guide in the package lists the replacement for each.
 
 - **`match` patterns have no type matchers** (tap permits
   `{ id: Number }`). Add them only if tests need them often.
-- **Fake clock and snapshots** are in build step 7 and need their
-  own design.
+- **Snapshots** are decided (`assert.snapshot`), not built yet.
