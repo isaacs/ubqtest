@@ -1,5 +1,6 @@
-// Results from more than one run: history, diff, and --repeat.
-import { appendFileSync, rmSync } from 'node:fs'
+// Results from more than one run: history, diff, --repeat, and --baseline.
+import { spawnSync } from 'node:child_process'
+import { appendFileSync, existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, test } from 'ubqtest'
 import { project } from './setup.ts'
@@ -150,5 +151,84 @@ test('--repeat runs the tests many times and counts the failures of each test', 
 
   const usage = "ubq: --repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'\n"
   assert.deepEqual([p.ubq('--repeat').err, p.ubq('--repeat', '1', 'flip.ts').err, p.ubq('--repeat', 'flip.ts').code], [usage, usage, 4])
+  rmSync(p.dir, { recursive: true })
+})
+
+test('--baseline shows only the failures that the commit does not have', () => {
+  const p = project()
+  p.set('pass')
+  const git = (...args: string[]) => {
+    const r = spawnSync('git', ['-c', 'user.name=ubq', '-c', 'user.email=ubq@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: p.dir, encoding: 'utf8' })
+    assert.equal(r.status, 0, r.stderr)
+  }
+  const file = (tests: string[]) =>
+    writeFileSync(join(p.dir, 'two.test.ts'), [
+      "import { assert, test } from 'ubqtest'",
+      "import { parse } from './src/shape.ts'",
+      ...tests,
+    ].join('\n') + '\n')
+  const square = "test('square', () => { assert.equal(parse('s')?.kind, 'square') })"
+  file([
+    "test('old failure', () => { assert.equal(1, 2) })",
+    square,
+    "test('was broken', () => { assert.equal(1, 2) })",
+    "test('removed', () => { assert.equal(1, 1) })",
+  ])
+  assert.deepEqual([p.ubq('--baseline', 'HEAD').code, p.ubq('--baseline', 'HEAD').err], [
+    4,
+    'ubq: --baseline needs a git repository, and this project is not in one\n',
+  ])
+  writeFileSync(join(p.dir, '.gitignore'), 'node_modules\nflip.txt*\n')
+  git('init', '-q')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'base')
+
+  // No change: each failure is in the baseline too.
+  const same = p.ubq('--baseline', 'HEAD', 'two.test.ts')
+  assert.deepEqual([same.code, same.err, lines(same.out)], [1, '', [
+    'baseline HEAD (COMMIT): 0 new failures, 2 failed in the baseline too, 0 fixed',
+    "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
+    '  two.test.ts > old failure',
+    '  two.test.ts > was broken',
+    'fail: 2 failed, 2 passed (run 1)',
+  ].map(l => l.replace('COMMIT', /\((\w+)\)/.exec(same.out)![1]!))])
+
+  // A change to a source file and to the test file.
+  writeFileSync(join(p.dir, 'src/shape.ts'), "export const parse = (s: string) => ({ kind: 'circle' + s })\n")
+  file([
+    "test('old failure', () => { assert.equal(1, 2) })",
+    square,
+    "test('was broken', () => { assert.equal(2, 2) })",
+    "test('new', () => { assert.equal(1, 3) })",
+  ])
+  const r = p.ubq('--baseline', 'HEAD', 'two.test.ts')
+  assert.equal(r.code, 1)
+  const out = lines(r.out)
+  assert.deepEqual(out.filter(l => l.startsWith('FAIL')), ['FAIL two.test.ts > square', 'FAIL two.test.ts > new'])
+  assert.deepEqual(out.slice(-6).map(l => l.replace(/\(\w{7}\)/, '(COMMIT)')), [
+    'baseline HEAD (COMMIT): 2 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run',
+    "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
+    '  two.test.ts > old failure',
+    'fixed:',
+    '  two.test.ts > was broken',
+    'fail: 3 failed, 1 passed (run 2)',
+  ])
+  // The store has all the failures of the run.
+  assert.equal(p.ubq('failures').last, 'fail: 3 failed, 1 passed')
+  // The checkout is gone, and git has no record of it.
+  assert.deepEqual(readdirSync(join(p.dir, '.ubq/baseline')), [])
+  assert.equal(spawnSync('git', ['worktree', 'list'], { cwd: p.dir, encoding: 'utf8' }).stdout.trim().split('\n').length, 1)
+  assert.equal(existsSync(join(p.dir, '.git/worktrees')), false)
+
+  // All test files, and a test file that the commit does not have.
+  writeFileSync(join(p.dir, 'new.test.ts'), "import { assert, test } from 'ubqtest'\ntest('bad', () => { assert.equal(1, 2) })\n")
+  assert.match(p.ubq('--baseline', 'HEAD').out, /\nbaseline HEAD \(\w+\): 3 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run\n/)
+  assert.match(p.ubq('--baseline', 'HEAD', 'new.test.ts').out, /\nbaseline HEAD \(\w+\): 1 new failures, 0 failed in the baseline too, 0 fixed\n/)
+
+  const err = (...args: string[]) => [p.ubq(...args).code, p.ubq(...args).err]
+  assert.deepEqual(err('--baseline', 'nope'), [4, 'ubq: --baseline needs a git commit, and git does not know: nope. Examples: ubq --baseline HEAD, ubq --baseline main\n'])
+  assert.deepEqual(err('--baseline'), [4, 'ubq: --baseline needs a git commit, such as: ubq --baseline HEAD\n'])
+  assert.deepEqual(err('--baseline', 'HEAD', '--failed'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
+  assert.deepEqual(err('--baseline', 'HEAD', '--repeat', '2'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
   rmSync(p.dir, { recursive: true })
 })

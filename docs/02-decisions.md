@@ -298,3 +298,28 @@ step 3. A plain `node file.ts` has no preload, so it stays on V8.
 12). The user's experience with `nyc` and `istanbul` was that
 source counters were flaky. A new instrumenter must earn trust
 against a method that is known to be correct.
+
+## D26. `--baseline` hides failures in the text, not in the result (agent, 2026-11-12)
+
+`ubq --baseline <commit>` runs the tests of the commit in a clean
+checkout, and then the tests of the working tree. The text shows
+a failure block only for a failure that the commit does not have.
+The other failures are a list of test IDs. The summary line, the
+exit code, and the store have all the failures.
+
+The checkout is a git worktree in `.ubq/baseline/` of the project.
+It is removed after the run. The baseline runs each time: its
+results are not kept for the next command.
+
+**Reason.** A test that fails is a failure, also when it failed
+before (D2). An exit code of 0 for "no new failures" would let an
+agent stop while the suite is red. The line `baseline ...: 0 new
+failures` is the answer to "did I break this?". The checkout is in
+the project so that its code finds the `node_modules` of the
+project, with no install step and no links. No kept results, for
+the reason that `04-architecture.md`, section 6, gives for the
+result cache: a kept result that is wrong hides a difference.
+
+The user can change each of these three points: the exit code,
+the place of the checkout, and kept results.
+

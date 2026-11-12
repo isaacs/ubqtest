@@ -33,6 +33,7 @@ const USAGE = `usage:
   ubq --failed               run the tests that failed in their last run
   ubq --changed              run the test files that loaded a file that has changed, and new test files
   ubq --repeat <n> ...       run the selected tests n times, and count the failures of each test
+  ubq --baseline <commit> ...  run the selected tests, and show only the failures that a clean checkout of the git commit does not have
   ubq failures [run]         the failures of a run (default: the last run)
   ubq show <test id>         the last result of one test
   ubq history <test id>      the result of one test in each stored run

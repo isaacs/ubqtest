@@ -21,6 +21,7 @@ import {
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
+import { compare, runBaseline, type Baseline } from './baseline.ts'
 import { repeater } from './repeat.ts'
 import { fileHash, openStore, stateDir, type Store } from './store.ts'
 
@@ -360,6 +361,16 @@ export const run = async (args: string[]): Promise<number> => {
     repeat = +count
     selection = args.toSpliced(at, 2)
   }
+  let baselineRef: string | undefined
+  const base = selection.indexOf('--baseline')
+  if (base >= 0) {
+    baselineRef = selection[base + 1]
+    if (!baselineRef || baselineRef.startsWith('--'))
+      throw new UsageError('--baseline needs a git commit, such as: ubq --baseline HEAD')
+    selection = selection.toSpliced(base, 2)
+    if (repeat || selection.some(a => a.startsWith('--')))
+      throw new UsageError('--baseline takes files and test IDs, and no other option')
+  }
   const flags = selection.filter(a => a.startsWith('--'))
   const rest = selection.filter(a => !a.startsWith('--'))
   for (const flag of flags)
@@ -401,7 +412,7 @@ export const run = async (args: string[]): Promise<number> => {
   const cacheDir = join(stateDir(), 'compile-cache')
 
   // One file runs in this process. It has the runner role for itself.
-  if (files.length === 1 && !repeat) {
+  if (files.length === 1 && !repeat && !baselineRef) {
     const { file, lines, ids } = files[0]!
     enableCompileCache(cacheDir)
     // On Bun, the load plugin must exist before the test file loads.
@@ -418,6 +429,12 @@ export const run = async (args: string[]): Promise<number> => {
     return 0
   }
 
+  // The baseline runs first, so that the text of this run can leave
+  // out the failures that the baseline has too.
+  let baseline: Baseline | undefined
+  if (baselineRef)
+    baseline = await runBaseline(baselineRef, rest.length ? files.map(f => f.file) : undefined)
+
   const t0 = performance.now()
   const start: RunStart = {
     type: 'run-start',
@@ -431,7 +448,21 @@ export const run = async (args: string[]): Promise<number> => {
     ci: !!process.env.CI,
   }
   const write = (text: string): void => void process.stdout.write(text)
-  const sinks: Sink[] = [textSink(write)]
+  const text = textSink(write)
+  const sinks: Sink[] = [
+    !baseline ? text : (
+      event => {
+        // The store has these failures. The text shows the new ones.
+        if (event.type === 'test-end' && event.status === 'fail') {
+          if (baseline.tests.get(event.id) === 'fail')
+            return text({ ...event, status: 'pass', failure: undefined })
+        } else if (event.type === 'late-failure') {
+          if (baseline.tests.get(event.id) === 'fail') return
+        } else if (event.type === 'file-error' && baseline.errors.has(event.file)) return
+        text(event)
+      }
+    ),
+  ]
   let store: Store | undefined
   try {
     store = openStore()
@@ -443,11 +474,15 @@ export const run = async (args: string[]): Promise<number> => {
 
   const status = new Map<string, 'pass' | 'fail' | 'skip'>()
   let errors = 0
+  const errorFiles = new Set<string>()
   let unselected = 0
   const send = (event: UbqEvent): void => {
     if (event.type === 'test-end') status.set(event.id, event.status)
     else if (event.type === 'late-failure') status.set(event.id, 'fail')
-    else if (event.type === 'file-error') errors++
+    else if (event.type === 'file-error') {
+      errors++
+      errorFiles.add(event.file)
+    }
     else if (event.type === 'file-end') unselected += event.unselected
     for (const sink of sinks) sink(event)
   }
@@ -472,6 +507,7 @@ export const run = async (args: string[]): Promise<number> => {
     all.flush()
     write(all.summary() + '\n')
   } else await runAll(send)
+  if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
 
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')

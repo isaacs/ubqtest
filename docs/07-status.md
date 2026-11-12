@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 55 pass
+node src/cli.ts         # the tool runs its own tests: 56 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -323,7 +323,7 @@ Known limits:
   statement level in a block. An expression that throws in the
   middle of a statement counts the rest of the statement as run.
 
-## Step 6: in progress (2026-11-12)
+## Step 6: done (2026-11-12)
 
 Done:
 
@@ -360,7 +360,27 @@ Done:
   the counts, and `--failed` selects a test that failed some
   times.
 
-Not done: `--baseline`.
+- `ubq --baseline <commit> <selection>` runs the tests of the
+  commit in a clean checkout, then the tests of the working tree
+  (`src/baseline.ts`, D26). The text shows the failures that the
+  commit does not have, and lists the IDs of the others and of
+  the fixed tests. The exit code and the store have all failures.
+- Two processes that start in a project with no store do not
+  fail with "table run already exists".
+
+Checks: `test/select.test.ts` (IDs, `--failed`, `--changed`,
+configuration), `test/history.test.ts` (`history`, `diff`,
+`--repeat`, `--baseline`). `test/setup.ts` has the helper that
+makes a project in a temporary folder.
+
+Not done in step 6:
+
+- `slow` (the slowest tests), from the list of queries in
+  `04-architecture.md`, section 5.
+- Run records do not have the git commit and the state of the
+  tree (`01`, section 3).
+- `--changed` at the level of ranges, and "run all tests" for a
+  changed file that is not code.
 
 Known limits:
 
@@ -377,6 +397,16 @@ Known limits:
   repeats of a file of 50 ms take 5 seconds or more. Two processes
   of one test file at the same time can fail for that reason only,
   and the count must not include such failures.
+- The checkout of `--baseline` has the files of the commit only.
+  A test that needs a file that git does not have (a build
+  result, a `.env` file, a submodule) fails there, and then its
+  failure in the working tree is not "new".
+- `--baseline` runs the suite two times. It does not go with
+  `--repeat`, `--failed`, or `--changed`.
+- In this repository, the test files of the checkout import the
+  library of the checkout (the package imports itself by name),
+  and the runner is the one of the working tree. In other
+  projects, both come from the `node_modules` of the project.
 - A new schema version removes the old store. If two `ubq`
   processes start at the same time after such a change, one of
   them can fail one time. This occurred one time in the fixture

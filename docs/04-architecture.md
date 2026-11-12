@@ -276,6 +276,19 @@ two counts (`test-end.repeat`). The sinks get these results after
 the last repeat, so the store has one run, and the text has one
 block for each failed test.
 
+`--baseline <commit>` goes with files and test IDs, or with no
+selection (D26):
+
+1. Make a git worktree of the commit in `.ubq/baseline/`.
+2. Run `ubq` there, on the test files of the selection that the
+   commit has. The run is at file level: a test ID or a line
+   selects its file. That run has its own store in the worktree.
+3. Read the result of each test from that store, and remove the
+   worktree.
+4. Run the selection in the working tree. The text leaves out
+   the block of a failure that the baseline has too, and ends with
+   the comparison.
+
 **No result cache in the first version.** A cache that skips a test
 by mistake reports a pass that did not happen. File reads and
 environment variables are inputs that the dependency list does not
