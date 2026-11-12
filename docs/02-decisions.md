@@ -660,6 +660,9 @@ The folder is not in git.
   index for agents. `llms-full.txt` has the user documents in one
   file.
 - Each link is relative, so the site works at any URL.
+- In the HTML, a path in code text is a link. A document of the
+  site goes to its page. A different file or folder that git
+  tracks goes to the repository on GitHub.
 - The page has no script. `marked` makes the HTML. The colors of
   code come from a small function in the script.
 

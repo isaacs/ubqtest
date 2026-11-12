@@ -4,7 +4,8 @@
 //
 // Each link in the output is relative, so the site works at any URL
 // and from a folder of a disk.
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, posix, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Marked, type Tokens } from 'marked'
@@ -80,18 +81,35 @@ const link = (page: { source: string; slug: string }, href: string, markdown: bo
   return url + (hash ? '#' + hash : '')
 }
 
+// The files and folders that git tracks.
+const tracked = new Set<string>()
+for (const file of spawnSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean)) {
+  tracked.add(file)
+  for (let dir = posix.dirname(file); dir !== '.'; dir = posix.dirname(dir)) tracked.add(dir + '/')
+}
+
 /**
- * The URL for a file name in code text, such as `02-decisions.md`.
- * The name is from the folder of the source, from the root, or from
- * `docs/`. Undefined if it is not a markdown file of the repository,
- * or if it is the page itself.
+ * The URL for a path in code text, such as `02-decisions.md`,
+ * `src/events.ts`, `src/runner.ts:12`, or `experiments/`. A document
+ * of the site goes to its page. A different file or folder that git
+ * tracks goes to the repository. The path is from the folder of the
+ * source, from the root, from `docs/`, or from `experiments/`.
+ *
+ * A name with no folder is a link only if it is a markdown file: a
+ * name such as `package.json` is usually a file of the reader's
+ * project. Undefined if the text is not such a path, or if it is the
+ * page itself.
  */
 const mention = (page: { source: string; slug: string }, text: string): string | undefined => {
-  if (!/^[\w./-]+\.md$/.test(text)) return undefined
-  for (const base of [posix.dirname(page.source), '.', 'docs']) {
-    const file = posix.normalize(posix.join(base, text))
+  const [, path = '', line] = /^(\w[\w./-]*?)(?::(\d+))?$/.exec(text) ?? []
+  if (!path.includes('/') && !path.endsWith('.md')) return undefined
+  for (const base of [posix.dirname(page.source), '.', 'docs', 'experiments']) {
+    const file = posix.normalize(posix.join(base, path))
     if (file === page.source || file.startsWith('..')) continue
-    if (bySource.has(file) || existsSync(resolve(root, file))) return link({ source: 'x', slug: page.slug }, file, false)
+    if (bySource.has(file)) return link({ source: 'x', slug: page.slug }, file, false)
+    const folder = file.replace(/\/?$/, '/')
+    if (tracked.has(folder)) return `${REPO}/tree/main/${folder.slice(0, -1)}`
+    if (tracked.has(file)) return `${REPO}/blob/main/${file}${line ? '#L' + line : ''}`
   }
   return undefined
 }
@@ -135,7 +153,7 @@ const render = (page: { source: string; slug: string }, markdown: string): { htm
     },
     renderer: {
       code: ({ text, lang }: Tokens.Code) => code(text, lang),
-      // A file name of a document, in code text, is a link.
+      // A path of the repository, in code text, is a link.
       codespan: ({ text, linked }: Tokens.Codespan & { linked?: boolean }) => {
         const href = linked ? undefined : mention(page, text)
         return href ? `<a href="${href}"><code>${text}</code></a>` : `<code>${text}</code>`
