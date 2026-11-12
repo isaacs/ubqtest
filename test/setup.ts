@@ -37,6 +37,21 @@ if (!correct()) {
   }
 }
 
+/**
+ * Removes a folder. On Windows, a process that ends keeps its
+ * folder for a short time, so this tries for 5 seconds.
+ */
+export const remove = (dir: string): void => {
+  for (let i = 0; ; i++) {
+    try {
+      return rmSync(dir, { recursive: true, force: true })
+    } catch (error) {
+      if (i === 50) throw error
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+    }
+  }
+}
+
 /** Removes the run store of a fixture project. */
 export const resetStore = (project: string): void =>
   rmSync(`${project}.ubq`, { recursive: true, force: true })

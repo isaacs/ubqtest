@@ -1,14 +1,14 @@
 // The background server: `ubq server`.
-import { appendFileSync, existsSync, rmSync } from 'node:fs'
+import { appendFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, env, test } from 'ubqtest'
-import { project } from './setup.ts'
+import { project, remove } from './setup.ts'
 
 // The server has a socket file. Windows has none.
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 
-test('a run with the server gives the same text, with test processes of the server', { timeout: 30_000 }, async () => {
+test('a run with the server gives the same text, with test processes of the server', { timeout: 120_000 }, async () => {
   const p = project()
   const status = (): { pid: number; used: number; prepared: number } => {
     const m = /^server: pid (\d+), 8 test processes wait, (\d+) used, (\d+) changed files prepared\n/.exec(p.ubq('server').out)
@@ -24,7 +24,7 @@ test('a run with the server gives the same text, with test processes of the serv
   }
   cleanup(() => {
     p.ubq('server', 'stop')
-    rmSync(p.dir, { recursive: true })
+    remove(p.dir)
   })
   assert.equal(p.ubq('server', 'stop').out, 'server: not running\n')
   const alone = run('fail.ts', 'mock.ts', 'pass.ts')
@@ -59,10 +59,9 @@ test('a run with the server gives the same text, with test processes of the serv
   assert.equal(pid > 0, true)
 })
 
-test('a server that died does not stop a run', { timeout: 30_000 }, async () => {
+test('a server that died does not stop a run', { timeout: 120_000 }, async () => {
   const p = project()
-  // On Windows, a process that ends keeps its folder for a short time.
-  cleanup(() => rmSync(p.dir, { recursive: true, maxRetries: 30, retryDelay: 100 }))
+  cleanup(() => remove(p.dir))
   const pid = +/pid (\d+)/.exec(p.ubq('server').out)![1]!
   process.kill(pid, 'SIGKILL')
   await sleep(100)

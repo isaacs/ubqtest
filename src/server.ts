@@ -102,14 +102,21 @@ const serve = (): Promise<number> =>
     let used = 0
     let prepared = 0
 
-    const kill = (child: ChildProcess): void => {
-      try {
-        // Windows has no process groups. `taskkill` stops a process
-        // and the processes that it started.
-        if (process.platform !== 'win32') process.kill(-child.pid!, 'SIGKILL')
-        else if (child.exitCode === null) spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
-      } catch {
-        // The process ended before.
+    const kill = (...children: ChildProcess[]): void => {
+      // Windows has no process groups. `taskkill` stops each process
+      // and the processes that it started. One call for all: each
+      // call takes a part of a second.
+      if (process.platform === 'win32') {
+        const pids = children.filter(c => c.exitCode === null).flatMap(c => ['/pid', String(c.pid)])
+        if (pids.length) spawnSync('taskkill', [...pids, '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+        return
+      }
+      for (const child of children) {
+        try {
+          process.kill(-child.pid!, 'SIGKILL')
+        } catch {
+          // The process ended before.
+        }
       }
     }
     const fill = (): void => {
@@ -132,7 +139,7 @@ const serve = (): Promise<number> =>
     const stop = (): void => {
       clearTimeout(idle)
       watcher?.close()
-      for (const child of pool) kill(child)
+      kill(...pool)
       rmSync(socketPath(), { force: true })
       server.close()
       done(0)
@@ -155,7 +162,7 @@ const serve = (): Promise<number> =>
       // that the runner would start. The next ones are.
       if (!sameEnv(request.base, base)) {
         base = request.base
-        for (const child of pool) kill(child)
+        kill(...pool)
         pool = []
         fill()
         return none()
