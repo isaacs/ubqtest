@@ -54,6 +54,17 @@ older run.
 - The benchmark guards catch real regressions. A watchdog thread
   in each child added 300 ms to the 200-file run before the guard
   showed it.
+- An import in a file that each test process loads has a cost in
+  each process. `node:child_process` added 9 ms to a run of one
+  file. Load such a module at the place that needs it
+  (`process.getBuiltinModule`).
+- Deno compiles TypeScript itself. A load hook there gets
+  JavaScript, V8 coverage has the positions of that JavaScript,
+  and stack traces go through the map of that JavaScript. Test a
+  Deno feature with the built package (`test/package.test.ts`).
+- A bundle must not contain the text of a source map marker at
+  the start of a line. Deno read one in a string as the map of
+  the bundle.
 - The machine gets slower during long sessions (Node start went
   from 28.7 ms to 31.3 ms). Compare against `node -e 0` on the
   same day.
@@ -602,7 +613,6 @@ Known limits:
   it.
 - The rerun runs the top-level code of the test file again.
 - With `--repeat`, there are no reruns.
-- `ubq show` does not print what a test left open.
 
 ## Source counters on Node: D25 done (2026-11-12)
 

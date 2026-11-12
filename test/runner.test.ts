@@ -147,6 +147,10 @@ test('hangs: a promise that never settles, a timeout, a process that stays alive
   assert.equal(r.out.at(-1), 'fail: 1 errors, 3 failed, 1 passed')
   // The store has them too.
   assert(ubq(['failures']).out.includes('  Timeout opened at hang.ts:18:32'))
+  assert.deepEqual(ubq(['show', 'hang.ts > times out with a timer']).out.slice(5, 7), [
+    '  still open: Timeout',
+    '  Timeout opened at hang.ts:18:32',
+  ])
 })
 
 test('the hangRerun switch turns the rerun off', () => {

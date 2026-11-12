@@ -131,6 +131,9 @@ const main = (args: string[]): number | Promise<number> => {
         if (t.failure.at)
           out(`  at ${t.failure.at.file}:${t.failure.at.line}:${t.failure.at.column}`)
         if (t.failure.diff) out('  ' + t.failure.diff.replaceAll('\n', '\n  '))
+        if (t.failure.pending) out(`  still open: ${t.failure.pending.join(', ')}`)
+        for (const o of t.failure.opened ?? [])
+          out(`  ${o.type} opened at ${o.at.file}:${o.at.line}:${o.at.column}`)
       }
       for (const dir of kept(t)) out(`  testdir: ${dir}`)
       const text = outputOf(db, t.run, id).trimEnd()
