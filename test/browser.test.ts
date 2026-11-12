@@ -100,17 +100,25 @@ test('served', async () => {
 `,
   )
   p.configure({ browser: { url: `http://localhost:${port}`, command: 'node app/server.js' } })
+  /** Waits until nothing answers at the URL. True if that came in 5 seconds. */
+  const stopped = (): boolean =>
+    spawnSync('node', [
+      '-e',
+      `const end = Date.now() + 5000
+const check = () => fetch('http://localhost:${port}').then(() => (Date.now() > end ? process.exit(1) : setTimeout(check, 50)), () => process.exit(0))
+check()`,
+    ]).status === 0
   assert.equal(p.ubq('served.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(stopped(), true)
   // A run with no browser test does not start the server.
   rmSync(join(p.dir, 'server.pid'))
   assert.equal(p.ubq('pass.ts').code, 0)
   assert.equal(existsSync(join(p.dir, 'server.pid')), false)
   // Two files: the test processes are children of the runner.
-  assert.equal(p.ubq('served.test.ts', 'pass.ts').code, 0)
+  const two = p.ubq('served.test.ts', 'pass.ts')
+  assert.deepEqual([two.last, two.err], ['pass: 0 failed, 2 passed', ''], two.out)
   assert.equal(existsSync(join(p.dir, 'server.pid')), true)
-  // Nothing answers after the run.
-  const up = spawnSync('node', ['-e', `fetch('http://localhost:${port}').then(() => process.exit(1), () => process.exit(0))`])
-  assert.equal(up.status, 0)
+  assert.equal(stopped(), true)
 
   p.configure({ browser: { url: `http://localhost:${port}`, command: 'node app/absent.js' } })
   const bad = p.ubq('served.test.ts')
