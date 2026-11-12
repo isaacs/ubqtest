@@ -2,15 +2,15 @@
 // installs it: as a plain program on each runtime, through the
 // `ubq` command, and for the type checker.
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { addJsx, project } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const dir = mkdtempSync(join(tmpdir(), 'ubq-package-'))
+const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-')))
 cleanup(() => rmSync(dir, { recursive: true }))
 const pkg = join(dir, 'node_modules/ubqtest')
 const build = spawnSync('node', ['scripts/build.ts', pkg], { cwd: root, encoding: 'utf8' })
@@ -68,7 +68,7 @@ const has = (cmd: string): string | false =>
 test('the build has no errors, and the package has no dependencies', async () => {
   assert.equal(build.stderr, '')
   assert.equal(build.status, 0)
-  const { default: manifest } = await import(join(pkg, 'package.json'), { with: { type: 'json' } })
+  const { default: manifest } = await import(pathToFileURL(join(pkg, 'package.json')).href, { with: { type: 'json' } })
   assert.deepEqual(Object.keys(manifest).filter(key => /dependencies/i.test(key)), [])
 })
 

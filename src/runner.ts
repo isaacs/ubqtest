@@ -1,12 +1,13 @@
 // The runner: starts a process for each test file, reads the events
 // of each one, and feeds the sinks.
 // See docs/04-architecture.md, section 2.
-import { spawn } from 'node:child_process'
-import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { closeSync, existsSync, globSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
 import { columnFromCache } from './counter-collector.ts'
@@ -171,9 +172,12 @@ const runtime = (): RunStart['runtime'] => {
 /** Process groups of the test processes that run now. */
 const groups = new Set<number>()
 const killGroup = (pid: number): void => {
-  groups.delete(pid)
+  const live = groups.delete(pid)
   try {
-    process.kill(-pid, 'SIGKILL')
+    // Windows has no process groups. `taskkill` stops a process and
+    // the processes that it started, if the process is there.
+    if (process.platform !== 'win32') process.kill(-pid, 'SIGKILL')
+    else if (live) spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' })
   } catch {
     // The group has no processes.
   }
@@ -312,6 +316,8 @@ export const loadFailure = (text: string): Failure | undefined => {
     .replace(/\x1b\[[0-9;]*m/g, '')
     .replaceAll(pathToFileURL(root).href + '/', '')
     .replaceAll(root + sep, '')
+    // A path of Windows in a message, as the paths of ubq.
+    .replace(/[\w.-]+(\\[\w.-]+)+/g, path => path.replaceAll('\\', '/'))
   const error = /^(?:\w*Error\b[^\n]*?|error): (.+)$/m.exec(plain)
   if (!error) return undefined
   const at = /^(?:\s+at )?([^\s:()'"]+\.[cm]?[jt]sx?):(\d+)(?::(\d+))?$/m.exec(plain)
@@ -322,6 +328,9 @@ export const loadFailure = (text: string): Failure | undefined => {
     ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
   }
 }
+
+/** The count of event files that this process made. */
+let eventFiles = 0
 
 /** Runs one test file in a new process. Sends its events to `send`. */
 export const runFile = async (
@@ -340,6 +349,15 @@ export const runFile = async (
     UBQ_IDS: JSON.stringify(ids),
     ...(update && { UBQ_UPDATE: '1' }),
     ...env,
+  }
+  // Deno cannot write to a descriptor that it gets from its parent.
+  // A Deno test process writes its events to a file, and the runner
+  // reads the file while it grows.
+  const eventsFile = process.versions.deno ? join(stateDir(), 'events', `${process.pid}-${++eventFiles}`) : undefined
+  if (eventsFile) {
+    mkdirSync(join(stateDir(), 'events'), { recursive: true })
+    writeFileSync(eventsFile, '')
+    Object.assign(job, { UBQ_EVENTS: eventsFile })
   }
   const path = join(projectRoot(), file)
   // The background server of the project has processes that are
@@ -369,7 +387,8 @@ export const runFile = async (
       ended = stopped = true
       // SIGUSR1 starts the inspector of Node. It ends a Deno process,
       // which has its inspector from the start.
-      if (!process.versions.deno) child.kill('SIGUSR1')
+      // Windows has no such signal: a stuck test there has no stack.
+      if (!process.versions.deno && process.platform !== 'win32') child.kill('SIGUSR1')
       for (let i = 0; i < 20 && !url; i++) await new Promise(r => setTimeout(r, 25))
       const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
       // With source counters, the columns are those of the changed source.
@@ -392,9 +411,7 @@ export const runFile = async (
       killGroup(child.pid!)
     }
     let buffer = ''
-    const pipe = child.stdio[3] as Readable
-    pipe.setEncoding('utf8')
-    pipe.on('data', (data: string) => {
+    const feed = (data: string): void => {
       buffer += data
       for (let i = buffer.indexOf('\n'); i >= 0; i = buffer.indexOf('\n')) {
         const event = JSON.parse(buffer.slice(0, i)) as FileEvent
@@ -411,7 +428,29 @@ export const runFile = async (
         }
         send(event)
       }
-    })
+    }
+    /** Reads the new part of the events file of a Deno process. */
+    let poll = (): void => {}
+    let polling: ReturnType<typeof setInterval> | undefined
+    if (eventsFile) {
+      const fd = openSync(eventsFile, 'r')
+      const decoder = new StringDecoder('utf8')
+      const chunk = Buffer.alloc(1 << 16)
+      let at = 0
+      poll = () => {
+        for (let n = readSync(fd, chunk, 0, chunk.length, at); n > 0; n = readSync(fd, chunk, 0, chunk.length, at)) {
+          at += n
+          feed(decoder.write(chunk.subarray(0, n)))
+        }
+      }
+      polling = setInterval(poll, 10)
+      child.on('close', () => {
+        clearInterval(polling)
+        poll()
+        closeSync(fd)
+        rmSync(eventsFile, { force: true })
+      })
+    } else (child.stdio[3] as Readable).setEncoding('utf8').on('data', feed)
     // Text that did not go through the capture in the child: a
     // crash message from the runtime, or a child of the child.
     let stderr = ''
@@ -433,7 +472,9 @@ export const runFile = async (
     groups.add(child.pid!)
     child.on('close', (code, signal) => {
       clearTimeout(watchdog)
-      // Processes that the tests started and did not stop.
+      // Processes that the tests started and did not stop. On
+      // Windows, they stay: the process that started them is gone.
+      if (process.platform === 'win32') groups.delete(child.pid!)
       killGroup(child.pid!)
       const load = started ? undefined : loadFailure(stderr)
       if (load) send({ type: 'file-error', file, failure: load })

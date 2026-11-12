@@ -1,6 +1,6 @@
 // The runner: many files, selection, exit codes, and dead processes.
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -67,7 +67,7 @@ test('a process that dies is an error that names the test', () => {
 })
 
 test('no test files gives exit code 2', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ubq-empty-'))
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-empty-')))
   writeFileSync(join(dir, 'package.json'), '{}')
   const r = spawnSync('node', [cli], { cwd: dir, encoding: 'utf8' })
   rmSync(dir, { recursive: true })
@@ -178,7 +178,7 @@ test('a loop that does not return is stopped, with the line of the loop', () => 
 })
 
 test('processes that a test file leaves behind are stopped', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ubq-orphan-'))
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-orphan-')))
   const pidFile = join(dir, 'pid')
   const r = ubq(['orphan.ts', 'pass.ts'], { ORPHAN_PID_FILE: pidFile })
   assert.equal(r.code, 0)

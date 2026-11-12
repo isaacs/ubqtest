@@ -1,7 +1,7 @@
 // Fixture projects import `ubqtest` as a real project does: through
 // `node_modules`. This makes the link to the repository root.
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,7 +46,7 @@ const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
  * the runs of one test. `flip.ts` fails if `set('fail')` ran last.
  */
 export const project = () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ubq-project-'))
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-project-')))
   const configure = (ubq?: unknown) =>
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module', ubq }))
   configure()

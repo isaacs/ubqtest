@@ -54,7 +54,7 @@ const MOCK = 'ubqmock:'
 
 /** Project code gets a new instance for each mock. Packages and builtins do not. */
 const ownCode = (url: string): boolean =>
-  url.startsWith('file:') && !url.includes('/node_modules/')
+  url.startsWith('file:') && !/[\\/]node_modules[\\/]/.test(url)
 
 /** The source of the module that replaces dependency `dep` in mock `id`. */
 const mockSource = (id: string, dep: string): string => {
@@ -115,9 +115,10 @@ const registerBun = (): void => {
             } catch {
               return all
             }
-            if (table.get(id)?.has(dep)) return `${head}${quote}ubqmock:${id}:${dep}${quote}`
+            // A path of Windows has `\\`, which starts an escape in a string.
+            if (table.get(id)?.has(dep)) return `${head}${quote}ubqmock:${id}:${dep.replaceAll('\\', '\\\\')}${quote}`
             // Project code gets a new instance. Packages and builtins do not.
-            return CODE.test(dep) && !dep.includes('/node_modules/') ?
+            return CODE.test(dep) && !/[\\/]node_modules[\\/]/.test(dep) ?
                 `${head}${quote}${specifier}?mock=${id}${quote}`
               : all
           },

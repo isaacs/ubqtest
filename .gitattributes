@@ -1,0 +1,2 @@
+# Fixtures and expected output have the same bytes on each system.
+* text=auto eol=lf

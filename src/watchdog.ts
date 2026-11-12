@@ -31,7 +31,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
  * process on the default port.
  */
 const mainStack = async (): Promise<Location[]> => {
-  if (process.versions.bun || process.versions.deno) return []
+  if (process.versions.bun || process.versions.deno || process.platform === 'win32') return []
   process.kill(process.pid, 'SIGUSR1')
   for (let i = 0; i < 20; i++) {
     await new Promise(r => setTimeout(r, 25))

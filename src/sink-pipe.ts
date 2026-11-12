@@ -1,21 +1,18 @@
 // The pipe sink: a test process that the runner started writes its
-// events as JSON lines to file descriptor 3.
+// events as JSON lines to file descriptor 3, or on Deno to a file.
 // See docs/04-architecture.md, section 3.
 import { subscribe } from 'node:diagnostics_channel'
 import { openSync, writeSync } from 'node:fs'
 import { CHANNEL } from './emit.ts'
 
 export const startPipe = (): void => {
-  // Deno has its own numbers for open files. The path gives the
-  // descriptor that the process got from the runner.
   let fd = 3
   let closed = false
-  try {
-    if (process.versions.deno) fd = openSync('/dev/fd/3', 'w')
-  } catch {
-    // The process has no pipe to a runner (a hang rerun on Deno).
-    closed = true
-  }
+  // Deno cannot write to a descriptor that it got from its parent.
+  // The runner gives a Deno test process a file for its events.
+  if (process.env.UBQ_EVENTS) fd = openSync(process.env.UBQ_EVENTS, 'a')
+  // A hang rerun on Deno has no runner that reads events.
+  else if (process.versions.deno) closed = true
   subscribe(CHANNEL, event => {
     if (closed) return
     try {
