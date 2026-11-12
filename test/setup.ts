@@ -1,7 +1,7 @@
 // Fixture projects import `ubqtest` as a real project does: through
 // `node_modules`. This makes the link to the repository root.
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,21 +14,23 @@ export const fixtures = fileURLToPath(new URL('./fixtures/', import.meta.url))
 delete process.env.CI
 
 // A relative link, so that it stays correct if the repository moves.
+// On Windows the link is a junction, which has a full path: Deno
+// makes a junction that goes nowhere from a relative path.
 const link = `${fixtures}node_modules/ubqtest`
-const target = '../../..'
-const current = (): string | undefined => {
+const root = fileURLToPath(new URL('..', import.meta.url))
+const correct = (): boolean => {
   try {
-    return readlinkSync(link)
+    return realpathSync.native(link) === realpathSync.native(root)
   } catch {
-    return undefined
+    return false
   }
 }
 mkdirSync(`${fixtures}node_modules`, { recursive: true })
-if (current() !== target) {
+if (!correct()) {
   try {
     rmSync(link, { force: true })
     // A junction needs no special right on Windows.
-    symlinkSync(target, link, 'junction')
+    symlinkSync(process.platform === 'win32' ? root : '../../..', link, 'junction')
   } catch (error) {
     // Test files run in parallel, and each one loads this module.
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
