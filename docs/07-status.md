@@ -682,6 +682,15 @@ All were found or checked in the VM.
 Not checked: that only the user of the server can connect to its
 named pipe on Windows.
 
+A flaky test, and its cause: the test of hang reports asked the
+store of the shared fixture project (`test/fixtures`) for the
+failures of the last run. Test files run in parallel, and a
+different file can store a run there in that time. The test now
+has a project of its own. A test must not ask a shared store for
+the last run. `test/coverage.test.ts` and `test/bun.test.ts` both
+use the store of `test/fixtures/cov`: this can fail in the same
+way, and it is not changed.
+
 ## CI on each runtime, and the release workflow (2026-11-12)
 
 `.github/workflows/ci.yml` runs the suite with Node, with Bun,

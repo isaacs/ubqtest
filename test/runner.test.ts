@@ -5,14 +5,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { fixtures as cwd, project } from './setup.ts'
+import { fixtures as cwd, project, remove } from './setup.ts'
 
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
-const ubq = (args: string[], env: Record<string, string> = {}) => {
-  const r = spawnSync('node', [cli, ...args], { cwd, encoding: 'utf8', env: { ...process.env, CI: '', ...env } })
+/** Runs `ubq` in a project folder. */
+const ubqIn = (dir: string) => (args: string[], env: Record<string, string> = {}) => {
+  const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', ...env } })
   // The run number changes with each run.
   return { code: r.status, out: r.stdout.replace(/ \(run \d+\)\n$/, '\n').trimEnd().split('\n'), err: r.stderr }
 }
+// The fixture project. Other test files run there at the same time,
+// so a test must not ask its store for the last run.
+const ubq = ubqIn(cwd)
 
 test('one file runs in the CLI process', () => {
   assert.deepEqual(ubq(['pass.ts']), {
@@ -125,6 +129,11 @@ test('a plain program keeps its console', () => {
 })
 
 test('hangs: a promise that never settles, a timeout, a process that stays alive', { timeout: 20_000 }, () => {
+  // A project of its own: the test asks the store for the last run.
+  const p = project()
+  cleanup(() => remove(p.dir))
+  cpSync(join(cwd, 'hang.ts'), join(p.dir, 'hang.ts'))
+  const ubq = ubqIn(p.dir)
   const t0 = performance.now()
   const r = ubq(['hang.ts'])
   // The test that never settles must not wait for its 5000 ms limit.
