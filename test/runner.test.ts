@@ -164,7 +164,7 @@ test('the hangRerun switch turns the rerun off', () => {
   assert.deepEqual([off.last, off.out.includes('HANG ')], ['fail: 1 errors, 3 failed, 1 passed', false])
 })
 
-test('a loop that does not return is stopped, with the line of the loop', { skip: process.platform === 'win32' && 'Windows has no signal that starts the inspector, so there is no stack' }, () => {
+test('a loop that does not return is stopped, with the line of the loop', () => {
   for (const args of [['busy.ts'], ['busy.ts', 'pass.ts']]) {
     const r = ubq(args)
     assert.deepEqual(r.out.slice(0, 5), [
@@ -198,10 +198,15 @@ test('processes that a test file leaves behind are stopped', () => {
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 })
 
-test('a closed stdout does not stop a run of many files', { skip: process.platform === 'win32' && 'the test needs sh and head' }, () => {
+test('a closed stdout does not stop a run of many files', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
-  const r = spawnSync('sh', ['-c', `node ${cli} fail.ts pass.ts | head -2`], { cwd: p.dir, encoding: 'utf8' })
+  // As `head -2`: it prints two lines, and ends with its input open.
+  writeFileSync(
+    join(p.dir, 'head.mjs'),
+    "let text = ''\nprocess.stdin.on('data', d => {\n  text += d\n  const lines = text.split('\\n')\n  if (lines.length > 2) {\n    process.stdout.write(lines.slice(0, 2).join('\\n') + '\\n')\n    process.exit(0)\n  }\n})\n",
+  )
+  const r = spawnSync(`node "${cli}" fail.ts pass.ts | node head.mjs`, { cwd: p.dir, encoding: 'utf8', shell: true })
   assert.deepEqual([r.stdout.split('\n').length, r.stderr], [3, ''])
   assert.equal(p.ubq('failures').last, 'fail: 15 failed, 5 passed')
 })

@@ -4,6 +4,7 @@
 // above it has this thread. The runner does the same job for its
 // children, at no cost to them.
 // See docs/04-architecture.md, section 8.
+import { spawnSync } from 'node:child_process'
 import { writeSync } from 'node:fs'
 import { parentPort, workerData } from 'node:worker_threads'
 import { columnFromCache } from './counter-collector.ts'
@@ -31,8 +32,12 @@ let timer: ReturnType<typeof setTimeout> | undefined
  * process on the default port.
  */
 const mainStack = async (): Promise<Location[]> => {
-  if (process.versions.bun || process.versions.deno || process.platform === 'win32') return []
-  process.kill(process.pid, 'SIGUSR1')
+  if (process.versions.bun || process.versions.deno) return []
+  // Windows has no such signal. Node has a function with the same
+  // effect, but not in a worker thread, so a new process calls it.
+  if (process.platform === 'win32')
+    spawnSync(process.execPath, ['-e', `process._debugProcess(${process.pid})`], { stdio: 'ignore', windowsHide: true })
+  else process.kill(process.pid, 'SIGUSR1')
   for (let i = 0; i < 20; i++) {
     await new Promise(r => setTimeout(r, 25))
     try {

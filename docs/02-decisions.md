@@ -700,9 +700,12 @@ user to Q9 set points 2, 3, and 5.
    place of the download.
 4. **A browser for each test file, a context for each test.** The
    browser is a separate server process (`launchServer` of
-   Playwright). The cleanup functions of the file kill it. To
-   close a browser in the normal way can take seconds on Windows,
-   and ubq then reports that the process did not exit.
+   Playwright). The cleanup functions of the file kill it. On
+   Windows, on a machine with much work, Playwright took more
+   than 5 seconds to stop the browser and remove its folder, and
+   ubq then reported a cleanup that did not end. So ubq kills the
+   process itself first, and that cleanup has a limit of 60
+   seconds.
 5. **The API is the `Page` of Playwright, plus one assertion.**
    `assert.eventually(fn, pattern)` is `assert.match` for a value
    that changes with time: it calls `fn` until the value matches,

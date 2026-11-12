@@ -3,8 +3,8 @@
 // the counters of a source file when the file changes. A runner
 // that finds the server gets its test processes from it.
 // See docs/11-server.md.
-import { type ChildProcess, spawn } from 'node:child_process'
-import { chmodSync, openSync, rmSync, watch } from 'node:fs'
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+import { chmodSync, openSync, rmSync, watch, writeFileSync } from 'node:fs'
 import { createServer, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -58,8 +58,6 @@ const describe = (text: string): string => {
 
 /** `ubq server` and `ubq server stop`. Returns the exit code. */
 export const serverCommand = async (args: string[], out: (text: string) => void): Promise<number> => {
-  // The server has a socket file. Windows has none.
-  if (process.platform === 'win32') throw new UsageError('ubq server does not work on Windows yet')
   if (args[0] === '--foreground') return serve()
   if (args[0] === 'stop') {
     out((await ask('stop')) === undefined ? 'server: not running' : 'server: stopped')
@@ -79,7 +77,7 @@ export const serverCommand = async (args: string[], out: (text: string) => void)
   spawn(
     process.execPath,
     [...(process.versions.deno ? ['run', '-A'] : []), process.argv[1]!, 'server', '--foreground'],
-    { cwd: projectRoot(), detached: true, stdio: ['ignore', log, log] },
+    { cwd: projectRoot(), detached: true, windowsHide: true, stdio: ['ignore', log, log] },
   ).unref()
   for (let i = 0; i < 100; i++) {
     await new Promise(r => setTimeout(r, 20))
@@ -106,7 +104,10 @@ const serve = (): Promise<number> =>
 
     const kill = (child: ChildProcess): void => {
       try {
-        process.kill(-child.pid!, 'SIGKILL')
+        // Windows has no process groups. `taskkill` stops a process
+        // and the processes that it started.
+        if (process.platform !== 'win32') process.kill(-child.pid!, 'SIGKILL')
+        else if (child.exitCode === null) spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
       } catch {
         // The process ended before.
       }
@@ -117,6 +118,7 @@ const serve = (): Promise<number> =>
           cwd: root,
           // As a test process of the runner: the leader of its group.
           detached: true,
+          windowsHide: true,
           stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
           env: base,
         })
@@ -192,8 +194,10 @@ const serve = (): Promise<number> =>
       socket.on('data', onData)
     })
     server.listen(socketAddress(), () => {
-      // Only this user can ask for a test process.
-      chmodSync(socketPath(), 0o600)
+      // Only this user can ask for a test process. On Windows, the
+      // file is not the socket: it tells a runner that a server started.
+      if (process.platform === 'win32') writeFileSync(socketPath(), '')
+      else chmodSync(socketPath(), 0o600)
       fill()
       active()
     })

@@ -119,4 +119,6 @@ and returns the same text.
   process behind is a surprise, and in CI it is an error.
 - No process of the server for a run of one file: that file runs
   in the process of the runner.
-- No server on Windows (the socket path, and process groups).
+- On Windows, the server has a named pipe in place of a socket
+  file, and `taskkill` in place of a process group. The file
+  `.ubq/server.sock` there only tells that a server started.

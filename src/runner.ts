@@ -22,7 +22,7 @@ import {
   type UbqEvent,
 } from './events.ts'
 import { type TestProcess, warmProcess } from './pool.ts'
-import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
+import { debugProcess, GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
 import { type Checking, TYPES } from './plain.ts'
@@ -59,7 +59,7 @@ export const coverageArgs = (): string[] =>
   : ['--inspect-port=0', '--import', NODE_PRELOAD.href]
 
 /** The lines that a runtime prints when its inspector starts. */
-const INSPECTOR = /Debugger listening on (ws:\/\/\S+)\n(?:(?:For help, see:|Visit chrome:)[^\n]*\n)?/
+const INSPECTOR = /Debugger listening on (ws:\/\/\S+)\r?\n(?:(?:For help, see:|Visit chrome:)[^\n]*\n)?/
 
 /** A test file, and the lines that select tests in it. */
 export interface Selected {
@@ -393,8 +393,10 @@ export const runFile = async (
       ended = stopped = true
       // SIGUSR1 starts the inspector of Node. It ends a Deno process,
       // which has its inspector from the start.
-      // Windows has no such signal: a stuck test there has no stack.
-      if (!process.versions.deno && process.platform !== 'win32') child.kill('SIGUSR1')
+      // Windows has no such signal. Node has a function there with
+      // the same effect.
+      if (process.platform === 'win32') debugProcess(child.pid!)
+      else if (!process.versions.deno) child.kill('SIGUSR1')
       for (let i = 0; i < 20 && !url; i++) await new Promise(r => setTimeout(r, 25))
       const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
       // With source counters, the columns are those of the changed source.

@@ -60,6 +60,18 @@ export const pausedStack = (url: string, pid: number, root: string): Promise<Loc
     }
   })
 
+/**
+ * Starts the inspector of a Node process on Windows, which has no
+ * SIGUSR1. Does nothing on a runtime that does not have the function.
+ */
+export const debugProcess = (pid: number): void => {
+  try {
+    ;(process as { _debugProcess?: (pid: number) => void })._debugProcess?.(pid)
+  } catch {
+    // The process ended, or it is not a Node process.
+  }
+}
+
 /** The message of the failure for a test that is in such a loop. */
 export const stuckMessage = (timeout: number): string =>
   `the test did not end in ${timeout} ms, and the process does not respond. The code is in a loop that does not return.`

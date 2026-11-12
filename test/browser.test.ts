@@ -11,6 +11,8 @@ import { project } from './setup.ts'
 
 // `ubq browser install` downloads the browser. CI runs it.
 const installed = existsSync(chromium.executablePath().replace(/chromium-(\d+).*/, 'chromium_headless_shell-$1'))
+// On Windows, a process that ends keeps its folder for a short time.
+const RM = { recursive: true, maxRetries: 30, retryDelay: 100 }
 const skip = installed ? {} : { skip: 'the browser is not installed: node src/cli.ts browser install' }
 
 // The first test of a file starts the browser. On a slow machine
@@ -27,7 +29,7 @@ test('a page loads a file of the project, with a module script', { ...skip, time
 
 test('eventually: a value that never matches fails with the last value', { timeout: 20_000 }, () => {
   const p = project()
-  cleanup(() => rmSync(p.dir, { recursive: true }))
+  cleanup(() => rmSync(p.dir, RM))
   writeFileSync(
     join(p.dir, 'wait.test.ts'),
     `import { assert, test } from 'ubqtest'
@@ -53,7 +55,7 @@ test('later', async () => {
 
 test('an error in the page fails the test, and a missing element names the element', { ...skip, timeout: 30_000 }, () => {
   const p = project()
-  cleanup(() => rmSync(p.dir, { recursive: true }))
+  cleanup(() => rmSync(p.dir, RM))
   writeFileSync(join(p.dir, 'page.html'), '<button onclick="setTimeout(() => { throw new Error(\'bad click\') })">go</button>')
   writeFileSync(
     join(p.dir, 'page.test.ts'),
@@ -79,9 +81,10 @@ test('no element', { timeout: 30_000 }, async () => {
   assert.equal(r.code, 1)
 })
 
-test('the runner starts the server of the configuration, and stops it', { ...skip, timeout: 30_000 }, () => {
+// Many runs of `ubq`, each with a browser: slow on a machine with much work.
+test('the runner starts the server of the configuration, and stops it', { ...skip, timeout: 120_000 }, () => {
   const p = project()
-  cleanup(() => rmSync(p.dir, { recursive: true }))
+  cleanup(() => rmSync(p.dir, RM))
   const port = 20000 + (process.pid % 20000)
   mkdirSync(join(p.dir, 'app'))
   writeFileSync(
@@ -141,7 +144,7 @@ document.title = String(add(1, 2)) + sign(1)
 
 test('the code that a page runs is coverage of the test', { ...skip, timeout: 30_000 }, () => {
   const p = project()
-  cleanup(() => rmSync(p.dir, { recursive: true }))
+  cleanup(() => rmSync(p.dir, RM))
   writeFileSync(join(p.dir, 'src/app.js'), APP)
   writeFileSync(join(p.dir, 'page.html'), '<script type="module" src="/src/app.js"></script>')
   writeFileSync(
@@ -183,7 +186,7 @@ test('minus', async () => {
 
 test('a script that a server made from a file has coverage through its source map', { ...skip, timeout: 30_000 }, () => {
   const p = project()
-  cleanup(() => rmSync(p.dir, { recursive: true }))
+  cleanup(() => rmSync(p.dir, RM))
   const port = 20000 + ((process.pid + 1) % 20000)
   const esbuild = pathToFileURL(createRequire(import.meta.url).resolve('esbuild')).href
   writeFileSync(

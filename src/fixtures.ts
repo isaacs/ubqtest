@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path'
 import { projectRoot, rel, stateDir } from './project.ts'
 import { current, fileCleanups, type TestState } from './state.ts'
 
-export type CleanupFn = () => void | Promise<void>
+/** `limit` is a time limit in milliseconds, in place of the default one. */
+export type CleanupFn = (() => void | Promise<void>) & { limit?: number }
 
 export { fileCleanups }
 /** `ran` is true after the cleanup functions of the file ran. */

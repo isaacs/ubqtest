@@ -135,7 +135,7 @@ Checks (`test/plain.ts`, `test/types.ts`):
 
 Known limits:
 
-- The stack parser reads POSIX paths only. Windows needs work.
+- The stack parser does not read a path that has a space.
 - Bun reports different columns for some frames, and gives no
   location for an assertion in a timer callback.
 - A sync test cannot time out in its own process. The runner
@@ -618,11 +618,7 @@ Known limits:
 - CI (`.github/workflows/ci.yml`): Linux and macOS with Node 24
   and the newest Node, and Windows with bash and PowerShell. Bun
   and Deno are installed in each job. All six jobs pass.
-- Windows: 5 tests skip there, with the reason. The gaps are `ubq
-  server` (it needs a socket file), `mockImport` on Bun, and the
-  stack of a test that is in a loop that does not return (no
-  `SIGUSR1`). Processes that a test started and did not stop stay
-  after a test file ends (no process group).
+- Windows: no test skips there (see "Windows gaps closed").
 - For agents: `GUIDE.md`, `CONVERT.md`, the `use-ubq` skill, and a
   text for `AGENTS.md` in the README.
 - `npm publish ./dist` is not done. The user does it.
@@ -649,9 +645,8 @@ The user has a Windows 11 VM (ARM64, Node 24.11.1). `ssh winlocal`
 runs a command in it. The copy of the repository is in
 `C:\Users\isaacs\ubq-vm\ubqtest`. It has no access to GitHub: copy
 files to it with `tar` through `ssh`. It has Bun 1.4.4, Deno 2.9.8
-(an x64 program, on the ARM machine), and the browser of
-Playwright. The suite passes there with each runtime as the
-runner: 106 pass, 5 skip.
+(the ARM build), and the browser of Playwright. The suite passes
+there with each runtime as the runner, with no skipped test.
 
 The first run there found that Node 24.11 prints
 "ExperimentalWarning: SQLite is an experimental feature" for each
@@ -662,6 +657,30 @@ It also found that the type checker did not start for an x64
 runtime on an ARM machine: the native compiler of the project is
 for ARM, and ubq looked only for the one of the CPU of the
 runtime. `src/typecheck.ts` now looks for each.
+
+## Windows gaps closed (2026-11-12)
+
+All were found or checked in the VM.
+
+- **The stack of a loop that does not return.** Windows has no
+  `SIGUSR1`. The runner calls `process._debugProcess(pid)` of
+  Node, which starts the inspector of the test process. The
+  watchdog of a plain program is a worker thread, which does not
+  have that function, so it starts a Node process that calls it.
+  The inspector message ends with `\r\n` on Windows: the runner
+  did not read it before.
+- **`ubq server`.** A named pipe, `taskkill`, and a hidden window
+  for each process that it starts. A read of a closed pipe is an
+  `EOF` error on Windows: `src/warm.ts` reads it as the end.
+- **`mockImport` on Bun.** It worked. The report had no place,
+  because Bun on Windows gives stack frames with a drive path
+  (`C:\a\b.ts:1:2`), and the stack parser read only `/` paths. So
+  each error that a test threw on Bun on Windows had no place.
+- The test of a closed stdout uses a Node program in place of
+  `sh` and `head`.
+
+Not checked: that only the user of the server can connect to its
+named pipe on Windows.
 
 ## CI on each runtime, and the release workflow (2026-11-12)
 

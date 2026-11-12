@@ -262,7 +262,7 @@ const runCleanups = async (
       if (result instanceof Promise)
         await Promise.race([
           result,
-          new Promise((_, reject) => (timer = setTimeout(reject, timeout, TIMEOUT).unref())),
+          new Promise((_, reject) => (timer = setTimeout(reject, fn.limit ?? timeout, TIMEOUT).unref())),
         ])
     } catch (error) {
       const cause = error === TIMEOUT ? undefined : errorFailure(error)
@@ -270,7 +270,7 @@ const runCleanups = async (
         kind: 'cleanup',
         message:
           cause ? `a cleanup function failed: ${cause.message}`
-          : `a cleanup function did not end in ${timeout} ms`,
+          : `a cleanup function did not end in ${fn.limit ?? timeout} ms`,
         ...(cause?.at && { at: cause.at, stack: cause.stack }),
       }
     }

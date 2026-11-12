@@ -24,7 +24,7 @@ export interface TestState {
 
 interface Shared {
   current: AsyncLocalStorage<TestState>
-  fileCleanups: (() => void | Promise<void>)[]
+  fileCleanups: ((() => void | Promise<void>) & { limit?: number })[]
   coverage: Coverage['files']
 }
 // `ubqtest/browser` is a separate file of the built package, with

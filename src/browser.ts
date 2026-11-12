@@ -47,7 +47,18 @@ const start = async (): Promise<Browser> => {
       throw new Error('the browser is not installed. Run: npx ubq browser install')
     throw error
   }
-  fileCleanups.push(() => server.kill())
+  // The process ends at once. Playwright then removes the folder of
+  // the browser, and that can take seconds on Windows on a machine
+  // with much work, so this cleanup has a long limit.
+  fileCleanups.push(
+    Object.assign(
+      async () => {
+        server.process().kill()
+        await server.kill()
+      },
+      { limit: 60_000 },
+    ),
+  )
   const browser = await playwright.chromium.connect(server.wsEndpoint())
   return browser
 }

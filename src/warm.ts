@@ -7,7 +7,16 @@ import { pathToFileURL } from 'node:url'
 const chunks: Buffer[] = []
 const buffer = Buffer.alloc(65536)
 // The server writes the job and closes the pipe.
-for (let n = readSync(0, buffer); n > 0; n = readSync(0, buffer)) chunks.push(Buffer.from(buffer.subarray(0, n)))
+const read = (): number => {
+  try {
+    return readSync(0, buffer)
+  } catch (error) {
+    // On Windows, the end of a pipe is an error.
+    if ((error as NodeJS.ErrnoException).code === 'EOF') return 0
+    throw error
+  }
+}
+for (let n = read(); n > 0; n = read()) chunks.push(Buffer.from(buffer.subarray(0, n)))
 const text = Buffer.concat(chunks).toString()
 // No job: the server went away.
 if (!text) process.exit(0)

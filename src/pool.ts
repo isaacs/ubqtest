@@ -1,6 +1,7 @@
 // The client side of the background server: a runner asks the
 // server for a test process that is already started.
 // See docs/11-server.md.
+import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import type { Socket } from 'node:net'
 import { join, relative } from 'node:path'
@@ -16,6 +17,10 @@ export const socketPath = (): string => join(projectRoot(), '.ubq', 'server.sock
  * Undefined if it is too long also in that form.
  */
 export const socketAddress = (): string | undefined => {
+  // Windows has no socket file. The server has a named pipe there,
+  // and the file at `socketPath` only tells that a server started.
+  if (process.platform === 'win32')
+    return `\\\\.\\pipe\\ubq-${createHash('sha1').update(projectRoot()).digest('hex').slice(0, 16)}`
   const path = relative(process.cwd(), socketPath())
   return path.length < 100 ? path : undefined
 }

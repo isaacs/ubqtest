@@ -157,7 +157,7 @@ describe('bun', () => {
   })
 
   // Known gap: on Windows, a mock on Bun does not replace the dependency.
-  test('mockImport gives a new module instance with mocked dependencies', { skip: skip || (process.platform === 'win32' && 'mockImport on Bun does not work on Windows yet') }, () => {
+  test('mockImport gives a new module instance with mocked dependencies', { skip }, () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
     assert.deepEqual(sh('bun', [cli, 'mock.ts'], p.dir), [
