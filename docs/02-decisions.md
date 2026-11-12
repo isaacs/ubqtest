@@ -672,3 +672,50 @@ say something different. An agent reads markdown with fewer
 tokens than HTML.
 
 Not built: search, and the upload to a host.
+
+## D45. Front-end tests: Playwright with Chromium, one function (user and agent, 2026-11-12)
+
+`import { browser } from 'ubqtest/browser'`. `await browser()`
+gives a `Page` of Playwright in a new context. The answers of the
+user to Q9 set points 2, 3, and 5.
+
+1. **Driver: Playwright (`playwright-core`), with the Chromium
+   headless shell.** Agents know its API, so they guess less. It
+   works on Node, Bun, and Deno (`03-measurements.md`, section
+   13). It is an optional peer dependency: the browser is a
+   100 MB download for each system, too large for the package.
+2. **The user says what runs.** `ubq` has no opinion on the
+   server. With no configuration, `page.goto('/path')` loads a
+   file of the project from the disk, through a route of
+   Playwright at `http://project.localhost/`. A page from a
+   `file:` address cannot load a module script, and this address
+   can. With `browser.url`, the path is from that URL. With
+   `browser.command`, the runner starts the server if a test file
+   of the run uses the browser and nothing answers at the URL.
+3. **The download is a command: `ubq browser install`.** A test
+   run does not download. The version of the browser is the
+   version that the `playwright-core` of the project needs.
+   `PLAYWRIGHT_BROWSERS_PATH` sets the folder (a variable of
+   Playwright). `UBQ_BROWSER` is the path of a program to use in
+   place of the download.
+4. **A browser for each test file, a context for each test.** The
+   cleanup functions of the file close the browser.
+5. **The API is the `Page` of Playwright, plus one assertion.**
+   `assert.eventually(fn, pattern)` is `assert.match` for a value
+   that changes with time: it calls `fn` until the value matches,
+   for 2000 ms at most. It is in the core API, because it is also
+   correct for other async code. ubq adds no names for the page.
+6. **An error that the page does not catch fails the test.** A
+   `console.error` of the page does not: a test of an error path
+   gets one from the browser for each failed request.
+7. **An action has a limit of 2000 ms**, not the 30 seconds of
+   Playwright, so the failure comes before the time limit of the
+   test and names the element.
+
+Not built: coverage of code that runs in the browser (Chromium
+gives call counts for each function). Firefox and WebKit. A
+compile step for TypeScript that a static page loads.
+
+A fault of Deno 2.9.6 that this work found: with a load hook, a
+JSON file that `require` loads has no format, and Deno reads it as
+JavaScript. The load hook of the counters sets the format.

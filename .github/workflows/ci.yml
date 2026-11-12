@@ -47,5 +47,7 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Browser for the front-end tests
+        run: node src/cli.ts browser install
       - name: Test
         run: node src/cli.ts

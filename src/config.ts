@@ -15,6 +15,8 @@ export interface Config {
   hangRerun?: boolean
   /** True adds inspector coverage on Bun, with places from a guess (D39). */
   bunInspectorCoverage?: boolean
+  /** The server of the pages for `ubqtest/browser` (D45). */
+  browser?: { url: string; command?: string }
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -23,12 +25,21 @@ export class UsageError extends Error {}
 const globs = (v: unknown): boolean =>
   Array.isArray(v) && v.length > 0 && v.every(s => typeof s === 'string' && s)
 
+const browser = (v: unknown): boolean => {
+  if (typeof v !== 'object' || !v || Array.isArray(v)) return false
+  const { url, command, ...more } = v as Record<string, unknown>
+  return (
+    typeof url === 'string' && URL.canParse(url) && (command === undefined || (typeof command === 'string' && !!command)) && !Object.keys(more).length
+  )
+}
+
 const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]> = {
   include: [globs, 'a list of glob patterns, such as ["test/**/*.test.ts"]'],
   exclude: [globs, 'a list of glob patterns, such as ["test/slow/**"]'],
   timeout: [v => typeof v === 'number' && v > 0, 'a number of milliseconds, such as 5000'],
   hangRerun: [v => typeof v === 'boolean', 'true or false'],
   bunInspectorCoverage: [v => typeof v === 'boolean', 'true or false'],
+  browser: [browser, 'an object with "url", and "command" if ubq must start the server, such as { "url": "http://localhost:5173", "command": "npm run dev" }'],
 }
 
 let cached: Config | undefined

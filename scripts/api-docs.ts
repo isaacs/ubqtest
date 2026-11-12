@@ -73,6 +73,7 @@ for (const m of index.matchAll(/^export \{([^}]*)\} from '\.\/(\w[\w-]*)\.(?:ts|
   }
 }
 for (const item of items('index.d.ts').values()) values.push(item)
+for (const item of items('browser.d.ts').values()) values.push(item)
 
 const section = (item: Item): string =>
   [`### \`${item.name}\``, '', ...(item.comment ? [item.comment, ''] : []), '```ts', item.code, '```', ''].join('\n')

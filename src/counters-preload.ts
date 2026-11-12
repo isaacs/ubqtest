@@ -58,6 +58,9 @@ if (counters)
     load(url, context, next) {
       const result = next(url, context)
       if (!url.startsWith('file:')) return result
+      // With a load hook, Deno 2.9 gives no format for a JSON file
+      // that `require` loads, and then reads the file as JavaScript.
+      if (deno && !result.format && /\.json$/.test(url)) return { ...result, format: 'json' }
       // A mocked module instance has a query on its URL.
       const path = fileURLToPath(url.replace(/\?.*$/, ''))
       if (!counters.wants(path)) return result

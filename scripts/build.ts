@@ -11,13 +11,15 @@ import { build } from 'esbuild'
 
 const root = new URL('../', import.meta.url)
 const dist = pathToFileURL(resolve(process.argv[2] ?? fileURLToPath(new URL('dist', root))) + '/')
-const entries = ['index', 'cli', 'preload', 'counters-preload', 'bun-preload', 'bun-coverage', 'instrument', 'watchdog', 'warm']
+const entries = ['index', 'browser', 'cli', 'preload', 'counters-preload', 'bun-preload', 'bun-coverage', 'instrument', 'watchdog', 'warm']
 
 rmSync(dist, { recursive: true, force: true })
 await build({
   absWorkingDir: fileURLToPath(root),
   entryPoints: entries.map(name => `src/${name}.ts`),
   bundle: true,
+  // The project that uses `ubqtest/browser` installs this package.
+  external: ['playwright-core'],
   minify: true,
   platform: 'node',
   format: 'esm',
@@ -42,9 +44,12 @@ const manifest = {
   license: pkg.license,
   type: 'module',
   engines: pkg.engines,
+  peerDependencies: { 'playwright-core': '>=1.49' },
+  peerDependenciesMeta: { 'playwright-core': { optional: true } },
   bin: { ubq: 'cli.js' },
   exports: {
     '.': { types: './types/index.d.ts', default: './index.js' },
+    './browser': { types: './types/browser.d.ts', default: './browser.js' },
     './preload': './preload.js',
     './bun-preload': './bun-preload.js',
     './counters-preload': './counters-preload.js',

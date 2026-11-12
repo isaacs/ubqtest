@@ -643,6 +643,27 @@ Known limits:
 - The text between the arguments of a changed call (a comment
   there) goes away.
 
+## Tests in a browser: done (2026-11-12)
+
+D45. Source: `src/browser.ts` (the `ubqtest/browser` export),
+`src/browser-server.ts` (the `browser` key of the configuration),
+`assert.eventually` in `src/assert.ts`, `ubq browser install` in
+`src/cli.ts`. Tests: `test/browser.test.ts`. They skip if the
+browser is not installed. CI installs it.
+
+`src/state.ts` keeps the state of the current test on
+`globalThis`, because `browser.js` is a separate file of the
+built package with its own copy of each module.
+
+Checked by hand with the built package, and not by a test: the
+runner on Bun and on Deno.
+
+To do next:
+
+- `ubq convert` for Playwright tests that use vitest, jest,
+  `@playwright/test`, or no test tool (asked by the user).
+- Coverage of code that runs in the browser.
+
 ## Web site: done (2026-11-12)
 
 D44. `npm run site` makes `_site/` from `site/` and the markdown

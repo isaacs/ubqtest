@@ -54,6 +54,15 @@ export const doctor = (out: (text: string) => void): number => {
     fix(error.message)
   }
 
+  if (tests.some(file => readFileSync(join(root, file), 'utf8').includes('ubqtest/browser'))) {
+    try {
+      createRequire(join(root, 'package.json')).resolve('playwright-core')
+      ok("playwright-core, for 'ubqtest/browser'. If a test says that the browser is not installed: npx ubq browser install")
+    } catch {
+      fix("a test file imports 'ubqtest/browser', and the project does not have playwright-core. Run: npm install --save-dev playwright-core, then: npx ubq browser install")
+    }
+  }
+
   // Files that look like test files, and that `ubq` does not run.
   const skip = (path: string): boolean =>
     /(^|[\\/])(node_modules$|\.)/.test(path) || existsSync(join(root, path, 'package.json'))

@@ -6,7 +6,9 @@ import { doctor } from './doctor.ts'
 import { mutate } from './mutate.ts'
 import { testdirPath } from './fixtures.ts'
 import { changedLines, diffOption } from './git.ts'
-import { join, resolve } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
+import { dirname, join, resolve } from 'node:path'
 import { projectRoot, rel } from './project.ts'
 import {
   coveredFiles,
@@ -62,6 +64,7 @@ const USAGE = `usage:
   ubq guide                  how to write and run tests, for the installed version
   ubq guide convert          how to move a project from a different test tool to ubq
   ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
+  ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
   ubq skill                  writes the use-ubq skill for coding agents to .claude/skills/use-ubq/SKILL.md of the project
 `
@@ -94,6 +97,19 @@ const main = async (args: string[]): Promise<number> => {
     writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
     out(`wrote ${rel(join(to, 'SKILL.md'))}`)
     return 0
+  }
+  if (command === 'browser') {
+    if (rest.length !== 1 || rest[0] !== 'install') throw new UsageError('the command is: ubq browser install')
+    // The package of the project, so that the browser has the
+    // version that the package needs.
+    let cli: string
+    try {
+      cli = join(dirname(createRequire(join(projectRoot(), 'package.json')).resolve('playwright-core/package.json')), 'cli.js')
+    } catch {
+      throw new UsageError('the project does not have the playwright-core package. Run: npm install --save-dev playwright-core')
+    }
+    const install = [cli, 'install', 'chromium', '--only-shell']
+    return spawnSync(process.execPath, process.versions.deno ? ['run', '-A', ...install] : install, { stdio: 'inherit' }).status ?? 1
   }
   if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)

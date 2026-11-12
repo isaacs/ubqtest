@@ -4,12 +4,11 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { projectRoot, rel, stateDir } from './project.ts'
-import { current, type TestState } from './state.ts'
+import { current, fileCleanups, type TestState } from './state.ts'
 
 export type CleanupFn = () => void | Promise<void>
 
-/** Cleanup functions from fixture calls outside a test. They run when the file ends. */
-export const fileCleanups: CleanupFn[] = []
+export { fileCleanups }
 /** `ran` is true after the cleanup functions of the file ran. */
 export const fileState = { ran: false }
 

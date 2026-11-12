@@ -36,6 +36,10 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    - `npx ubq mutate --diff` tells if the tests of the changed
      lines are strong.
 
+For code that runs in a browser, the guide has "Tests in a
+browser": `browser()` from `'ubqtest/browser'` gives a Playwright
+`Page`. Do not add jsdom or a different driver.
+
 ## To convert a project
 
 1. `npx ubq guide convert`. Do its steps in order.

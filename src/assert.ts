@@ -4,6 +4,7 @@ import { emit } from './emit.ts'
 import type { Failure } from './events.ts'
 import { type Diff, diffDeep, diffEqual, show, showDiffs } from './format.ts'
 import { type Hint, hint } from './hint.ts'
+import { now, setTimeout } from './real.ts'
 import { checkSnapshot } from './snapshot.ts'
 import { userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
@@ -92,6 +93,17 @@ export interface Assert {
     message?: string,
   ): Promise<Error>
   /**
+   * As `match`, for a value that changes with time, such as the text
+   * of a page. Calls `fn` again and again until its value matches
+   * `pattern`. Fails after 2000 ms with the last value. The result
+   * must be awaited.
+   */
+  eventually<T, const P extends Pattern<Awaited<T>>>(
+    fn: () => T,
+    pattern: P,
+    message?: string,
+  ): Promise<void>
+  /**
    * Passes if the text of `value` is the text in the snapshot file
    * of the test file. `ubq --update <test>` writes the file.
    */
@@ -140,8 +152,10 @@ const fail = (
   userMessage: string | undefined,
   diff?: { diffs: Diff[]; more: number },
   values?: { actual: unknown; expected: unknown },
+  /** Made at the call of the assertion, if the check runs after an `await`. */
+  called = new Error(),
 ): never => {
-  const stack = userFrames(new Error().stack)
+  const stack = userFrames(called.stack)
   const failure: Failure = {
     kind: 'assert',
     assertion,
@@ -193,6 +207,27 @@ const checkExpected = (name: string, expected: unknown): void => {
     throw new TypeError(
       `assert.${name} needs the expected error as its second argument: a RegExp for the message, an error class, or an object pattern`,
     )
+}
+
+/** The time limit of `assert.eventually`, and the wait between two calls. */
+const EVENTUALLY_MS = 2000
+const POLL_MS = 20
+
+/**
+ * The promise of an assertion that must be awaited. The test fails
+ * if nothing awaits it.
+ */
+const mustAwait = <T>(state: TestState | undefined, run: () => Promise<T>): Promise<T> => {
+  const result = new MustAwait<T>((resolve, reject) => {
+    run().then(resolve, reject)
+  })
+  // A result that nothing awaits must not crash the process.
+  Promise.prototype.then.call(result, undefined, () => {})
+  if (state) {
+    state.unawaited.add(result)
+    result.onThen = () => state.unawaited.delete(result)
+  }
+  return result
 }
 
 const assertFn = (value: unknown, message?: string): void => {
@@ -285,16 +320,26 @@ const methods = {
         fail(state, 'rejects', 'expected the promise to reject, but it resolved', message)
       return error as Error
     }
-    const result = new MustAwait<Error>((resolve, reject) => {
-      run().then(resolve, reject)
+    return mustAwait(state, run)
+  },
+  eventually(fn: () => unknown, pattern: unknown, message?: string): Promise<void> {
+    const state = begin()
+    const called = new Error()
+    return mustAwait(state, async () => {
+      if (!state) return
+      const end = now() + EVENTUALLY_MS
+      for (;;) {
+        const actual = await fn()
+        const diff = diffDeep(actual, pattern, true)
+        if (!diff.diffs.length) return
+        if (now() >= end)
+          fail(state, 'eventually', `the value did not match the pattern in ${EVENTUALLY_MS} ms`, message, diff, {
+            actual,
+            expected: pattern,
+          }, called)
+        await new Promise(resolve => setTimeout(resolve, POLL_MS))
+      }
     })
-    // A result that nothing awaits must not crash the process.
-    Promise.prototype.then.call(result, undefined, () => {})
-    if (state) {
-      state.unawaited.add(result)
-      result.onThen = () => state.unawaited.delete(result)
-    }
-    return result
   },
   snapshot(value: unknown, message?: string): void {
     const state = begin()

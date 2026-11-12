@@ -202,7 +202,8 @@ const errorFailure = (error: unknown): Failure => {
   return {
     kind: 'error',
     message:
-      isError ? `${error.name}: ${error.message}` : `threw ${String(error)}`,
+      // A message can have color codes of a terminal.
+      isError ? `${error.name}: ${error.message.replace(/\x1b\[[\d;]*m/g, '')}` : `threw ${String(error)}`,
     ...(stack[0] && { at: stack[0], stack }),
   }
 }

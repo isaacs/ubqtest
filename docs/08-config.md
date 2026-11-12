@@ -42,6 +42,7 @@ that are in it. A folder that is a different project is an error.
 | `timeout` | number | 5000 | The time limit of a test in milliseconds, if the test and its groups set none. |
 | `hangRerun` | boolean | true | `false` turns off the rerun of a test that timed out with something open (D14). |
 | `bunInspectorCoverage` | boolean | false | `true` records coverage for a test file that runs as a plain program on Bun (`bun test/foo.ts`). The places are a guess and can be wrong (D39). |
+| `browser` | object | none | For tests that use `'ubqtest/browser'` (D45). `url`: the base of `page.goto('/path')`. `command` (optional): the shell command that starts the server at `url`. `ubq` runs it from the project root if a test file of the run imports `'ubqtest/browser'` and nothing answers at `url`, waits 30 seconds at most for an answer, and stops it after the run. Its output is in `.ubq/browser-server.log`. With no `browser` key, a page loads the files of the project from the disk. |
 
 Rules:
 

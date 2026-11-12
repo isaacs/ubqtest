@@ -22,5 +22,17 @@ export interface TestState {
   fail: (failure: Failure) => void
 }
 
+interface Shared {
+  current: AsyncLocalStorage<TestState>
+  fileCleanups: (() => void | Promise<void>)[]
+}
+// `ubqtest/browser` is a separate file of the built package, with
+// its own copy of this module. The two copies must have the same
+// state.
+const KEY = Symbol.for('ubqtest.state')
+const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= { current: new AsyncLocalStorage<TestState>(), fileCleanups: [] })
+
 /** The test that owns the code that runs now, through all its async work. */
-export const current = new AsyncLocalStorage<TestState>()
+export const current = shared.current
+/** Cleanup functions from fixture calls outside a test. They run when the file ends. */
+export const fileCleanups = shared.fileCleanups

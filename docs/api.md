@@ -108,6 +108,27 @@ when the test ends. If the test fails, the folder stays.
 const testdir: (files?: Files) => string;
 ```
 
+### `browser`
+
+Import from `'ubqtest/browser'`. The project needs the
+`playwright-core` package, and `ubq browser install`.
+
+A new page of a browser (Chromium), as a `Page` of Playwright. Use
+the API of Playwright for all work with the page. The page closes
+when the test ends. An error that the page does not catch fails
+the test.
+
+`page.goto('/a/page.html')` loads a file of the project, from the
+project root. If the configuration has `browser.url`, the path is
+from that URL.
+
+`options` are the options of `browser.newContext` of Playwright,
+such as `viewport` or `locale`.
+
+```ts
+const browser: (options?: BrowserContextOptions) => Promise<Page>;
+```
+
 ## Types
 
 ### `Assert`
@@ -136,6 +157,13 @@ interface Assert {
     throws(fn: () => unknown, expected: ErrorMatch, message?: string): Error;
     /** As `throws`, for a promise. The result must be awaited. */
     rejects(promise: Promise<unknown> | (() => Promise<unknown>), expected: ErrorMatch, message?: string): Promise<Error>;
+    /**
+     * As `match`, for a value that changes with time, such as the text
+     * of a page. Calls `fn` again and again until its value matches
+     * `pattern`. Fails after 2000 ms with the last value. The result
+     * must be awaited.
+     */
+    eventually<T, const P extends Pattern<Awaited<T>>>(fn: () => T, pattern: P, message?: string): Promise<void>;
     /**
      * Passes if the text of `value` is the text in the snapshot file
      * of the test file. `ubq --update <test>` writes the file.

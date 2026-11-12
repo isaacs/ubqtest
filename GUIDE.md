@@ -83,7 +83,7 @@ FAIL test/parse.test.ts > parse > circle
 ## Rules that fail a test
 
 - A test with zero assertions fails. There is no opt-out.
-- `assert.rejects` with no `await` fails.
+- `assert.rejects` or `assert.eventually` with no `await` fails.
 - An assertion, a timer callback, or a promise of a test that runs
   after the test ended fails that test.
 - A test that changes `process.env` or the working directory and
@@ -113,6 +113,7 @@ assert.deepEqual(actual, expected) // strict: same structure, values, prototypes
 assert.match(actual, pattern)      // RegExp for a string, or a partial object
 assert.throws(fn, expected)        // expected is required. Returns the error.
 await assert.rejects(promise, expected)   // resolves to the error
+await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
 assert.snapshot(value)             // compares with saved text
 assert.fail(message)
 
@@ -240,6 +241,64 @@ ubq --baseline <commit> <selection> show only the failures that the git commit d
 Console output of a test is captured. It shows only in the
 failure block of its test, and in `ubq show`.
 
+## Tests in a browser
+
+For code that runs in a browser. The driver is Playwright, with
+Chromium. Set up one time:
+
+```
+npm install --save-dev playwright-core
+npx ubq browser install     downloads the browser, if it is not there
+```
+
+```ts
+import { assert, test } from 'ubqtest'
+import { browser } from 'ubqtest/browser'
+
+test('the button counts', async () => {
+  const page = await browser()           // a Page of Playwright, in a new context
+  await page.goto('/test/pages/count.html')
+  await page.click('#add')
+  await assert.eventually(() => page.textContent('#total'), '1')
+})
+```
+
+- `browser()` gives a `Page` of Playwright. Use the Playwright
+  API for all work with the page: `goto`, `click`, `fill`,
+  `locator`, `getByRole`, `evaluate`. There is no `expect`: read
+  a value from the page and use `assert`.
+- A page changes with time. For a value that is not there at
+  once, use `await assert.eventually(() => value, pattern)`. Do
+  not use a fixed wait.
+- The page closes when the test ends. An error that the page
+  does not catch fails the test.
+- An action waits 2000 ms for its element. Then it fails, and the
+  message names the element.
+- `browser(options)` takes the options of `browser.newContext`
+  of Playwright, such as `viewport` and `locale`.
+
+Which page `page.goto('/path')` loads:
+
+- With no configuration: the file at that path from the project
+  root. No server runs. The browser gets files as they are, so a
+  page cannot load TypeScript: build first, or use a server.
+- With `"ubq": { "browser": { "url": "http://localhost:5173" } }`
+  in `package.json`: the path at that URL. Add `"command": "npm
+  run dev"` and `ubq` starts the server for a run that has a
+  browser test, if nothing answers at the URL, and stops it after
+  the run. `node <test file>` does not start the server.
+- A full URL always works: `page.goto('https://example.com')`.
+
+A different browser version, or a shared download:
+
+- The browser version comes from the version of `playwright-core`
+  in the project.
+- `PLAYWRIGHT_BROWSERS_PATH=<folder>` sets the folder of the
+  download, for `ubq browser install` and for the tests. Use it
+  for a cache that many CI jobs share.
+- `UBQ_BROWSER=<path of a Chromium or Chrome program>` makes the
+  tests use that program. No download is necessary then.
+
 ## Faster runs
 
 `ubq server` starts a background server for the project. It keeps
@@ -256,7 +315,8 @@ Most projects need none. The `ubq` key of `package.json` can have
 `timeout` (milliseconds), `hangRerun` (`false` turns off the rerun
 of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
-can be wrong. `ubq <test file>` on Bun does not need it). A folder
+can be wrong. `ubq <test file>` on Bun does not need it), and
+`browser` (see "Tests in a browser"). A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace.

@@ -69,7 +69,9 @@ test('the build has no errors, and the package has no dependencies', async () =>
   assert.equal(build.stderr, '')
   assert.equal(build.status, 0)
   const { default: manifest } = await import(pathToFileURL(join(pkg, 'package.json')).href, { with: { type: 'json' } })
-  assert.deepEqual(Object.keys(manifest).filter(key => /dependencies/i.test(key)), [])
+  // The one package that a project can add: the driver of `ubqtest/browser`.
+  assert.deepEqual(Object.keys(manifest).filter(key => /dependencies/i.test(key)), ['peerDependencies', 'peerDependenciesMeta'])
+  assert.deepEqual([manifest.peerDependencies, manifest.peerDependenciesMeta], [{ 'playwright-core': '>=1.49' }, { 'playwright-core': { optional: true } }])
 })
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)

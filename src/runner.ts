@@ -26,6 +26,7 @@ import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
 import { type Checking, TYPES } from './plain.ts'
+import { startBrowserServer } from './browser-server.ts'
 import { typeCheck } from './typecheck.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
 import { headCommit } from './git.ts'
@@ -641,6 +642,13 @@ export const run = async (args: string[]): Promise<number> => {
     return 2
   }
   const cacheDir = join(stateDir(), 'compile-cache')
+
+  // The server of the pages, for test files that use the browser.
+  const server = await startBrowserServer(files.map(f => f.file))
+  if (server) {
+    groups.add(server)
+    process.on('exit', () => killGroup(server))
+  }
 
   // Each run of a TypeScript project also checks the types (D38).
   const lone = files.length === 1 && !repeat && !baselineRef

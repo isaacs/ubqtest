@@ -100,6 +100,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq uncovered --diff` | Code that you changed and that no test runs. |
 | `ubq mutate <file>`, `ubq mutate --diff` | A mutation check: small changes to the source, one at a time, and the list of changes that no test fails for. |
 | `ubq convert <folder>` | Changes the tests of tap, `node:test`, vitest, jest, or mocha to ubq. |
+| `ubq browser install` | Downloads the browser for tests that use `'ubqtest/browser'`. |
 | `ubq doctor` | Checks the setup of the project. |
 | `ubq guide`, `ubq guide convert` | The guides, for the installed version. |
 | `ubq server` | Optional. Keeps test processes ready, which makes runs faster. |
@@ -157,10 +158,13 @@ comment with the instruction.
   change. Source with `enum`, `namespace`, or parameter
   properties does not load on Node. Bun runs it.
 - `.tsx` and `.jsx` files run on Bun and Deno, with coverage.
-- Tests of one file run one at a time. There is no DOM and no
-  browser.
+- Tests of one file run one at a time.
+- Tests of front-end code run in a real browser, with Playwright
+  and Chromium: `import { browser } from 'ubqtest/browser'`. The
+  project installs `playwright-core`. There is no DOM in the test
+  process.
 - Configuration is the `ubq` key of `package.json`: `include`,
-  `exclude`, `timeout`, and two switches. Most projects need none.
+  `exclude`, `timeout`, `browser`, and two switches. Most projects need none.
   See [docs/08-config.md](docs/08-config.md).
 
 ## More documents
