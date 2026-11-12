@@ -654,6 +654,10 @@ the suite has tests that start each runtime.
 `dist/`, runs the suite on Node, and runs `npm stage publish` in
 `dist/`. The tests of Bun, of Deno, and of the browser skip there.
 
+The steps of a release: set the version in `package.json`, push
+the tag `v<version>`, approve the staged version on npmjs.com,
+then `gh workflow run site.yml`.
+
 Known limit: Deno runs the suite with the built runner
 (`deno run -A dist/cli.js`), not from the source. With a module
 hook, Deno 2.9.6 does not load `@sveltejs/acorn-typescript` for a
@@ -696,8 +700,9 @@ To do next:
 
 D44. `npm run site` makes `_site/` from `site/` and the markdown
 documents. `test/site.test.ts` checks that each page has a
-markdown copy and that each link goes to a file. The `site` job
-of the release workflow deploys it to a Cloudflare Worker (D46).
+markdown copy and that each link goes to a file. The `Site`
+workflow deploys it to a Cloudflare Worker (D46). The maintainer
+starts it by hand after the version is on npm.
 
 ## Smaller gaps closed (2026-11-12)
 

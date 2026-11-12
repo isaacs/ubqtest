@@ -720,25 +720,24 @@ A fault of Deno 2.9.6 that this work found: with a load hook, a
 JSON file that `require` loads has no format, and Deno reads it as
 JavaScript. The load hook of the counters sets the format.
 
-## D46. The site is a Cloudflare Worker, deployed by the release workflow (user and agent, 2026-11-12)
+## D46. The site is a Cloudflare Worker, deployed by a workflow that the maintainer starts (user, 2026-11-12)
 
-The host is a Cloudflare Worker with only static files (user).
+The host is a Cloudflare Worker with only static files.
 `wrangler.jsonc` names the Worker (`ubqtest-site`) and the folder
 `_site/`. A missing address gets `404.html` with status 404.
 
-The `site` job of `.github/workflows/release.yml` runs after the
-`stage` job: it makes the site from the tag and runs `wrangler
-deploy`. Its environment is `site`, with the secrets
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+`.github/workflows/site.yml` makes the site and runs `wrangler
+deploy`. It starts only by hand (`gh workflow run site.yml`). Its
+environment is `site`, with the secrets `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`.
 
-**The site and npm.** The `stage` job does not publish: a
-maintainer approves the staged version later. A deploy at once
-would put the site ahead of npm. GitHub can hold a job until a
-reviewer of its environment approves it. So the `site`
-environment gets a required reviewer, and the maintainer approves
-the job after the staged version. Without the reviewer, the site
-is ahead of npm until the approval, and stays ahead if the
-version is rejected.
+**The site and npm.** The release workflow does not publish: a
+maintainer approves the staged version later. A deploy in that
+workflow would put the site ahead of npm. So the deploy is a
+separate step of the release, after the approval. With no input,
+the workflow reads the version that npm has and makes the site
+from the tag of that version. The input `ref` names a different
+tag or branch.
 
 Checked with `wrangler deploy --dry-run` and `wrangler dev`: the
 pages, the markdown copies (`text/markdown`), `llms.txt`, and the
