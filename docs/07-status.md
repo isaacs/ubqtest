@@ -643,6 +643,19 @@ Known limits:
 - The text between the arguments of a changed call (a comment
   there) goes away.
 
+## A Windows machine for trials (2026-11-12)
+
+The user has a Windows 11 VM (ARM64, Node 24.11.1). `ssh winlocal`
+runs a command in it. The copy of the repository is in
+`C:\Users\isaacs\ubq-vm\ubqtest`. It has no access to GitHub: copy
+files to it with `tar` through `ssh`. Bun, Deno, and the browser
+are not installed there.
+
+The first run there found that Node 24.11 prints
+"ExperimentalWarning: SQLite is an experimental feature" for each
+`ubq` command. Node 24.22 (CI) and Node 26 do not. `src/sqlite.ts`
+loads the module with no warning.
+
 ## CI on each runtime, and the release workflow (2026-11-12)
 
 `.github/workflows/ci.yml` runs the suite with Node, with Bun,

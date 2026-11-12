@@ -4,7 +4,7 @@ import { clearTimeout, setTimeout } from './real.ts'
 import { hash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync } from './sqlite.ts'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
 import { projectRoot, stateDir } from './project.ts'
 
