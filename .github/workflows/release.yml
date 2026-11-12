@@ -45,6 +45,9 @@ jobs:
           fi
 
       - run: npm ci --ignore-scripts
+      # The `prepare` script of this package, which the line above
+      # does not run: the link from the fixture projects to the package.
+      - run: node test/setup.ts
       - run: npm run typecheck
       # The package is the `dist` folder, with its own package.json.
       - run: npm run build
