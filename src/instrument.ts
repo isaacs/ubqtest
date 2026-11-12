@@ -13,6 +13,12 @@ export interface Instrumented {
   code: string
   /** `regions[i]` is the region of counter `i`. Region 0 is the module. */
   regions: Region[]
+  /**
+   * The text that was added to each line, for `originalColumn`: line
+   * number, then pairs of the column in the source (from 0) and the
+   * length of the added text.
+   */
+  shifts: Record<number, number[]>
 }
 
 interface Node {
@@ -205,9 +211,17 @@ export const instrument = (source: string, file: string): Instrumented | undefin
   )
   let code = ''
   let pos = 0
+  const shifts: Record<number, number[]> = {}
+  let line = 1
+  let lineStart = 0
   for (const e of edits) {
+    for (let i = source.indexOf('\n', pos); i >= 0 && i < e.at; i = source.indexOf('\n', i + 1)) {
+      line++
+      lineStart = i + 1
+    }
     code += source.slice(pos, e.at) + e.text
     pos = e.at
+    ;(shifts[line] ??= []).push(e.at - lineStart, e.text.length)
   }
-  return { code: code + source.slice(pos), regions }
+  return { code: code + source.slice(pos), regions, shifts }
 }

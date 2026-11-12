@@ -6,13 +6,13 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, sep } from 'node:path'
 import { type Collector, flatten } from './coverage.ts'
-import { COUNTERS, type Region, snapshot } from './counters.ts'
+import { COLUMN, COUNTERS, originalColumn, type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
 import type { Instrumented } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
 
 /** Changes when the form of the changed source or the regions changes. */
-const CACHE_VERSION = 1
+const CACHE_VERSION = 2
 
 const KEY = Symbol.for('ubqtest.collector')
 const shared = globalThis as { [KEY]?: Collector; [key: symbol]: unknown }
@@ -32,6 +32,24 @@ export interface Counters {
   change(path: string, source: string | undefined): string | undefined
 }
 
+const cachePath = (file: string, source: string): string =>
+  join(projectRoot(), '.ubq', 'counters', hash('sha1', `${CACHE_VERSION}\0${file}\0${source}`) + '.json')
+
+/**
+ * The column in the source of a column in the changed source of a
+ * project file, for a process that did not load the file: the
+ * runner reads the stack of a stuck test process. Reads the cache.
+ */
+export const columnFromCache = (file: string, line: number, column: number): number => {
+  try {
+    const source = readFileSync(join(projectRoot(), file), 'utf8')
+    const { shifts } = JSON.parse(readFileSync(cachePath(file, source), 'utf8')) as Instrumented
+    return originalColumn(shifts[line], column)
+  } catch {
+    return column
+  }
+}
+
 /**
  * Makes the collector for source counters. Returns undefined if the
  * process has a collector.
@@ -45,6 +63,10 @@ export const startCounters = (): Counters | undefined => {
   /** Count of project files that have no counters. */
   let unread = 0
   shared[Symbol.for(COUNTERS)] = counters
+  const shifts = new Map<string, Record<number, number[]>>()
+  // Stack traces have columns of the changed source.
+  shared[Symbol.for(COLUMN)] = (file: string, line: number, column: number): number =>
+    originalColumn(shifts.get(file)?.[line], column)
 
   const root = projectRoot() + sep
   const own = import.meta.dirname + sep
@@ -53,7 +75,7 @@ export const startCounters = (): Counters | undefined => {
   let madeDir = false
 
   const cached = (file: string, source: string): Instrumented | undefined => {
-    const path = join(cacheDir, hash('sha1', `${CACHE_VERSION}\0${file}\0${source}`) + '.json')
+    const path = cachePath(file, source)
     try {
       return JSON.parse(readFileSync(path, 'utf8')) as Instrumented
     } catch {
@@ -106,8 +128,12 @@ export const startCounters = (): Counters | undefined => {
         unread++
         return undefined
       }
-      counters.set(file, new Uint32Array(result.regions.length))
+      // A second instance of a module (mockImport) counts in the same
+      // array. A new array would lose the counts of the first one.
+      if (counters.get(file)?.length !== result.regions.length)
+        counters.set(file, new Uint32Array(result.regions.length))
       regions.set(file, result.regions)
+      shifts.set(file, result.shifts)
       return result.code
     },
   }

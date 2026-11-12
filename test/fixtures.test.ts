@@ -96,9 +96,8 @@ test('mockImport gives a new module instance with mocked dependencies', async ()
   assert.deepEqual(p.ubq('covers', 'src/word.ts:3').out.trimEnd().split('\n'), [
     'mock.ts > a mock reaches the modules that the module imports, and builtins',
     'mock.ts > a mock replaces a dependency in a new instance of the module',
-    'mock.ts > a mock that lacks an export',
     'mock.ts (while the file loads)',
-    '3 tests run src/word.ts:3',
+    '2 tests run src/word.ts:3',
   ])
   // In a child process, and as a plain program.
   assert.equal(p.ubq('mock.ts', 'pass.ts').last, 'fail: 2 failed, 7 passed, 1 skipped')

@@ -487,7 +487,29 @@ Known limits:
 - Two tests whose names differ only in characters that are not
   safe in a path have the same `testdir` folder.
 
-## Source counters on Node: steps 1 and 2 of D25 done (2026-11-12)
+## Source counters on Node: D25 done (2026-11-12)
+
+Step 3: the runner uses counters on Node, for its children and
+for a run of one file in its own process. `UBQ_COVERAGE=v8` goes
+back to V8.
+
+- The changed source has more text on a line, so a stack trace has
+  different columns. The cache of changed source now has the added
+  text of each line (`shifts`), and `src/stack.ts` gives the column
+  of the source. The runner and the watchdog thread do the same
+  for the stack of a stuck process, from the cache. This also
+  corrects columns on Bun.
+- Two instances of one module (`mockImport`) count in one array.
+  Before, the second instance took the array of the first.
+- Speed on the cloud machine (not the machine of the budgets):
+  200 files 3570 ms with counters, 4456 ms with V8. One file
+  83 ms, 93 ms with V8.
+- One answer differs from V8, and counters are correct: a module
+  that was loaded and did not run (its import failed) has no
+  coverage. With `UBQ_COVERAGE=v8`, one check in
+  `test/fixtures.test.ts` fails for this reason.
+
+The text below is the state after steps 1 and 2.
 
 Source files:
 
@@ -500,7 +522,6 @@ Source files:
 - The cache key is a hash of the file path and its content. A
   process that finds all its files in the cache does not load the
   parser.
-- The runner does not use counters on Node yet (step 3 of D25).
 - `test/counters.test.ts` compares counters with V8 on
   `test/fixtures/diff/`. Lines with uncovered code are equal. The
   tests for each line are equal, but for two accepted differences:

@@ -4,6 +4,7 @@ import { clearTimeout, now, setImmediate, setTimeout } from './real.ts'
 import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
 import { config } from './config.ts'
+import { COLUMN } from './counters.ts'
 import type { Collector } from './coverage.ts'
 import { emit } from './emit.ts'
 import { type CleanupFn, fileCleanups, fileState } from './fixtures.ts'
@@ -173,7 +174,11 @@ const start = (): void => {
   // The runner watches its children. A process with no runner
   // watches itself.
   if (!CHILD) {
-    const data: WatchData = { file: currentFile(), unselected: 0 }
+    const data: WatchData = {
+      file: currentFile(),
+      unselected: 0,
+      counters: Symbol.for(COLUMN) in globalThis,
+    }
     watchdog = new Worker(WATCHDOG, { workerData: data })
     watchdog.unref()
   }

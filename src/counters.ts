@@ -39,3 +39,25 @@ export const snapshot = (
   counts.fill(0)
   return out
 }
+
+/** The key of the global function that maps a column of changed source to the source. */
+export const COLUMN = 'ubqtest.column'
+
+/**
+ * The column in the source (from 1) of a column in the changed
+ * source. `shifts` is the list for the line, from `Instrumented`.
+ */
+export const originalColumn = (shifts: number[] | undefined, column: number): number => {
+  if (!shifts) return column
+  const at = column - 1
+  let added = 0
+  for (let i = 0; i < shifts.length; i += 2) {
+    const start = shifts[i]! + added
+    if (at < start) break
+    // In the added text: the place in the source where it was added.
+    if (at < start + shifts[i + 1]!) return shifts[i]! + 1
+    added += shifts[i + 1]!
+  }
+  return column - added
+}
+

@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
+import { columnFromCache } from './counter-collector.ts'
 import { startCoverage } from './coverage.ts'
 import {
   EVENT_VERSION,
@@ -34,12 +35,19 @@ const TEST_FILES = '**/*.test.{ts,mts,cts,tsx,js,mjs,cjs,jsx}'
 const EXT = import.meta.url.endsWith('.ts') ? '.ts' : '.js'
 const BUN_PRELOAD = new URL(`./bun-preload${EXT}`, import.meta.url)
 
+/**
+ * On Node, the runner collects coverage with source counters (D25).
+ * `UBQ_COVERAGE=v8` goes back to the V8 collector.
+ */
+const V8 = process.env.UBQ_COVERAGE === 'v8'
+const NODE_PRELOAD = new URL(`./${V8 ? 'preload' : 'counters-preload'}${EXT}`, import.meta.url)
+
 /** The arguments that make a test process collect full coverage. */
 const coverageArgs = (): string[] =>
   process.versions.bun ?
     ['--preload', fileURLToPath(BUN_PRELOAD)]
     // With port 0, SIGUSR1 starts the inspector on a free port.
-  : ['--inspect-port=0', '--import', import.meta.resolve(`./preload${EXT}`)]
+  : ['--inspect-port=0', '--import', NODE_PRELOAD.href]
 
 /** A test file, and the lines that select tests in it. */
 export interface Selected {
@@ -260,7 +268,10 @@ const runFile = (
         await new Promise(r => setTimeout(r, 25))
         url = /ws:\/\/\S+/.exec(stderr)?.[0]
       }
-      const stack = url ? await pausedStack(url, child.pid!, projectRoot()) : []
+      const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
+      // With source counters, the columns are those of the changed source.
+      const stack =
+        V8 ? frames : frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) }))
       send({
         type: 'test-end',
         id: start.id,
@@ -420,7 +431,8 @@ export const run = async (args: string[]): Promise<number> => {
     enableCompileCache(cacheDir)
     // On Bun, the load plugin must exist before the test file loads.
     if (process.versions.bun) await import(BUN_PRELOAD.href)
-    else startCoverage(true)
+    else if (V8) startCoverage(true)
+    else await import(NODE_PRELOAD.href)
     process.env.UBQ_FILE = file
     process.env.UBQ_CAPTURE = '1'
     process.env.UBQ_LINES = lines.join(',')

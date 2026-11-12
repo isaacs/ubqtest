@@ -287,12 +287,13 @@ Node gets source counters in three steps:
 2. A test in this repository compares the answers of counters and
    V8 on a fixture project, and fails on a difference that is not
    in its list of accepted ones. Done: `test/counters.test.ts`.
-3. Switch the children of the runner to counters. Not done. The
-   switch waits until the comparison has run for some time with no
-   new difference.
+3. Switch the runner to counters. Done (2026-11-12): the user
+   chose to switch now, because the cost of V8 coverage is high
+   and a switch back is possible. `UBQ_COVERAGE=v8` makes the
+   runner use the V8 collector.
 
-V8 stays the reference, and D5 stays in force for the runner until
-step 3. A plain `node file.ts` has no preload, so it stays on V8.
+V8 stays the reference in `test/counters.test.ts`. A plain `node
+file.ts` has no preload, so it stays on V8.
 
 **Reason.** Counters are faster (`03-measurements.md`, section
 12). The user's experience with `nyc` and `istanbul` was that
