@@ -383,11 +383,6 @@ export const run = async (args: string[]): Promise<number> => {
     seed = +text
     selection = selection.toSpliced(seedAt, 2)
   }
-  // A run of all tests also checks the types. `--types` adds the
-  // check to a run of a selection.
-  const typesFlag = selection.includes('--types')
-  selection = selection.filter(a => a !== '--types')
-  const types = typesFlag || (!selection.length && !repeat)
   const update = selection.includes('--update')
   if (update) {
     selection = selection.filter(a => a !== '--update')
@@ -447,11 +442,8 @@ export const run = async (args: string[]): Promise<number> => {
   }
   const cacheDir = join(stateDir(), 'compile-cache')
 
-  const checking = types ? typeCheck() : undefined
-  if (typesFlag && !checking)
-    throw new UsageError(
-      '--types needs tsconfig.json in the project root, and the typescript package: npm install --save-dev typescript',
-    )
+  // Each run of a TypeScript project also checks the types (D38).
+  const checking = typeCheck()
 
   // One file runs in this process. It has the runner role for itself.
   if (files.length === 1 && !repeat && !baselineRef && !checking) {

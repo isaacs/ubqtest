@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import type { TypeCheckError } from './events.ts'
-import { projectRoot, rel } from './project.ts'
+import { projectRoot, rel, stateDir } from './project.ts'
 
 /** The `tsc` program of the project. Undefined if the project has none. */
 const compiler = (root: string): string | undefined => {
@@ -23,6 +23,7 @@ const ERROR = /^(?:(.+)\((\d+),(\d+)\): )?error (TS\d+): (.*)$/
 
 /**
  * Runs `tsc --noEmit` on the `tsconfig.json` of the project root.
+ * The checker keeps its data for the next run in `.ubq/types/`.
  * Returns undefined if the project has no `tsconfig.json` there, or
  * no `typescript` package.
  */
@@ -31,7 +32,12 @@ export const typeCheck = (): Promise<TypeCheckError[]> | undefined => {
   const tsc = compiler(root)
   if (!tsc || !existsSync(join(root, 'tsconfig.json'))) return undefined
   return new Promise(done => {
-    const child = spawn(tsc, ['--noEmit', '--pretty', 'false', '-p', root], { cwd: root })
+    const info = join(stateDir(), 'types', 'tsbuildinfo')
+    const child = spawn(
+      tsc,
+      ['--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', info, '-p', root],
+      { cwd: root },
+    )
     let text = ''
     child.stdout.setEncoding('utf8').on('data', (data: string) => (text += data))
     child.stderr.resume()

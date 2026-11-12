@@ -540,13 +540,13 @@ Done:
     signal that starts the inspector, and SIGUSR1 ends a Deno
     process. The flag adds no time that the benchmark can see
     (10 starts: 90 ms with it, 86 ms with no flag).
-- Type checks next to tests (`src/typecheck.ts`, question Q7 in
-  `09-questions.md`). A run of all tests, or a run with
-  `--types`, starts `tsc --noEmit` of the project at the same
-  time as the test processes. Each error is a `type-error` event
-  and a `TYPE` block in the text (20 blocks at most). The summary
-  counts them, and the exit code is 1. The tests run in any case.
-  Checks: `test/typecheck.test.ts`.
+- Type checks next to tests (`src/typecheck.ts`, D38). Each run
+  of a TypeScript project starts `tsc --noEmit --incremental` of
+  the project at the same time as the test processes. The
+  checker keeps its data in `.ubq/types/`. Each error is a
+  `type-error` event and a `TYPE` block in the text (20 blocks at
+  most). The summary counts them, and the exit code is 1. The
+  tests run in any case. Checks: `test/typecheck.test.ts`.
 - The check of step 8 passed (2026-11-12). An agent on the
   smallest model, with `ubq guide` as its only document, wrote 10
   tests for a small module (with `mockImport`, `spy`, and
@@ -572,8 +572,11 @@ Known limits:
 - Type errors are not in the store. `ubq failures` does not print
   them again.
 - The type check reads only `tsconfig.json` in the project root.
-- A project with one test file runs that file in a child process
-  if the type check is on, not in the process of the runner.
+- A run of one file in a TypeScript project runs the file in a
+  child process, not in the process of the runner. In a project
+  of three small files, a run of one file takes 152 ms, and
+  92 ms with no `tsconfig.json` (source, not the built package).
+  The type check alone takes 73 ms there.
 - A plain `deno run -A test/foo.ts` records coverage `none`, as a
   plain program on Bun does.
 - On Deno, the changed source of a file is in the cache, but the

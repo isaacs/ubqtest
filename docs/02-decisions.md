@@ -475,3 +475,21 @@ The server does not start by itself.
 The interface for agents is the command and its text. The reasons
 are in `11-server.md`. The user asked the agent to consider MCP
 and HTTP, and can overrule this.
+
+## D38. Each run of a TypeScript project checks the types (user, 2026-11-12)
+
+A project is a TypeScript project if it has `tsconfig.json` in its
+root and the `typescript` package. Each run of its tests also runs
+`tsc --noEmit --incremental`, at the same time as the tests. There
+is no option that turns the check on or off. A type error fails
+the run with exit code 1, the same as a failed test.
+
+The checker keeps its data for the next run in `.ubq/types/`.
+
+**Reason.** A test tool that does not check types lets a wrong
+type through until a different tool finds it. The cost is small:
+TypeScript 7 checks this project in 100 ms, and in 70 ms with the
+data of the run before.
+
+This is the answer to Q7.
+

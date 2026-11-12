@@ -50,10 +50,9 @@ ubq --changed            the test files that loaded a file that changed
 node test/parse.test.ts  a test file is a plain program (also: deno run -A, bun)
 ```
 
-`ubq` with no arguments also runs the type checker, if the project
-has `tsconfig.json` and the `typescript` package. Each type error
-is a `TYPE` block, and the run fails. The tests run in any case.
-`ubq --types <selection>` adds the type check to a smaller run.
+Each run also runs the type checker, if the project has
+`tsconfig.json` and the `typescript` package. Each type error is a
+`TYPE` block, and the run fails. The tests run in any case.
 
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/.bin/ubq`.

@@ -1,5 +1,5 @@
-// Type checks next to the tests: a run of all tests, and `--types`.
-import { rmSync, symlinkSync, writeFileSync } from 'node:fs'
+// Type checks next to the tests, in each run of a TypeScript project.
+import { existsSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
@@ -7,7 +7,7 @@ import { project } from './setup.ts'
 
 const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
 
-test('a run of all tests reports the type errors of the project', () => {
+test('a run reports the type errors of the project', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   writeFileSync(
@@ -21,8 +21,6 @@ test('passes at run time', () => {
   )
   // No tsconfig.json: no type check.
   assert.deepEqual([p.ubq().code, p.ubq().last], [1, 'fail: 1 failed, 0 passed'])
-  const none = p.ubq('--types', 'pass.ts')
-  assert.deepEqual([none.code, none.err], [4, 'ubq: --types needs tsconfig.json in the project root, and the typescript package: npm install --save-dev typescript\n'])
 
   writeFileSync(
     join(p.dir, 'tsconfig.json'),
@@ -48,8 +46,11 @@ test('passes at run time', () => {
     '',
     'fail: 1 failed, 0 passed, 2 type errors',
   ])
-  // A run of a selection has no type check, but for `--types`.
-  assert.deepEqual([p.ubq('pass.ts').code, p.ubq('pass.ts').last], [0, 'pass: 0 failed, 5 passed, 1 skipped'])
-  const typed = p.ubq('--types', 'pass.ts')
-  assert.deepEqual([typed.code, typed.last], [1, 'fail: 0 failed, 5 passed, 1 skipped, 2 type errors'])
+  // A run of a selection checks the types too. The second run reads
+  // the data of the first one, and reports the same errors.
+  assert(existsSync(join(p.dir, '.ubq', 'types', 'tsbuildinfo')))
+  const one = p.ubq('pass.ts')
+  assert.deepEqual([one.code, one.last], [1, 'fail: 0 failed, 5 passed, 1 skipped, 2 type errors'])
+  const repeat = p.ubq('--repeat', '2', 'pass.ts')
+  assert.deepEqual([repeat.code, repeat.out.includes('TS2322')], [1, true])
 })
