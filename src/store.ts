@@ -204,7 +204,7 @@ export const openStore = (): Store => {
     },
     sink(run) {
       const addTest = db.prepare(
-        'insert into test (run, id, file, line, status, ms, asserts, reason, failure, repeats, fails) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert or replace into test (run, id, file, line, status, ms, asserts, reason, failure, repeats, fails) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       const failTest = db.prepare(
         "update test set status = 'fail', failure = ? where run = ? and id = ?",

@@ -30,5 +30,8 @@
   "bin": {
     "ubq": "src/cli.ts"
   },
-  "license": "BlueOak-1.0.0"
+  "license": "BlueOak-1.0.0",
+  "ubq": {
+    "timeout": 30000
+  }
 }

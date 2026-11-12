@@ -8,6 +8,11 @@ import { fileURLToPath } from 'node:url'
 
 export const fixtures = fileURLToPath(new URL('./fixtures/', import.meta.url))
 
+// In CI, ubq prints a first line with the runtime, and does not cut
+// the output of a failed test. The tests give CI to the runs that
+// check this.
+delete process.env.CI
+
 // A relative link, so that it stays correct if the repository moves.
 const link = `${fixtures}node_modules/ubqtest`
 const target = '../../..'

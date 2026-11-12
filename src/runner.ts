@@ -358,13 +358,15 @@ export const runFile = async (
     let ended = false
     /** True after the first event of the file. */
     let started = false
+    /** True after the runner gave the file up. Its later events are not part of the run. */
+    let stopped = false
     let open: string | undefined
     let watchdog: ReturnType<typeof setTimeout> | undefined
     // The test has a timer for its limit in its own process. If no
     // `test-end` came after that limit, the process is in a loop
     // that does not return.
     const stuck = async (start: TestStart): Promise<void> => {
-      ended = true
+      ended = stopped = true
       // SIGUSR1 starts the inspector of Node. It ends a Deno process,
       // which has its inspector from the start.
       if (!process.versions.deno) child.kill('SIGUSR1')
@@ -397,6 +399,7 @@ export const runFile = async (
       for (let i = buffer.indexOf('\n'); i >= 0; i = buffer.indexOf('\n')) {
         const event = JSON.parse(buffer.slice(0, i)) as FileEvent
         buffer = buffer.slice(i + 1)
+        if (stopped) continue
         started = true
         if (event.type === 'file-end') ended = true
         else if (event.type === 'test-start') {
