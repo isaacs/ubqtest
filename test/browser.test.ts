@@ -112,7 +112,8 @@ test('served', { timeout: 30_000 }, async () => {
 const check = () => fetch('http://localhost:${port}').then(() => (Date.now() > end ? process.exit(1) : setTimeout(check, 50)), () => process.exit(0))
 check()`,
     ]).status === 0
-  assert.equal(p.ubq('served.test.ts').last, 'pass: 0 failed, 1 passed')
+  const one = p.ubq('served.test.ts')
+  assert.equal(one.last, 'pass: 0 failed, 1 passed', one.out + one.err)
   assert.equal(stopped(), true)
   // A run with no browser test does not start the server.
   rmSync(join(p.dir, 'server.pid'))
@@ -218,7 +219,8 @@ test('title', { timeout: 30_000 }, async () => {
 `,
   )
   p.configure({ browser: { url: `http://localhost:${port}`, command: 'node server.js' } })
-  assert.equal(p.ubq('app.test.ts').last, 'pass: 0 failed, 1 passed')
+  const run = p.ubq('app.test.ts')
+  assert.equal(run.last, 'pass: 0 failed, 1 passed', run.out + run.err)
   assert.deepEqual(p.ubq('uncovered', 'src/app.ts').out.split('\n'), [
     "src/app.ts:2:22  (): string => 'never'",
     "src/app.ts:4:53  'minus'",

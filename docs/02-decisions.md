@@ -699,7 +699,10 @@ user to Q9 set points 2, 3, and 5.
    Playwright). `UBQ_BROWSER` is the path of a program to use in
    place of the download.
 4. **A browser for each test file, a context for each test.** The
-   cleanup functions of the file close the browser.
+   browser is a separate server process (`launchServer` of
+   Playwright). The cleanup functions of the file kill it. To
+   close a browser in the normal way can take seconds on Windows,
+   and ubq then reports that the process did not exit.
 5. **The API is the `Page` of Playwright, plus one assertion.**
    `assert.eventually(fn, pattern)` is `assert.match` for a value
    that changes with time: it calls `fn` until the value matches,

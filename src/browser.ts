@@ -4,7 +4,7 @@
 // the browser.
 import { existsSync, statSync } from 'node:fs'
 import { join, sep } from 'node:path'
-import type { Browser, BrowserContextOptions, Page } from 'playwright-core'
+import type { Browser, BrowserContextOptions, BrowserServer, Page } from 'playwright-core'
 import { pageCoverage } from './browser-coverage.ts'
 import { config } from './config.ts'
 import { COUNTER_NAME } from './counters.ts'
@@ -36,15 +36,19 @@ const start = async (): Promise<Browser> => {
     )
   }
   const executablePath = process.env.UBQ_BROWSER
-  let browser: Browser
+  // A separate server process for the browser, so that the end of the
+  // file can stop it at once. To close a browser in the normal way
+  // can take seconds on Windows, and the test process must not wait.
+  let server: BrowserServer
   try {
-    browser = await playwright.chromium.launch(executablePath ? { executablePath } : {})
+    server = await playwright.chromium.launchServer(executablePath ? { executablePath } : {})
   } catch (error) {
     if (!executablePath && /Executable doesn't exist/.test(String(error)))
       throw new Error('the browser is not installed. Run: npx ubq browser install')
     throw error
   }
-  fileCleanups.push(() => browser.close())
+  fileCleanups.push(() => server.kill())
+  const browser = await playwright.chromium.connect(server.wsEndpoint())
   return browser
 }
 
