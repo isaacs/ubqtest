@@ -324,7 +324,12 @@ export const loadFailure = (text: string): Failure | undefined => {
   const inProject = at && !at[1]!.startsWith('/') && !at[1]!.includes('node_modules') && !/^\w+:/.test(at[1]!)
   return {
     kind: 'error',
-    message: `the test file did not load: ${error[1]}`,
+    message:
+      `the test file did not load: ${error[1]}` +
+      // Node removes types and makes no other change.
+      (/strip-only mode/.test(error[1]!) ?
+        '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq'
+      : ''),
     ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
   }
 }

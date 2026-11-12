@@ -143,6 +143,7 @@ const TODO = {
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
+  passed: 'ubq has no test object to pass to a function. Remove this argument, and the parameter of the function. The function imports assert from ubqtest.',
   skip: "Give the reason: { skip: 'the reason' }.",
   context: 'ubq has no test object. Use the functions of ubqtest in place of the parameter of this test function.',
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
@@ -196,13 +197,19 @@ export const convertSource = (
   const removed: Node[] = []
 
   // --- The names of the old test tool ---
+  /** Names of the `test` function of tap. Its test function gets the test object. */
+  const tapTests = new Set<string>()
   const bind = (module: string, imported: string, local: string): void => {
     if (ASSERT_MODULES.has(module)) {
       roles.set(local, imported === 'default' || imported === '*' || imported === 'strict' ? 'assert' : `assert.${imported}`)
       return
     }
     if (module === 'tap') {
+      if (imported === 'test') tapTests.add(local)
       roles.set(local, imported === 'test' ? 'test' : imported === 'default' || imported === '*' || imported === 't' ? 'tap' : 'hook')
+      // The test object has the name `t` in almost all tap tests,
+      // also in a helper function that gets it as an argument.
+      roles.set('t', 'tap')
       return
     }
     // node:test, vitest, @jest/globals, bun:test
@@ -407,7 +414,9 @@ export const convertSource = (
           const own = direct.filter(s => !isSub(s) && mentions(s, param) && !/^\s*\w+\.(end|plan)\(/.test(text(s)))
           const waits = direct.some(s => !isSub(s) && /\bawait\b/.test(text(s)))
           if (own.length || waits) todo(path, TODO.subtests)
-          if (fn.async) replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
+          // The function of a describe is not async. With an await
+          // in it, the function stays as it is until the TODO is done.
+          if (fn.async && !waits) replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
         }
         const span = paramSpan(fn)
         if (span) replace(span[0], span[1], '()')
@@ -450,6 +459,11 @@ export const convertSource = (
       if (nameOf(node.property as Node) === 'mock' && parent?.type === 'MemberExpression' && /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? ''))
         todo(path, TODO.spyImpl)
     }
+    else if (node.type === 'Identifier' && roleOf(node) === 'tap') {
+      // helper(t, value)
+      const parent = path.at(-2)
+      if (parent?.type === 'CallExpression' && (parent.arguments as Node[]).includes(node)) todo(path, TODO.passed)
+    }
     for (const child of next ?? children(node)) walk(child, path)
   }
 
@@ -459,7 +473,7 @@ export const convertSource = (
     const args = node.arguments as Node[]
     const role = roleOf(callee)
     if (role === 'test' || role === 'describe') {
-      definition(node, path, role, false)
+      definition(node, path, role, tapTests.has(nameOf(callee)!))
       return args
     }
     if (role === 'hook') {

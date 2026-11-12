@@ -62,7 +62,8 @@ test('a process that dies is an error that names the test', () => {
   assert.equal(r.code, 1)
   assert.deepEqual(r.out.slice(0, 2), [
     'ERROR crash.ts',
-    '  the test process ended before the file did (SIGKILL), in test: crash.ts > dies',
+    // Windows has no signals: a process that is stopped has exit code 1.
+    `  the test process ended before the file did (${process.platform === 'win32' ? 'exit code 1' : 'SIGKILL'}), in test: crash.ts > dies`,
   ])
 })
 
@@ -162,7 +163,7 @@ test('the hangRerun switch turns the rerun off', () => {
   assert.deepEqual([off.last, off.out.includes('HANG ')], ['fail: 1 errors, 3 failed, 1 passed', false])
 })
 
-test('a loop that does not return is stopped, with the line of the loop', () => {
+test('a loop that does not return is stopped, with the line of the loop', { skip: process.platform === 'win32' && 'Windows has no signal that starts the inspector, so there is no stack' }, () => {
   for (const args of [['busy.ts'], ['busy.ts', 'pass.ts']]) {
     const r = ubq(args)
     assert.deepEqual(r.out.slice(0, 5), [
@@ -196,7 +197,7 @@ test('processes that a test file leaves behind are stopped', () => {
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 })
 
-test('a closed stdout does not stop a run of many files', () => {
+test('a closed stdout does not stop a run of many files', { skip: process.platform === 'win32' && 'the test needs sh and head' }, () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   const r = spawnSync('sh', ['-c', `node ${cli} fail.ts pass.ts | head -2`], { cwd: p.dir, encoding: 'utf8' })

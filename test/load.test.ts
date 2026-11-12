@@ -56,4 +56,12 @@ test('an import of ./a.js finds the file ./a.ts', () => {
   // A file that does not exist with either name.
   writeFileSync(join(p.dir, 'src/two.ts'), "import './three.js'\n")
   assert.match(p.ubq('one.ts').out, /the test file did not load: Cannot find module 'src\/three.js' imported from src\/two.ts/)
+  // Syntax that Node cannot run: the report says what to do.
+  writeFileSync(join(p.dir, 'src/two.ts'), 'export enum Two {\n  A,\n}\nexport const two = (): number => 2\n')
+  assert.deepEqual(p.ubq('one.ts').out.split('\n').slice(0, 4), [
+    'ERROR one.ts',
+    '  the test file did not load: TypeScript enum is not supported in strip-only mode. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq',
+    '  at src/two.ts:1:1',
+    '  > export enum Two {',
+  ])
 })

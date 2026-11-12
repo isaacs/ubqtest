@@ -3,8 +3,12 @@ import { spawnSync } from 'node:child_process'
 import { assert, test } from 'ubqtest'
 
 const root = new URL('..', import.meta.url)
+// The `tsc` command file is a shell script. Windows cannot start it.
 const tsc = (...args: string[]) =>
-  spawnSync('npx', ['tsc', '--pretty', 'false', ...args], { cwd: root, encoding: 'utf8' })
+  spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--pretty', 'false', ...args], {
+    cwd: root,
+    encoding: 'utf8',
+  })
 
 test('the project has no compile errors', () => {
   assert.equal(tsc().stdout, '')

@@ -58,6 +58,8 @@ const describe = (text: string): string => {
 
 /** `ubq server` and `ubq server stop`. Returns the exit code. */
 export const serverCommand = async (args: string[], out: (text: string) => void): Promise<number> => {
+  // The server has a socket file. Windows has none.
+  if (process.platform === 'win32') throw new UsageError('ubq server does not work on Windows yet')
   if (args[0] === '--foreground') return serve()
   if (args[0] === 'stop') {
     out((await ask('stop')) === undefined ? 'server: not running' : 'server: stopped')
