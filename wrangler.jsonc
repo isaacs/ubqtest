@@ -1,0 +1,11 @@
+// The web site, as a Cloudflare Worker that has only static files.
+// `npm run site` makes the files. The release workflow deploys them.
+{
+  "name": "ubqtest-site",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./_site",
+    // A missing address gets 404.html, with status 404.
+    "not_found_handling": "404-page"
+  }
+}

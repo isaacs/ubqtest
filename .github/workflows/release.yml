@@ -6,6 +6,13 @@
 # is stored. On npmjs.com, the package's trusted publisher entry
 # must name this repository, the workflow file `release.yml`, and
 # the environment `npm`.
+#
+# The `site` job then deploys the web site of the same version to
+# Cloudflare. Its environment, `site`, has the secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID. To keep the site
+# the same as the version on npm, give that environment a required
+# reviewer, and approve the job after you approve the staged
+# version.
 
 name: Release
 
@@ -50,3 +57,25 @@ jobs:
 
       - run: npm stage publish --access public
         working-directory: dist
+
+  site:
+    needs: stage
+    runs-on: ubuntu-latest
+    environment: site
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+          package-manager-cache: false
+
+      - run: npm ci --ignore-scripts
+      - run: npm run site
+      # wrangler.jsonc names the Worker and the folder of the files.
+      - run: npx wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

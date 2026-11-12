@@ -696,8 +696,8 @@ To do next:
 
 D44. `npm run site` makes `_site/` from `site/` and the markdown
 documents. `test/site.test.ts` checks that each page has a
-markdown copy and that each link goes to a file. The upload to a
-host is not built: the host is not chosen.
+markdown copy and that each link goes to a file. The `site` job
+of the release workflow deploys it to a Cloudflare Worker (D46).
 
 ## Smaller gaps closed (2026-11-12)
 

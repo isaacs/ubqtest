@@ -671,7 +671,7 @@ and the README. A site that is made from the same files cannot
 say something different. An agent reads markdown with fewer
 tokens than HTML.
 
-Not built: search, and the upload to a host.
+Not built: search. The upload to a host is D46.
 
 ## D45. Front-end tests: Playwright with Chromium, one function (user and agent, 2026-11-12)
 
@@ -719,3 +719,27 @@ compile step for TypeScript that a static page loads.
 A fault of Deno 2.9.6 that this work found: with a load hook, a
 JSON file that `require` loads has no format, and Deno reads it as
 JavaScript. The load hook of the counters sets the format.
+
+## D46. The site is a Cloudflare Worker, deployed by the release workflow (user and agent, 2026-11-12)
+
+The host is a Cloudflare Worker with only static files (user).
+`wrangler.jsonc` names the Worker (`ubqtest-site`) and the folder
+`_site/`. A missing address gets `404.html` with status 404.
+
+The `site` job of `.github/workflows/release.yml` runs after the
+`stage` job: it makes the site from the tag and runs `wrangler
+deploy`. Its environment is `site`, with the secrets
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+**The site and npm.** The `stage` job does not publish: a
+maintainer approves the staged version later. A deploy at once
+would put the site ahead of npm. GitHub can hold a job until a
+reviewer of its environment approves it. So the `site`
+environment gets a required reviewer, and the maintainer approves
+the job after the staged version. Without the reviewer, the site
+is ahead of npm until the approval, and stays ahead if the
+version is rejected.
+
+Checked with `wrangler deploy --dry-run` and `wrangler dev`: the
+pages, the markdown copies (`text/markdown`), `llms.txt`, and the
+404 page. A real deploy is not tested.
