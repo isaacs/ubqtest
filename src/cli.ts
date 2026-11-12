@@ -18,6 +18,7 @@ import {
   lastRun,
   outputOf,
   runRow,
+  slowest,
   testsUnder,
   uncovered,
 } from './query.ts'
@@ -38,6 +39,7 @@ const USAGE = `usage:
   ubq show <test id>         the last result of one test
   ubq history <test id>      the result of one test in each stored run
   ubq diff [run] [run]       the tests with a different status in two runs (default: the last run and the run before it)
+  ubq slow [run]             the slowest tests of a run (default: the last run)
   ubq uncovered [file]       code that no test ran
   ubq covers <file>:<line>   the tests that ran a line
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
@@ -45,7 +47,7 @@ const USAGE = `usage:
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
 
-const QUERIES = ['failures', 'show', 'history', 'diff', 'uncovered', 'covers', 'sql']
+const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql']
 
 const main = (args: string[]): number | Promise<number> => {
   const [command, ...rest] = args
@@ -198,6 +200,20 @@ const main = (args: string[]): number | Promise<number> => {
       const bad = failed + d.newErrors.length
       if (bad) out(`details: ubq failures ${b}`)
       return bad ? 1 : 0
+    }
+
+    case 'slow': {
+      const SHOWN = 10
+      const run = rest[0] ? +rest[0] : lastRun(db)
+      if (run === undefined || !runRow(db, run))
+        throw new UsageError(`run ${rest[0] ?? '(last)'} is not in the store`)
+      const tests = slowest(db, run)
+      for (const t of tests.slice(0, SHOWN)) out(`${t.ms.toFixed(1).padStart(8)} ms  ${t.id}`)
+      const sum = (rows: { ms: number }[]): string => rows.reduce((n, t) => n + t.ms, 0).toFixed(1)
+      out(
+        `the ${Math.min(SHOWN, tests.length)} slowest of ${tests.length} tests took ${sum(tests.slice(0, SHOWN))} ms of ${sum(tests)} ms (run ${run})`,
+      )
+      return 0
     }
 
     case 'uncovered': {

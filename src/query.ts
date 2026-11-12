@@ -342,3 +342,9 @@ export const diffRuns = (db: DatabaseSync, a: number, b: number): RunDiff => {
   diff.goneErrors = [...ea].filter(f => !eb.has(f)).sort()
   return diff
 }
+
+/** The tests of a run that are not skipped, slowest first. */
+export const slowest = (db: DatabaseSync, run: number): { id: string; ms: number }[] =>
+  db
+    .prepare("select id, ms from test where run = ? and status != 'skip' order by ms desc, id")
+    .all(run) as { id: string; ms: number }[]

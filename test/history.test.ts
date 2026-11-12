@@ -137,6 +137,17 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   ])
   assert.equal(p.ubq('failures').last, 'fail: 2 failed, 4 passed')
 
+  // The slowest tests of a run. A skipped test is not in the list.
+  p.ubq('pass.ts', 'flip.ts')
+  const slow = p.ubq('slow').out.trimEnd().split('\n')
+  assert.equal(slow.length, 9)
+  assert.match(slow[0]!, /^ +\d+\.\d ms  (pass|flip)\.ts > /)
+  const times = slow.slice(0, -1).map(l => parseFloat(l))
+  assert.deepEqual(times, times.toSorted((a, b) => b - a))
+  assert.match(slow.at(-1)!, /^the 8 slowest of 8 tests took \d+\.\d ms of \d+\.\d ms \(run 2\)$/)
+  assert.match(p.ubq('slow', '1').last!, /^the 6 slowest of 6 tests took /)
+  assert.deepEqual([p.ubq('slow', '9').code, p.ubq('slow', '9').err], [4, 'ubq: run 9 is not in the store\n'])
+
   // With a selection. One file runs in its own processes too.
   const one = p.ubq('--repeat', '3', 'flip.ts > c')
   assert.deepEqual([one.code, lines(one.out.replace(/ \(run \d+\)\n$/, ''))], [0, [

@@ -365,6 +365,7 @@ Done:
   (`src/baseline.ts`, D26). The text shows the failures that the
   commit does not have, and lists the IDs of the others and of
   the fixed tests. The exit code and the store have all failures.
+- `ubq slow [run]` prints the 10 slowest tests of a run.
 - Two processes that start in a project with no store do not
   fail with "table run already exists".
 
@@ -375,8 +376,6 @@ makes a project in a temporary folder.
 
 Not done in step 6:
 
-- `slow` (the slowest tests), from the list of queries in
-  `04-architecture.md`, section 5.
 - Run records do not have the git commit and the state of the
   tree (`01`, section 3).
 - `--changed` at the level of ranges, and "run all tests" for a
