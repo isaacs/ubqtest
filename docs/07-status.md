@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 80 pass
+node src/cli.ts         # the tool runs its own tests: 83 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -505,6 +505,22 @@ Done:
   project. There, a test file runs as a plain program on Node,
   Deno, and Bun, `ubq` runs with coverage on Node and Bun, and the
   type checker gives the hint for a wrong guess.
+
+- The agent guide: `GUIDE.md` at the package root. `ubq guide`
+  prints it. It has the API, the rules that fail a test, the
+  names that do not exist with their replacements, and the
+  commands.
+- `ubq doctor` (`src/doctor.ts`). It checks the runtime version,
+  the project root, that the project can import `ubqtest`, the
+  configuration, the count of test files, files that have tests
+  and a name that `ubq` does not run, and two options of
+  `tsconfig.json`. Each problem is one `FIX` line with the fix.
+  The exit code is 1 if there is a problem. Checks:
+  `test/doctor.test.ts`.
+
+Known limits:
+
+- `doctor` does not read a `tsconfig.json` that has `extends`.
 
 ## Source counters on Node: D25 done (2026-11-12)
 

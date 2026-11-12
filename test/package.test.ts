@@ -23,6 +23,7 @@ const files: Record<string, string> = {
       strict: true,
       noEmit: true,
       allowImportingTsExtensions: true,
+      erasableSyntaxOnly: true,
       types: ['node'],
     },
     include: ['src', 'test'],
@@ -85,6 +86,12 @@ for (const cmd of ['node', 'bun'])
       '1 uncovered ranges in 1 files',
     ])
   })
+
+test('the guide and the doctor of the package', () => {
+  const ubq = join(pkg, 'cli.js')
+  assert.equal(sh('node', ubq, 'guide').lines[0], '# ubq guide')
+  assert.equal(sh('node', ubq, 'doctor').lines.at(-1), 'doctor: 0 problems')
+})
 
 test('the type declarations of the package', () => {
   const r = sh(join(root, 'node_modules/.bin/tsc'), '--pretty', 'false')

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// The `ubq` command. In this step it answers questions about stored
+// The `ubq` command: runs tests, and answers questions about stored
 // runs. See docs/04-architecture.md, section 5.
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { doctor } from './doctor.ts'
 import { testdirPath } from './fixtures.ts'
 import { join, resolve } from 'node:path'
 import { projectRoot, rel } from './project.ts'
@@ -46,6 +47,8 @@ const USAGE = `usage:
   ubq uncovered [file]       code that no test ran
   ubq covers <file>:<line>   the tests that ran a line
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
+  ubq guide                  how to write and run tests, for the installed version
+  ubq doctor                 checks the setup of the project, and states the fix for each problem
 `
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
@@ -58,6 +61,13 @@ const main = (args: string[]): number | Promise<number> => {
     out(USAGE.trimEnd())
     return 0
   }
+  if (command === 'guide') {
+    // The guide is at the package root. The bundle is there too.
+    const path = import.meta.url.endsWith('.ts') ? '../GUIDE.md' : './GUIDE.md'
+    out(readFileSync(new URL(path, import.meta.url), 'utf8').trimEnd())
+    return 0
+  }
+  if (command === 'doctor') return doctor(out) ? 1 : 0
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')
