@@ -116,7 +116,7 @@ check()`,
   assert.equal(existsSync(join(p.dir, 'server.pid')), false)
   // Two files: the test processes are children of the runner.
   const two = p.ubq('served.test.ts', 'pass.ts')
-  assert.deepEqual([two.last, two.err], ['pass: 0 failed, 2 passed', ''], two.out)
+  assert.deepEqual([two.last, two.err], ['pass: 0 failed, 6 passed, 1 skipped', ''], two.out)
   assert.equal(existsSync(join(p.dir, 'server.pid')), true)
   assert.equal(stopped(), true)
 
