@@ -394,7 +394,7 @@ proven.
 | Run tests, events, text output | yes | yes | yes |
 | Store | yes | yes | yes |
 | Per-test coverage | V8, sync API | V8, async API | source counters (section 4) |
-| Module mocks | `registerHooks` | `registerHooks` | `Bun.plugin` resolve and load hooks, not tested yet |
+| Module mocks | `registerHooks` | `registerHooks` | `Bun.plugin` resolve and load hooks |
 | Transport from a child | fd 3 | not fd 3 (M 9), method open | fd 3 |
 | Hang reports | yes | not tested | handle list is empty (M 9), needs its own method |
 

@@ -18,6 +18,7 @@ const cases: [file: string, code: number, summary: string][] = [
   ['fail', 1, 'fail: 15 failed, 0 passed'],
   ['empty', 2, 'fail: 0 failed, 0 passed'],
   ['load-error', 1, 'fail: 1 errors, 0 failed, 1 passed'],
+  ['mock', 1, 'fail: 2 failed, 2 passed'],
 ]
 
 for (const [cmd, args] of runtimes) {

@@ -2,11 +2,11 @@
 import { spawnSync } from 'node:child_process'
 import { cpSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { assert, describe, test } from 'ubqtest'
+import { assert, cleanup, describe, test } from 'ubqtest'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
 import { instrument } from '../src/instrument.ts'
-import { fixtures, resetStore } from './setup.ts'
+import { fixtures, project, resetStore } from './setup.ts'
 
 // Plain JavaScript with each construct that gets a counter. The
 // value of `out` shows which paths ran.
@@ -137,5 +137,34 @@ describe('bun', () => {
     assert.deepEqual(sh('node', [cli, 'sql', "select coverage from test_file where tfile = 'pass.ts'"], fixtures), [
       '{"coverage":"full"}',
     ])
+  })
+
+  test('mockImport gives a new module instance with mocked dependencies', { skip }, () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    assert.deepEqual(sh('bun', [cli, 'mock.ts'], p.dir), [
+      'FAIL mock.ts > a mock that lacks an export',
+      '  Error: the mock of src/db.ts has no export "fetchUser", and the code under test imports it. Add "fetchUser" to the mock.',
+      '  at mock.ts:29:9',
+      "  > await mockImport(() => import('./src/greet.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])",
+      '  rerun: ubq mock.ts:28',
+      '',
+      'FAIL mock.ts > a loader that is not an import',
+      "  TypeError: the first argument of mockImport must be an arrow function of the form () => import('...')",
+      '  at mock.ts:35:9',
+      '  > await mockImport(() => Promise.resolve(real), [])',
+      '  rerun: ubq mock.ts:33',
+      '',
+      'fail: 2 failed, 2 passed',
+    ])
+    // Code that ran in a mocked instance is coverage of the real file.
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/word.ts:3'], p.dir), [
+      'mock.ts > a mock reaches the modules that the module imports, and builtins',
+      'mock.ts > a mock replaces a dependency in a new instance of the module',
+      'mock.ts (while the file loads)',
+      '2 tests run src/word.ts:3',
+    ])
+    // In a child process.
+    assert.equal(sh('bun', [cli, 'mock.ts', 'pass.ts'], p.dir).at(-1), 'fail: 2 failed, 7 passed, 1 skipped')
   })
 })

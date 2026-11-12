@@ -270,9 +270,22 @@ the real dependency.
 - A mock with no `default` export gets one: the mock object. So
   `import fs from 'node:fs'` works with a mock of named exports.
 
-Built on Node (`src/mock.ts`). The same hook exists on Deno, not
-tested yet. On Bun, the call throws an error that says so: Bun
-needs a different hook (`Bun.plugin`).
+Built in `src/mock.ts`. Node and Deno use the hooks of
+`module.registerHooks`. Bun has no such hooks, so the library uses
+`Bun.plugin` there. Differences on Bun:
+
+- The library writes the mock number into the import paths of
+  each module instance, when Bun loads the instance. It finds the
+  imports by their text: `from '...'`, `import '...'`,
+  `import('...')`. An `import()` with a path that is not a string
+  literal gets the real module.
+- A mock loader of a package or a builtin loads the real module
+  one time. Bun has no resolve hook for them. The library reads
+  the name from the text of the loader, and finds the package from
+  the project root.
+- The error for a mock that lacks an export names the file by its
+  path from the project root (`src/db.ts`), not as the code under
+  test wrote it (`./db.ts`).
 
 ## 7. Fixtures and cleanup
 

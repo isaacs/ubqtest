@@ -16,12 +16,12 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 69 pass
+node src/cli.ts         # the tool runs its own tests: 73 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
 The suite needs `bun` and `deno` on the path for all tests. A test
-skips itself, with a reason, if its runtime is not installed (4
+skips itself, with a reason, if its runtime is not installed (5
 tests need `deno`).
 
 The tool needs Node 24. If `node -v` shows an older version, look
@@ -303,8 +303,7 @@ Decisions in this step are D21 and D22 in `02-decisions.md`.
 
 Not done:
 
-- Module mocks on Bun (`Bun.plugin` resolve hooks). They belong to
-  step 7, with mocks on Node.
+- (Done later, in step 7.) Module mocks on Bun.
 - A hang report on Bun has no stack. `SIGUSR1` does not start an
   inspector there.
 - `.tsx` and `.jsx` files get no counters.
@@ -415,7 +414,7 @@ Known limits:
   tests that ran in only one of them, and lists such a test only if
   it failed in the second run.
 
-## Step 7: in progress (2026-11-12)
+## Step 7: done (2026-11-12)
 
 Source files:
 
@@ -459,15 +458,24 @@ Done (`05-api.md`, sections 6 and 7):
   if nothing is open. On a slow machine, it reported a process
   that was about to exit.
 
+- `mockImport` on Bun, through `Bun.plugin` (`05-api.md`, section
+  6, has the differences). Coverage of a mocked instance goes to
+  the real file there too. On Deno, `mockImport` works with the
+  Node code. `test/fixtures/mock.ts` runs as a plain program on
+  the three runtimes, and under the runner on Node and Bun.
+
 Checks: `test/snapshot.test.ts`, `test/clock.test.ts`, `test/fixtures.test.ts`, fixtures `test/fixtures/fix.ts`,
-`test/fixtures/mock.ts`, and `test/fixtures/leak.ts`.
+`test/fixtures/mock.ts`, and `test/fixtures/leak.ts`. For Bun and
+Deno: `test/bun.test.ts`, `test/plain.test.ts`.
 
-Not done:
-
-- `mockImport` on Bun (the call throws an error that says so) and
-  a check of it on Deno.
+All parts of step 7 are built. Its check passes: a wrong mock does
+not compile, and mocks work on Node and Bun.
 
 Known limits:
+
+- On Bun, a string in a mocked instance that has the form of an
+  import (`"from './db.ts'"`) gets the mock number too, if its path
+  is a project file or a mocked module.
 
 - The cleanup functions of the file run when the queue of tests is
   empty. A file that calls `test` after an `await` that comes

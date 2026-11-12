@@ -1,0 +1,13 @@
+FAIL mock.ts > a mock that lacks an export
+  Error: the mock of ./db.ts has no export "fetchUser", and the code under test imports it. Add "fetchUser" to the mock.
+  at mock.ts:29:3
+  > await mockImport(() => import('./src/greet.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])
+  rerun: ubq mock.ts:28
+
+FAIL mock.ts > a loader that is not an import
+  TypeError: the first argument of mockImport must be an arrow function of the form () => import('...')
+  at mock.ts:35:9
+  > await mockImport(() => Promise.resolve(real), [])
+  rerun: ubq mock.ts:33
+
+fail: 2 failed, 2 passed

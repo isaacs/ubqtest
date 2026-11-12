@@ -5,6 +5,13 @@
 /** The key of the global Map from file path to counter array. */
 export const COUNTERS = 'ubqtest.counters'
 
+/**
+ * The key of the global function that reads a project file and
+ * adds its counters. `mockImport` on Bun loads its module instances
+ * through it.
+ */
+export const SOURCE = 'ubqtest.source'
+
 /** The part of the source that one counter stands for. */
 export interface Region {
   start: number

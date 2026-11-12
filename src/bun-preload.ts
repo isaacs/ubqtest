@@ -3,6 +3,7 @@
 // compiles it. The runner starts each Bun test process this way.
 import { readFileSync } from 'node:fs'
 import { startCounters } from './counter-collector.ts'
+import { SOURCE } from './counters.ts'
 import { projectRoot } from './project.ts'
 
 // The part of the Bun plugin API that this file uses.
@@ -19,7 +20,12 @@ declare const Bun: {
 }
 
 const counters = startCounters()
-if (counters)
+if (counters) {
+  const read = (path: string): string => {
+    const source = readFileSync(path, 'utf8')
+    return (counters.wants(path) ? counters.change(path, source) : undefined) ?? source
+  }
+  ;(globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] = read
   Bun.plugin({
     name: 'ubqtest coverage',
     setup(build) {
@@ -27,10 +33,10 @@ if (counters)
       // filter must match only project files.
       const escaped = projectRoot().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       const filter = new RegExp(`^${escaped}[\\\\/](?!.*node_modules).*\\.[cm]?[jt]s$`)
-      build.onLoad({ filter }, ({ path }) => {
-        const source = readFileSync(path, 'utf8')
-        const changed = counters.wants(path) ? counters.change(path, source) : undefined
-        return { contents: changed ?? source, loader: /ts$/.test(path) ? 'ts' : 'js' }
-      })
+      build.onLoad({ filter }, ({ path }) => ({
+        contents: read(path),
+        loader: /ts$/.test(path) ? 'ts' : 'js',
+      }))
     },
   })
+}
