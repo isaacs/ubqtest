@@ -10,6 +10,7 @@ section 13. Update this file when a step ends.
 | `npm test` | runs the tool's own tests with ubq itself: `node src/cli.ts` |
 | `npm run typecheck` | must print nothing |
 | `npm run build` | makes the package in `dist/` (D32): bundled JavaScript, type declarations, `package.json` |
+| `npm run docs` | builds, then makes `docs/api.md` from the type declarations (`scripts/api-docs.ts`). A test fails if the file is not current. |
 | `npm run bench` | builds, then times ubq and other tools. `-- --check` fails if a ubq row is over its budget. `-- --only ubq` runs only ubq rows. |
 
 ## Checks before each commit
@@ -591,6 +592,19 @@ Known limits:
 - A test process on Deno that has no runner and is in a loop
   that does not return gets no stack (the watchdog thread has no
   inspector there).
+
+## Ready for a release, but not released (2026-11-12)
+
+- `README.md` for people, with the commands and the limits.
+- `docs/api.md`, made from the type declarations. typedoc was
+  not used: it does not work with TypeScript 7.
+- CI (`.github/workflows/ci.yml`): Linux and macOS with Node 24
+  and the newest Node, and Windows with bash and PowerShell. Bun
+  and Deno are installed in each job. The Windows jobs are not
+  required yet.
+- For agents: `GUIDE.md`, `CONVERT.md`, the `use-ubq` skill, and a
+  text for `AGENTS.md` in the README.
+- `npm publish ./dist` is not done. The user does it.
 
 ## Conversion from a different test tool: first version (2026-11-12)
 

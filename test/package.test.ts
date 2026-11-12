@@ -88,6 +88,11 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     ])
   })
 
+test('docs/api.md is current', () => {
+  const r = spawnSync('node', ['scripts/api-docs.ts', '--check', join(pkg, 'types')], { cwd: root, encoding: 'utf8' })
+  assert.deepEqual([r.status, r.stderr], [0, ''])
+})
+
 test('the guide and the doctor of the package', () => {
   const ubq = join(pkg, 'cli.js')
   assert.equal(sh('node', ubq, 'guide').lines[0], '# ubq guide')

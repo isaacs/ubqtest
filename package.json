@@ -18,7 +18,8 @@
     "test": "node src/cli.ts",
     "typecheck": "tsc",
     "bench": "npm run build && node experiments/suite/bench.mjs",
-    "build": "node scripts/build.ts"
+    "build": "node scripts/build.ts",
+    "docs": "npm run build && node scripts/api-docs.ts"
   },
   "devDependencies": {
     "@sveltejs/acorn-typescript": "^1.0.13",
