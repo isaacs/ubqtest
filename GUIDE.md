@@ -278,6 +278,9 @@ test('the button counts', async () => {
   does not catch fails the test.
 - An action waits 2000 ms for its element. Then it fails, and the
   message names the element.
+- The first `browser()` call of a file starts the browser. On a
+  slow machine that takes seconds: give such a test a longer
+  limit, `{ timeout: 30_000 }`.
 - `browser(options)` takes the options of `browser.newContext`
   of Playwright, such as `viewport` and `locale`.
 

@@ -58,7 +58,7 @@ const write = (file: string, text: string): void => {
 const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /** The file of a page in the site. */
-const htmlFile = (slug: string): string => (slug === 'index' ? 'index.html' : `${slug}/index.html`)
+const htmlFile = (slug: string): string => (slug === 'index' || slug === '404' ? `${slug}.html` : `${slug}/index.html`)
 /** A relative URL from the file of one page to a file of the site. */
 const rel = (fromSlug: string, to: string): string => {
   const url = posix.relative(posix.dirname(htmlFile(fromSlug)), to) || '.'
@@ -72,7 +72,8 @@ const relMd = (fromSlug: string, to: string): string => posix.relative(posix.dir
  * file that is not a page goes to the repository.
  */
 const link = (page: { source: string; slug: string }, href: string, markdown: boolean): string => {
-  if (/^([a-z]+:|#)/i.test(href)) return href
+  // A full URL, a place in the page, or a path from the root of the host.
+  if (/^([a-z]+:|#|\/)/i.test(href)) return href
   const [path = '', hash] = href.split('#')
   const file = posix.normalize(posix.join(posix.dirname(page.source), path))
   const slug = bySource.get(file)
@@ -156,7 +157,7 @@ const render = (page: { source: string; slug: string }, markdown: string): { htm
       // A path of the repository, in code text, is a link.
       codespan: ({ text, linked }: Tokens.Codespan & { linked?: boolean }) => {
         const href = linked ? undefined : mention(page, text)
-        return href ? `<a href="${href}"><code>${text}</code></a>` : `<code>${text}</code>`
+        return href ? `<a href="${href}"><code>${escape(text)}</code></a>` : `<code>${escape(text)}</code>`
       },
       heading(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { tokens, depth, text }: Tokens.Heading) {
         const inner = this.parser.parseInline(tokens)
@@ -198,7 +199,7 @@ const layout = (slug: string, title: string, body: string, bodyClass: string): s
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escape(title)}</title>
+${slug === '404' ? '<base href="/">\n' : ''}<title>${escape(title)}</title>
 <meta name="description" content="${escape(pkg.description)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ubq">
@@ -302,6 +303,37 @@ const home = read('site/home.html')
 write('index.html', layout('index', 'ubq: the test tool for coding agents, and their humans', home, 'index'))
 write('index.md', markdownCopy(HOME, read(HOME.source)))
 
+// The page for an address that the site does not have. A host gives
+// this file for each such address, in any folder. So its links are
+// from the root of the host: the site must be at the root.
+const list = (group: Page['group']): string =>
+  PAGES.filter(p => p.group === group && p.slug !== 'license')
+    .map(p => `- [${p.name}](${p.source}): ${p.about}`)
+    .join('\n')
+const notFound = { source: '404.md', slug: '404' }
+const notFoundText = `# This page is not here
+
+The address is wrong, or the page moved. These are the pages of
+the site.
+
+- [Home](README.md): what ubq is, and why.
+${list('use')}
+- [Design documents](docs/README.md): the decisions, the
+  measurements, and the status of the work.
+
+## If you are an agent
+
+Each page is also a markdown file: \`<page>.md\`. The index of the
+documents is [llms.txt](/llms.txt). All the user documents are in
+one file: [llms-full.txt](/llms-full.txt). In a project that has the package, \`npx ubq
+guide\` prints the guide for the installed version.
+`
+{
+  const { html } = render(notFound, notFoundText)
+  write('404.html', layout('404', 'Page not found | ubq', `<div class="columns">\n  <main class="doc">\n${html}\n  </main>\n</div>`, 'page'))
+  write('404.md', markdownCopy(notFound, notFoundText))
+}
+
 // The index for agents (https://llmstxt.org), and the user documents
 // in one file.
 const entries = (group: Page['group']): string =>
@@ -336,4 +368,4 @@ write(
     .join('\n\n---\n\n') + '\n',
 )
 
-console.log(`site: ${PAGES.length + 2} pages in ${out}`)
+console.log(`site: ${PAGES.length + 3} pages in ${out}`)

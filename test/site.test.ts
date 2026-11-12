@@ -26,11 +26,16 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
     const text = readFileSync(join(dir, file), 'utf8')
     const links = file.endsWith('.html') ? text.matchAll(/(?:href|src)="([^"#]+)/g) : text.matchAll(/\]\(([^)#\s]+)/g)
     for (const [, href = ''] of links) {
-      if (/^[a-z]+:/.test(href)) continue
-      const to = resolve(dir, dirname(file), href)
+      // `/` is the base of the links of 404.html.
+      if (/^[a-z]+:/.test(href) || href === '/') continue
+      // A path from the root of the host.
+      const to = href.startsWith('/') ? join(dir, href) : resolve(dir, dirname(file), href)
       if (!existsSync(to) || (href.endsWith('/') && !existsSync(join(to, 'index.html')))) missing.push(`${file}: ${href}`)
     }
   }
   assert.deepEqual(missing, [])
+  assert.match(readFileSync(join(dir, '404.html'), 'utf8'), /<base href="\/">[^]*href="guide\/"/)
+  // Code text with `<` stays text.
+  assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<code>ubq &lt;file&gt;:&lt;line&gt;<\/code>|&lt;test id&gt;/)
   assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<link rel="alternate" type="text\/markdown" href="\.\.\/guide\.md"/)
 })

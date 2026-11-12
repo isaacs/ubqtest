@@ -11,7 +11,9 @@ import { project } from './setup.ts'
 const installed = existsSync(chromium.executablePath().replace(/chromium-(\d+).*/, 'chromium_headless_shell-$1'))
 const skip = installed ? {} : { skip: 'the browser is not installed: node src/cli.ts browser install' }
 
-test('a page loads a file of the project, with a module script', skip, async () => {
+// The first test of a file starts the browser. On a slow machine
+// that takes seconds, so the tests that use it have a long limit.
+test('a page loads a file of the project, with a module script', { ...skip, timeout: 30_000 }, async () => {
   const page = await browser()
   await page.goto('/test/fixtures/browser/page.html')
   await page.click('#b')
@@ -55,13 +57,13 @@ test('an error in the page fails the test, and a missing element names the eleme
     join(p.dir, 'page.test.ts'),
     `import { assert, test } from 'ubqtest'
 import { browser } from 'ubqtest/browser'
-test('page error', async () => {
+test('page error', { timeout: 30_000 }, async () => {
   const page = await browser()
   await page.goto('/page.html')
   await page.click('button')
   await assert.eventually(() => page.title(), 'never')
 })
-test('no element', async () => {
+test('no element', { timeout: 30_000 }, async () => {
   const page = await browser()
   await page.goto('/page.html')
   await page.click('#absent')
@@ -92,7 +94,7 @@ createServer((req, res) => res.setHeader('content-type', 'text/html').end('<titl
     join(p.dir, 'served.test.ts'),
     `import { assert, test } from 'ubqtest'
 import { browser } from 'ubqtest/browser'
-test('served', async () => {
+test('served', { timeout: 30_000 }, async () => {
   const page = await browser()
   await page.goto('/a')
   assert.equal(await page.title(), 'served /a')
