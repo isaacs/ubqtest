@@ -36,6 +36,6 @@ else startPlain()
 if (process.env.UBQ_CAPTURE) startCapture(currentFile)
 // Processes that the tests start must not get these.
 setUpdate(!!process.env.UBQ_UPDATE)
-for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_COMMAND', 'UBQ_CAPTURE', 'UBQ_UPDATE', 'UBQ_HANG'])
+for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_COMMAND', 'UBQ_CAPTURE', 'UBQ_UPDATE', 'UBQ_HANG', 'UBQ_MUTANT', 'UBQ_LIMIT'])
   delete process.env[name]
 setCollector(startCoverage())

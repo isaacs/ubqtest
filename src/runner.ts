@@ -233,11 +233,12 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
 }
 
 /** Runs one test file in a new process. Sends its events to `send`. */
-const runFile = (
+export const runFile = (
   { file, lines, ids }: Selected,
   send: Sink,
   cacheDir: string,
   update = false,
+  env: Record<string, string> = {},
 ): Promise<void> =>
   new Promise(done => {
     const child = spawn(
@@ -258,6 +259,7 @@ const runFile = (
           UBQ_LINES: lines.join(','),
           UBQ_IDS: JSON.stringify(ids),
           ...(update && { UBQ_UPDATE: '1' }),
+          ...env,
         },
       },
     )

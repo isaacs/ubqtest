@@ -225,3 +225,94 @@ export const instrument = (source: string, file: string): Instrumented | undefin
   }
   return { code: code + source.slice(pos), regions, shifts }
 }
+
+/** One small change to a source file, for a mutation check. */
+export interface Mutant {
+  /** The text from `start` to `end` is replaced by `text`. */
+  start: number
+  end: number
+  text: string
+  /** The text that the change replaces. */
+  from: string
+  line: number
+  column: number
+}
+
+const SWAPS: Record<string, string> = {
+  '===': '!==',
+  '!==': '===',
+  '==': '!=',
+  '!=': '==',
+  '<': '<=',
+  '<=': '<',
+  '>': '>=',
+  '>=': '>',
+  '+': '-',
+  '-': '+',
+  '*': '/',
+  '/': '*',
+  '&&': '||',
+  '||': '&&',
+}
+
+/** TypeScript nodes that have an expression that runs. */
+const TS_VALUES = new Set(['TSAsExpression', 'TSNonNullExpression', 'TSSatisfiesExpression', 'TSTypeAssertion'])
+
+/**
+ * The changes that a mutation check can make to `source`: a
+ * different operator, a different boolean or number, a `!` removed.
+ * Returns undefined if the parser cannot read the source.
+ */
+export const mutants = (source: string): Mutant[] | undefined => {
+  let program: Node
+  try {
+    program = parser.parse(source, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      locations: true,
+      allowHashBang: true,
+    }) as unknown as Node
+  } catch {
+    return undefined
+  }
+  const out: Mutant[] = []
+  const add = (start: number, end: number, text: string): void => {
+    const before = source.slice(0, start)
+    const line = before.split('\n').length
+    out.push({ start, end, text, from: source.slice(start, end), line, column: start - before.lastIndexOf('\n') })
+  }
+  const walk = (node: Node): void => {
+    if (node.type.startsWith('TS')) {
+      // Types do not run.
+      if (TS_VALUES.has(node.type) && isNode(node.expression)) walk(node.expression)
+      return
+    }
+    if (node.type === 'BinaryExpression' || node.type === 'LogicalExpression') {
+      const operator = node.operator as string
+      const left = node.left as Node
+      const right = node.right as Node
+      if (SWAPS[operator] && isNode(left) && isNode(right)) {
+        // The operator is between the operands. A comment there can
+        // contain the same characters.
+        const gap = source
+          .slice(left.end, right.start)
+          .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, text => ' '.repeat(text.length))
+        const at = gap.indexOf(operator)
+        if (at >= 0) add(left.end + at, left.end + at + operator.length, SWAPS[operator])
+      }
+    } else if (node.type === 'Literal' && typeof node.value === 'boolean')
+      add(node.start, node.end, String(!node.value))
+    else if (node.type === 'Literal' && typeof node.value === 'number')
+      add(node.start, node.end, node.value === 0 ? '1' : '0')
+    else if (node.type === 'UnaryExpression' && node.operator === '!') add(node.start, node.start + 1, '')
+    // A module path and a property name are not values of the program.
+    for (const key in node) {
+      if (key === 'source' || (key === 'key' && !node.computed)) continue
+      const v = node[key]
+      if (isNode(v)) walk(v)
+      else if (Array.isArray(v)) for (const item of v) if (isNode(item)) walk(item)
+    }
+  }
+  walk(program)
+  return out.sort((a, b) => a.start - b.start)
+}

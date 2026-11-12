@@ -143,6 +143,23 @@ export const covers = (db: DatabaseSync, file: string, line: number): Covers => 
   }
 }
 
+/**
+ * The tests that ran the code at offset `at` of `file`. More exact
+ * than a line: a line can have a function that no test called.
+ */
+export const coversAt = (db: DatabaseSync, file: string, at: number): Covers => {
+  const rows = rangesOf(db, file).filter(({ ranges }) => {
+    // The segments do not overlap.
+    for (let i = 0; i < ranges.length; i += 3)
+      if (ranges[i]! <= at && at < ranges[i + 1]!) return ranges[i + 2]! > 0
+    return false
+  })
+  return {
+    tests: rows.flatMap(r => (r.test ? [r.test] : [])),
+    loads: rows.flatMap(r => (r.test ? [] : [r.tfile])),
+  }
+}
+
 /** Test files whose last run did not have full coverage. */
 export const incomplete = (db: DatabaseSync): { tfile: string; coverage: string }[] =>
   db

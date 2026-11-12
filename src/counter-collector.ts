@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, sep } from 'node:path'
 import { type Collector, flatten } from './coverage.ts'
-import { COLUMN, COUNTERS, originalColumn, type Region, snapshot } from './counters.ts'
+import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
 import type { Instrumented } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
@@ -20,6 +20,11 @@ const shared = globalThis as { [KEY]?: Collector; [key: symbol]: unknown }
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
 let instrument: typeof import('./instrument.ts').instrument | undefined
+
+/** Loads the parser. Most processes find their files in the cache and do not need it. */
+const parse = (): typeof import('./instrument.ts').instrument =>
+  (instrument ??= (createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts'))
+    .instrument)
 
 export interface Counters {
   /** True for a file of the project that can have counters. */
@@ -81,10 +86,7 @@ export const startCounters = (): Counters | undefined => {
     } catch {
       // Not in the cache.
     }
-    instrument ??= (
-      createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
-    ).instrument
-    const result = instrument(source, file)
+    const result = parse()(source, file)
     if (result) {
       try {
         if (!madeDir) mkdirSync(cacheDir, { recursive: true })
@@ -123,7 +125,12 @@ export const startCounters = (): Counters | undefined => {
     wants: path => path.startsWith(root) && !path.startsWith(own) && !path.includes(modules),
     change(path, source) {
       const file = rel(path)
-      const result = source === undefined ? undefined : cached(file, source)
+      // The source of a mutation check is not for the cache.
+      const changed = source === undefined ? undefined : mutated(path, source)
+      const result =
+        source === undefined ? undefined
+        : changed === undefined ? cached(file, source)
+        : parse()(changed, file)
       if (!result) {
         unread++
         return undefined

@@ -16,7 +16,7 @@ section 13. Update this file when a step ends.
 
 ```
 npx tsc                 # must print nothing
-node src/cli.ts         # the tool runs its own tests: 88 pass
+node src/cli.ts         # the tool runs its own tests: 90 pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
 ```
 
@@ -580,6 +580,37 @@ Known limits:
 - A test process on Deno that has no runner and is in a loop
   that does not return gets no stack (the watchdog thread has no
   inspector there).
+
+## Mutation check: done (2026-11-12)
+
+`ubq mutate <file>` and `ubq mutate <file>:<line>` (D35,
+`01-agent-ideation.md`, section 7). Source: `src/mutate.ts`, the
+list of changes in `src/instrument.ts` (`mutants`), the change in
+a test process in `src/counters.ts` (`mutated`).
+
+- The changes: `===` and `!==`, `==` and `!=`, `<` and `<=`, `>`
+  and `>=`, `+` and `-`, `*` and `/`, `&&` and `||`, `true` and
+  `false`, a number to 0 (0 to 1), and a `!` removed. Types,
+  module paths, and property names get none.
+- For each change, the tests are those whose coverage has the
+  code range of the change with a count above 0 (`coversAt`), and
+  that passed in their last run. Code that ran while a test file
+  loaded gets all tests of that file.
+- It works on Node, Deno, and Bun. On the small project of the
+  step 8 check: 12 changes in 1.1 seconds on Node.
+- The stored coverage must be of the file as it is now. If the
+  file changed, the command says to run the tests first.
+- Checks: `test/mutate.test.ts`.
+
+Known limits:
+
+- No list of changes for a file that the parser cannot read, and
+  none for `.tsx` and `.jsx`.
+- A file with many changes whose tests are all in one test file
+  runs one process at a time.
+- No option that names the kinds of changes, and no way to mark
+  a survivor as accepted.
+- `UBQ_COVERAGE=v8` has no load hook, so the command refuses it.
 
 ## Hang reruns: D14 done (2026-11-12)
 

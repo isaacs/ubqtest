@@ -203,6 +203,20 @@ file, `ubq --changed` runs only the test files that loaded it.
 Before a change to a line, `ubq covers <file>:<line>` names the
 tests that protect it.
 
+A mutation check tells if the tests of a file are strong:
+
+```
+ubq mutate src/cart.ts       makes small changes to the file, one at a time, and runs the tests of the changed code
+ubq mutate src/cart.ts:20    only the changes on that line
+```
+
+It changes an operator, a number, or a boolean (`-` to `+`, `<` to
+`<=`, `0` to `1`), in the test processes only. The file does not
+change. Each `SURVIVED` block is a change that no test failed for:
+add a test for that case. Some changes cannot make a test fail,
+because the changed code does the same thing. Do not change
+correct code for them. Run the tests before the check (`ubq`).
+
 More run commands:
 
 ```

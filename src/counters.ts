@@ -12,6 +12,18 @@ export const COUNTERS = 'ubqtest.counters'
  */
 export const SOURCE = 'ubqtest.source'
 
+/**
+ * For `ubq mutate`: the source of a file with the change of the
+ * mutation check, if the runner gave this process one for the file
+ * (`UBQ_MUTANT`: path, start, end, new text). If not, undefined.
+ */
+export const mutated = (path: string, source: string): string | undefined => {
+  mutant ??= JSON.parse(process.env.UBQ_MUTANT || '[]') as typeof mutant & {}
+  const [file, start, end, text] = mutant
+  return file === path ? source.slice(0, start) + text + source.slice(end) : undefined
+}
+let mutant: [file?: string, start?: number, end?: number, text?: string] | undefined
+
 /** The part of the source that one counter stands for. */
 export interface Region {
   start: number

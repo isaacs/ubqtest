@@ -421,3 +421,31 @@ and can leak state between files is against that goal.
 
 The order of the later work is: per-test coverage on Bun, then
 mutation checks, then the background server.
+
+## D35. The mutation check: changes in the test process, exit code 0 (agent, 2026-11-12)
+
+`ubq mutate <file>` makes one small change to the file at a time,
+runs the tests that ran the changed code, and lists each change
+that no test failed for.
+
+- **The file on disk does not change.** The load hook of each test
+  process makes the change (`UBQ_MUTANT`). A check that stops in
+  the middle leaves nothing to put back, and two agents in one
+  project do not see changes of each other.
+- **The check does not write runs to the store.** A failure there
+  is not a failure of the project.
+- **The exit code is 0, also with survivors.** Some changes cannot
+  make a test fail, because the changed code does the same thing
+  (a change of `<` to `<=` in a loop over an array with one more element at its end). An exit code of 1 would tell an
+  agent to "correct" code that is correct. The summary line has
+  the count.
+- **A test file runs one change at a time.** Two processes of one
+  test file can fail only because they run at the same time (a
+  port, a `testdir` folder). Different test files run at the same
+  time.
+- **The time limit of a test is 10 times its last time, and 1000
+  ms or more.** A change can make a loop that does not end.
+
+The command needs the name of a file. A check of all files of a
+project can take a long time, and the agent knows which file it
+changed.

@@ -116,9 +116,10 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
     id,
     fn,
     skip: all.find(o => o.skip)?.skip ?? false,
-    timeout: all.findLast(o => o.timeout !== undefined)?.timeout ??
-      config().timeout ??
-      DEFAULT_TIMEOUT,
+    timeout: Math.min(
+      LIMIT,
+      all.findLast(o => o.timeout !== undefined)?.timeout ?? config().timeout ?? DEFAULT_TIMEOUT,
+    ),
     at,
   })
   if (!scheduled) {
@@ -205,6 +206,9 @@ const errorFailure = (error: unknown): Failure => {
     ...(stack[0] && { at: stack[0], stack }),
   }
 }
+
+/** For `ubq mutate`: no test has more time than this. A change can make a loop that does not end. */
+const LIMIT = +(process.env.UBQ_LIMIT ?? Infinity)
 
 const TIMEOUT = Symbol('timeout')
 

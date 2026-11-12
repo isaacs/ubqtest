@@ -3,6 +3,7 @@
 // runs. See docs/04-architecture.md, section 5.
 import { existsSync, readFileSync } from 'node:fs'
 import { doctor } from './doctor.ts'
+import { mutate } from './mutate.ts'
 import { testdirPath } from './fixtures.ts'
 import { join, resolve } from 'node:path'
 import { projectRoot, rel } from './project.ts'
@@ -47,6 +48,7 @@ const USAGE = `usage:
   ubq slow [run]             the slowest tests of a run (default: the last run)
   ubq uncovered [file]       code that no test ran
   ubq covers <file>:<line>   the tests that ran a line
+  ubq mutate <file>[:<line>] a mutation check: makes small changes to the file, one at a time, and lists each change that no test fails for
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
   ubq guide                  how to write and run tests, for the installed version
   ubq doctor                 checks the setup of the project, and states the fix for each problem
@@ -54,7 +56,7 @@ const USAGE = `usage:
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
 
-const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql']
+const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
 
 const main = (args: string[]): number | Promise<number> => {
   const [command, ...rest] = args
@@ -273,6 +275,9 @@ const main = (args: string[]): number | Promise<number> => {
       out(`${c.tests.length} tests run ${f}:${m[2]}`)
       return 0
     }
+
+    case 'mutate':
+      return mutate(db, rest, out)
 
     case 'sql': {
       db.exec('pragma query_only = on')
