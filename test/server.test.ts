@@ -103,9 +103,12 @@ test('the output of a test comes through the server, and a different runtime sto
   assert.match(out, /^  \| to stdout\n  \| to stderr$/m)
   // The test processes of the server loaded the code of a different
   // runtime. The server stops, and the run starts its own processes.
-  const bun = spawnSync('bun', [cli, 'out.test.ts', 'pass.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
-  assert.match(bun.stdout, /^fail: 1 failed, 5 passed, 1 skipped/m)
-  assert.equal(p.ubq('server', 'stop').out, 'server: not running\n')
+  // The release job has no Bun.
+  if (spawnSync('bun', ['--version']).status === 0) {
+    const bun = spawnSync('bun', [cli, 'out.test.ts', 'pass.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
+    assert.match(bun.stdout, /^fail: 1 failed, 5 passed, 1 skipped/m)
+    assert.equal(p.ubq('server', 'stop').out, 'server: not running\n')
+  }
 })
 
 test('a socket path that is too long', { skip: process.platform === 'win32' && 'Windows has a named pipe' }, () => {

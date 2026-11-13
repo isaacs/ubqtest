@@ -46,14 +46,14 @@ jobs:
 
       - run: npm ci --ignore-scripts
       # The `prepare` script of this package, which the line above
-      # does not run: the link from the fixture projects to the package.
+      # does not run: the link from the fixture projects to the
+      # package. The type check of the fixtures needs it.
       - run: node test/setup.ts
       - run: npm run typecheck
       # The package is the `dist` folder, with its own package.json.
+      # The tests run in the CI workflow. A maintainer approves the
+      # staged version only if CI passed for the tagged commit.
       - run: npm run build
-      # The tests of Bun, of Deno, and of the browser skip here: this
-      # job installs none of them. The CI workflow runs them.
-      - run: npm test
 
       - run: npm stage publish --access public
         working-directory: dist
