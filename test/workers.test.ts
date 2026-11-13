@@ -126,6 +126,10 @@ test('a test that blocks the thread of workerd, and a source file with an error'
   writeFileSync(join(p.dir, 'test/throws.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow new Error('at load')\n")
   const throws = p.ubq('test/throws.test.ts')
   assert.deepEqual([throws.code, throws.out[0], throws.out.includes('  Error: at load')], [1, 'ERROR test/throws.test.ts', true])
+  // A value that is not an error, with no stack.
+  writeFileSync(join(p.dir, 'test/throws.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow 'a string'\n")
+  const text = p.ubq('test/throws.test.ts')
+  assert.deepEqual([text.code, text.out[0], text.out.some(line => line.includes('a string'))], [1, 'ERROR test/throws.test.ts', true])
   writeFileSync(join(p.dir, 'src/text.ts'), 'export const shout = (\n')
   assert.deepEqual(p.ubq('test/worker.test.ts').out.slice(0, 2), [
     'ERROR test/worker.test.ts',

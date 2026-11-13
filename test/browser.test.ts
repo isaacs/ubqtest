@@ -240,12 +240,15 @@ test('title', { timeout: 30_000 }, async () => {
   ])
 })
 
-test('a browser path in UBQ_BROWSER that is not there', { timeout: 30_000 }, () => {
+test('a browser that is not there: in UBQ_BROWSER, or not installed', { timeout: 30_000 }, () => {
   const p = project()
   cleanup(() => remove(p.dir))
   writeFileSync(join(p.dir, 'page.test.ts'), "import { test } from 'ubqtest'\nimport { browser } from 'ubqtest/browser'\ntest('page', async () => {\n  await browser()\n})\n")
-  const env = { ...process.env, CI: '', UBQ_BROWSER: join(p.dir, 'no-such-browser') }
-  const run = spawnSync('node', [createRequire(import.meta.url).resolve('../src/cli.ts'), 'page.test.ts'], { cwd: p.dir, encoding: 'utf8', env })
-  assert.deepEqual([run.status, run.stdout.split('\n')[0]], [1, 'FAIL page.test.ts > page'])
-  assert.match(run.stdout, /no-such-browser/)
+  const run = (vars: Record<string, string>) =>
+    spawnSync('node', [createRequire(import.meta.url).resolve('../src/cli.ts'), 'page.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '', ...vars } })
+  const path = run({ UBQ_BROWSER: join(p.dir, 'no-such-browser') })
+  assert.deepEqual([path.status, path.stdout.split('\n')[0]], [1, 'FAIL page.test.ts > page'])
+  assert.match(path.stdout, /no-such-browser/)
+  const none = run({ PLAYWRIGHT_BROWSERS_PATH: join(p.dir, 'no-browsers') })
+  assert.match(none.stdout, /^  Error: the browser is not installed\. Run: npx ubq browser install$/m)
 })
