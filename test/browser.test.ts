@@ -119,6 +119,7 @@ check()`,
   // A run with no browser test does not start the server.
   rmSync(join(p.dir, 'server.pid'))
   assert.equal(p.ubq('pass.ts').code, 0)
+  assert.equal(p.ubq('pass.ts', 'mock.ts').last, 'fail: 2 failed, 7 passed, 1 skipped')
   assert.equal(existsSync(join(p.dir, 'server.pid')), false)
   // Two files: the test processes are children of the runner.
   const two = p.ubq('served.test.ts', 'pass.ts')

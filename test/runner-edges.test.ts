@@ -1,6 +1,6 @@
 // Less common paths of the runner: an early end of a file, a store
 // that does not open, many changed files, and a signal.
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -60,6 +60,10 @@ test('a store that does not open', () => {
   const r = p.ubq('a.test.ts', 'b.test.ts')
   assert.equal(r.code, 0)
   assert.match(r.out, /^note: this run is not stored: /m)
+  // A plain run of a test file.
+  const plain = spawnSync('node', ['a.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
+  assert.equal(plain.status, 0)
+  assert.match(plain.stdout, /^note: this run is not stored: /m)
 })
 
 test('a store of a different version starts again', () => {
