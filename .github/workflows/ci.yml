@@ -34,9 +34,6 @@ jobs:
     defaults:
       run:
         shell: ${{ matrix.shell }}
-    env:
-      # Outside the checkout, so that a cache can keep the browser.
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/../ms-playwright
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -61,7 +58,11 @@ jobs:
           UBQ_SOURCEMAP: 1
       - uses: actions/cache@v6
         with:
-          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          # The folder of the browser on Linux, macOS, and Windows.
+          path: |
+            ~/.cache/ms-playwright
+            ~/Library/Caches/ms-playwright
+            ~/AppData/Local/ms-playwright
           key: browser-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: browser-${{ runner.os }}-
       - name: Browser for the front-end tests
