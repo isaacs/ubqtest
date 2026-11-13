@@ -114,3 +114,24 @@ test('${name}', () => {
   const one = p.ubq('second/second.test.ts')
   assert.deepEqual([one.code, one.out.includes('first.test.ts'), one.last], [1, false, 'fail: 0 failed, 1 passed, 1 type errors'])
 })
+
+test('a TypeScript with no native program, and a native program that does not start', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'tsconfig.json'), JSON.stringify({ include: ['pass.ts'] }))
+  // A package with only the JavaScript program, which prints one error.
+  const ts = join(p.dir, 'node_modules/typescript')
+  mkdirSync(join(ts, 'bin'), { recursive: true })
+  writeFileSync(join(ts, 'package.json'), JSON.stringify({ name: 'typescript', bin: { tsc: './bin/tsc' } }))
+  writeFileSync(join(ts, 'bin/tsc'), "console.log('pass.ts(1,1): error TS1000: from the program of the package')\n")
+  const old = p.ubq('pass.ts')
+  assert.deepEqual([old.code, old.out.split('\n').slice(0, 2)], [1, ['TYPE pass.ts', '  TS1000: from the program of the package']])
+  // A native program that is not a program.
+  const native = join(p.dir, `node_modules/@typescript/typescript-${process.platform}-${process.arch}`)
+  mkdirSync(join(native, 'lib'), { recursive: true })
+  writeFileSync(join(native, 'package.json'), '{}')
+  writeFileSync(join(native, 'lib', process.platform === 'win32' ? 'tsc.exe' : 'tsc'), 'not a program')
+  const broken = p.ubq('pass.ts')
+  assert.deepEqual([broken.code, broken.out.split('\n')[0]], [1, 'TYPE (no file)'])
+  assert.match(broken.out, /^  ubq: the type checker did not start: /m)
+})
