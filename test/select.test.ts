@@ -159,6 +159,11 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
   ])
   // A command for all workspaces.
   assert.equal(p.ubq('--failed').out.replace(/ \(run \d+\)/g, '').split('\n').filter(l => /^(pass|fail|workspaces)/.test(l)).join('|'), 'fail: 1 failed, 0 passed|workspaces: 1 of 1 failed: packages/b. Run ubq in the folder of a workspace for its tests.')
+  writeFileSync(join(p.dir, 'packages/b/one.test.ts'), `import { assert, test } from 'ubqtest'\ntest('one', () => assert(true))\n`)
+  assert.equal(p.ubq().out.split('\n').at(-2), 'workspaces: 2 passed')
+  // No workspace has tests.
+  for (const name of ['a', 'b']) rmSync(join(p.dir, 'packages', name, 'one.test.ts'))
+  assert.equal(p.ubq().code, 2)
   rmSync(p.dir, { recursive: true })
 })
 
