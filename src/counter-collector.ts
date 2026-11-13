@@ -6,15 +6,15 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { type Collector, flatten } from './coverage.ts'
+import { addCoverage, type Collector, flatten, sourceCoverage } from './coverage.ts'
 import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
 import type { Instrumented } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
-import { sourceRegions } from './source-map.ts'
+import { builtSources, mapOf, type SourceRegions, sourceRegions } from './source-map.ts'
 
 /** Changes when the form of the changed source or the regions changes. */
-const CACHE_VERSION = 3
+const CACHE_VERSION = 4
 
 const KEY = Symbol.for('ubqtest.collector')
 const shared = globalThis as { [KEY]?: Collector; [key: symbol]: unknown }
@@ -73,8 +73,29 @@ export interface Counters {
 }
 
 /** The cache entry of a file. `root` is the project that the file belongs to. */
-export const cachePath = (file: string, source: string, root = projectRoot()): string =>
-  join(root, '.ubq', 'counters', hash('sha1', `${CACHE_VERSION}\0${file}\0${source}`) + '.json')
+export const cachePath = (file: string, source: string, root = projectRoot(), map = ''): string =>
+  join(root, '.ubq', 'counters', hash('sha1', `${CACHE_VERSION}\0${file}\0${source}${map && '\0' + map}`) + '.json')
+
+/**
+ * The source map of a built file of the project, if it has one. A
+ * file with no `sourceMappingURL` line costs one test of its text.
+ */
+export const builtMap = (path: string, source: string): ReturnType<typeof mapOf> =>
+  source.includes('sourceMappingURL=') ? mapOf(source, path) : undefined
+
+/**
+ * The sources of a cache entry whose files have the content that
+ * the map is of. A source that changed after the build is not in
+ * the list: its places are not known until the next build.
+ */
+export const currentSources = (result: Instrumented, root = projectRoot()): SourceRegions[] | undefined =>
+  result.sources?.filter(source => {
+    try {
+      return hash('sha1', readFileSync(join(root, source.file))) === source.hash
+    } catch {
+      return false
+    }
+  })
 
 /**
  * The column in the source of a column in the changed source of a
@@ -103,8 +124,10 @@ export const cached = (
   root = projectRoot(),
   /** The path of the file, if the caller is a load hook. */
   from?: string,
+  /** The source map of the file, if it is a built file (`builtMap`). */
+  map?: ReturnType<typeof mapOf>,
 ): Instrumented | undefined => {
-  const path = cachePath(file, source, root)
+  const path = cachePath(file, source, root, map?.text)
   let result: Instrumented | undefined
   try {
     result = JSON.parse(readFileSync(path, 'utf8')) as Instrumented
@@ -124,6 +147,10 @@ export const cached = (
   result ??= parse()?.(source, file)
   if (result) {
     try {
+      if (map) {
+        const sources = builtSources(result.regions, source, map, root, (text, name) => parse()?.(text, name)?.regions)
+        if (sources) result.sources = sources
+      }
       if (needsJs) result.js = nodeModule.stripTypeScriptTypes(result.code)
       mkdirSync(join(root, '.ubq', 'counters'), { recursive: true })
       // Other processes read the cache at the same time, so the
@@ -165,6 +192,8 @@ export const startCounters = (): Counters | undefined => {
   const all = (shared[Symbol.for(COUNTERS)] ??= new Map<string, Uint32Array>()) as Map<string, Uint32Array>
   const counters = new Map<string, Uint32Array>()
   const regions = new Map<string, Region[]>()
+  /** For a built file with a source map: the source files that its counters are for. */
+  const built = new Map<string, SourceRegions[]>()
   /** Files that had their first snapshot. */
   const seen = new Set<string>()
   /** Count of project files that have no counters. */
@@ -186,10 +215,17 @@ export const startCounters = (): Counters | undefined => {
       const files: Coverage['files'] = []
       for (const [file, counts] of counters) {
         if (!counts.some(Boolean)) continue
+        const sources = built.get(file)
+        if (sources) {
+          // Coverage of the source files, not of the built file.
+          addCoverage(files, sourceCoverage(sources, counts, seen))
+          counts.fill(0)
+          continue
+        }
         const all = !seen.has(file)
         seen.add(file)
         const ranges = flatten([{ ranges: snapshot(regions.get(file)!, counts, all) }])
-        if (ranges.length) files.push({ file, ranges })
+        if (ranges.length) addCoverage(files, [{ file, ranges }])
       }
       return files
     },
@@ -230,13 +266,17 @@ export const startCounters = (): Counters | undefined => {
       const changed = source === undefined ? undefined : mutated(path, source)
       const result =
         source === undefined ? undefined
-        : changed === undefined ? cached(file, source, false, projectRoot(), path)
+        : changed === undefined ? cached(file, source, false, projectRoot(), path, builtMap(path, source))
         : parse()?.(changed, file)
       if (!result) {
         unread++
         return undefined
       }
       use(file, result)
+      const sources = currentSources(result)
+      if (sources?.length) built.set(file, sources)
+      // A source changed after the build: the run has no coverage of it.
+      if (sources && sources.length < result.sources!.length) unread++
       shifts.set(file, result.shifts)
       const { imports } = result
       return result.js === undefined ? { source: result.code, js: false, imports } : { source: result.js, js: true, imports }

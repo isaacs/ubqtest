@@ -4,8 +4,10 @@ import { createRequire } from 'node:module'
 import { sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from './config.ts'
+import { snapshot } from './counters.ts'
 import type { Coverage, FileStart } from './events.ts'
 import { projectRoot, rel } from './project.ts'
+import type { SourceRegions } from './source-map.ts'
 
 /** Takes a snapshot of the code that ran since the last snapshot. */
 export interface Collector {
@@ -21,6 +23,35 @@ interface V8Range {
 interface V8Script {
   url: string
   functions: { ranges: V8Range[] }[]
+}
+
+/**
+ * The coverage of the source files of a built file (D55), from the
+ * counts of the built file. `seen` has the sources that had their
+ * first snapshot.
+ */
+export const sourceCoverage = (sources: SourceRegions[], counts: ArrayLike<number>, seen: Set<string>): Coverage['files'] => {
+  const files: Coverage['files'] = []
+  for (const source of sources) {
+    const own = Uint32Array.from(source.counters, list => list.reduce((sum, i) => sum + (counts[i] ?? 0), 0))
+    // Region 0 is the module, which ran if the built file ran. Code
+    // of this source ran if a different region did.
+    if (!own.some((n, i) => i > 0 && n > 0) && seen.has(source.file)) continue
+    const all = !seen.has(source.file)
+    seen.add(source.file)
+    const ranges = flatten([{ ranges: snapshot(source.regions, own, all) }])
+    if (ranges.length) files.push({ file: source.file, ranges })
+  }
+  return files
+}
+
+/** Adds coverage to a list, with one entry for each file. */
+export const addCoverage = (files: Coverage['files'], more: Coverage['files']): void => {
+  for (const extra of more) {
+    const same = files.find(f => f.file === extra.file)
+    if (same) same.ranges = mergeRanges(same.ranges, extra.ranges)
+    else files.push(extra)
+  }
 }
 
 /**

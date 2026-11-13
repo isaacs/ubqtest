@@ -11,7 +11,7 @@ import { basename, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isMainThread, threadId } from 'node:worker_threads'
 import { type ChildCounts, type Children, CHILDREN } from './child-read.ts'
-import { cached, cachePath } from './counter-collector.ts'
+import { builtMap, cached, cachePath } from './counter-collector.ts'
 import { COUNTERS, SOURCE } from './counters.ts'
 import { projectRoot } from './project.ts'
 
@@ -166,11 +166,12 @@ const count = ([root, dir]: Scope): Counting => {
       // Not the key of the collector of a test process: one process
       // can have both, for two projects with a file of the same name.
       const key = `//${file}`
-      const result = cached(key, source, false, root, path)
+      const map = builtMap(path, source)
+      const result = cached(key, source, false, root, path, map)
       if (!result) return undefined
       let counts = all.get(key)
       if (counts?.length !== result.regions.length) all.set(key, (counts = new Uint32Array(result.regions.length)))
-      files.set(file, { cache: basename(cachePath(key, source, root)), counts })
+      files.set(file, { cache: basename(cachePath(key, source, root, map?.text)), counts })
       return result.js === undefined ? { source: result.code, js: false } : { source: result.js, js: true }
     },
   }

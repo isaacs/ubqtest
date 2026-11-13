@@ -1141,3 +1141,59 @@ fail for the list yet.
   with CRLF line ends has other hashes. This repository has
   `eol=lf` in `.gitattributes`.
 
+## D55. Build output is not source, and a source map gives its coverage to the source (user, 2026-11-13)
+
+Two rules for a project that has built files in its root.
+
+**1. The `build` key.** A list of glob patterns for files that are
+not source of the program: the output of a build, and the tools
+that make it. With no key: `dist/**` and `scripts/**`, the common
+names. `ubq uncovered` leaves these files out and has their count
+in its summary. `ubq mutate --diff` does not change them. The
+collectors still count them: `ubq --changed` needs that.
+
+**2. A built file with a source map.** If a project file that a
+process loads has a `sourceMappingURL` line (a map at its end, or
+a file next to it), and the map names source files of the project,
+the counters of the built file count for those source files
+(`builtSources` in `src/source-map.ts`). The run then has no
+coverage of the built file itself.
+
+- **The regions are those of the source file,** from the parser,
+  and not those of the built file. A bundler removes code that
+  nothing uses. Such code is code that no test ran, and it must be
+  in the list.
+- **Which counter counts for which region:** a counter of the
+  built file counts for the smallest region of the source that
+  has the place of its first token. The module of a source ran if
+  the built file has code of it.
+- **The result is the same** for a test that loads the source, a
+  test that loads a bundle, and a test that loads a bundle with
+  `minify` (checked in `test/built.test.ts`).
+- **A source that changed after the build:** the map has the hash
+  of each source text. If a source file does not have that
+  content now, the run has no coverage of that file, and the test
+  file has coverage `partial`. Wrong places would be worse than no
+  places. The user accepted this limit: build again before the
+  tests run.
+- The cache entry of a built file has the regions of its sources,
+  so a child process and the test process that reads its counts
+  agree. The text of the map is part of the cache key.
+
+**Reason.** In CI of ubq, the Deno jobs run the built runner, and
+`dist/instrument.js` was in the merged list of `ubq uncovered`.
+Each project with a build folder in its root has the same
+problem. Most coverage tools use the source map, and with it the
+choice between tests of `src` and tests of `dist` does not change
+the coverage.
+
+**For the tests of ubq:** `scripts/build.ts` makes source maps if
+`UBQ_SOURCEMAP` is set, and CI sets it. The published package has
+no maps.
+
+**How an agent finds the way to merge runs** (the user asked):
+`ubq uncovered` prints a note if a range is on a line that names
+a runtime or a system. The note names the section of the guide,
+which has the commands for one machine and a workflow for CI. The
+skill says not to fake the platform in a test.
+

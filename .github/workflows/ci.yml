@@ -48,6 +48,10 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+        env:
+          # The Deno job runs the built runner. With a source map,
+          # its coverage is coverage of src/.
+          UBQ_SOURCEMAP: 1
       - name: Browser for the front-end tests
         run: node src/cli.ts browser install
       - name: Test on Node

@@ -5,6 +5,7 @@ import * as nodeModule from 'node:module'
 import { tsPlugin } from '@sveltejs/acorn-typescript'
 import { Parser } from 'acorn'
 import { COUNTER_NAME, COUNTERS, type Region } from './counters.ts'
+import type { SourceRegions } from './source-map.ts'
 
 /** The name of the counter array in a changed file. */
 const NAME = COUNTER_NAME
@@ -33,6 +34,12 @@ export interface Instrumented {
    * function.
    */
   imports: number
+  /**
+   * For a built file with a source map: the regions of each source
+   * file of the project that the map names (D55). Coverage of the
+   * built file is then coverage of those files.
+   */
+  sources?: SourceRegions[]
 }
 
 export interface Node {

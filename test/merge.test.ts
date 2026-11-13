@@ -43,11 +43,14 @@ test('names the runtime', () => {
   return { ...p, run }
 }
 const BUN = 'lib/where.ts:3:35  { (+2 lines)'
+// The range is on a line with `typeof Bun`. The command says where the way to run it is.
+const NOTE =
+  'note: 1 of these ranges are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide'
 
 test('runs on two runtimes in one project fold together', { skip: !bun && 'bun is not installed', timeout: 60_000 }, () => {
   const p = make()
   assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
-  assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran'])
+  assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran', NOTE])
   assert.deepEqual(p.run('bun'), ['pass: 0 failed, 1 passed'])
   // The run on Bun replaced the coverage of the test. The run on Node stays.
   const both = ['0 uncovered ranges in 0 of the 1 files that tests ran', `coverage of: bun-${system}, node-${system}`]
@@ -57,7 +60,12 @@ test('runs on two runtimes in one project fold together', { skip: !bun && 'bun i
   // Coverage of a different content of a file does not count.
   appendFileSync(join(p.dir, 'lib/where.ts'), '// a change\n')
   assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
-  assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran', `coverage of: bun-${system}, node-${system}`])
+  assert.deepEqual(p.run('node', 'uncovered'), [
+    BUN,
+    '1 uncovered ranges in 1 of the 1 files that tests ran',
+    `coverage of: bun-${system}, node-${system}`,
+    NOTE,
+  ])
 })
 
 test('merge adds the coverage of the store of a second copy of the project', { timeout: 60_000 }, () => {
@@ -73,7 +81,7 @@ test('merge adds the coverage of the store of a second copy of the project', { t
     return [r.status, r.stdout.trimEnd().split('\n')]
   }
   assert.deepEqual(ubq('merge', p.dir), [0, [`merged ${p.dir}: 4 coverage rows of node-${system}`]])
-  assert.deepEqual(ubq('uncovered'), [1, [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran']])
+  assert.deepEqual(ubq('uncovered'), [1, [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran', NOTE]])
   assert.deepEqual(ubq('covers', 'lib/where.ts:6'), [0, ['where.test.ts > names the runtime', '1 tests run lib/where.ts:6']])
   // A store of a different content of a file.
   appendFileSync(join(copy, 'lib/where.ts'), '// a change\n')

@@ -1204,3 +1204,27 @@ call can need the real method, and the command cannot know what
 the restore function of a helper of the project does. The command
 makes only the changes that are certain (D43).
 
+## Build output, source maps, and the way to find the merge flow (2026-11-13)
+
+D55. Done:
+
+- The `build` key (default `dist/**` and `scripts/**`): not in the
+  list of `ubq uncovered`.
+- A built file with a source map gives its coverage to the source
+  files that the map names. Checks: `test/built.test.ts`.
+- CI builds ubq with source maps, so the Deno jobs give coverage
+  of `src/`.
+- `ubq uncovered` prints a note for code that names a runtime or a
+  system, and the guide has the commands and a CI workflow.
+
+Checked by hand: the suite with the built runner on Deno, with
+maps. No `dist/` file is in the list.
+
+Not done:
+
+- A source map with `sections` (an index map).
+- A built file whose map names a source with a path that is not a
+  file path (`webpack://`).
+- The parser must read the source file. A source in a language
+  that it does not read (Vue, Svelte) gets no coverage this way.
+

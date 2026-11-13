@@ -40,6 +40,12 @@ For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright
 `Page`. Do not add jsdom or a different driver.
 
+If `ubq uncovered` lists code for a different runtime or system,
+the guide has "Code for more than one runtime or system": run
+the tests in each environment, and merge the stores with `ubq
+merge`. Do not write a test that fakes the platform to reach
+that code, if a real run can reach it.
+
 For a Cloudflare Worker, the guide has "Tests of a Cloudflare
 Worker": the `workers` key of the configuration makes test files
 run in workerd, with the bindings of the wrangler config.

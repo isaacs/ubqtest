@@ -338,12 +338,56 @@ run each line of such a project. The store keeps the coverage of
 each environment (a runtime and a system, such as `bun-darwin`),
 and `ubq uncovered` lists the code that no environment ran.
 
-- On one machine: run the tests on each runtime. `ubq`, then `bun
-  node_modules/.bin/ubq`. The second run does not remove the
-  coverage of the first.
-- For other systems: keep `.ubq/runs.db` of each CI job (an
-  artifact), and merge them in one job: `ubq merge <store>...`,
-  then `ubq uncovered`.
+`ubq uncovered` tells you when you need this: it prints a note if
+a range is on a line that names a runtime or a system
+(`process.platform`, `Bun`, `Deno`).
+
+On one machine, run the tests on each runtime. The second run
+does not remove the coverage of the first:
+
+```
+npx ubq                        on Node
+bun node_modules/.bin/ubq      on Bun
+npx ubq uncovered              code that no runtime ran
+```
+
+For other systems, each CI job keeps its store, and one job
+merges them. With GitHub Actions:
+
+```yaml
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+      - run: npm ci
+      - run: npx ubq
+      - uses: actions/upload-artifact@v7
+        with:
+          name: store-${{ matrix.os }}
+          path: .ubq/runs.db*
+          include-hidden-files: true
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: store-*
+          path: stores
+      - run: npx ubq merge stores/*
+      - run: npx ubq uncovered       # exit code 1 if no job ran some code
+```
+
+- `ubq merge <store>...` takes a project folder, a `.ubq` folder,
+  or a `runs.db` file.
 - Coverage of a file counts only if the file has the same content
   as now. Make each store from the same commit.
 - `ubq uncovered` prints the environments, if there is more than
@@ -470,7 +514,8 @@ minutes with no use, or with `ubq server stop`. It is optional.
 
 Most projects need none. The `ubq` key of `package.json` can have
 `include` and `exclude` (lists of glob patterns for test files),
-`helpers` (glob patterns for test helpers: see below), `timeout`
+`helpers` (glob patterns for test helpers: see below), `build`
+(glob patterns for build output and build tools: see below), `timeout`
 (milliseconds), `hangRerun` (`false` turns off the rerun
 of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
@@ -480,6 +525,16 @@ of a Cloudflare Worker"). A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace.
+
+Build output and build tools are not source of the program. `ubq
+uncovered` does not list them. With no `build` key, they are the
+files in `dist/` and `scripts/` of the project. The key replaces
+that rule: `"build": ["out/**", "tools/**"]`. An empty list means
+that each file is source. If a test loads a built file that has a
+source map, the coverage is coverage of the source files that the
+map names: the result is the same as for a test that loads the
+source. After a change to a source file, build again before the
+tests run: until then, the run has no coverage of that file.
 
 A test helper is a file that is part of the tests and is not a
 test file: a setup module, or the scenario of an end-to-end test.

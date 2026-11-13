@@ -40,6 +40,7 @@ that are in it. A folder that is a different project is an error.
 | `include` | list of glob patterns | the `.test.` name pattern | Replaces the name pattern. Paths are from the project root. |
 | `exclude` | list of glob patterns | none | Files that are not test files, after `include`. |
 | `helpers` | list of glob patterns | `**/{test,tests,__tests__}/**` | Test helpers: files that are part of the tests and are not test files, such as a setup module or the scenario of an end-to-end test (D51). `ubq uncovered` leaves them out, and `ubq mutate --diff` does not change them. The list replaces the default. An empty list means that no file is a helper. |
+| `build` | list of glob patterns | `dist/**`, `scripts/**` | Files that are not source of the program: the output of a build, and the tools of the build (D55). `ubq uncovered` leaves them out, and `ubq mutate --diff` does not change them. The list replaces the default. An empty list means that each file is source. A built file with a source map gives its coverage to the source files that the map names. |
 | `timeout` | number | 5000 | The time limit of a test in milliseconds, if the test and its groups set none. |
 | `hangRerun` | boolean | true | `false` turns off the rerun of a test that timed out with something open (D14). |
 | `bunInspectorCoverage` | boolean | false | `true` records coverage for a test file that runs as a plain program on Bun (`bun test/foo.ts`). The places are a guess and can be wrong (D39). |

@@ -22,6 +22,9 @@ await build({
   // workerd has `cloudflare:workers`.
   external: ['playwright-core', 'cloudflare:workers'],
   minify: true,
+  // For the tests of ubq in CI: coverage of the built runner is then
+  // coverage of `src/` (D55). The published package has no maps.
+  sourcemap: !!process.env.UBQ_SOURCEMAP,
   platform: 'node',
   format: 'esm',
   target: 'node24',
