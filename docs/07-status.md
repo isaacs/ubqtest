@@ -1177,3 +1177,35 @@ To do next, in this order:
 5. The parser does not read `src/assert.ts`, so each test file of
    this repository has coverage `partial`.
 
+## Fourth report from the Workers project (2026-11-13)
+
+`15-agent-feedback-0.0.6.md`: the conversion was smooth (17 TODO
+comments, 15 type errors, 225 tests pass on the first run after
+the TODOs). Done from it:
+
+- `ubq doctor`: with a vitest config, the line says that `ubq
+  convert` writes the `workers` key, and has no JSON. With no
+  vitest config, the JSON is on its own lines.
+- The report of `ubq convert`: a place has the number of its hint
+  and the first sentence. The full text of each hint is below the
+  files, one time. The summary names the files with no known test
+  tool. The note about file names counts only files with tests.
+- `toContain` is `.includes`, and `?.includes` only for a value
+  from an index (`x[k]`) or from an optional chain.
+- The hints for restore calls say that a call in the middle of a
+  test is safe to delete if a second `spyOn` follows, and that the
+  helper must lose its restore function.
+- A note for a wrangler config with "test" in its name: the copy
+  for the vitest plugin is not necessary.
+- The names of the `ubqtest/workers` import are in order.
+- The convert guide: `git status` clean in place of a commit, what
+  the command changes in `package.json`, and the binding of the
+  D1 migrations.
+
+Not done, on purpose: the command does not delete
+`vi.restoreAllMocks()` in the middle of a test, or the lines of a
+restore variable (`restore = m.restore`). The code after such a
+call can need the real method, and the command cannot know what
+the restore function of a helper of the project does. The command
+makes only the changes that are certain (D43).
+

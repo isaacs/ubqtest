@@ -106,9 +106,15 @@ export const doctor = (out: (text: string) => void): number => {
         config,
         include: [config.includes('/') ? `${config.slice(0, config.lastIndexOf('/'))}/**/*.test.ts` : '**/*.test.ts'],
       }))
-    fix(
-      `this project has tests of a Cloudflare Worker (a test file imports from 'cloudflare:', or the project has the vitest plugin for Workers). They must run in the Workers runtime. Add to package.json: "ubq": { "workers": ${JSON.stringify(entries)} }. ${vitest ? `This is from ${vitest.file}. "ubq convert" writes it.` : 'Check the path of each wrangler config and the globs of its test files.'}`,
-    )
+    const about =
+      "this project has tests of a Cloudflare Worker (a test file imports from 'cloudflare:', or the project has the vitest plugin for Workers). They must run in the Workers runtime, which needs the \"workers\" key of the ubq configuration."
+    // `ubq convert` writes the key. A person who adds it by hand
+    // first does the work two times.
+    if (vitest) fix(`${about} Do not add it by hand: "ubq convert" writes it to package.json, from ${vitest.file}.`)
+    else
+      fix(
+        `${about} Add to "ubq" in package.json, and check the path of each wrangler config and the globs of its test files:\n${JSON.stringify({ workers: entries }, null, 2)}`,
+      )
   }
 
   if (sources.some(source => source.includes('ubqtest/browser'))) {

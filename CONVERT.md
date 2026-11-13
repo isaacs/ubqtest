@@ -11,11 +11,13 @@ has the API and the rules of ubq.
    down the count of tests that pass, and each test that fails or
    is skipped. You compare with this at the end.
 2. **Install.** `npm install --save-dev ubqtest`. Then `npx ubq
-   doctor`, and do each `FIX` line.
+   doctor`, and do each `FIX` line. A line that says that `ubq
+   convert` does the work needs no action in this step.
 3. **Convert.** `npx ubq convert test` (give the folders and files
    that have tests). `--dry` shows the report and changes no file.
-   The command changes the files in place. Commit before it, so
-   that `git diff` shows the changes.
+   The command changes the files in place. Make sure that `git
+   status` is clean before it, so that `git diff` shows the
+   changes. It is safe to run the command again on one file.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. `grep -rn 'TODO(ubq)'
    test` lists them. The sections below tell how to do each kind.
@@ -54,8 +56,13 @@ unless the test found a defect. Do not make an assertion weaker.
   function becomes `async`.
 - A tap test with subtests becomes `describe`.
 
-It does not change the name of a file, the source of the project,
-or `package.json`.
+It does not change the name of a file or the source of the
+project. It changes `package.json` in one case: for a project of
+the vitest plugin for Workers, it writes the `workers` key of the
+ubq configuration, if the key is not there.
+
+The report has one line for each TODO, with the number of a hint.
+The full text of each hint is below the files, one time.
 
 ## Names of test files
 
@@ -275,7 +282,12 @@ Things to check by hand:
   entry for each project of the config, with its wrangler config,
   its test files, and the plain values of `miniflare.bindings` as
   `vars`. Read the notes that it prints: a value that is not plain
-  must go into `vars` by hand. If a setup file of the config only
+  must go into `vars` by hand. A binding for the D1 migrations
+  (`TEST_MIGRATIONS: await readD1Migrations(...)`) gets no note
+  and is not in `vars`: `migrate` does that work. If the project
+  has a copy of its wrangler config for the tests, which leaves
+  out `containers` or a service binding, the copy is not
+  necessary: ubq loads a config with them. If a setup file of the config only
   applied D1 migrations, the command adds `await migrate('DB')`
   to each test file of that project, and says that the setup file
   can go. The command also changes these names of

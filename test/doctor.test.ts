@@ -36,7 +36,9 @@ test('doctor states the fix for each problem of the setup', () => {
   assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
 
   writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:test'\n")
-  assert.match(doctor().lines[2]!, /^FIX  this project has tests of a Cloudflare Worker .* Add to package\.json: "ubq": \{ "workers": /)
+  // With no vitest config: one entry for each wrangler config, as JSON on its own lines.
+  assert.match(doctor().lines[2]!, /^FIX  this project has tests of a Cloudflare Worker .* Add to "ubq" in package\.json, and check /)
+  assert.deepEqual(JSON.parse(doctor().lines.slice(3, -2).join('\n')), { workers: [{ config: 'wrangler.jsonc', include: ['**/*.test.ts'] }] })
   p.configure({ include: ['*.ts'], workers: [{ config: 'wrangler.jsonc', include: ['worker.ts'] }] })
   assert.equal(doctor().lines[2], 'FIX  "ubq.workers" in package.json names a wrangler config that does not exist: wrangler.jsonc')
   writeFileSync(join(p.dir, 'wrangler.jsonc'), '{}')

@@ -89,9 +89,10 @@ const MATCHERS: Record<string, Rule> = {
   // value has no undefined in it.
   toBeDefined: 'assert(<$0> !== undefined)',
   toBeNaN: 'assert(Number.isNaN($0))',
-  // `?.`: the type of the value often has undefined in it, and
-  // expect() took all types. The result is the same.
-  toContain: 'assert(<$0>?.includes($1))',
+  // `INCLUDES` is `?.includes` for a value from an index or from an
+  // optional chain: its type has undefined in it, and expect() took
+  // all types. For other values it is `.includes`.
+  toContain: 'assert(<$0>INCLUDES($1))',
   toHaveLength: 'assert.equal(<$0>.length, $1)',
   toMatchObject: 'assert.match($0, $1)',
   toBeInstanceOf: 'assert(<$0> instanceof $1)',
@@ -171,7 +172,8 @@ const TODO = {
     "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
   throwsText:
     'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
-  restore: 'A spyOn spy goes back when its test ends. Remove this call. ubq has no call that puts the method back before that.',
+  restore:
+    'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
@@ -352,6 +354,11 @@ export const convertSource = (
    */
   const rewrite = (node: Node, rule: string, args: Node[]): Node[] => {
     // A name for the parameter of a callback that the arguments do not use.
+    if (rule.includes('INCLUDES')) {
+      const subject = args[0]!
+      const optional = (subject.type === 'MemberExpression' && subject.computed) || subject.type === 'ChainExpression' || text(subject).includes('?.')
+      rule = rule.replace('INCLUDES', optional ? '?.includes' : '.includes')
+    }
     if (rule.includes('ITEM')) rule = rule.replaceAll('ITEM', ['item', 'element', 'entry', 'one'].find(name => !args.some(arg => mentions(arg, name))) ?? '_item')
     const pieces: string[] = ['']
     const parts: Node[] = []
@@ -671,7 +678,7 @@ export const convertSource = (
       const restore = restoreCall(args[0])
       todo(
         path,
-        restore ? `If this only puts spies back, delete it, and delete each assignment to ${restore}. A spyOn spy goes back when its test ends. If it does other work: ${TODO.hook}`
+        restore ? `If this only puts spies back, delete it, each assignment to ${restore}, and each call of ${restore}() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first. If it does other work: ${TODO.hook}`
         : !once ? TODO.hook
         : inner ? TODO.hookGroup
         : once[1] === 'before' ? TODO.hookFile
@@ -995,7 +1002,12 @@ export const convertSource = (
     if (!at) added = added.trimStart() + '\n'
     code = code.slice(0, at) + added + code.slice(at)
     if (helpers && !/\bmigrate\b/.test(code.slice(helpers.start, helpers.end)))
-      code = code.slice(0, helpers.start) + code.slice(helpers.start, helpers.end).replace('{ ', '{ migrate, ') + code.slice(helpers.end)
+      code =
+        code.slice(0, helpers.start) +
+        code
+          .slice(helpers.start, helpers.end)
+          .replace(/\{([^}]*)\}/, (_, names: string) => `{ ${[...names.split(',').map(name => name.trim()).filter(Boolean), 'migrate'].sort().join(', ')} }`) +
+        code.slice(helpers.end)
     changes++
   }
   // The new text must be code.
@@ -1069,7 +1081,10 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   }
   let changed = 0
   let todos = 0
-  let unknown = 0
+  /** Files that use no test tool that this command knows. */
+  const unknown: string[] = []
+  /** The text of each hint of the report, in the order of its first place. */
+  const hints: string[] = []
   let failed = 0
   const unnamed: string[] = []
   let workers = 0
@@ -1084,26 +1099,38 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       continue
     }
     if (!result) {
-      unknown++
+      unknown.push(file)
       continue
     }
     changed++
     todos += result.todos.length
     if (!dry) writeFileSync(path, result.code)
-    if (!TEST_NAME.test(file)) unnamed.push(file)
+    // A file with no tests is a helper. Its name is not a problem.
+    if (!TEST_NAME.test(file) && /^\s*(test|describe)\(/m.test(result.code)) unnamed.push(file)
     if (/from\s+['"](cloudflare:|ubqtest\/workers)/.test(result.code)) workers++
     out(`converted ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`)
-    for (const t of result.todos) out(`  ${file}:${t.line}  ${t.text}`)
+    // The text of a hint is long, and many places have the same
+    // one. A place has the number of its hint and the first
+    // sentence. The full text of each hint is below the files.
+    for (const t of result.todos) {
+      if (!hints.includes(t.text)) hints.push(t.text)
+      out(`  ${file}:${t.line}  [${hints.indexOf(t.text) + 1}] ${/^.*?[.:](?=\s|$)/.exec(t.text)?.[0] ?? t.text}`)
+    }
   }
+  if (hints.length) out('hints:')
+  hints.forEach((text, i) => out(`  [${i + 1}] ${text}`))
   const parts = [`${changed} files ${dry ? 'to change' : 'changed'}`, `${todos} TODO comments`]
   if (failed) parts.push(`${failed} files not converted (see the lines above)`)
-  if (unknown) parts.push(`${unknown} files with no known test tool`)
+  if (unknown.length) {
+    const more = unknown.length > 10 ? `, and ${unknown.length - 10} more` : ''
+    parts.push(`${unknown.length} files with no known test tool (${unknown.slice(0, 10).join(', ')}${more})`)
+  }
   out(`convert: ${parts.join(', ')}`)
   if (unnamed.length && !config().include) {
     const folders = [...new Set(unnamed.map(f => f.split('/')[0]!))]
     const globs = folders.map(f => (unnamed.includes(f) ? f : `${f}/**/*.${/\.[cm]?tsx?$/.test(unnamed[0]!) ? 'ts' : 'js'}`))
     out(
-      `note: ${unnamed.length} of these files do not have a name that ubq runs (*.test.ts). A file with no tests (a helper) needs no change. Rename a file that has tests, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
+      `note: ${unnamed.length} of these files have tests, and do not have a name that ubq runs (*.test.ts): ${unnamed.slice(0, 5).join(', ')}${unnamed.length > 5 ? ', ...' : ''}. Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
   }
   for (const note of setupNotes) out(note)
@@ -1130,6 +1157,13 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       `${wrote ? 'wrote "ubq.workers" to package.json' : 'add to "ubq" in package.json'}, from ${vitest.file}: "workers": ${JSON.stringify(key)}`,
     )
     for (const project of vitest.projects) for (const note of project.notes) out(`note: ${note}`)
+    // A project can have a second wrangler config for the vitest
+    // plugin, which did not load each binding.
+    for (const { config: path } of key)
+      if (/test/i.test(path.split('/').at(-1)!))
+        out(
+          `note: ${path} has "test" in its name. If it is a copy of the wrangler config of the Worker that exists only to leave out "containers" or a service binding, it is not necessary: ubq loads a config with them. Then give the config of the Worker in "config", and remove the copy.`,
+        )
   } else if (workers && !config().workers)
     out(
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
