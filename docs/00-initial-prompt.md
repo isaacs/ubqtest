@@ -4,8 +4,8 @@ _The initial prompt that kicked the project off. It starts by
 asking the Agent what kind of test framework would help it
 write better code._
 
-_Throughout this diary, "Agent" is Claude Fable 5.2, "user" is
-[isaacs](http://izs.me)_
+_Throughout this diary, "Agent" is Claude (usually Fable 5.2 or
+Opus 5.5), "user" is [isaacs](http://izs.me)_
 
 ---
 
