@@ -207,6 +207,15 @@ Core and runner:
   Deno, a plain program in a loop gets no stack.
 - A new schema version removes the old store. Two `ubq` processes
   that start at that time can fail one time.
+- Flaky in CI on macOS, one time each (2026-11-13). Not studied
+  yet:
+  - `test/server.test.ts:54`, Deno job: `prepared` was 2, not 1.
+    A guess: the folder watcher got late events for files that
+    the test copied before the server started.
+  - `test/mutate.test.ts:100`, Bun job: 0 of 4 changes survived,
+    not 1. The coverage rows of the test 'not below zero' stay in
+    the store after the test file loses that test, so `mutate` can
+    select it. Why the result changes from run to run is not known.
 - Many test files run `ubq` in `test/fixtures` and share its
   store. A test that reads a row from that store can see the rows
   of a different file. `test/bun.test.ts` has its own project now.
