@@ -474,3 +474,66 @@ test('the parser reads type syntax that it does not know, with the types removed
   assert.equal(source.slice(last.start, last.end), 'export const f = (a: number): number => a + 1')
   assert.throws(() => parse('const = 1', 'a.ts'), SyntaxError)
 })
+
+test('a file with no line end at its end, and a file of one line', () => {
+  assert.deepEqual(
+    convert("import assert from 'node:assert'\nimport { test } from 'node:test'\ntest('a', () => {\n  assert.ok(1)\n})\nassert.ok(2, 'last')")?.code,
+    [
+      "import { assert, test } from 'ubqtest'",
+      "test('a', () => {",
+      '  assert(1)',
+      '})',
+      '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
+      'assert(2) // last',
+    ],
+  )
+  assert.deepEqual(convert("import t from 'tap'\nt.test('a', t => {\n  t.pass()\n})\nt.end()")?.code, [
+    "import { assert, test } from 'ubqtest'",
+    "test('a', () => {",
+    '  assert(true)',
+    '})',
+  ])
+  assert.deepEqual(convert("import { it, expect } from 'vitest'; it('a', () => { expect(1).toBe(1) })")?.code, [
+    "import { assert, test } from 'ubqtest'; test('a', () => { assert.equal(1, 1) })",
+  ])
+})
+
+test('the report of the command for files that it cannot change, and for many files', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const dir of ['old', 'old/deep', 'plain']) mkdirSync(join(p.dir, dir))
+  // The parser cannot read this file.
+  writeFileSync(join(p.dir, 'old/bad.test.js'), "import { it } from 'vitest'\nit('a', () => {\n")
+  // Tests in files with a name that ubq does not run.
+  for (const n of [1, 2, 3, 4, 5, 6])
+    writeFileSync(join(p.dir, `old/deep/spec${n}.js`), "import { it, expect } from 'vitest'\nit('a', () => {\n  expect(1).toBe(1)\n})\n")
+  // Files with no test tool.
+  for (let n = 0; n < 11; n++) writeFileSync(join(p.dir, `plain/file${String(n).padStart(2, '0')}.js`), 'export const x = 1\n')
+  const lines = p.ubq('convert', '--dry', 'old', 'plain').out.split('\n')
+  assert.match(lines[0]!, /^not converted old\/bad\.test\.js: /)
+  assert.deepEqual(lines.slice(-4), [
+    'convert: 6 files to change, 0 TODO comments, 1 files not converted (see the lines above), 11 files with no known test tool (plain/file00.js, plain/file01.js, plain/file02.js, plain/file03.js, plain/file04.js, plain/file05.js, plain/file06.js, plain/file07.js, plain/file08.js, plain/file09.js, and 1 more)',
+    'note: 6 of these files have tests, and do not have a name that ubq runs (*.test.ts): old/deep/spec1.js, old/deep/spec2.js, old/deep/spec3.js, old/deep/spec4.js, old/deep/spec5.js, .... Rename them, or add to package.json: "ubq": { "include": ["old/**/*.js"] }. Use "exclude" for files in that folder that are not test files.',
+    'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
+    '',
+  ])
+})
+
+test('a Workers project with no vitest config, and one whose package.json is not JSON', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const old = "import { env } from 'cloudflare:test'\nimport { expect, it } from 'vitest'\nit('a', () => {\n  expect(env).toBeTruthy()\n})\n"
+  writeFileSync(join(p.dir, 'w.test.ts'), old)
+  assert.match(
+    p.ubq('convert', '--dry', 'w.test.ts').out,
+    /\nnote: 1 of these files are tests of a Cloudflare Worker\. They must run in the Workers runtime\. Add to package\.json: "ubq": \{ "workers": /,
+  )
+  // A vitest config whose setup file is not there, and a package.json that the command cannot write.
+  writeFileSync(
+    join(p.dir, 'vitest.config.ts'),
+    "export default { plugins: [cloudflareTest({ wrangler: { configPath: './wrangler.jsonc' } })], test: { include: ['*.test.ts'], setupFiles: ['./gone.ts'] } }\n",
+  )
+  writeFileSync(join(p.dir, 'package.json'), '{ "type": "module", // a comment\n}')
+  const key = '"workers": [{"config":"wrangler.jsonc","include":["*.test.ts"]}]'
+  assert(p.ubq('convert', 'w.test.ts').out.includes(`\nadd to "ubq" in package.json, from vitest.config.ts: ${key}\n`))
+})

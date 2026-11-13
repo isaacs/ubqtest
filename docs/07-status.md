@@ -1228,3 +1228,27 @@ Not done:
 - The parser must read the source file. A source in a language
   that it does not read (Vue, Svelte) gets no coverage this way.
 
+## Tests for the code that no test ran: in progress (2026-11-13)
+
+The merged list of CI had 593 ranges. The work goes file by file,
+largest first. The method: write inputs for the branches in the
+list, read each result, correct what is wrong, and keep the
+checked results as tests.
+
+- `src/convert.ts`: 119 ranges, now 17. Checks:
+  `test/convert-forms.test.ts` (24 cases) and 3 more tests in
+  `test/convert.test.ts`. The cases found 10 defects, all
+  corrected: a namespace import of `node:assert`, two imports of
+  `cloudflare:test`, `waitOnExecutionContext()` with no argument,
+  `mock.timers`, `toMatch` with a value, an import and code on one
+  line, an empty line for a file that needs no import, the migrate
+  line in a CommonJS file, `expect()` with no value, and an
+  assertion of `node:assert` outside a test.
+- The 17 that stay are fallbacks that no input reaches (`?? []`,
+  `?? ''`). They wait for the comment that marks code as not
+  measured, or for removal.
+
+A local run counts only Node, and it had 486 ranges after this
+work. The next files: `src/workers-host.ts` (54), `src/test.ts`
+(33), `src/runner.ts` (33), `src/cli.ts` (26).
+

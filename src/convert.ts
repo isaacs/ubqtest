@@ -821,7 +821,10 @@ export const convertSource = (
     }
     if (base.type !== 'CallExpression' || roleOf(base.callee as Node) !== 'expect') return undefined
     const subject = (base.arguments as Node[])[0]
-    if (!subject) return undefined
+    if (!subject) {
+      todo(path, 'expect() has no value. Write an assertion with assert.')
+      return undefined
+    }
     const all = [subject, ...args]
     const fail = (): undefined => {
       todo(path, `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`)
@@ -890,6 +893,7 @@ export const convertSource = (
     const count = rule.match(/\$\d/g)?.length ?? 0
     // A message is the argument after the last one of the rule.
     if (method !== 'fail') messageComment(node, args[count], path)
+    if (!path.some(n => FUNCTION.has(n.type))) todo(path, TODO.rootAssert)
     return rewrite(node, rule, args)
   }
 
@@ -974,10 +978,14 @@ export const convertSource = (
   // --- The import of ubqtest, in place of the old imports ---
   const names = [...used].sort().join(', ')
   const line = names ? (commonJs ? `const { ${names} } = require('ubqtest')` : `import { ${names} } from 'ubqtest'`) : ''
+  /** `;` if code is after a statement on its line: the new text must not join that code. */
+  const before = (node: Node): string => {
+    const end = source.indexOf('\n', node.end)
+    return source.slice(node.end, end < 0 ? source.length : end).trim() ? ';' : ''
+  }
   removed.forEach((node, i) => {
-    const end = source[node.end] === '\n' ? node.end + 1 : node.end
-    if (i === 0) replace(node.start, node.end, line)
-    else replace(lineStart(node.start) === node.start ? node.start : node.start, end, '')
+    if (i === 0 && line) replace(node.start, node.end, line + before(node))
+    else replace(node.start, source[node.end] === '\n' ? node.end + 1 : node.end, '')
   })
   if (!removed.length && line) {
     // After a `#!` line.
@@ -999,7 +1007,7 @@ export const convertSource = (
         (todos.get(workersImport.start) ?? new Set()).add(TODO.workers),
       )
     }
-    replace(workersImport.start, workersImport.end, lines.join('\n'))
+    replace(workersImport.start, workersImport.end, lines.join('\n') + before(workersImport))
     changes++
   }
   for (const [at, messages] of todos) {
@@ -1021,13 +1029,16 @@ export const convertSource = (
   code += source.slice(at)
   // The setup file of the vitest config applied the migrations of
   // D1 for each test file. In ubq, the test file does that.
-  const lines = migrate.filter(binding => !code.includes(`migrate('${binding}')`)).map(binding => `await migrate('${binding}')`)
+  // Not in a CommonJS file: it has no `await` at its top level.
+  const lines =
+    commonJs ? [] : migrate.filter(binding => !code.includes(`migrate('${binding}')`)).map(binding => `await migrate('${binding}')`)
   if (lines.length) {
     const imports = (parse(code, file).body as Node[]).filter(n => n.type === 'ImportDeclaration')
     const helpers = imports.find(n => (n.source as { value?: unknown }).value === 'ubqtest/workers')
-    const at = imports.at(-1)?.end ?? 0
-    let added = `${helpers ? '' : "\nimport { migrate } from 'ubqtest/workers'"}\n\n${lines.join('\n')}`
-    if (!at) added = added.trimStart() + '\n'
+    // After the line of the last import. The file has one: that of ubqtest.
+    const lineEnd = code.indexOf('\n', imports.at(-1)!.end)
+    const at = lineEnd < 0 ? code.length : lineEnd
+    const added = `${helpers ? '' : "\nimport { migrate } from 'ubqtest/workers'"}\n\n${lines.join('\n')}`
     code = code.slice(0, at) + added + code.slice(at)
     if (helpers && !/\bmigrate\b/.test(code.slice(helpers.start, helpers.end)))
       code =
