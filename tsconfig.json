@@ -19,6 +19,7 @@
     "scripts"
   ],
   "exclude": [
-    "test/fixtures/types-bad.ts"
+    "test/fixtures/types-bad.ts",
+    "test/fixtures/workers"
   ]
 }

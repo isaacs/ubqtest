@@ -244,3 +244,37 @@ describe('group', () => {
     '})',
   ])
 })
+
+test('vitest for Workers: the names of cloudflare:test', () => {
+  const r = convert(`import { env, createExecutionContext, waitOnExecutionContext, createScheduledController, applyD1Migrations, SELF } from 'cloudflare:test'
+import { expect, it } from 'vitest'
+import worker from '../src/index'
+
+it('responds', async () => {
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
+  const ctx = createExecutionContext()
+  const res = await worker.fetch(new Request('http://x/'), env, ctx)
+  await waitOnExecutionContext(ctx)
+  expect(res.status).toBe(200)
+  await worker.scheduled(createScheduledController({ cron: '* * * * *' }), env, createExecutionContext())
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "// TODO(ubq): ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
+    "import { env } from 'cloudflare:workers'",
+    "import { executionContext, migrate, scheduledController } from 'ubqtest/workers'",
+    "import { SELF } from 'cloudflare:test'",
+    "import { assert, test } from 'ubqtest'",
+    "import worker from '../src/index'",
+    '',
+    "test('responds', async () => {",
+    "  await migrate('DB')",
+    '  const ctx = executionContext()',
+    "  const res = await worker.fetch(new Request('http://x/'), env, ctx)",
+    '  await ctx.settled()',
+    '  assert.equal(res.status, 200)',
+    "  await worker.scheduled(scheduledController({ cron: '* * * * *' }), env, executionContext())",
+    '})',
+  ])
+})

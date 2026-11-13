@@ -24,7 +24,7 @@ const mf = new Miniflare({
     source = source
       .replaceAll('import.meta.url', JSON.stringify(pathToFileURL(specifier).href))
       .replaceAll('import.meta.dirname', JSON.stringify(dirname(specifier)))
-    return Response.json({ name: specifier.slice(1), esModule: source })
+    return Response.json(specifier.endsWith('.cjs') ? { name: specifier.slice(1), commonJsModule: source } : { name: specifier.slice(1), esModule: source })
   },
   workers: [{
     name: 'test',

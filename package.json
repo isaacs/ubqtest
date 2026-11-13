@@ -10,6 +10,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./browser": "./src/browser.ts",
+    "./workers": "./src/workers.ts",
     "./preload": "./src/preload.ts",
     "./bun-preload": "./src/bun-preload.ts",
     "./counters-preload": "./src/counters-preload.ts"
@@ -37,7 +38,8 @@
     "esbuild": "^0.28.2",
     "marked": "^18.2.0",
     "playwright-core": "^1.65.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.161.0"
   },
   "bin": {
     "ubq": "src/cli.ts"

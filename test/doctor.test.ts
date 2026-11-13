@@ -25,7 +25,7 @@ test('doctor states the fix for each problem of the setup', () => {
   })
 
   p.configure({ include: ['*.ts'], retries: 2 })
-  assert.equal(doctor().lines[1], 'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, timeout, hangRerun, bunInspectorCoverage, browser')
+  assert.equal(doctor().lines[1], 'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, timeout, hangRerun, bunInspectorCoverage, browser, workers')
 
   p.configure({ include: ['*.ts'] })
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ // comment\n  "compilerOptions": { "strict": true, "erasableSyntaxOnly": true, },\n}')
@@ -34,7 +34,11 @@ test('doctor states the fix for each problem of the setup', () => {
   assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
 
   writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:test'\n")
-  assert.match(doctor().lines[2]!, /^FIX  this project has tests for the Workers runtime of Cloudflare/)
+  assert.match(doctor().lines[2]!, /^FIX  this project has tests of a Cloudflare Worker .* Add to package\.json: "ubq": \{ "workers": /)
+  p.configure({ include: ['*.ts'], workers: [{ config: 'wrangler.jsonc', include: ['worker.ts'] }] })
+  assert.equal(doctor().lines[2], 'FIX  "ubq.workers" in package.json names a wrangler config that does not exist: wrangler.jsonc')
+  writeFileSync(join(p.dir, 'wrangler.jsonc'), '{}')
+  assert.match(doctor().lines[2]!, /^FIX  "ubq\.workers" is set, and the project does not have wrangler\..* Run: npm install --save-dev wrangler$/)
 })
 
 test('guide prints the guide of the package', () => {

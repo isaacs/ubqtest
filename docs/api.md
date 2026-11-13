@@ -129,6 +129,40 @@ such as `viewport` or `locale`.
 const browser: (options?: BrowserContextOptions) => Promise<Page>;
 ```
 
+### `executionContext`
+
+Makes the third argument of a handler: `worker.fetch(request,
+env, ctx)`. `await ctx.settled()` waits for the promises that
+the handler gave to `ctx.waitUntil`. The test also waits for
+them when it ends.
+
+```ts
+const executionContext: () => ExecutionContext & {
+    settled(): Promise<void>;
+};
+```
+
+### `scheduledController`
+
+Makes the first argument of a `scheduled` handler.
+
+```ts
+const scheduledController: (options?: {
+    scheduledTime?: number;
+    cron?: string;
+}) => ScheduledController;
+```
+
+### `migrate`
+
+Applies the migrations of a D1 database to its local copy.
+`binding` is the name of the database in the wrangler config,
+such as `'DB'`. The files come from its `migrations_dir`.
+
+```ts
+const migrate: (binding: string) => Promise<void>;
+```
+
 ## Types
 
 ### `Assert`

@@ -11,7 +11,7 @@ import { build } from 'esbuild'
 
 const root = new URL('../', import.meta.url)
 const dist = pathToFileURL(resolve(process.argv[2] ?? fileURLToPath(new URL('dist', root))) + '/')
-const entries = ['index', 'browser', 'cli', 'preload', 'counters-preload', 'bun-preload', 'bun-coverage', 'instrument', 'watchdog', 'warm']
+const entries = ['index', 'browser', 'workers', 'workers-entry', 'workers-host', 'cli', 'preload', 'counters-preload', 'bun-preload', 'bun-coverage', 'instrument', 'watchdog', 'warm']
 
 rmSync(dist, { recursive: true, force: true })
 await build({
@@ -46,12 +46,13 @@ const manifest = {
   repository: pkg.repository,
   type: 'module',
   engines: pkg.engines,
-  peerDependencies: { 'playwright-core': '>=1.49' },
-  peerDependenciesMeta: { 'playwright-core': { optional: true } },
+  peerDependencies: { 'playwright-core': '>=1.49', wrangler: '>=4' },
+  peerDependenciesMeta: { 'playwright-core': { optional: true }, wrangler: { optional: true } },
   bin: { ubq: 'cli.js' },
   exports: {
     '.': { types: './types/index.d.ts', default: './index.js' },
     './browser': { types: './types/browser.d.ts', default: './browser.js' },
+    './workers': { types: './types/workers.d.ts', default: './workers.js' },
     './preload': './preload.js',
     './bun-preload': './bun-preload.js',
     './counters-preload': './counters-preload.js',

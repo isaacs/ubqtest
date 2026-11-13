@@ -316,6 +316,58 @@ A different browser version, or a shared download:
 - `UBQ_BROWSER=<path of a Chromium or Chrome program>` makes the
   tests use that program. No download is necessary then.
 
+## Tests of a Cloudflare Worker
+
+The test file runs in workerd, the runtime of Workers, with the
+local bindings of the wrangler config (D1, R2, KV, Durable
+Objects, vars). The project must have `wrangler`. Tell ubq which
+test files are Workers tests, in `package.json`:
+
+```json
+{ "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] } }
+```
+
+```ts
+import { env } from 'cloudflare:workers'
+import { assert, test } from 'ubqtest'
+import { executionContext, migrate } from 'ubqtest/workers'
+import worker from '../src/index.ts'
+
+await migrate('DB')                      // the files of migrations_dir, for the D1 binding DB
+
+test('lists the notes', async () => {
+  const ctx = executionContext()
+  const response = await worker.fetch(new Request('http://x/notes'), env, ctx)
+  await ctx.settled()                    // the promises of ctx.waitUntil
+  assert.deepEqual(await response.json(), [])
+})
+```
+
+- `env` comes from the runtime (`cloudflare:workers`), not from
+  ubq. It has the bindings of the wrangler config.
+- `'ubqtest/workers'` has three functions:
+  `executionContext()` makes the third argument of a handler,
+  `scheduledController({ cron, scheduledTime })` makes the first
+  argument of a `scheduled` handler, and `migrate(binding)`
+  applies the D1 migrations.
+- Each test file gets a new workerd process with empty storage.
+  The tests of one file share that storage. A write of one test
+  is there for the next test of the file.
+- A project with more than one Worker has one entry in `workers`
+  for each wrangler config.
+- Coverage works as for other tests: `ubq --changed`, `ubq
+  uncovered`, and `ubq covers`.
+- `ubq` adds the `nodejs_compat` flag for the test run, because
+  the test API uses modules of Node.
+- A Workers test file is not a plain program: `node <test file>`
+  cannot run it. Use `ubq <test file>`.
+
+Not available in a Workers test file: `testdir`, `mockImport`,
+`assert.snapshot`, JSX files, and a named import from a CommonJS
+package. A test that goes over its time limit fails, but the
+report does not list what the test left open. There is no `SELF`
+fetcher: call the handler of the Worker with a `Request`.
+
 ## Faster runs
 
 `ubq server` starts a background server for the project. It keeps
@@ -333,7 +385,8 @@ Most projects need none. The `ubq` key of `package.json` can have
 of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
 can be wrong. `ubq <test file>` on Bun does not need it), and
-`browser` (see "Tests in a browser"). A folder
+`browser` (see "Tests in a browser"), and `workers` (see "Tests
+of a Cloudflare Worker"). A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace.
@@ -349,5 +402,5 @@ step, so the code must use only syntax that can be erased: no
 Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.
 
-ubq cannot run tests in the Workers runtime of Cloudflare. A file
-that imports from `cloudflare:` does not load.
+Tests of a Cloudflare Worker run in workerd, and the project must
+have `wrangler`: see "Tests of a Cloudflare Worker".

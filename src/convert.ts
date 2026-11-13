@@ -42,6 +42,8 @@ type Role =
   | 'mock'
   /** A function of `node:assert` with its own name: `strictEqual`. */
   | `assert.${string}`
+  /** A name of `cloudflare:test`, the module of the vitest plugin for Workers. */
+  | `cf.${string}`
 
 const FRAMEWORKS: Record<string, string> = {
   tap: 'tap',
@@ -64,6 +66,14 @@ const NOT_CONVERTED: Record<string, string> = {
 // `$0` is argument 0 as it is. `<$0>` gets parentheses if it is not
 // a simple expression. The numbers must go up.
 type Rule = string | { [argc: number]: string; rest?: string }
+
+/** The functions of `cloudflare:test` that `ubqtest/workers` has, with their names there. */
+const WORKERS: Record<string, string> = {
+  createExecutionContext: 'executionContext',
+  waitOnExecutionContext: 'settled',
+  createScheduledController: 'scheduledController',
+  applyD1Migrations: 'migrate',
+}
 
 /** `expect(a).name(b)`: `$0` is `a`, `$1` is `b`. */
 const MATCHERS: Record<string, Rule> = {
@@ -236,11 +246,30 @@ export const convertSource = (
     else if (imported === 'vi' || imported === 'jest') roles.set(local, 'vi')
     else if (imported === 'mock') roles.set(local, 'mock')
   }
+  /** The import of `cloudflare:test`, and what becomes of its names. */
+  let workersImport: Node | undefined
+  /** `env`: the runtime has it in `cloudflare:workers`. */
+  const workersKept: string[] = []
+  /** Names that `ubqtest/workers` has no function for. */
+  const workersLeft: string[] = []
+  /** Names to import from `ubqtest/workers`. */
+  const workersUsed = new Set<string>()
   const known = (module: string): boolean => module in FRAMEWORKS || ASSERT_MODULES.has(module)
   let other: string | undefined
   for (const node of program.body as Node[]) {
     if (node.type === 'ImportDeclaration') {
       const module = (node.source as { value: string }).value
+      if (module === 'cloudflare:test') {
+        workersImport = node
+        for (const s of node.specifiers as Node[]) {
+          const name = (s.imported as { name?: string } | undefined)?.name ?? '*'
+          const local = (s.local as { name: string }).name
+          if (name === 'env') workersKept.push(name === local ? name : `${name} as ${local}`)
+          else if (name in WORKERS) roles.set(local, `cf.${name}`)
+          else workersLeft.push(text(s))
+        }
+        continue
+      }
       if (module in NOT_CONVERTED) other = NOT_CONVERTED[module]
       if (!known(module)) continue
       if (FRAMEWORKS[module]) framework = FRAMEWORKS[module]
@@ -589,6 +618,31 @@ export const convertSource = (
       return undefined
     }
     if (role?.startsWith('assert.')) return assertCall(node, path, role.slice('assert.'.length))
+    if (role?.startsWith('cf.')) {
+      const name = role.slice('cf.'.length)
+      const to = WORKERS[name]!
+      const first = args[0]
+      if (name === 'waitOnExecutionContext' && first) {
+        // waitOnExecutionContext(ctx) becomes ctx.settled()
+        const wrap = !SIMPLE.has(first.type)
+        replace(node.start, first.start, wrap ? '(' : '')
+        replace(first.end, node.end, `${wrap ? ')' : ''}.settled()`)
+      } else if (name === 'applyD1Migrations') {
+        // applyD1Migrations(env.DB, env.TEST_MIGRATIONS) becomes migrate('DB')
+        const binding = first?.type === 'MemberExpression' && !first.computed ? nameOf(first.property as Node) : undefined
+        if (!binding) {
+          todo(path, "Use migrate('DB') of 'ubqtest/workers', with the name of the D1 binding. It applies the files of migrations_dir in the wrangler config.")
+          return undefined
+        }
+        replace(node.start, node.end, `migrate('${binding}')`)
+        workersUsed.add(to)
+        changes++
+        return []
+      } else replace(callee.start, callee.end, to)
+      if (name !== 'waitOnExecutionContext') workersUsed.add(to)
+      changes++
+      return args
+    }
     if (callee.type !== 'MemberExpression' || callee.computed) return undefined
     const object = callee.object as Node
     const method = nameOf(callee.property as Node)
@@ -812,6 +866,22 @@ export const convertSource = (
     const at = source.startsWith('#!') ? source.indexOf('\n') + 1 : 0
     edits.push({ start: at, end: at, text: line + '\n' })
   }
+  if (workersImport) {
+    const lines: string[] = []
+    if (workersKept.length) lines.push(`import { ${workersKept.join(', ')} } from 'cloudflare:workers'`)
+    if (workersUsed.size) lines.push(`import { ${[...workersUsed].sort().join(', ')} } from 'ubqtest/workers'`)
+    if (workersLeft.length) {
+      lines.push(`import { ${workersLeft.join(', ')} } from 'cloudflare:test'`)
+      todos.set(
+        workersImport.start,
+        (todos.get(workersImport.start) ?? new Set()).add(
+          "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
+        ),
+      )
+    }
+    replace(workersImport.start, workersImport.end, lines.join('\n'))
+    changes++
+  }
   for (const [at, messages] of todos) {
     const from = lineStart(at)
     const indent = /^\s*/.exec(source.slice(from, at))![0]
@@ -888,7 +958,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     todos += result.todos.length
     if (!dry) writeFileSync(path, result.code)
     if (!TEST_NAME.test(file)) unnamed.push(file)
-    if (/from\s+['"]cloudflare:/.test(result.code)) workers++
+    if (/from\s+['"](cloudflare:|ubqtest\/workers)/.test(result.code)) workers++
     out(`converted ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`)
     for (const t of result.todos) out(`  ${file}:${t.line}  ${t.text}`)
   }
@@ -902,9 +972,9 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       `note: ${unnamed.length} of these files do not have a name that ubq runs (*.test.ts). A file with no tests (a helper) needs no change. Rename a file that has tests, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
   }
-  if (workers)
+  if (workers && !config().workers)
     out(
-      `note: ${workers} of these files import from 'cloudflare:'. ubq cannot run tests in the Workers runtime of Cloudflare, so these files do not load. Keep the tests of a Worker on the tool that runs them now.`,
+      `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
   if (changed) out('next: read `ubq guide convert`, do each TODO(ubq), then run: ubq')
   return 0

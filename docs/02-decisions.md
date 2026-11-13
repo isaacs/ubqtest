@@ -783,3 +783,80 @@ A defect that this work found: under `ubq` on Node, a function
 that a test gave to `page.evaluate` had counters of the test file
 in its text, and failed in the page (`__ubqc is not defined`).
 Each page now has an object with that name that keeps nothing.
+
+## D48. Tests of a Cloudflare Worker run in workerd (user and agent, 2026-11-13)
+
+A test file that the `workers` key of the configuration selects
+runs in workerd, the runtime of Workers, with the local bindings
+of a wrangler config. The user decided the four points of Q10:
+the config key, a small `ubqtest/workers` module with new names,
+no `preload` key, and a first version with known limits.
+
+- **The config key:** `"workers": [{ "config": "wrangler.jsonc",
+  "include": ["test/**/*.test.ts"] }]`. ubq does not find Workers
+  tests from the text of a file: a test file that imports only
+  source can need workerd too.
+- **The process:** the runner starts `node workers-host.js <test
+  file>` in place of the test file (`src/workers-host.ts`). The
+  host is the test process for the runner: the same variables,
+  the same event pipe, the same process group. It always runs on
+  Node, also if the runner is Bun or Deno, because wrangler
+  needs Node. One host and one workerd for each test file, so
+  each file has its own storage.
+- **The bindings:** from `unstable_getMiniflareWorkerOptions` of
+  the `wrangler` package of the project, given to `miniflare`,
+  which wrangler depends on. `wrangler` is an optional peer
+  dependency of ubqtest.
+- **Modules:** workerd asks the host for each module that it does
+  not have (the module fallback service). The host reads the
+  file, adds the source counters, and removes the types. It finds
+  files as a bundler does (`./a` and `./a.js` for `a.ts`), and
+  packages with the conditions `workerd`, `worker`, `browser`.
+  There is no bundle step.
+- **The main module of the Worker** is an export of the module
+  that workerd starts, so the classes that the config names
+  (Durable Objects, Workflows) exist.
+- **The test API** is the same code (`src/index.ts`). A global
+  (`src/workerd.ts`) tells it that it is in workerd. It gets the
+  project root and the configuration from the host, because
+  workerd has no file system.
+- **The body of the test file runs in a function.** workerd does
+  not let a module do I/O while it loads, and a test file does
+  that at its top level (`await migrate('DB')`). The host puts
+  the code after the last `import` of the test file in a
+  function, with no change to line numbers, and the entry module
+  calls it in its request. A test file with an `export` is not
+  changed.
+- **Events** go from workerd to the host in a request that
+  workerd waits for, before each test starts and when the file
+  ends. So the runner knows that a test started before the test
+  can block the thread. A response stream did not give that.
+- **Coverage:** workerd sends the counts. The host has the
+  regions, and makes the ranges.
+- **`ubqtest/workers`:** `executionContext()` (with `settled()`),
+  `scheduledController(options)`, and `migrate(binding)`. `env`
+  is the export of `cloudflare:workers`, not of ubq.
+- `ubq` adds the `nodejs_compat` flag, because the test API uses
+  modules of Node.
+
+**Limits of the first version** (the user accepted them as known
+gaps): `testdir`, `mockImport`, and `assert.snapshot` throw in
+workerd. A timeout has no list of open things and no hang rerun.
+A stuck test has no stack. No JSX files. A CommonJS package gives
+only its default export. No `SELF` fetcher, and no storage for
+each test. `fakeClock` does not replace the names of
+`node:timers`. Not tried on Windows.
+
+**Reason.** Workers are a common place to run code, and the tests
+of a Worker are worth most in the real runtime: they find the
+differences from Node. A run on Node with stubs does not. The
+trial (`03-measurements.md`, section 14) showed that workerd can
+load the files and run the test API with little new code.
+
+**Not chosen:** a `preload` key for a Node hook that maps
+`cloudflare:workers` to a stub (the tests would run on Node);
+the name `cloudflare:test` answered by ubq (it would promise the
+whole API of the vitest plugin); code that runs through an eval
+binding, as the vitest plugin does (more code, and positions that
+need maps).
+

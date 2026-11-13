@@ -18,7 +18,7 @@ are measurement tools, not product code. Run `npm install` here first.
 | `bun/` | How can Bun record per-test coverage? | `BUN_JSC_useControlFlowProfiler=1 bun jsc.ts`, `bun plugin.ts`, `bun static.ts`, `bun inspector.ts`, `bun inspector-map.ts`, `bun inspector-cost.ts` |
 | `server/` | What does a test file cost in a process that is already started? | from `suite/`, after `npm run build`: `node ../server/warm.mjs` |
 | `browser/` | What does a browser cost for front-end tests, and does Playwright work on each runtime? | `npx playwright-core install chromium --only-shell`, then `node pw.ts`, `bun pw.ts`, `deno run -A pw.ts`, `node cdp.ts <path of chrome-headless-shell>`, `node cov.ts` |
-| `workerd/` | Can the Workers runtime load test files from the disk and run the test API of ubq? | `node load.ts` (TypeScript files, a D1 binding), `node load.ts ./core.ts` (a ubq test) |
+| `workerd/` | Can the Workers runtime load test files from the disk and run the test API of ubq? | `node load.ts` (TypeScript files, a D1 binding), `node load.ts ./core.ts` (a ubq test), `node load.ts ./stack.ts` (stack frames, timers, CommonJS) |
 | `hooks/` | Do typed, scoped module mocks work with no flags? | `node use.ts` |
 
 `hang/wd.mjs` and `hang/watchdog.mjs` record two methods that did not

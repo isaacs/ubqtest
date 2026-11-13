@@ -13,7 +13,7 @@ import { projectRoot, rel } from './project.ts'
 import { sourceRegions } from './source-map.ts'
 
 /** Changes when the form of the changed source or the regions changes. */
-const CACHE_VERSION = 2
+const CACHE_VERSION = 3
 
 const KEY = Symbol.for('ubqtest.collector')
 const shared = globalThis as { [KEY]?: Collector; [key: symbol]: unknown }
@@ -35,7 +35,7 @@ export interface Counters {
    * if the parser cannot read the source: the file then runs with no
    * counters, and coverage is not complete.
    */
-  change(path: string, source: string | undefined): { source: string; js: boolean } | undefined
+  change(path: string, source: string | undefined): { source: string; js: boolean; imports: number } | undefined
   /**
    * The same for JavaScript that the runtime made from a project
    * file, with an inline source map. The regions get the places of
@@ -193,7 +193,8 @@ export const startCounters = (): Counters | undefined => {
       }
       use(file, result)
       shifts.set(file, result.shifts)
-      return result.js === undefined ? { source: result.code, js: false } : { source: result.js, js: true }
+      const { imports } = result
+      return result.js === undefined ? { source: result.code, js: false, imports } : { source: result.js, js: true, imports }
     },
   }
 }

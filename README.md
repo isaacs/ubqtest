@@ -161,8 +161,11 @@ comment with the instruction.
   and Chromium: `import { browser } from 'ubqtest/browser'`. The
   project installs `playwright-core`. There is no DOM in the test
   process.
+- Tests of a Cloudflare Worker run in workerd, with the bindings
+  of the wrangler config: the `workers` key, and
+  `'ubqtest/workers'`. The project installs `wrangler`.
 - Configuration is the `ubq` key of `package.json`: `include`,
-  `exclude`, `timeout`, `browser`, and two switches. Most projects need none.
+  `exclude`, `timeout`, `browser`, `workers`, and two switches. Most projects need none.
   See [docs/08-config.md](docs/08-config.md).
 
 ## More documents

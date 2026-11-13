@@ -1,12 +1,15 @@
 // The project root, and paths relative to it.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
+import { workerd } from './workerd.ts'
 
 let root: string | undefined
 
 /** The folder of the nearest `package.json` at or above the working directory. */
 export const projectRoot = (): string => {
   if (root) return root
+  const host = workerd()
+  if (host) return (root = host.root)
   const cwd = process.cwd()
   for (let dir = cwd; ; dir = dirname(dir)) {
     if (existsSync(join(dir, 'package.json'))) return (root = dir)

@@ -1,0 +1,12 @@
+{
+  // The Worker of the tests of ubq for the Workers runtime.
+  "name": "ubq-fixture",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-01",
+  "vars": { "GREETING": "hello" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "notes", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" },
+  ],
+  "durable_objects": { "bindings": [{ "name": "COUNTER", "class_name": "Counter" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Counter"] }],
+}

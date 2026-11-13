@@ -6,6 +6,6 @@
     "emitDeclarationOnly": true,
     "rootDir": "src"
   },
-  "include": ["src/index.ts", "src/browser.ts"],
+  "include": ["src/index.ts", "src/browser.ts", "src/workers.ts"],
   "exclude": []
 }

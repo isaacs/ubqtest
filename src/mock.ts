@@ -5,6 +5,7 @@ import * as nodeModule from 'node:module'
 import { dirname } from 'node:path'
 import { SOURCE } from './counters.ts'
 import { projectRoot, rel } from './project.ts'
+import { notInWorkerd } from './workerd.ts'
 
 // The part of the Bun API that this file uses.
 declare const Bun: {
@@ -192,6 +193,7 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
   subject: Loader<M>,
   mocks: { [K in keyof D]: [Loader<D[K]>, MockOf<D[K]>] },
 ): Promise<M> => {
+  notInWorkerd('mockImport')
   register()
   const id = String(++count)
   const deps = new Map<string, Record<string, unknown>>()

@@ -335,6 +335,22 @@ export const loadFailure = (text: string): Failure | undefined => {
   }
 }
 
+const WORKERS_HOST = fileURLToPath(new URL(`./workers-host${EXT}`, import.meta.url))
+let workersFiles: Map<string, string> | undefined
+/** The wrangler config of a test file that runs in workerd (D48). Undefined for other files. */
+const workersConfig = (file: string): string | undefined => {
+  if (!workersFiles) {
+    workersFiles = new Map()
+    const root = projectRoot()
+    for (const { config: path, include } of config().workers ?? [])
+      for (const found of globSync(include, { cwd: root })) {
+        const name = found.split('\\').join('/')
+        if (!workersFiles.has(name)) workersFiles.set(name, join(root, path))
+      }
+  }
+  return workersFiles.get(file)
+}
+
 /** The count of event files that this process made. */
 let eventFiles = 0
 
@@ -368,8 +384,18 @@ export const runFile = async (
   const path = join(projectRoot(), file)
   // The background server of the project has processes that are
   // started. With no server, the process starts here.
+  const workers = workersConfig(file)
+  if (workers) Object.assign(job, { UBQ_WORKERS_CONFIG: workers })
   const child: TestProcess =
-    (await warmProcess({ file: path, base, job })) ??
+    workers ?
+      // wrangler needs Node. The host process starts workerd.
+      spawn(process.versions.bun || process.versions.deno ? 'node' : process.execPath, [WORKERS_HOST, path], {
+        cwd: projectRoot(),
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+        env: { ...base, ...job },
+      })
+    : (await warmProcess({ file: path, base, job })) ??
     spawn(process.execPath, [...coverageArgs(), path], {
       cwd: projectRoot(),
       // The child leads its own process group, so that one signal
@@ -395,9 +421,13 @@ export const runFile = async (
       // which has its inspector from the start.
       // Windows has no such signal. Node has a function there with
       // the same effect.
-      if (process.platform === 'win32') debugProcess(child.pid!)
-      else if (!process.versions.deno) child.kill('SIGUSR1')
-      for (let i = 0; i < 20 && !url; i++) await new Promise(r => setTimeout(r, 25))
+      // The process of a Workers test file is the host of workerd.
+      // Its stack does not have the code of the test.
+      if (!workers) {
+        if (process.platform === 'win32') debugProcess(child.pid!)
+        else if (!process.versions.deno) child.kill('SIGUSR1')
+        for (let i = 0; i < 20 && !url; i++) await new Promise(r => setTimeout(r, 25))
+      }
       const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
       // With source counters, the columns are those of the changed source.
       const stack =

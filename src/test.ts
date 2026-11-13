@@ -15,6 +15,7 @@ import { rel } from './project.ts'
 import { saveSnapshots } from './snapshot.ts'
 import { callSite, userFrames } from './stack.ts'
 import { current, moreCoverage, type TestState } from './state.ts'
+import { workerd } from './workerd.ts'
 import type { WatchData, WatchMessage } from './watchdog.ts'
 
 export interface TestContext {
@@ -48,6 +49,7 @@ export interface Describe {
 const DEFAULT_TIMEOUT = 5000
 /** The path of this test file, if the runner gave it. */
 const FILE = process.env.UBQ_FILE
+const host = workerd()
 /** True if the process is a child of the runner. */
 const CHILD = !!process.env.UBQ_CHILD
 const SEPARATOR = ' > '
@@ -225,6 +227,8 @@ const opened = process.env.UBQ_HANG ? trackOpened(process.env.UBQ_HANG) : undefi
 /** Counts of what keeps the process alive now, by type. */
 const openNow = (): Map<string, number> => {
   const counts = new Map<string, number>()
+  // workerd cannot list what is open.
+  if (workerd()) return counts
   for (const type of process.getActiveResourcesInfo())
     counts.set(type, (counts.get(type) ?? 0) + 1)
   return counts
@@ -313,6 +317,9 @@ const runOne = async (entry: Entry): Promise<void> => {
     timeout: entry.timeout,
     ...(entry.at && { at: entry.at }),
   })
+  // The runner must know that the test started before the test can
+  // block the thread. On other runtimes the write of an event is sync.
+  await host?.flush()
   if (entry.skip) {
     watch({ end: 'skip' })
     emit({
@@ -454,8 +461,8 @@ const drain = async (): Promise<void> => {
   draining = false
   scheduled = false
   // This timer does not keep the process alive. It fires only if
-  // something else does.
-  idle ??= setTimeout(leaked, IDLE_MS).unref()
+  // something else does. workerd has no process that stays alive.
+  if (!workerd()) idle ??= setTimeout(leaked, IDLE_MS).unref()
 }
 
 /** The tests that ran in this process. */
@@ -545,9 +552,8 @@ process.on('exit', code => {
   fileEnd()
 })
 
-// `beforeExit` means that the process has no more work, so no more
-// tests can arrive.
-process.on('beforeExit', () => {
+/** The process has no more work, so no more tests can arrive. */
+const noMoreWork = (): void => {
   // The process has no more work, but a test is open: its promise
   // can never settle. The failure lets the next test start.
   if (active && !active.ended)
@@ -573,4 +579,13 @@ process.on('beforeExit', () => {
       },
     })
   fileEnd()
-})
+}
+process.on('beforeExit', noMoreWork)
+
+// workerd has no `beforeExit`. The module that loads the test file
+// calls this when the file is loaded.
+if (host)
+  host.finish = async () => {
+    while (scheduled || draining || queue.length) await new Promise(done => setTimeout(done, 1))
+    noMoreWork()
+  }

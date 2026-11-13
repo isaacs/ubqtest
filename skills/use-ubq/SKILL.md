@@ -40,6 +40,10 @@ For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright
 `Page`. Do not add jsdom or a different driver.
 
+For a Cloudflare Worker, the guide has "Tests of a Cloudflare
+Worker": the `workers` key of the configuration makes test files
+run in workerd, with the bindings of the wrangler config.
+
 ## To convert a project
 
 1. `npx ubq guide convert`. Do its steps in order.

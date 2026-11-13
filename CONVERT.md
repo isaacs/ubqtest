@@ -262,8 +262,26 @@ Things to check by hand:
   transform.** ubq has none. Tell the user about each test file
   that needs one.
 - **A Cloudflare Worker (`cloudflare:test`,
-  `@cloudflare/vitest-pool-workers`).** ubq cannot run tests in
-  the Workers runtime. Do not convert these tests. Tell the user.
+  `@cloudflare/vitest-pool-workers`).** These tests run in the
+  Workers runtime with ubq too. Read "Tests of a Cloudflare
+  Worker" in `ubq guide`, and set the `workers` key. The command
+  changes these names of `cloudflare:test`:
+
+  | vitest plugin | ubq |
+  | --- | --- |
+  | `env` from `cloudflare:test` | `env` from `cloudflare:workers` |
+  | `createExecutionContext()` | `executionContext()` |
+  | `await waitOnExecutionContext(ctx)` | `await ctx.settled()` |
+  | `createScheduledController(options)` | `scheduledController(options)` |
+  | `applyD1Migrations(env.DB, env.TEST_MIGRATIONS)` | `await migrate('DB')` |
+
+  ubq has no `SELF`, `fetchMock`, `runInDurableObject`, or the
+  other names: write the test without them. Values that the
+  vitest config gave to the tests (`miniflare.bindings`) must
+  come from the wrangler config, or from the test file.
+  The plugin gave each test its own storage. ubq gives each
+  test file its own storage. A setup file of the vitest config
+  (`setupFiles`) becomes a module that each test file imports.
 
 ## mocha
 

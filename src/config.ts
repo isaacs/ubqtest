@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { projectRoot } from './project.ts'
+import { workerd } from './workerd.ts'
 
 export interface Config {
   /** Glob patterns for test files, from the project root. */
@@ -17,6 +18,8 @@ export interface Config {
   bunInspectorCoverage?: boolean
   /** The server of the pages for `ubqtest/browser` (D45). */
   browser?: { url: string; command?: string }
+  /** Test files that run in workerd, each group with its wrangler config (D48). */
+  workers?: { config: string; include: string[] }[]
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -33,6 +36,15 @@ const browser = (v: unknown): boolean => {
   )
 }
 
+const workers = (v: unknown): boolean =>
+  Array.isArray(v) &&
+  v.length > 0 &&
+  v.every(entry => {
+    if (typeof entry !== 'object' || !entry || Array.isArray(entry)) return false
+    const { config, include, ...more } = entry as Record<string, unknown>
+    return typeof config === 'string' && !!config && globs(include) && !Object.keys(more).length
+  })
+
 const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]> = {
   include: [globs, 'a list of glob patterns, such as ["test/**/*.test.ts"]'],
   exclude: [globs, 'a list of glob patterns, such as ["test/slow/**"]'],
@@ -40,12 +52,15 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   hangRerun: [v => typeof v === 'boolean', 'true or false'],
   bunInspectorCoverage: [v => typeof v === 'boolean', 'true or false'],
   browser: [browser, 'an object with "url", and "command" if ubq must start the server, such as { "url": "http://localhost:5173", "command": "npm run dev" }'],
+  workers: [workers, 'a list of objects with "config" and "include", such as [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }]'],
 }
 
 let cached: Config | undefined
 
 export const config = (): Config => {
   if (cached) return cached
+  const host = workerd()
+  if (host) return (cached = host.config)
   let pkg: { ubq?: unknown }
   try {
     pkg = JSON.parse(readFileSync(join(projectRoot(), 'package.json'), 'utf8'))

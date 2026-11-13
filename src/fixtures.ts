@@ -5,6 +5,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { projectRoot, rel, stateDir } from './project.ts'
 import { current, fileCleanups, type TestState } from './state.ts'
+import { notInWorkerd } from './workerd.ts'
 
 /** `limit` is a time limit in milliseconds, in place of the default one. */
 export type CleanupFn = (() => void | Promise<void>) & { limit?: number }
@@ -95,6 +96,7 @@ export const testdirPath = (file: string, id: string | undefined): string =>
  * folder stays, and the failure names it.
  */
 export const makeTestdir = (file: string, files: Files = {}): string => {
+  notInWorkerd('testdir')
   const state = owner('testdir')
   stateDir()
   const key = state?.id ?? ''

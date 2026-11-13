@@ -510,4 +510,16 @@ It reads the file from the disk, removes the types with
    `file:` scheme and no first `/`.
 6. Not measured: many test files, one workerd for each file
    against one for all, and the cost of the counters.
+7. A module that workerd loads cannot do I/O while it loads, also
+   if a request started the `import()`: a D1 query at the top
+   level of a test file fails ("Disallowed operation called
+   within global scope"). `workerd/stack.ts` shows the form of a
+   stack frame, that a timer is an object with `unref`, and that
+   a CommonJS module gives only a default export.
+8. The first event path was the stream of the response. An event
+   that workerd wrote just before a loop that does not return did
+   not always arrive. A request to the host that workerd waits
+   for does arrive each time.
+9. After the build of D48: `ubq` on the fixture Worker (1 file, 6
+   tests, D1 migrations, a Durable Object) takes 0.7 s.
 

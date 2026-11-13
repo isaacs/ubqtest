@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { COLUMN } from './counters.ts'
 import type { Location } from './events.ts'
 import { rel } from './project.ts'
+import { workerd } from './workerd.ts'
 
 const own = import.meta.dirname + sep
 
@@ -19,7 +20,10 @@ export const userFrames = (stack: string | undefined, limit = 6): Location[] => 
   const fix = (globalThis as Record<symbol, unknown>)[Symbol.for(COLUMN)] as
     | ((file: string, line: number, column: number) => number)
     | undefined
-  for (const line of stack.split('\n')) {
+  // workerd names a module by its path with no first `/`:
+  // `at fn (a/b.ts:1:2)`
+  const lines = workerd() ? stack.replace(/^(\s+at (?:.* \()?)(?![\w.-]+:\/|\/)(?=[^\s()]+:\d+:\d+\)?$)/gm, '$1/') : stack
+  for (const line of lines.split('\n')) {
     const m = frame.exec(line.trimEnd())
     if (!m) continue
     const raw = m[1]!.replace(/\?[^:]*$/, '')

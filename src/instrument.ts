@@ -25,6 +25,13 @@ export interface Instrumented {
    * does not have to load the code that removes types.
    */
   js?: string
+  /**
+   * The line where the last `import` statement ends. 0 with no
+   * such statement. -1 if the file has an `export` statement.
+   * The host of a Workers test puts the code after this line in a
+   * function.
+   */
+  imports: number
 }
 
 export interface Node {
@@ -217,7 +224,9 @@ export const instrument = (source: string, file: string): Instrumented | undefin
   const start = afterDirectives(program.body as Node[], source.length)
   edit(
     start,
-    `const ${NAME}=globalThis[Symbol.for(${JSON.stringify(COUNTERS)})].get(${JSON.stringify(file)});${NAME}[0]++;`,
+    // `get` of a Map does not use the count. In workerd, the count
+    // is the size of an array that does not exist yet.
+    `const ${NAME}=globalThis[Symbol.for(${JSON.stringify(COUNTERS)})].get(${JSON.stringify(file)},${regions.length});${NAME}[0]++;`,
   )
   // The prelude must come first at its position.
   edits.at(-1)!.seq = -1
@@ -244,7 +253,12 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     pos = e.at
     ;(shifts[line] ??= []).push(e.at - lineStart, e.text.length)
   }
-  return { code: code + source.slice(pos), regions, shifts }
+  let imports = 0
+  for (const node of program.body as Node[]) {
+    if (/^Export/.test(node.type)) imports = -1
+    else if (node.type === 'ImportDeclaration' && imports >= 0) imports = source.slice(0, node.end).split('\n').length
+  }
+  return { code: code + source.slice(pos), regions, shifts, imports }
 }
 
 /** One small change to a source file, for a mutation check. */

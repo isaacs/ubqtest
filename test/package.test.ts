@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { addJsx, project } from './setup.ts'
+import { addJsx, project, remove } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-')))
@@ -69,9 +69,13 @@ test('the build has no errors, and the package has no dependencies', async () =>
   assert.equal(build.stderr, '')
   assert.equal(build.status, 0)
   const { default: manifest } = await import(pathToFileURL(join(pkg, 'package.json')).href, { with: { type: 'json' } })
-  // The one package that a project can add: the driver of `ubqtest/browser`.
+  // The packages that a project can add: the driver of
+  // `ubqtest/browser`, and the tool of `ubqtest/workers`.
   assert.deepEqual(Object.keys(manifest).filter(key => /dependencies/i.test(key)), ['peerDependencies', 'peerDependenciesMeta'])
-  assert.deepEqual([manifest.peerDependencies, manifest.peerDependenciesMeta], [{ 'playwright-core': '>=1.49' }, { 'playwright-core': { optional: true } }])
+  assert.deepEqual([manifest.peerDependencies, manifest.peerDependenciesMeta], [
+    { 'playwright-core': '>=1.49', wrangler: '>=4' },
+    { 'playwright-core': { optional: true }, wrangler: { optional: true } },
+  ])
 })
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
@@ -88,6 +92,26 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
       'src/add.ts:4:22  (): number => 0',
       '1 uncovered ranges in 1 files',
     ])
+  })
+
+for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
+  test(`the tests of a Worker in workerd, with the ubq command on ${cmd}`, { skip: has(cmd), timeout: 120_000 }, () => {
+    const worker = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-workers-')))
+    cleanup(() => remove(worker))
+    cpSync(join(root, 'test/fixtures/workers'), worker, { recursive: true })
+    writeFileSync(
+      join(worker, 'package.json'),
+      JSON.stringify({ type: 'module', ubq: { workers: [{ config: 'wrangler.jsonc', include: ['test/**/*.test.ts'] }] } }),
+    )
+    mkdirSync(join(worker, 'node_modules'))
+    symlinkSync(pkg, join(worker, 'node_modules/ubqtest'), 'junction')
+    symlinkSync(join(root, 'node_modules/wrangler'), join(worker, 'node_modules/wrangler'), 'junction')
+    const run = (...more: string[]) => {
+      const r = spawnSync(cmd, [...args, join(pkg, 'cli.js'), ...more], { cwd: worker, encoding: 'utf8', env: { ...process.env, CI: '' } })
+      return [r.stdout.replace(/ \(run \d+\)\n$/, '').trimEnd().split('\n'), r.stderr]
+    }
+    assert.deepEqual(run(), [['pass: 0 failed, 6 passed'], ''])
+    assert.deepEqual(run('uncovered'), [["src/index.ts:28:32  return new Response('this line has no test')", '1 uncovered ranges in 2 files'], ''])
   })
 
 test('docs/api.md is current', () => {

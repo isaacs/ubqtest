@@ -3,6 +3,7 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { type Config, config } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError } from './runner.ts'
 
@@ -63,9 +64,27 @@ export const doctor = (out: (text: string) => void): number => {
   } catch {
     // The check of package.json above reports this.
   }
-  if (workersPool || sources.some(source => /from\s+['"]cloudflare:/.test(source)))
+  let workers: Config['workers']
+  try {
+    workers = config().workers
+  } catch {
+    // The check of the test files above reports this.
+  }
+  if (workers) {
+    const absent = workers.map(entry => entry.config).filter(path => !existsSync(join(root, path)))
+    let wrangler = true
+    try {
+      createRequire(join(root, 'package.json')).resolve('wrangler')
+    } catch {
+      wrangler = false
+    }
+    if (absent.length) fix(`"ubq.workers" in package.json names a wrangler config that does not exist: ${absent.join(', ')}`)
+    else if (!wrangler)
+      fix('"ubq.workers" is set, and the project does not have wrangler. Tests in the Workers runtime need it. Run: npm install --save-dev wrangler')
+    else ok('wrangler, for tests in the Workers runtime')
+  } else if (workersPool || sources.some(source => /from\s+['"](cloudflare:|ubqtest\/workers)/.test(source)))
     fix(
-      "this project has tests for the Workers runtime of Cloudflare (a test file imports from 'cloudflare:', or the project has @cloudflare/vitest-pool-workers). ubq cannot run tests in that runtime. A file that imports from 'cloudflare:' does not load. Keep those tests on the tool that runs them now.",
+      `this project has tests of a Cloudflare Worker (a test file imports from 'cloudflare:', or the project has @cloudflare/vitest-pool-workers). They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of those test files.`,
     )
 
   if (sources.some(source => source.includes('ubqtest/browser'))) {

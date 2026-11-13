@@ -967,9 +967,6 @@ tests in the Workers runtime (workerd).
 
 Done from the report:
 
-- `ubq doctor` reports a project with Workers tests. `ubq convert`
-  prints a note for files that import from `cloudflare:`. The
-  guides say that ubq cannot run these tests.
 - `ubq convert` now converts a spy chain on the line that makes the
   spy (`vi.spyOn(o, 'k').mockImplementation(f)`), `s.mock.calls[i]`
   and `s.mock.calls.length`, `toBeCloseTo`, and `toHaveProperty`
@@ -981,9 +978,8 @@ Done from the report:
 - `ubq doctor` asks for `allowImportingTsExtensions` only if a
   test file imports with the `.ts` extension.
 
-A trial shows that workerd can run the test API
-(`03-measurements.md`, section 14). The design needs decisions
-from the user: Q10 in `09-questions.md`.
+A trial showed that workerd can run the test API
+(`03-measurements.md`, section 14). The answer is D48, below.
 
 Not done, from the same report:
 
@@ -992,3 +988,42 @@ Not done, from the same report:
   this" (`toContainEqual`).
 - ubq uses the `tsconfig.json` at the root. A second one in a
   folder of the project is not used.
+
+## Tests of a Cloudflare Worker: first version done (2026-11-13)
+
+D48. Source: `src/workers-host.ts` (the process that starts
+workerd), `src/workers-entry.ts` (the module that workerd runs),
+`src/workers.ts` (`ubqtest/workers`), `src/workerd.ts` (the
+global that tells the test API where it is). Checks:
+`test/workers.test.ts`, with the Worker in
+`test/fixtures/workers/` (D1 with migrations and a trigger, a
+Durable Object, `waitUntil`, a scheduled handler).
+
+- A run of the fixture (6 tests) takes 0.7 s, with the start of
+  workerd.
+- `ubq doctor` checks the `workers` key and the `wrangler`
+  package. `ubq convert` changes the names of `cloudflare:test`.
+- Checked by hand with the built package: the runner on Node, on
+  Bun, and on Deno. The host process is Node each time.
+
+Known gaps, for future work:
+
+- `testdir`, `mockImport`, and `assert.snapshot` in workerd. The
+  host has a file system, and workerd can ask it.
+- The hang report: what a test left open, and the stack of a test
+  that blocks the thread.
+- A `SELF` fetcher: a request that goes through the runtime to
+  the handler of the Worker.
+- Storage for each test, not for each file.
+- JSX files, and named imports from a CommonJS package.
+- Test values for bindings that are not in the wrangler config
+  (`miniflare.bindings` of the vitest plugin).
+- Other helpers of `cloudflare:test`: queues, Durable Object
+  internals, Workflows.
+- `fakeClock` for names imported from `node:timers`.
+- Windows: not tried. The module names of workerd have a
+  different form there.
+- `ubq mutate` and `ubq --repeat` for a Workers test file: not
+  tried.
+- The background server does not keep workerd processes ready.
+
