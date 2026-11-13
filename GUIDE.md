@@ -215,7 +215,7 @@ ubq show '<test id>'      the last result of a test, with its console output
 ubq history '<test id>'   the result of a test in each stored run. Says if the test is flaky.
 ubq diff [run] [run]      the tests whose status differs in two runs
 ubq slow [run]            the slowest tests
-ubq uncovered [file]      code that no test ran, in each file that a test loaded. Not test files. A helper of the tests is in the list.
+ubq uncovered [file]      code that no test ran, in each file that a test loaded. Not test files, and not test helpers. Exit code 1 if it lists code.
 ubq uncovered --diff      code that no test ran, in the lines that you changed (from the last git commit)
 ubq covers <file>:<line>  the tests that ran a line
 ubq sql '<query>'         a read-only SQL query, as JSON lines
@@ -420,7 +420,8 @@ minutes with no use, or with `ubq server stop`. It is optional.
 
 Most projects need none. The `ubq` key of `package.json` can have
 `include` and `exclude` (lists of glob patterns for test files),
-`timeout` (milliseconds), `hangRerun` (`false` turns off the rerun
+`helpers` (glob patterns for test helpers: see below), `timeout`
+(milliseconds), `hangRerun` (`false` turns off the rerun
 of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
 can be wrong. `ubq <test file>` on Bun does not need it), and
@@ -429,6 +430,16 @@ of a Cloudflare Worker"). A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace.
+
+A test helper is a file that is part of the tests and is not a
+test file: a setup module, or the scenario of an end-to-end test.
+`ubq uncovered` does not list its code, and `ubq mutate --diff`
+does not change it. Do not write tests for a helper. With no
+`helpers` key, a helper is each file in a folder with the name
+`test`, `tests`, or `__tests__`. The key replaces that rule:
+`"helpers": ["src/testing/**"]`. An empty list means that no file
+is a helper. A change to a helper still makes `ubq --changed` run
+the tests that loaded it.
 
 ## Requirements
 

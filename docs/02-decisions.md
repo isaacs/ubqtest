@@ -947,3 +947,42 @@ convert` writes that line.
 **Not chosen:** a form of `assert.match` for an element of an
 array. It covers one case, and it changes what a pattern means.
 
+## D51. A test helper is not code of the program (user and agent, 2026-11-13)
+
+A test helper is a file that is part of the tests and is not a
+test file: a setup module, or the scenario of an end-to-end test
+that starts the environment for the tests.
+
+- **Which files.** With no configuration: each file in a folder
+  with the name `test`, `tests`, or `__tests__`, at each depth.
+  The `helpers` key of the configuration is a list of glob
+  patterns that replaces this rule. An empty list means that no
+  file is a helper.
+- **`ubq uncovered`** leaves helpers out, also with `--diff`. The
+  summary line has their count. A file that the command names is
+  in the list in each case.
+- **`ubq uncovered` exits with 1** if it lists code, or a changed
+  file that no test loads. A project can use it as the check for
+  full coverage.
+- **`ubq mutate --diff`** does not change a helper. `ubq mutate
+  <file>` with a helper as the argument does.
+- **No change:** coverage of a helper is recorded. `ubq --changed`
+  runs the tests that loaded a helper that changed, and `ubq
+  covers` answers for its lines.
+
+**Reason.** A project that wants full coverage reads the list of
+`ubq uncovered` as work to do. With helpers in the list, an agent
+writes tests for the tests, and then tests for those. The user
+had to stop an agent in that loop. The scenario of an end-to-end
+test is part of the test, and its coverage has no use.
+
+**Why a default.** The agents that go into that loop do not know
+that a key exists. The folder names cover the common layout. A
+project with code of the program in a folder named `test` sets
+the key.
+
+**Not chosen:** to find helpers from the code (a file that
+imports `ubqtest`, or a file that only test files import). A
+setup file often imports nothing from ubq, and ubq has no import
+graph.
+

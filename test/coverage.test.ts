@@ -1,10 +1,11 @@
 // Per-test coverage, the store, and the queries.
 import { spawnSync } from 'node:child_process'
-import { rmSync } from 'node:fs'
-import { assert, test } from 'ubqtest'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { assert, cleanup, test } from 'ubqtest'
 import { fileURLToPath } from 'node:url'
 import { flatten } from '../src/coverage.ts'
-import { fixtures } from './setup.ts'
+import { fixtures, project } from './setup.ts'
 
 const cwd = `${fixtures}cov/`
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
@@ -85,4 +86,41 @@ test('command errors exit with code 4', () => {
   assert.equal(ubq('show', 'no such test').code, 4)
   reset()
   assert.deepEqual(ubq('failures'), { code: 4, out: [''], err: 'ubq: no runs are stored. Run a test file first: node <test file>\n' })
+})
+
+test('uncovered leaves out test helpers, and its exit code is 1 for code that no test runs', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'test'))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(join(p.dir, 'lib/add.ts'), 'export const add = (a: number, b: number): number => a + b\nexport const never = (): number => 0\n')
+  // A helper with a function that no test calls.
+  writeFileSync(join(p.dir, 'test/scenario.ts'), "export const start = (): string => 'on'\nexport const unused = (): string => 'off'\n")
+  writeFileSync(
+    join(p.dir, 'test/add.test.ts'),
+    `import { assert, test } from 'ubqtest'
+import { add } from '../lib/add.ts'
+import { start } from './scenario.ts'
+
+test('adds', () => {
+  assert.deepEqual([start(), add(1, 2)], ['on', 3])
+})
+`,
+  )
+  const uncovered = (...args: string[]) => {
+    const r = p.ubq('uncovered', ...args)
+    return [r.code, r.out.trimEnd().split('\n')]
+  }
+  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.deepEqual(uncovered(), [
+    1,
+    ['lib/add.ts:2:22  (): number => 0', '1 uncovered ranges in 1 of the 1 files that tests ran (1 test helpers are not in this list)'],
+  ])
+  // A file that the command names is in the list.
+  assert.deepEqual(uncovered('test/scenario.ts'), [1, ["test/scenario.ts:2:23  (): string => 'off'", '1 uncovered ranges in test/scenario.ts']])
+  // The `helpers` key replaces the folder names.
+  p.configure({ helpers: [] })
+  assert.equal(p.ubq('uncovered').out.trimEnd().split('\n').at(-1), '2 uncovered ranges in 2 of the 2 files that tests ran')
+  p.configure({ helpers: ['test/**', 'lib/**'] })
+  assert.deepEqual(uncovered(), [0, ['0 uncovered ranges in 0 of the 0 files that tests ran (2 test helpers are not in this list)']])
 })

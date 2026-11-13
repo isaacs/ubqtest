@@ -1,7 +1,7 @@
 // Project configuration: the `ubq` key of the project's
 // `package.json`. See docs/08-config.md.
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, matchesGlob } from 'node:path'
 import { projectRoot } from './project.ts'
 import { workerd } from './workerd.ts'
 
@@ -10,6 +10,8 @@ export interface Config {
   include?: string[]
   /** Glob patterns for files that are not test files. */
   exclude?: string[]
+  /** Glob patterns for files that are part of the tests, and are not test files (D51). */
+  helpers?: string[]
   /** The default time limit of a test, in milliseconds. */
   timeout?: number
   /** False turns off the rerun of a test that timed out (D14). */
@@ -49,6 +51,10 @@ const workers = (v: unknown): boolean =>
 const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]> = {
   include: [globs, 'a list of glob patterns, such as ["test/**/*.test.ts"]'],
   exclude: [globs, 'a list of glob patterns, such as ["test/slow/**"]'],
+  helpers: [
+    v => Array.isArray(v) && v.every(s => typeof s === 'string' && s),
+    'a list of glob patterns, such as ["src/testing/**"]. An empty list means that no file is a test helper',
+  ],
   timeout: [v => typeof v === 'number' && v > 0, 'a number of milliseconds, such as 5000'],
   hangRerun: [v => typeof v === 'boolean', 'true or false'],
   bunInspectorCoverage: [v => typeof v === 'boolean', 'true or false'],
@@ -83,3 +89,16 @@ export const config = (): Config => {
   }
   return (cached = raw as Config)
 }
+
+/** With no `helpers` key: a file in a folder with one of these names. */
+const HELPERS = ['**/{test,tests,__tests__}/**']
+
+/**
+ * True for a test helper: a file that is part of the tests and is
+ * not a test file, such as a setup module or the scenario of an
+ * end-to-end test. A helper is not code of the program, so it is
+ * not in the list of code that no test runs. `file` is a path from
+ * the project root.
+ */
+export const isHelper = (file: string): boolean => (config().helpers ?? HELPERS).some(pattern => matchesGlob(file, pattern))
+

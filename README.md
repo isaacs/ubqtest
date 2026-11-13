@@ -94,7 +94,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq --repeat <n> ...` | Runs tests n times and counts the failures of each, to find a flaky test. |
 | `ubq --baseline <commit> ...` | Shows only the failures that the commit does not have. |
 | `ubq failures`, `ubq show`, `ubq history`, `ubq diff`, `ubq slow` | Questions about stored runs. |
-| `ubq uncovered`, `ubq covers <file>:<line>` | Code that no test ran. The tests that ran a line. |
+| `ubq uncovered`, `ubq covers <file>:<line>` | Code of the program that no test ran (exit code 1 if there is some). The tests that ran a line. |
 | `ubq uncovered --diff` | Code that you changed and that no test runs. |
 | `ubq mutate <file>`, `ubq mutate --diff` | A mutation check: small changes to the source, one at a time, and the list of changes that no test fails for. |
 | `ubq convert <folder>` | Changes the tests of tap, `node:test`, vitest, jest, or mocha to ubq. |

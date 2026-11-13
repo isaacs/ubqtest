@@ -1126,9 +1126,9 @@ The user asked about two points of the output.
   file that is gone. The note now leaves out a test file that
   does not exist.
 
-Not changed: a helper of the tests (`test/setup.ts`) is in the
-list. It is not a test file, and tests loaded it. In this
-repository the list has only such files, because the collectors
+Changed after that (D51): a test helper (`test/setup.ts`) is not
+in the list, and `ubq uncovered` exits with 1 if it lists code.
+In this repository the list is empty, because the collectors
 leave out the library, which here is `src/`.
 
 Not done: the store keeps the rows of a test file that is gone

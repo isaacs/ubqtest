@@ -32,6 +32,7 @@ import {
   uncovered,
 } from './query.ts'
 import { textSink } from './sink-text.ts'
+import { isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
 import { fileHash, openStore } from './store.ts'
 
@@ -324,7 +325,10 @@ const main = async (args: string[]): Promise<number> => {
       const commit = diffOption(rest)
       const diff = commit === undefined ? undefined : changedLines(commit)
       const covered = coveredFiles(db)
-      let files = rest[0] ? [file(rest[0])] : covered
+      // A test helper is not code of the program (D51). A file that
+      // the command names is in the list in each case.
+      let files = rest[0] ? [file(rest[0])] : covered.filter(f => !isHelper(f))
+      const helpers = rest[0] ? 0 : covered.length - files.length
       if (rest[0] && !covered.includes(files[0]!))
         throw new UsageError(`no test loaded ${files[0]}`)
       /** Changed files with code that no test loads. */
@@ -334,7 +338,7 @@ const main = async (args: string[]): Promise<number> => {
         const tests = new Set(testFiles(db))
         if (!rest[0])
           for (const f of diff.keys())
-            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && fileHash(f)) unloaded.push(f)
+            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && !isHelper(f) && fileHash(f)) unloaded.push(f)
         // The places of the stored coverage must be the places of the file.
         for (const f of files)
           if (stale(db, f))
@@ -359,7 +363,11 @@ const main = async (args: string[]): Promise<number> => {
         out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
       } else if (rest[0]) out(`${total} uncovered ranges in ${files[0]}`)
       // A file with no uncovered range is not in the list.
-      else out(`${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran`)
+      else
+        out(
+          `${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran` +
+            (helpers ? ` (${helpers} test helpers are not in this list)` : ''),
+        )
       const weak = incomplete(db)
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')
@@ -367,7 +375,8 @@ const main = async (args: string[]): Promise<number> => {
           `note: coverage is not complete for ${weak.length} test files: ${names}. Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>`,
         )
       }
-      return 0
+      // For a check in CI: code of the program that no test runs.
+      return total || unloaded.length ? 1 : 0
     }
 
     case 'covers': {
