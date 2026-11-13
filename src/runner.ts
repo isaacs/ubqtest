@@ -25,7 +25,7 @@ import { type TestProcess, warmProcess } from './pool.ts'
 import { debugProcess, GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
-import { type Checking, TYPES } from './plain.ts'
+import { type Checking, ownTypeErrors, TYPES } from './plain.ts'
 import { startBrowserServer } from './browser-server.ts'
 import { typeCheck } from './typecheck.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
@@ -685,7 +685,10 @@ export const run = async (args: string[]): Promise<number> => {
   // Each run of a TypeScript project also checks the types (D38).
   // A Workers test file cannot load in this process.
   const lone = files.length === 1 && !repeat && !baselineRef && !workersConfig(files[0]!.file)
-  const checking = typeCheck(lone)
+  const checking = typeCheck(lone, files.map(f => f.file))
+  // The user named what to run. The type errors of files that the
+  // run does not use are counted, and do not fail it (D49).
+  if (checking) checking.partial = rest.length > 0 || flags.length > 0
 
   // One file runs in this process. It has the runner role for itself.
   if (lone) {
@@ -774,6 +777,8 @@ export const run = async (args: string[]): Promise<number> => {
   let unselected = 0
   /** Tests that timed out with something open. */
   const hung: string[] = []
+  /** The test files of the run, and the files that their tests ran. */
+  const used = new Set(files.map(f => f.file))
   const send = (event: UbqEvent): void => {
     if (event.type === 'test-end') {
       status.set(event.id, event.status)
@@ -785,6 +790,7 @@ export const run = async (args: string[]): Promise<number> => {
       errorFiles.add(event.file)
     }
     else if (event.type === 'file-end') unselected += event.unselected
+    else if (event.type === 'coverage') for (const { file } of event.files) used.add(file)
     for (const sink of sinks) sink(event)
   }
   send(start)
@@ -811,7 +817,8 @@ export const run = async (args: string[]): Promise<number> => {
     await runAll(send)
     for (const hang of hangReruns(hung)) send(hang)
   }
-  const typeErrors = (await checking?.errors) ?? []
+  const allTypes = (await checking?.errors) ?? []
+  const { own: typeErrors, other: otherTypes } = checking?.partial ? ownTypeErrors(allTypes, used) : { own: allTypes, other: 0 }
   for (const error of typeErrors) send(error)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
   // The order of the files can be the cause of a failure.
@@ -833,6 +840,7 @@ export const run = async (args: string[]): Promise<number> => {
     skip: count('skip'),
     unselected,
     ...(checking && { types: typeErrors.length }),
+    ...(otherTypes && { otherTypes }),
     code,
   })
   store?.close()

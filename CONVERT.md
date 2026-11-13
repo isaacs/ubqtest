@@ -221,9 +221,11 @@ Things to check by hand:
 - **`expect.any`, `expect.objectContaining`, `expect.anything`.**
   `assert.match` with a partial object does the work of
   `objectContaining`. For `any(String)`, assert on `typeof`.
-- **`toContainEqual(b)`.** ubq has no assertion for "some element
-  equals this". Find the element, then compare it:
-  `assert.deepEqual(list.find(x => x.id === b.id), b)`.
+- **`toContainEqual(b)`.** The command writes
+  `assert(list.some(item => isDeepEqual(item, b)))`.
+  `isDeepEqual` gives true or false by the rules of
+  `assert.deepEqual`. Use it also for `expect.arrayContaining`
+  with objects.
 - **`it.each(table)`.** A `for` loop around `test()`. Each test
   name must be different: put the value in the name.
 - **`.only`.** The command removes it. ubq runs one test from the

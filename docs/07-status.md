@@ -1057,8 +1057,6 @@ the report:
 
 Not done:
 
-- Type errors in a run of a selection, and a second
-  `tsconfig.json`: Q11.
 - `ubq show '<test id>'` for a test whose file did not load says
   "no stored result". It could name the error of the file.
 - The output of a test that passes shows only in `ubq show`.
@@ -1100,10 +1098,17 @@ work that a less able model can get wrong. Done from it:
 - The guide has the rule for the type of an expected value, with
   `assert.deepEqual<unknown>(a, b)`.
 
+Done after the user answered Q11 (D49, D50):
+
+- The type check runs for each `tsconfig.json` above a test file
+  of the run. Checks: `test/typecheck.test.ts`.
+- A run of a selection reports and fails for the type errors of
+  the files that it used. It prints the count of the others.
+- `isDeepEqual(a, b)` is an export. `ubq convert` changes
+  `toContainEqual` with it.
+
 Not done:
 
-- The type check of a second `tsconfig.json`, and a function for
-  deep equality as a boolean: Q11.
 - `beforeAll` in a `describe`, `expect.any`, and
   `expect.arrayContaining` stay hand work.
 

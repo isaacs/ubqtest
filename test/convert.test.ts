@@ -293,7 +293,7 @@ it('a', () => {
     "test('a', () => {",
     '  assert(!text.match(/re/))',
     "  assert(row.tags?.includes('x'))",
-    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)).',
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
     '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
     '  assert.match(last, { content: /a\\.b/ })',
     '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
@@ -412,4 +412,21 @@ export default defineConfig({
   ])
   assert.equal(readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').split('\n')[0], "import { assert, test } from 'ubqtest'")
   assert(!readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').includes('migrate'))
+})
+
+test('vitest: toContainEqual', () => {
+  const r = convert(`import { expect, it } from 'vitest'
+it('a', () => {
+  expect(list).toContainEqual({ contents: 'write' })
+  expect(list).not.toContainEqual(item)
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, isDeepEqual, test } from 'ubqtest'",
+    "test('a', () => {",
+    "  assert(list.some(item => isDeepEqual(item, { contents: 'write' })))",
+    '  assert(!(list.some(element => isDeepEqual(element, item))))',
+    '})',
+  ])
 })

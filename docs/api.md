@@ -16,6 +16,19 @@ read [GUIDE.md](../GUIDE.md) (`ubq guide`).
 const assert: Assert;
 ```
 
+### `isDeepEqual`
+
+True if the two values are deeply equal, by the rules of
+`assert.deepEqual`: the same structure, values, and prototypes.
+It is not an assertion. Use it for a condition that
+`assert.deepEqual` cannot state, such as "the list has an element
+that equals this": `assert(list.some(item => isDeepEqual(item,
+expected)))`.
+
+```ts
+const isDeepEqual: (a: unknown, b: unknown) => boolean;
+```
+
 ### `fakeClock`
 
 Replaces the timers and the clocks of the process with a clock

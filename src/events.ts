@@ -229,6 +229,12 @@ export interface RunEnd {
   unselected: number
   /** Count of `type-error` events. Absent if the run had no type check. */
   types?: number
+  /**
+   * In a run of a selection: the count of type errors in files that
+   * the run did not use. They are not events, and they do not change
+   * `code`.
+   */
+  otherTypes?: number
   /** The exit code of the run. See docs/04-architecture.md, section 9. */
   code: number
 }

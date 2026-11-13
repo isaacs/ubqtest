@@ -2,7 +2,7 @@
 // spyOn, mockImport.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, cleanup, env, mockImport, spy, spyOn, test, testdir } from 'ubqtest'
+import { assert, cleanup, env, isDeepEqual, mockImport, spy, spyOn, test, testdir } from 'ubqtest'
 import { project } from './setup.ts'
 
 test('fixtures end with their test, and a failed test keeps its testdir', () => {
@@ -130,4 +130,17 @@ test('a test that changes the environment or the working directory fails', () =>
     '',
     'fail: 2 failed, 2 passed',
   ])
+})
+
+test('isDeepEqual gives true or false, by the rules of deepEqual', () => {
+  const list = [{ contents: 'read' }, { contents: 'write' }]
+  assert.deepEqual(
+    [
+      list.some(item => isDeepEqual(item, { contents: 'write' })),
+      list.some(item => isDeepEqual(item, { contents: 'admin' })),
+      isDeepEqual([1, { a: undefined }], [1, {}]),
+      isDeepEqual(1, '1'),
+    ],
+    [true, false, false, false],
+  )
 })

@@ -368,3 +368,13 @@ const methods = {
 }
 
 export const assert: Assert = Object.assign(assertFn, methods) as Assert
+
+/**
+ * True if the two values are deeply equal, by the rules of
+ * `assert.deepEqual`: the same structure, values, and prototypes.
+ * It is not an assertion. Use it for a condition that
+ * `assert.deepEqual` cannot state, such as "the list has an element
+ * that equals this": `assert(list.some(item => isDeepEqual(item,
+ * expected)))`.
+ */
+export const isDeepEqual = (a: unknown, b: unknown): boolean => isDeepStrictEqual(a, b)

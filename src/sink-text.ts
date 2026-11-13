@@ -131,6 +131,10 @@ export const textSink = (write: (text: string) => void): Sink => {
       case 'run-end': {
         if (typeErrors > TYPE_ERRORS)
           write(`and ${typeErrors - TYPE_ERRORS} more type errors. For all of them: npx tsc --noEmit\n`)
+        if (event.otherTypes)
+          write(
+            `note: ${event.otherTypes} type errors are in files that this run did not use. They are not part of this result. A run of all tests reports them: ubq\n`,
+          )
         if (skips.length) write(skips.join('\n') + '\n')
         const parts = [`${event.fail} failed`, `${event.pass} passed`]
         if (event.errors) parts.unshift(`${event.errors} errors`)

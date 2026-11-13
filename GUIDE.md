@@ -56,6 +56,14 @@ Each run also runs the type checker, if the project has
 `tsconfig.json` and the `typescript` package. Each type error is a
 `TYPE` block, and the run fails. The tests run in any case.
 
+- A folder with its own `tsconfig.json` is checked too, if a test
+  file of the run is in it.
+- A run of all tests (`ubq`) reports each type error. A run of a
+  selection (`ubq <file>`, `ubq --changed`) reports the type
+  errors of the files that it used: its test files, and the
+  files that their tests ran. It prints the count of the others
+  in one line, and does not fail for them.
+
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/.bin/ubq`.
 
@@ -118,6 +126,7 @@ await assert.rejects(promise, expected)   // resolves to the error
 await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
 assert.snapshot(value)             // compares with saved text
 assert.fail(message)
+isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion.
 
 spy(impl?)                         // records calls in spy.calls: { args, result, error }
 spyOn(object, key, impl?)          // replaces a method until the test ends. A second spyOn on the key replaces the first.

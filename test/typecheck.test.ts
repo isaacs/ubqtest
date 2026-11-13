@@ -1,5 +1,5 @@
 // Type checks next to the tests, in each run of a TypeScript project.
-import { existsSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
@@ -52,8 +52,53 @@ test('passes at run time', () => {
   // A run of a selection checks the types too. The second run reads
   // the data of the first one, and reports the same errors.
   assert(existsSync(join(p.dir, '.ubq', 'types', 'tsbuildinfo')))
+  // The type errors of a file that the run did not use are counted,
+  // and the run does not fail for them (D49).
   const one = p.ubq('pass.ts')
-  assert.deepEqual([one.code, one.last], [1, 'fail: 0 failed, 5 passed, 1 skipped, 2 type errors'])
+  assert.deepEqual(
+    [one.code, one.out.replace(/ \(run \d+\)\n$/, '').split('\n').slice(-3)],
+    [
+      0,
+      [
+        'note: 2 type errors are in files that this run did not use. They are not part of this result. A run of all tests reports them: ubq',
+        'skip pass.ts > not on this platform: needs a GPU',
+        'pass: 0 failed, 5 passed, 1 skipped',
+      ],
+    ],
+  )
   const repeat = p.ubq('--repeat', '2', 'pass.ts')
-  assert.deepEqual([repeat.code, repeat.out.includes('TS2322')], [1, true])
+  assert.deepEqual([repeat.code, repeat.out.includes('TS2322')], [0, false])
+  // The selected file has the errors: the run fails.
+  const own = p.ubq('typed.test.ts')
+  assert.deepEqual([own.code, own.last], [1, 'fail: 1 failed, 0 passed, 2 type errors'])
+})
+
+test('a folder with its own tsconfig.json is checked for its test files', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const config = (include: string[]) =>
+    JSON.stringify({
+      compilerOptions: { module: 'nodenext', target: 'esnext', strict: true, noEmit: true, allowImportingTsExtensions: true, types: ['node'] },
+      include,
+    })
+  const source = (name: string) => `import { assert, test } from 'ubqtest'
+const count: number = '${name}'
+test('${name}', () => {
+  assert(count)
+})
+`
+  for (const name of ['typescript', '@types']) symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  mkdirSync(join(p.dir, 'second'))
+  writeFileSync(join(p.dir, 'tsconfig.json'), config(['first.test.ts']))
+  writeFileSync(join(p.dir, 'first.test.ts'), source('first'))
+  // The config of the root does not have this file.
+  writeFileSync(join(p.dir, 'second/tsconfig.json'), config(['*.ts']))
+  writeFileSync(join(p.dir, 'second/second.test.ts'), source('second'))
+  const all = p.ubq()
+  assert.deepEqual(
+    [all.code, all.last, all.out.includes('at first.test.ts:2:7'), all.out.includes('at second/second.test.ts:2:7')],
+    [1, 'fail: 0 failed, 2 passed, 2 type errors', true, true],
+  )
+  const one = p.ubq('second/second.test.ts')
+  assert.deepEqual([one.code, one.out.includes('first.test.ts'), one.last], [1, false, 'fail: 0 failed, 1 passed, 1 type errors'])
 })

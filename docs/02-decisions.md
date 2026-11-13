@@ -897,3 +897,53 @@ whole API of the vitest plugin); code that runs through an eval
 binding, as the vitest plugin does (more code, and positions that
 need maps).
 
+## D49. The type check covers each tsconfig of the run, and a selection fails only for its own files (user, 2026-11-13)
+
+Two changes to D38, from three reports of one conversion
+(`14-agent-feedback-0.0.5.md`, item 6). The user chose both from
+Q11.
+
+- **Each config.** The runner starts the checker for the
+  `tsconfig.json` of the project root, and for each
+  `tsconfig.json` in a folder from a test file of the run up to
+  the root. The checkers run at the same time. An error that two
+  of them report shows one time. Each config keeps its own data
+  in `.ubq/types/`.
+- **A selection.** A run is a selection if the command names
+  files, lines, or IDs, or has `--changed` or `--failed`. Such a
+  run reports the type errors of the files that it used: its test
+  files, and the files in its coverage events. An error with no
+  file is always reported. The others are one line with their
+  count (`otherTypes` in the `run-end` event). They are not
+  events, they are not in the store, and they do not change the
+  exit code. A run of all tests does not change: each type error
+  fails it.
+
+**Reason.** With one config, ubq said that a project had 12 type
+errors when it had 17: the second Worker has its own config. An
+agent that trusts the last line then reports a clean result that
+is not clean. And in a run of one file, the errors of files that
+the agent has not reached yet hid the result of the file, and
+made each run end with `fail`.
+
+**Cost.** A file that only has types (no code that a test runs)
+is not in the coverage of a run. Its errors show in a selection
+only through the files that use those types, and in a run of all
+tests.
+
+## D50. `isDeepEqual` is an export (user, 2026-11-13)
+
+`isDeepEqual(a, b)` gives true or false by the rules of
+`assert.deepEqual`. It is not an assertion, and it does not count
+as one in a test.
+
+**Reason.** "The list has an element that equals this value" had
+no form in ubq (`toContainEqual` of jest and vitest). Three
+reports asked for it. One name covers that case, `not`, and
+`arrayContaining` with objects:
+`assert(list.some(item => isDeepEqual(item, expected)))`. `ubq
+convert` writes that line.
+
+**Not chosen:** a form of `assert.match` for an element of an
+array. It covers one case, and it changes what a pattern means.
+

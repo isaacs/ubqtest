@@ -112,7 +112,8 @@ configuration.
   in a random order. A run with a failure prints the seed.
 - The type checker of the project (`tsc --noEmit`) runs at the
   same time, if the project has `tsconfig.json`. A type error
-  fails the run.
+  fails the run. A run of a selection fails only for the type
+  errors of the files that it used.
 - A test that goes over its time limit fails, and the report
   names what it left open and the line that opened it.
 - A test file with a syntax error or a missing import is one

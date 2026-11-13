@@ -110,12 +110,7 @@ const MATCHERS: Record<string, Rule> = {
   // The same as `key in object`. The arguments keep their order.
   // `Object()`: the value can be undefined, and expect() took that.
   toHaveProperty: { 2: 'assert(Reflect.has(Object($0), $1))' },
-}
-
-/** More help for a matcher that has no rule. */
-const MATCHER_HINTS: Record<string, string> = {
-  toContainEqual:
-    ' For an array, find the element, then compare it: const found = list.find(x => x.id === id); assert.deepEqual(found, expected).',
+  toContainEqual: 'assert(<$0>.some(ITEM => isDeepEqual(ITEM, $1)))',
 }
 /** With `.not`. A matcher that is not here and makes `assert(x)` becomes `assert(!(x))`. */
 const NOT_MATCHERS: Record<string, Rule> = {
@@ -173,7 +168,7 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)).",
+    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
   throwsText:
     'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
   restore: 'A spyOn spy goes back when its test ends. Remove this call. ubq has no call that puts the method back before that.',
@@ -356,6 +351,8 @@ export const convertSource = (
    * goes on in them.
    */
   const rewrite = (node: Node, rule: string, args: Node[]): Node[] => {
+    // A name for the parameter of a callback that the arguments do not use.
+    if (rule.includes('ITEM')) rule = rule.replaceAll('ITEM', ['item', 'element', 'entry', 'one'].find(name => !args.some(arg => mentions(arg, name))) ?? '_item')
     const pieces: string[] = ['']
     const parts: Node[] = []
     let last = 0
@@ -369,7 +366,7 @@ export const convertSource = (
     }
     pieces[pieces.length - 1] += rule.slice(last)
     changes++
-    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport)\b/g) ?? []) used.add(name)
+    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual)\b/g) ?? []) used.add(name)
     if (!parts.length) {
       replace(node.start, node.end, pieces[0]!)
       return []
@@ -799,7 +796,7 @@ export const convertSource = (
     if (!subject) return undefined
     const all = [subject, ...args]
     const fail = (): undefined => {
-      todo(path, `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.${MATCHER_HINTS[method] ?? ''}`)
+      todo(path, `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`)
       return undefined
     }
     if (method === 'toMatch' && args[0]) {

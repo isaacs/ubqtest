@@ -26,12 +26,25 @@ const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
   )
 }
 
+/**
+ * For a run of a selection (D49): the type errors that belong to
+ * the run, and the count of the others. An error belongs to the run
+ * if it has no file, or if its file is in `used`: the test files of
+ * the run and the files that their tests ran.
+ */
+export const ownTypeErrors = (errors: TypeCheckError[], used: Set<string>): { own: TypeCheckError[]; other: number } => {
+  const own = errors.filter(error => !error.at || used.has(error.at.file))
+  return { own, other: errors.length - own.length }
+}
+
 /** The key of the type check that `ubq` started in this process. */
 export const TYPES = Symbol.for('ubqtest.types')
 
 /** A type check that runs at the same time as the tests. */
 export interface Checking {
   errors: Promise<TypeCheckError[]>
+  /** True for a run of a selection: the errors of files that the run did not use are only counted (D49). */
+  partial?: boolean
   /** Keeps the process open until the check ends. */
   wait(): void
 }
@@ -63,6 +76,8 @@ export const startPlain = (): void => {
   let begun = false
   let store: Store | undefined
   const checking = (globalThis as { [TYPES]?: Checking })[TYPES]
+  /** The test file, and the files that its tests ran. */
+  const used = new Set<string>()
   /** Writes the end of the run. Set when the file ends. */
   let end: ((types?: TypeCheckError[]) => void) | undefined
   let exiting = false
@@ -112,6 +127,8 @@ export const startPlain = (): void => {
       if (event.failure?.kind === 'timeout' && event.failure.pending) hung.push(event.id)
     }
     else if (event.type === 'late-failure') status.set(event.id, 'fail')
+    else if (event.type === 'file-start') used.add(event.file)
+    else if (event.type === 'coverage') for (const { file } of event.files) used.add(file)
     else if (event.type === 'file-error') {
       if (event.failure.kind === 'no-tests') noTests = true
       else errors++
@@ -129,6 +146,9 @@ export const startPlain = (): void => {
       for (const hang of hangReruns(hung)) send(hang)
       end = types => {
         end = undefined
+        const all = types
+        const split = all && checking?.partial ? ownTypeErrors(all, used) : undefined
+        if (split) types = split.own
         for (const error of types ?? []) send(error)
         if (types?.length) process.exitCode = 1
         send({
@@ -140,6 +160,7 @@ export const startPlain = (): void => {
           skip: count('skip'),
           unselected: event.unselected,
           ...(types && { types: types.length }),
+          ...(split?.other && { otherTypes: split.other }),
           code: types?.length ? 1 : code,
         })
         store?.close()

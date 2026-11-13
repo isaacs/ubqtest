@@ -1,9 +1,9 @@
 // Type checks next to the tests: the runner starts the type checker
 // of the project, and reports each error as an event.
-import { spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
 import type { TypeCheckError } from './events.ts'
 import type { Checking } from './plain.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
@@ -42,31 +42,35 @@ const compiler = (root: string): string[] | undefined => {
 const ERROR = /^(?:(.+)\((\d+),(\d+)\): )?error (TS\d+): (.*)$/
 
 /**
- * Runs `tsc --noEmit` on the `tsconfig.json` of the project root.
- * The checker keeps its data for the next run in `.ubq/types/`.
- * Returns undefined if the project has no `tsconfig.json` there, or
- * no `typescript` package.
- *
- * With `background`, the checker does not keep the process open:
- * a test file that runs in this process must see when its own work
- * ends. `wait` of the result keeps the process open for the checker.
+ * The folders with a `tsconfig.json` that have a test file of the
+ * run in them: the project root, and each folder from a test file
+ * up to the root. A project with a second program in a folder (a
+ * second Worker) has a config there for its files.
  */
-export const typeCheck = (background = false): Checking | undefined => {
-  const root = projectRoot()
-  const tsc = compiler(root)
-  if (!tsc || !existsSync(join(root, 'tsconfig.json'))) return undefined
-  const info = join(stateDir(), 'types', 'tsbuildinfo')
+const configFolders = (root: string, files: string[]): string[] => {
+  const folders = new Set<string>()
+  const add = (dir: string): void => {
+    if (existsSync(join(dir, 'tsconfig.json'))) folders.add(dir)
+  }
+  add(root)
+  for (const file of files)
+    for (let dir = dirname(join(root, file)); dir.startsWith(root + sep); dir = dirname(dir)) add(dir)
+  return [...folders]
+}
+
+/** Runs the checker on the config of one folder. */
+const check = (tsc: string[], root: string, folder: string): { child: ChildProcess; errors: Promise<TypeCheckError[]> } => {
+  // The checker keeps its data for the next run. Each config has
+  // its own file.
+  const name = folder === root ? 'tsbuildinfo' : `tsbuildinfo-${rel(folder).replaceAll('/', '-')}`
   const child = spawn(
     tsc[0]!,
-    [...tsc.slice(1), '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', info, '-p', root],
+    [...tsc.slice(1), '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', join(stateDir(), 'types', name), '-p', folder],
     { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
   )
-  type Handle = { ref?(): void; unref?(): void }
-  const handles: Handle[] = [child, child.stdout as Handle]
-  if (background) for (const h of handles) h.unref?.()
   const errors = new Promise<TypeCheckError[]>(done => {
     let text = ''
-    child.stdout.setEncoding('utf8').on('data', (data: string) => (text += data))
+    child.stdout!.setEncoding('utf8').on('data', (data: string) => (text += data))
     const errors: TypeCheckError[] = []
     child.on('error', error =>
       done([{ type: 'type-error', code: 'ubq', message: `the type checker did not start: ${error.message}` }]),
@@ -87,8 +91,38 @@ export const typeCheck = (background = false): Checking | undefined => {
       done(errors)
     })
   })
+  return { child, errors }
+}
+
+/**
+ * Runs `tsc --noEmit` on each `tsconfig.json` of the project that
+ * has a test file of the run in its folder (D49). `files` are the
+ * test files of the run, as paths from the project root. Returns
+ * undefined if the project has no such config, or no `typescript`
+ * package.
+ *
+ * With `background`, the checker does not keep the process open:
+ * a test file that runs in this process must see when its own work
+ * ends. `wait` of the result keeps the process open for the checker.
+ */
+export const typeCheck = (background = false, files: string[] = []): Checking | undefined => {
+  const root = projectRoot()
+  const tsc = compiler(root)
+  const folders = tsc ? configFolders(root, files) : []
+  if (!tsc || !folders.length) return undefined
+  const checks = folders.map(folder => check(tsc, root, folder))
+  type Handle = { ref?(): void; unref?(): void }
+  const handles: Handle[] = checks.flatMap(({ child }) => [child, child.stdout as Handle])
+  if (background) for (const h of handles) h.unref?.()
   return {
-    errors,
+    // Two configs can have the same file.
+    errors: Promise.all(checks.map(one => one.errors)).then(lists => {
+      const seen = new Set<string>()
+      return lists.flat().filter(error => {
+        const key = JSON.stringify([error.at, error.code, error.message])
+        return !seen.has(key) && !!seen.add(key)
+      })
+    }),
     wait() {
       for (const h of handles) h.ref?.()
     },
