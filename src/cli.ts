@@ -341,11 +341,14 @@ const main = async (args: string[]): Promise<number> => {
             throw new UsageError(`${f} changed after the last run of its tests. Run them first: ubq --changed`)
       }
       let total = 0
+      /** Files with a range in the list. */
+      const listed = new Set<string>()
       for (const f of files) {
         for (const u of uncovered(db, f)) {
           if (diff && !diff.get(f)!.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
             continue
           total++
+          listed.add(f)
           const more = u.moreLines ? ` (+${u.moreLines} lines)` : ''
           out(`${u.file}:${u.line}:${u.column}  ${u.text}${more}`)
         }
@@ -354,7 +357,9 @@ const main = async (args: string[]): Promise<number> => {
       if (diff) {
         const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
         out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
-      } else out(`${total} uncovered ranges in ${files.length} files`)
+      } else if (rest[0]) out(`${total} uncovered ranges in ${files[0]}`)
+      // A file with no uncovered range is not in the list.
+      else out(`${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran`)
       const weak = incomplete(db)
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')

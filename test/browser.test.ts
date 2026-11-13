@@ -167,12 +167,12 @@ test('minus', async () => {
   assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), [
     "src/app.js:2:22  () => 'never'",
     "src/app.js:3:33  ? 'minus'",
-    '2 uncovered ranges in 1 files',
+    '2 uncovered ranges in src/app.js',
     '',
   ])
   const both = p.ubq('app.test.ts')
   assert.equal(both.last, 'pass: 0 failed, 2 passed', both.out + both.err)
-  assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), ["src/app.js:2:22  () => 'never'", '1 uncovered ranges in 1 files', ''])
+  assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), ["src/app.js:2:22  () => 'never'", '1 uncovered ranges in src/app.js', ''])
   assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), ['app.test.ts > minus', 'app.test.ts > title', '2 tests run src/app.js:3', ''])
   // A change to code that the pages ran selects the tests. A change
   // to code that no page ran selects none.
@@ -225,7 +225,7 @@ test('title', { timeout: 30_000 }, async () => {
   assert.deepEqual(p.ubq('uncovered', 'src/app.ts').out.split('\n'), [
     "src/app.ts:2:22  (): string => 'never'",
     "src/app.ts:4:53  'minus'",
-    '2 uncovered ranges in 1 files',
+    '2 uncovered ranges in src/app.ts',
     '',
   ])
 })

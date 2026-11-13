@@ -1,5 +1,5 @@
 // Questions about stored runs. See docs/04-architecture.md, section 5.
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, TypeCheckError } from './events.ts'
@@ -173,11 +173,13 @@ export const coversAt = (db: DatabaseSync, file: string, at: number): Covers => 
   }
 }
 
-/** Test files whose last run did not have full coverage. */
+/** Test files whose last run did not have full coverage. Not a file that is gone. */
 export const incomplete = (db: DatabaseSync): { tfile: string; coverage: string }[] =>
-  db
-    .prepare("select tfile, coverage from test_file where coverage != 'full' order by tfile")
-    .all() as { tfile: string; coverage: string }[]
+  (
+    db
+      .prepare("select tfile, coverage from test_file where coverage != 'full' order by tfile")
+      .all() as { tfile: string; coverage: string }[]
+  ).filter(({ tfile }) => tfile && existsSync(join(projectRoot(), tfile)))
 
 export interface TestRow {
   run: number

@@ -43,7 +43,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
   ])
   assert.deepEqual(p.lines('uncovered', 'src/shape.ts'), [
     'src/shape.ts:12:22  (): number => 1',
-    '1 uncovered ranges in 1 files',
+    '1 uncovered ranges in src/shape.ts',
   ])
   // A change in code that no test ran.
   p.edit('never = (): number => 1', 'never = (): number => 2')

@@ -132,7 +132,7 @@ describe('bun', () => {
       'src/calc.ts:12:17  (): string => { (+2 lines)',
       "src/calc.ts:15:22  : () => 'other'",
       'src/calc.ts:18:8  function never(): number { (+3 lines)',
-      '4 uncovered ranges in 1 files',
+      '4 uncovered ranges in 1 of the 1 files that tests ran',
     ])
     assert.deepEqual(sh('node', [cli, 'covers', 'src/calc.ts:5'], cov), [
       'test/calc.test.ts > grade A',
@@ -227,7 +227,7 @@ describe('bun', () => {
     assert.deepEqual(sh('node', [cli, 'uncovered', 'src/size.ts'], p.dir), [
       "src/size.ts:3:14  return 'big'",
       'src/size.ts:6:8  function never(): number { (+2 lines)',
-      '2 uncovered ranges in 1 files',
+      '2 uncovered ranges in src/size.ts',
     ])
   })
 
@@ -240,7 +240,7 @@ describe('bun', () => {
       'src/view.tsx:2:32  (type: unknown, props: unknown) => ({ type, props })',
       'src/view.tsx:8:35  ? <b>many</b>',
       'src/view.tsx:17:22  <T,>({ value }: { value: T }) => <i>{String(value)}</i>',
-      '3 uncovered ranges in 1 files',
+      '3 uncovered ranges in src/view.tsx',
     ])
     assert.deepEqual(sh('bun', [cli, 'covers', 'src/view.tsx:12'], p.dir), [
       'view.tsx > a view of no items',
@@ -254,7 +254,7 @@ describe('bun', () => {
     assert.deepEqual(sh('bun', [cli, 'plain.ts'], p.dir), ['pass: 0 failed, 1 passed'])
     assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/plain.js'], p.dir), [
       'src/plain.js:1:44  : <i>off</i>',
-      '1 uncovered ranges in 1 files',
+      '1 uncovered ranges in src/plain.js',
     ])
     // The mutation check makes its changes in the JSX source.
     assert.deepEqual(sh('bun', [cli, 'mutate', 'src/view.tsx:5'], p.dir), ['mutate: 0 of 2 changes survived'])

@@ -1112,3 +1112,26 @@ Not done:
 - `beforeAll` in a `describe`, `expect.any`, and
   `expect.arrayContaining` stay hand work.
 
+## The summary of `ubq uncovered` (2026-11-13)
+
+The user asked about two points of the output.
+
+- The last line was "3 uncovered ranges in 2 files" with one file
+  in the list. The count was of the files that the command read,
+  not of the files in the list. It is now "3 uncovered ranges in
+  1 of the 2 files that tests ran". With a file as the argument,
+  the line names that file.
+- The note about test files with coverage that is not complete
+  named a file with an empty name. The store had the row of a test
+  file that is gone. The note now leaves out a test file that
+  does not exist.
+
+Not changed: a helper of the tests (`test/setup.ts`) is in the
+list. It is not a test file, and tests loaded it. In this
+repository the list has only such files, because the collectors
+leave out the library, which here is `src/`.
+
+Not done: the store keeps the rows of a test file that is gone
+(its coverage and its `test_file` row). `ubq covers` can name a
+test of such a file.
+

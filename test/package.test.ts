@@ -90,7 +90,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 0 failed, 2 passed'])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
       'src/add.ts:4:22  (): number => 0',
-      '1 uncovered ranges in 1 files',
+      '1 uncovered ranges in 1 of the 1 files that tests ran',
     ])
   })
 
@@ -111,7 +111,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
       return [r.stdout.replace(/ \(run \d+\)\n$/, '').trimEnd().split('\n'), r.stderr]
     }
     assert.deepEqual(run(), [['pass: 0 failed, 6 passed'], ''])
-    assert.deepEqual(run('uncovered'), [["src/index.ts:28:32  return new Response('this line has no test')", '1 uncovered ranges in 2 files'], ''])
+    assert.deepEqual(run('uncovered'), [["src/index.ts:28:32  return new Response('this line has no test')", '1 uncovered ranges in 1 of the 2 files that tests ran'], ''])
   })
 
 test('docs/api.md is current', () => {
@@ -191,7 +191,7 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   assert.deepEqual(await run(deno, 'uncovered', 'src/view.tsx'), [
     'src/view.tsx:8:37  <b>many',
     'src/view.tsx:17:22  <T,>({ value }: { value: T }) => <i>{String(value',
-    '2 uncovered ranges in 1 files',
+    '2 uncovered ranges in src/view.tsx',
     '',
   ])
   assert.deepEqual(await run(deno, 'covers', 'src/view.tsx:12'), [

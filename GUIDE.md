@@ -215,7 +215,7 @@ ubq show '<test id>'      the last result of a test, with its console output
 ubq history '<test id>'   the result of a test in each stored run. Says if the test is flaky.
 ubq diff [run] [run]      the tests whose status differs in two runs
 ubq slow [run]            the slowest tests
-ubq uncovered [file]      code that no test ran
+ubq uncovered [file]      code that no test ran, in each file that a test loaded. Not test files. A helper of the tests is in the list.
 ubq uncovered --diff      code that no test ran, in the lines that you changed (from the last git commit)
 ubq covers <file>:<line>  the tests that ran a line
 ubq sql '<query>'         a read-only SQL query, as JSON lines

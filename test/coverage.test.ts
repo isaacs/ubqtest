@@ -37,7 +37,7 @@ test('a run with preload has full coverage', () => {
     'src/calc.ts:12:17  (): string => { (+2 lines)',
     "src/calc.ts:15:22  : () => 'other'",
     'src/calc.ts:18:8  function never(): number { (+3 lines)',
-    '4 uncovered ranges in 1 files',
+    '4 uncovered ranges in 1 of the 1 files that tests ran',
   ])
 })
 
