@@ -56,7 +56,7 @@ export const remove = (dir: string): void => {
 export const resetStore = (project: string): void =>
   rmSync(`${project}.ubq`, { recursive: true, force: true })
 
-const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
+export const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 
 /**
  * A new project in a temporary folder, so that its store has only

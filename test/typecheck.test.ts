@@ -71,6 +71,18 @@ test('passes at run time', () => {
   // The selected file has the errors: the run fails.
   const own = p.ubq('typed.test.ts')
   assert.deepEqual([own.code, own.last], [1, 'fail: 1 failed, 0 passed, 2 type errors'])
+
+  // More than 20 errors get a count, not a block.
+  const consts = Array.from({ length: 22 }, (_, i) => `const n${i}: number = 'x'`).join('\n')
+  writeFileSync(join(p.dir, 'typed.test.ts'), `${consts}\n`)
+  const many = p.ubq().out
+  assert.deepEqual(
+    [many.split('\n').filter(l => l.startsWith('TYPE ')).length, many.match(/^and \d+ more.*$/m)?.[0]],
+    [20, 'and 2 more type errors. For all of them: npx tsc --noEmit'],
+  )
+  // An error with no file.
+  writeFileSync(join(p.dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { noEmit: true, types: ['no-such-types'] }, include: ['typed.test.ts'] }))
+  assert.match(p.ubq().out, /^TYPE \(no file\)\n  TS2688: Cannot find type definition file for 'no-such-types'\./m)
 })
 
 test('a folder with its own tsconfig.json is checked for its test files', () => {

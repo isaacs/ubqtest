@@ -708,18 +708,30 @@ export const run = async (args: string[]): Promise<number> => {
     if (update) process.env.UBQ_UPDATE = '1'
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])
+    // A file with no import of the library has no reporter. If it
+    // ends the process when it loads, the import fails. Such a file
+    // runs again in a child process, which reports it.
+    const exit = process.exit
+    const listeners = process.listenerCount('uncaughtException')
+    const loaded = () => process.listenerCount('uncaughtException') > listeners
+    process.exit = ((code?: number) => {
+      if (loaded()) return exit.call(process, code)
+      throw new Error(`the file called process.exit(${code ?? ''})`)
+    }) as typeof process.exit
     try {
       await import(pathToFileURL(join(projectRoot(), file)).href)
       // The library sets the exit code when the file ends.
-      return 0
+      if (loaded()) return 0
     } catch (error) {
       // The library reports an error of the file, if the library
       // loaded. If not, the file runs again in a child process, which
       // gives the report of a file that did not load.
       if (process.emit('uncaughtException', error as Error)) return 0
-      checking?.wait()
-      delete (globalThis as { [TYPES]?: Checking })[TYPES]
+    } finally {
+      process.exit = exit
     }
+    checking?.wait()
+    delete (globalThis as { [TYPES]?: Checking })[TYPES]
   }
 
   // The baseline runs first, so that the text of this run can leave

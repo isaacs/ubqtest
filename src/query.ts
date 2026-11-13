@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
+import { UsageError } from './config.ts'
 import { ENV, fileHash } from './store.ts'
 
 type Span = [start: number, end: number]
@@ -176,7 +177,7 @@ export interface Covers {
 /** The tests that ran line `line` of `file`. */
 export const covers = (db: DatabaseSync, file: string, line: number): Covers => {
   const span = new Source(file).line(line)
-  if (!span) throw new Error(`${file}:${line} has no code`)
+  if (!span) throw new UsageError(`${file}:${line} has no code`)
   const rows = rangesOf(db, file).filter(({ ranges }) => {
     for (let i = 0; i < ranges.length; i += 3)
       if (ranges[i + 2] && ranges[i]! < span[1] && ranges[i + 1]! > span[0]) return true

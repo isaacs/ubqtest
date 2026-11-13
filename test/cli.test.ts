@@ -1,8 +1,9 @@
 // The command line: help, and the message for each wrong command.
+import { spawnSync } from 'node:child_process'
 import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
-import { project } from './setup.ts'
+import { cli, project } from './setup.ts'
 
 test('help, and the error of each command with a wrong or absent argument', { timeout: 60_000 }, () => {
   const p = project()
@@ -59,4 +60,46 @@ test('later', { skip: 'not now' }, () => assert(true))
   ])
   assert.match(p.ubq('history', 'many.test.ts > later').out, /\n0 failed, 0 passed, 2 skipped in 2 runs \(times are UTC\)\n$/)
   assert.deepEqual(p.ubq('failures', '1').out, 'pass: 0 failed, 12 passed, 1 skipped (run 1)\n')
+})
+
+test('a file that ends the process, cut output, and a run of only skipped tests', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  // No import of ubqtest: the runner must report the exit.
+  writeFileSync(join(p.dir, 'exits.test.ts'), 'process.exit(3)\n')
+  const exits = p.ubq('exits.test.ts')
+  assert.deepEqual([exits.code, exits.out.split('\n').slice(0, 2)], [
+    1,
+    ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 3)'],
+  ])
+  // No import of ubqtest, and no exit: the runner reports it too.
+  writeFileSync(join(p.dir, 'exits.test.ts'), 'void 0\n')
+  const plain = p.ubq('exits.test.ts')
+  assert.deepEqual([plain.code, plain.out.split('\n').slice(0, 2)], [
+    1,
+    ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 0)'],
+  ])
+  writeFileSync(
+    join(p.dir, 'noisy.test.ts'),
+    `import { assert, test } from 'ubqtest'
+test('much output', () => {
+  for (let i = 1; i <= 30; i++) console.log('line ' + i)
+  assert.equal(1, 2)
+})
+`,
+  )
+  const noisy = p.ubq('noisy.test.ts')
+  assert.match(noisy.out, /\n  output \(last 20 of 30 lines\):\n  \| line 11\n/)
+  // In CI, the output is not cut.
+  const ci = spawnSync('node', [cli, 'noisy.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '1' } })
+  assert.match(ci.stdout, /\n  output:\n  \| line 1\n/)
+  assert.equal(ci.stdout.match(/^  \| line /gm)?.length, 30)
+  writeFileSync(join(p.dir, 'skipped.test.ts'), "import { test } from 'ubqtest'\ntest('s', { skip: 'x' }, () => {})\n")
+  const skipped = p.ubq('skipped.test.ts')
+  assert.deepEqual([skipped.code, skipped.last], [2, 'fail: 0 failed, 0 passed, 1 skipped'])
+  // A line with no code.
+  assert.deepEqual([p.ubq('covers', 'skipped.test.ts:99').code, p.ubq('covers', 'skipped.test.ts:99').err], [
+    4,
+    'ubq: skipped.test.ts:99 has no code\n',
+  ])
 })
