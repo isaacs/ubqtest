@@ -116,6 +116,8 @@ const MATCHERS: Record<string, Rule> = {
 /** With `.not`. A matcher that is not here and makes `assert(x)` becomes `assert(!(x))`. */
 const NOT_MATCHERS: Record<string, Rule> = {
   toBe: 'assert.notEqual($0, $1)',
+  toEqual: 'assert(!isDeepEqual($0, $1))',
+  toStrictEqual: 'assert(!isDeepEqual($0, $1))',
   toContain: 'assert(!<$0>.includes($1))',
   toBeNull: 'assert.notEqual($0, null)',
   toBeUndefined: 'assert.notEqual($0, undefined)',
@@ -153,6 +155,8 @@ const ASSERT: Record<string, Rule> = {
   notEqual: 'assert.notEqual($0, $1)',
   deepStrictEqual: 'assert.deepEqual($0, $1)',
   deepEqual: 'assert.deepEqual($0, $1)',
+  notDeepStrictEqual: 'assert(!isDeepEqual($0, $1))',
+  notDeepEqual: 'assert(!isDeepEqual($0, $1))',
   ok: 'assert($0)',
   match: 'assert.match($0, $1)',
   throws: { 1: 'assert.throws($0, Error)', 2: 'assert.throws($0, $1)' },
@@ -172,6 +176,8 @@ const TODO = {
     "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
   throwsText:
     'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
+  workers:
+    "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
   restore:
     'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
   subtests:
@@ -256,8 +262,8 @@ export const convertSource = (
     else if (imported === 'vi' || imported === 'jest') roles.set(local, 'vi')
     else if (imported === 'mock') roles.set(local, 'mock')
   }
-  /** The import of `cloudflare:test`, and what becomes of its names. */
-  let workersImport: Node | undefined
+  /** The imports of `cloudflare:test`, and what becomes of their names. */
+  const workersImports: Node[] = []
   /** `env`: the runtime has it in `cloudflare:workers`. */
   const workersKept: string[] = []
   /** Names that `ubqtest/workers` has no function for. */
@@ -270,9 +276,16 @@ export const convertSource = (
     if (node.type === 'ImportDeclaration') {
       const module = (node.source as { value: string }).value
       if (module === 'cloudflare:test') {
-        workersImport = node
-        for (const s of node.specifiers as Node[]) {
-          const name = (s.imported as { name?: string } | undefined)?.name ?? '*'
+        const specifiers = node.specifiers as Node[]
+        // `import * as cf from 'cloudflare:test'`: the names are not
+        // known here. The import stays, with a TODO.
+        if (specifiers.some(s => s.type !== 'ImportSpecifier')) {
+          todos.set(node.start, new Set([TODO.workers]))
+          continue
+        }
+        workersImports.push(node)
+        for (const s of specifiers) {
+          const name = (s.imported as { name: string }).name
           const local = (s.local as { name: string }).name
           if (name === 'env') workersKept.push(name === local ? name : `${name} as ${local}`)
           else if (name in WORKERS) roles.set(local, `cf.${name}`)
@@ -649,6 +662,8 @@ export const convertSource = (
       if (nameOf(node.property as Node) === 'mock' && parent?.type === 'MemberExpression' && /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? '')) {
         if (!spyCalls(node, path)) todo(path, TODO.spyImpl)
       }
+      // mock.timers.enable() of node:test
+      else if (roleOf(node.object as Node) === 'mock' && nameOf(node.property as Node) === 'timers') todo(path, TODO.timers)
     }
     else if (node.type === 'Identifier' && roleOf(node) === 'tap') {
       // helper(t, value)
@@ -687,6 +702,9 @@ export const convertSource = (
       return undefined
     }
     if (role === 'assert') {
+      // `import * as check from 'node:assert'`: the name goes away
+      // with the import.
+      replace(callee.start, callee.end, 'assert')
       used.add('assert')
       return undefined
     }
@@ -711,6 +729,9 @@ export const convertSource = (
         workersUsed.add(to)
         changes++
         return []
+      } else if (name === 'waitOnExecutionContext') {
+        todo(path, 'Use the settled() method of the context: await ctx.settled().')
+        return undefined
       } else replace(callee.start, callee.end, to)
       if (name !== 'waitOnExecutionContext') workersUsed.add(to)
       changes++
@@ -807,6 +828,11 @@ export const convertSource = (
       return undefined
     }
     if (method === 'toMatch' && args[0]) {
+      // A value can be text or a RegExp, and the two have different forms.
+      if (args[0].type !== 'Literal' && args[0].type !== 'TemplateLiteral') {
+        todo(path, 'toMatch takes text or a RegExp. For a RegExp: assert.match(value, pattern). For text: assert(value.includes(text)).')
+        return undefined
+      }
       const regex = args[0].type === 'Literal' && (args[0] as { regex?: unknown }).regex
       // The arguments of a rule keep their order, so not `re.test(a)`.
       return rewrite(node, regex ? (not ? 'assert(!<$0>.match($1))' : 'assert.match($0, $1)') : `assert(${not ? '!' : ''}<$0>.includes($1))`, all)
@@ -958,6 +984,10 @@ export const convertSource = (
     const at = source.startsWith('#!') ? source.indexOf('\n') + 1 : 0
     edits.push({ start: at, end: at, text: line + '\n' })
   }
+  const [workersImport, ...moreWorkers] = workersImports
+  // One file can have two imports of the module. The first one gets
+  // the new lines.
+  for (const node of moreWorkers) replace(node.start, source[node.end] === '\n' ? node.end + 1 : node.end, '')
   if (workersImport) {
     const lines: string[] = []
     if (workersKept.length) lines.push(`import { ${workersKept.join(', ')} } from 'cloudflare:workers'`)
@@ -966,9 +996,7 @@ export const convertSource = (
       lines.push(`import { ${workersLeft.join(', ')} } from 'cloudflare:test'`)
       todos.set(
         workersImport.start,
-        (todos.get(workersImport.start) ?? new Set()).add(
-          "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
-        ),
+        (todos.get(workersImport.start) ?? new Set()).add(TODO.workers),
       )
     }
     replace(workersImport.start, workersImport.end, lines.join('\n'))
