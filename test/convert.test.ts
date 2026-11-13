@@ -464,3 +464,13 @@ beforeEach(() => again())
     '',
   ])
 })
+
+test('the parser reads type syntax that it does not know, with the types removed', { skip: !!process.versions.bun && 'Bun has no function that removes types' }, () => {
+  // A `const` type parameter in an interface is an error for the parser.
+  const source = "interface A {\n  m<const T>(a: T): void\n}\nexport const f = (a: number): number => a + 1\n"
+  const tree = parse(source, 'a.ts')
+  // The positions are those of the source.
+  const last = (tree.body as { start: number; end: number }[]).at(-1)!
+  assert.equal(source.slice(last.start, last.end), 'export const f = (a: number): number => a + 1')
+  assert.throws(() => parse('const = 1', 'a.ts'), SyntaxError)
+})

@@ -352,8 +352,10 @@ Known limits:
 
 - A file that the parser cannot read runs with no counters, and
   the test file records coverage `partial`. The parser does not
-  read a `const` type parameter in an interface method
-  (`src/assert.ts` has one).
+  read a `const` type parameter in an interface or a type
+  (`src/assert.ts` has one). On Node and Deno such a file gets a
+  second try with its types removed, and has counters. On Bun it
+  does not.
 - Counters for code after `return` or `throw` exist only at
   statement level in a block. An expression that throws in the
   middle of a statement counts the rest of the statement as run.
@@ -952,9 +954,10 @@ Source files:
 
 Known limits:
 
-- The parser does not read `src/assert.ts` (a `const` type
-  parameter in an interface method). A project file like it runs
-  with no counters, and its test files record coverage `partial`.
+- The parser did not read `src/assert.ts` (a `const` type
+  parameter in an interface method). Corrected on 2026-11-13 for
+  Node and Deno: `parse` in `src/instrument.ts` tries again with
+  the types removed.
 - In this repository, the files in `src/` are the library, and the
   collectors leave the library out. So `ubq uncovered src/...` has
   no data here.
@@ -1174,8 +1177,6 @@ To do next, in this order:
    The user agreed to it, for what stays after 1 and 2.
 4. **Deno children.** D53 has the path: add `--preload` to the
    arguments of a `deno run` child.
-5. The parser does not read `src/assert.ts`, so each test file of
-   this repository has coverage `partial`.
 
 ## Fourth report from the Workers project (2026-11-13)
 

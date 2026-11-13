@@ -1,6 +1,7 @@
 // Source counters: coverage for a runtime with no V8 inspector (Bun).
 // Adds a counter to each function and each branch of a source file.
 // See docs/04-architecture.md, section 4.
+import * as nodeModule from 'node:module'
 import { tsPlugin } from '@sveltejs/acorn-typescript'
 import { Parser } from 'acorn'
 import { COUNTER_NAME, COUNTERS, type Region } from './counters.ts'
@@ -48,9 +49,34 @@ const jsxParser = Parser.extend(tsPlugin({ jsx: true }) as never)
 const JSX = /\.[jt]sx$/
 
 /**
+ * The source with its types removed, each position the same.
+ * Undefined if the runtime has no function for that (Bun), or if
+ * the function cannot read the source.
+ */
+const noTypes = (source: string): string | undefined => {
+  if (!nodeModule.stripTypeScriptTypes) return undefined
+  // Node prints a warning the first time that a program removes types.
+  const emitWarning = process.emitWarning
+  process.emitWarning = () => {}
+  try {
+    return nodeModule.stripTypeScriptTypes(source)
+  } catch {
+    return undefined
+  } finally {
+    process.emitWarning = emitWarning
+  }
+}
+
+/**
  * The syntax tree of a source file. Throws if no parser can read
  * it. Bun reads JSX in a `.js` file, so such a file gets a second
  * try with the JSX parser.
+ *
+ * The parser does not know all type syntax: a `const` type
+ * parameter in an interface or in a type is an error. A TypeScript
+ * file that the parser refuses gets a second try with its types
+ * removed. Each position stays the same, and the tree has no type
+ * nodes.
  */
 export const parse = (source: string, file: string): Node => {
   const options = { ecmaVersion: 'latest', sourceType: 'module', locations: true, allowHashBang: true } as const
@@ -58,8 +84,15 @@ export const parse = (source: string, file: string): Node => {
   try {
     return parser.parse(source, options) as unknown as Node
   } catch (error) {
-    if (!file.endsWith('.js')) throw error
-    return jsxParser.parse(source, options) as unknown as Node
+    if (file.endsWith('.js')) return jsxParser.parse(source, options) as unknown as Node
+    const plain = /\.[cm]?ts$/.test(file) ? noTypes(source) : undefined
+    if (plain === undefined) throw error
+    try {
+      return parser.parse(plain, options) as unknown as Node
+    } catch {
+      // The first error is about the source as it is.
+      throw error
+    }
   }
 }
 
