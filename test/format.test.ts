@@ -21,6 +21,15 @@ test('diffEqual says why two values are not the same', () => {
     note: 'first difference at index 50; text shown from index 30',
   })
   assert.deepEqual(diffEqual('a', 'b'), { path: '', actual: "'a'", expected: "'b'" })
+  // A space that is not ASCII, and a character with no width.
+  assert.deepEqual(diffEqual('a b', 'a\u00a0b'), { path: '', actual: '"a b"', expected: '"a\\u00a0b"' })
+  assert.deepEqual(diffEqual('a\u200bb', 'ab'), { path: '', actual: '"a\\u200bb"', expected: '"ab"' })
+  assert.deepEqual(diffEqual('x'.repeat(50) + '\u00a0', 'x'.repeat(50) + ' '), {
+    path: '',
+    actual: `"${'x'.repeat(20)}\\u00a0"`,
+    expected: `"${'x'.repeat(20)} "`,
+    note: 'first difference at index 50; text shown from index 30',
+  })
   assert.equal(diffEqual(null, {}).note, 'types differ: null and Object')
   assert.equal(diffEqual(Object.create(null), {}).note, 'types differ: null-prototype object and Object')
   assert.equal(diffEqual({ a: 1 }, { a: 1 }).note, 'same content, but not the same object. Use assert.deepEqual to compare content.')

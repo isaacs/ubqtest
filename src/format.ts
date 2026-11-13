@@ -57,14 +57,20 @@ export const diffEqual = (actual: unknown, expected: unknown): Diff => {
   if (typeof actual === 'string' && typeof expected === 'string') {
     let i = 0
     while (i < actual.length && actual[i] === expected[i]) i++
+    // A space that is not ASCII, or a character with no width, looks
+    // like a different character, or like nothing. Then each
+    // character that is not ASCII shows as its code.
+    const hidden = /[^\x20-\x7e]/.test((actual[i] ?? '') + (expected[i] ?? ''))
+    const text = (s: string): string =>
+      hidden ? JSON.stringify(s).replace(/[^\x20-\x7e]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`) : JSON.stringify(s)
     if (actual.length > 40 || expected.length > 40) {
       const from = Math.max(0, i - 20)
-      d.actual = JSON.stringify(actual.slice(from, i + 200))
-      d.expected = JSON.stringify(expected.slice(from, i + 200))
+      d.actual = text(actual.slice(from, i + 200))
+      d.expected = text(expected.slice(from, i + 200))
       d.note = `first difference at index ${i}; text shown from index ${from}`
-    } else if (d.actual === d.expected) {
-      d.actual = JSON.stringify(actual)
-      d.expected = JSON.stringify(expected)
+    } else if (hidden) {
+      d.actual = text(actual)
+      d.expected = text(expected)
     }
   } else if (typeName(actual) !== typeName(expected)) {
     d.note = `types differ: ${typeName(actual)} and ${typeName(expected)}`
