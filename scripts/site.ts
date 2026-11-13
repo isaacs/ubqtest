@@ -42,7 +42,7 @@ const PAGES: Page[] = [
   { source: 'docs/04-architecture.md', slug: 'docs/architecture', name: 'Architecture', about: 'The parts, the process model, events, coverage, and the store.', group: 'design' },
   { source: 'docs/05-api.md', slug: 'docs/api-design', name: 'API design', about: 'The test file API, and what is absent on purpose.', group: 'design' },
   { source: 'docs/06-events.md', slug: 'docs/events', name: 'Events', about: 'The events that a test process sends to the runner.', group: 'design' },
-  { source: 'docs/07-status.md', slug: 'docs/status', name: 'Status', about: 'What is built, and the known limits.', group: 'design' },
+  { source: 'docs/07-status.md', slug: 'docs/status', name: 'Status', about: 'What is built, and what waits for a decision.', group: 'design' },
   { source: 'docs/09-questions.md', slug: 'docs/questions', name: 'Open questions', about: 'Points that wait for a decision.', group: 'design' },
   { source: 'docs/10-bun-coverage-api.md', slug: 'docs/bun-coverage', name: 'Coverage on Bun', about: 'What ubq needs from Bun for coverage of each test.', group: 'design' },
   { source: 'docs/11-server.md', slug: 'docs/server', name: 'Server', about: 'The optional background server.', group: 'design' },

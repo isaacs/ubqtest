@@ -11,7 +11,7 @@ Read this file first. Open only the documents that the task needs.
 | `04-architecture.md` | The architecture plan: parts, process model, events, coverage, store, selection, hangs, speed budget, build order, open questions. | You start any implementation work. |
 | `05-api.md` | The test file API (accepted): `test`, `describe`, `assert`, mocks, spies, fixtures, and what is absent on purpose. | You write a test, or you implement the core library. |
 | `06-events.md` | The event model and rules. Exact fields are in `src/events.ts`. | You write or read events: a sink, the runner, the store. |
-| `07-status.md` | What is built, by step. Commands, source file map, known limits. | First, in each new session. |
+| `07-status.md` | Commands, checks, lessons, a short log of what is built, and what waits for a decision. | First, in each new session. |
 | `08-config.md` | Which files ubq runs by default, and the `ubq` key of `package.json`. | You change test file selection, or you add a setting. |
 | `10-bun-coverage-api.md` | What ubq needs from Bun for per-test coverage, what Bun 1.4.3 has, and the change to Bun that closes the gap. | You work on coverage on Bun, or on the proposal to the Bun project. |
 | `11-server.md` | The background server: what it does, the rule of equal results, the protocol, measurements, why no MCP and no HTTP. | You change the server, or the way the runner starts a test process. |

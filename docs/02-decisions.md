@@ -1088,7 +1088,7 @@ of Deno for a preload module would be the complete answer.
 the repository of ubq sees 50 of the 53 source files. It cannot
 see code that runs only on a different runtime (the Bun preload,
 the module that workerd runs). The plan for that is coverage from
-more than one run, merged: see `07-status.md`.
+more than one run, merged: see D54.
 
 ## D54. Coverage from more than one environment, in one store (user and agent, 2026-11-13)
 
