@@ -1135,3 +1135,22 @@ Not done: the store keeps the rows of a test file that is gone
 (its coverage and its `test_file` row). `ubq covers` can name a
 test of such a file.
 
+## Coverage of ubq by its own tests: started (2026-11-13)
+
+D52: the files of ubq are project files in this repository. `ubq
+uncovered` lists 291 ranges in 24 of the 28 files that test
+processes load. 25 more files run only in child processes.
+
+Coverage of child processes is investigated
+(`03-measurements.md`, section 15) and not built. The method: a
+preload module with source counters, which each child gets from
+`NODE_OPTIONS`. The user decided that it must be on by default.
+
+Future work that the user named:
+
+- Coverage from more than one run, folded together. For example a
+  run on Node, a run on Bun, and a run on Deno: each one runs code
+  that the others cannot.
+- A comment that marks code as not measured, with a reason. The
+  user agreed to it. It waits for the child process work.
+

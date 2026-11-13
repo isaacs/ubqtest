@@ -131,7 +131,6 @@ export const startBunInspector = (): Collector => {
   session.post('Profiler.enable')
   session.post('Profiler.startPreciseCoverage', { callCount: true, detailed: true })
   const root = projectRoot() + sep
-  const own = import.meta.dirname + sep
   const modules = `${sep}node_modules${sep}`
   /** The JavaScript and the function for its offsets. Undefined if the transpiler cannot read the file. */
   const texts = new Map<string, { made: string; toSource: ToSource } | undefined>()
@@ -148,7 +147,7 @@ export const startBunInspector = (): Collector => {
       for (const script of scripts) {
         if (!script.url.startsWith('file:')) continue
         const path = fileURLToPath(script.url.replace(/\?.*$/, ''))
-        if (!path.startsWith(root) || path.startsWith(own) || path.includes(modules)) continue
+        if (!path.startsWith(root) || path.includes(modules)) continue
         if (!script.functions.some(f => f.ranges.some(r => r.count))) continue
         const file = rel(path)
         // With no known place, the first character stands for the

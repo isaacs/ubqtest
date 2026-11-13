@@ -122,7 +122,6 @@ export const startCoverage = (early = false): Collector | undefined => {
   // See docs/03-measurements.md, section 2.1.
   session.post('Profiler.startPreciseCoverage', { callCount: true, detailed: true })
   const root = projectRoot() + sep
-  const own = import.meta.dirname + sep
   const modules = `${sep}node_modules${sep}`
   const take = (): Promise<V8Script[]> =>
     new Promise((resolve, reject) =>
@@ -138,7 +137,7 @@ export const startCoverage = (early = false): Collector | undefined => {
         if (!script.url.startsWith('file:')) continue
         // A mocked module instance has a query on its URL.
         const path = fileURLToPath(script.url.replace(/\?.*$/, ''))
-        if (!path.startsWith(root) || path.startsWith(own) || path.includes(modules))
+        if (!path.startsWith(root) || path.includes(modules))
           continue
         const ranges = flatten(script.functions)
         if (ranges.length) files.push({ file: rel(path), ranges })

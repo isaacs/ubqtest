@@ -23,9 +23,23 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 let instrument: typeof import('./instrument.ts').instrument | undefined
 
 /** Loads the parser. Most processes find their files in the cache and do not need it. */
-const parse = (): typeof import('./instrument.ts').instrument =>
-  (instrument ??= (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts'))
-    .instrument)
+const parse = (): typeof import('./instrument.ts').instrument => {
+  if (!instrument) {
+    loadingParser = true
+    try {
+      instrument = (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')).instrument
+    } finally {
+      loadingParser = false
+    }
+  }
+  return instrument
+}
+/**
+ * True while the parser loads. In the repository of ubq, the parser
+ * is a file of the project, and the load hook gets it. It cannot
+ * get counters from a parser that is not there yet.
+ */
+let loadingParser = false
 
 export interface Counters {
   /** True for a file of the project that can have counters. */
@@ -80,6 +94,7 @@ const cached = (file: string, source: string, strip = false): Instrumented | und
   // Bun has no function that removes types and keeps each position.
   const needsJs = strip && /\.[cm]?ts$/.test(file) && !!nodeModule.stripTypeScriptTypes
   if (result && (result.js !== undefined || !needsJs)) return result
+  if (!result && loadingParser) return undefined
   result ??= parse()(source, file)
   if (result) {
     try {
@@ -132,7 +147,6 @@ export const startCounters = (): Counters | undefined => {
     originalColumn(shifts.get(file)?.[line], column)
 
   const root = projectRoot() + sep
-  const own = import.meta.dirname + sep
   const modules = `${sep}node_modules${sep}`
 
   shared[KEY] = {
@@ -162,7 +176,10 @@ export const startCounters = (): Counters | undefined => {
   }
 
   return {
-    wants: path => path.startsWith(root) && !path.startsWith(own) && !path.includes(modules),
+    // The files of ubq are not files of the project: they are in
+    // `node_modules`, or outside the root through a link. In the
+    // repository of ubq they are the project.
+    wants: path => path.startsWith(root) && !path.includes(modules),
     compiled(path, made) {
       const file = rel(path)
       const result = cached(file, made)

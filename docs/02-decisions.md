@@ -986,3 +986,28 @@ imports `ubqtest`, or a file that only test files import). A
 setup file often imports nothing from ubq, and ubq has no import
 graph.
 
+## D52. The files of ubq are project files in the repository of ubq (user, 2026-11-13)
+
+The collectors left out each file in the folder of the library.
+That rule is gone. A file of ubq is not a project file for a
+user: it is in `node_modules`, or outside the project root
+through a link, and both were left out before this rule. In the
+repository of ubq the files are in the root, so they have
+coverage now. This is the rule of tap: its own files count only
+in its own project.
+
+Failure reports still leave out the stack frames of the library,
+in each project (`src/stack.ts`).
+
+The parser is a project file here, and the load hook gets it
+while the hook loads the parser. For that time the hook gives no
+counters (`loadingParser` in `src/counter-collector.ts`).
+
+**Reason.** ubq must be able to check its own tests with `ubq
+uncovered`. The rule did not protect a user from the sources of
+ubq: the two older rules do that.
+
+**Not complete.** Most of ubq runs in child processes of its
+tests (`03-measurements.md`, section 15). That needs coverage of
+child processes.
+

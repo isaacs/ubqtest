@@ -523,3 +523,65 @@ It reads the file from the disk, removes the types with
 9. After the build of D48: `ubq` on the fixture Worker (1 file, 6
    tests, D1 migrations, a Durable Object) takes 0.7 s.
 
+## 15. Coverage of child processes (2026-11-13)
+
+Scripts: `child/bench.ts`, `child/cases.ts`, `child/preload.ts`.
+Node 26.5, macOS. A test often starts the program under test as a
+child process (a CLI, a server). A test process records only its
+own code today.
+
+### 15.1 How much of ubq do its own tests run?
+
+The suite ran with `NODE_V8_COVERAGE` set, so each Node process
+that it starts wrote its V8 coverage: 543 files, 230 MB. The union
+for `src/`: 89% of the characters ran. The files at 0% run only in
+Bun or in workerd (`bun-preload.ts`, `workers-entry.ts`,
+`workers.ts`), or only with `UBQ_COVERAGE=v8` (`preload.ts`).
+
+A test process with the files of ubq as project files (D52) sees
+28 of the 53 files, with 291 uncovered ranges. The rest runs only
+in child processes.
+
+### 15.2 Two methods
+
+- **V8 dumps:** `NODE_V8_COVERAGE=<folder>` in the environment.
+  Each Node process writes all its scripts when it exits.
+- **Source counters:** `NODE_OPTIONS=--import <preload>` in the
+  environment. The preload adds counters to project files, as in
+  a test process, and writes the counts when the process exits.
+
+Time for one child process, mean of 20, and the data that it
+writes:
+
+| Child | No coverage | V8 dumps | Counters (source preload) |
+| --- | --- | --- | --- |
+| A script of one line | 33 ms | 36 ms, 104 kB | 68 ms |
+| `ubq help` (35 project files load) | 86 ms | 93 ms, 275 kB | 91 ms, 4 kB |
+| The parser on 150 files (the work is in a dependency) | 271 ms | 675 ms, 374 kB | 277 ms, 1 kB |
+
+1. V8 coverage slows all code of the process, also dependencies:
+   2.5 times here, and 14 times for a hot loop in section 12. The
+   counters are only in project files.
+2. The 68 ms of the counters for a script of one line is the load
+   of the preload from 10 TypeScript source files. With the
+   bundled preload of the package, the same script takes 37.3 ms,
+   against 33.2 ms with no preload: 4 ms for each child process.
+3. A V8 dump is 100 to 370 kB for each process, and the parent
+   must read it (0.3 to 1.0 ms). The counts are 1 to 4 kB.
+4. A V8 dump has the positions of the code that ran. In a nested
+   test process, that is the source with counters, so the
+   positions are not those of the file.
+
+### 15.3 Hard cases for the preload method (`cases.ts`)
+
+| Case | Result |
+| --- | --- |
+| The child starts a child with a new environment (`spawnSync`, `execFileSync`, `spawn`) | The preload ran in each one. It adds its variables in `ChildProcess.prototype.spawn` and in the sync functions. |
+| A server that the test stops with SIGTERM | A handler of the preload ran, then the process ended with the same signal, as with no handler. The handler does nothing if the program has its own. |
+| A worker thread of the child | The preload ran in the thread too. |
+| Bun as the child | The preload ran, from `BUN_OPTIONS=--preload`. |
+| Deno as the child | The preload did not run. Deno has `--preload` as an argument, and no variable for it. |
+
+Not possible to catch: SIGKILL, and each kill on Windows. A write
+on a timer keeps the counts up to the last write.
+
