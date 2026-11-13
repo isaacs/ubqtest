@@ -166,11 +166,13 @@ export const startBunInspector = (): Collector => {
               target: 'bun',
             }).transformSync(source)
             texts.set(file, { made, toSource: mapper(source, made) })
+            // ubq: not measured: Bun can transpile each file that it ran
           } catch {
             texts.set(file, undefined)
           }
         }
         const text = texts.get(file)
+        // ubq: not measured: Bun can transpile each file that it ran
         if (!text) {
           files.push(unknown)
           continue
@@ -182,6 +184,7 @@ export const startBunInspector = (): Collector => {
         const ran: Script['functions'] = []
         for (const f of script.functions) {
           const [outer, ...blocks] = f.ranges
+          // ubq: not measured: this Bun gives no function range after 0
           if (outer!.startOffset > 0) {
             if (outer!.count && f.ranges.every(good)) ran.push(f)
           } else if (blocks.some(r => r.count))

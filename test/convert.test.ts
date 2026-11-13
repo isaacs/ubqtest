@@ -180,6 +180,10 @@ t.test('load', async t => {
   assert.equal(p.ubq('convert', 'old.ts').out, 'convert: 0 files changed, 0 TODO comments, 1 files with no known test tool (old.ts)\n')
   assert.deepEqual([p.ubq('convert').code, p.ubq('convert', 'nope').code], [4, 4])
   assert.match(p.ubq('guide', 'convert').out, /^# ubq guide: convert\n/)
+  // A TypeScript file in a folder.
+  mkdirSync(join(p.dir, 'spec'))
+  writeFileSync(join(p.dir, 'spec/a.ts'), "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n")
+  assert.match(p.ubq('convert', '--dry', 'spec/a.ts').out, /"include": \["spec\/\*\*\/\*\.ts"\]/)
 })
 
 test('vitest: spy chains, calls of a spy, restore calls, and hooks that run one time', () => {
@@ -375,7 +379,7 @@ export default defineConfig({
         test: { include: ['worker/test/**/*.test.ts'], setupFiles: ['./worker/test/setup.ts'] },
       },
       {
-        plugins: [cloudflareTest({ wrangler: { configPath: './second/wrangler.jsonc' } })],
+        plugins: [cloudflareTest({ wrangler: { configPath: './second/wrangler.test.jsonc' } })],
         test: { include: ['second/test/**/*.test.ts'], setupFiles: './second/test/setup.ts' },
       },
     ],
@@ -393,7 +397,7 @@ export default defineConfig({
   writeFileSync(join(p.dir, 'second/test/b.test.ts'), old)
   const workers = [
     { config: 'worker/wrangler.jsonc', include: ['worker/test/**/*.test.ts'], vars: { APP_ID: '12345', LIMIT: 3, FLAGS: { a: true } } },
-    { config: 'second/wrangler.jsonc', include: ['second/test/**/*.test.ts'] },
+    { config: 'second/wrangler.test.jsonc', include: ['second/test/**/*.test.ts'] },
   ]
   // doctor says that the conversion writes the key.
   writeFileSync(join(p.dir, 'worker/test/a.test.ts'), "import { env } from 'cloudflare:test'\n" + old)
@@ -406,6 +410,7 @@ export default defineConfig({
     'note: each test file now applies the D1 migrations (await migrate(...)). The setup file is not necessary: remove worker/test/setup.ts.',
     `wrote "ubq.workers" to package.json, from vitest.config.ts: "workers": ${JSON.stringify(workers)}`,
     'note: the binding SECRET of miniflare.bindings in vitest.config.ts is not a plain value. Add it to "vars" by hand.',
+    'note: second/wrangler.test.jsonc has "test" in its name. If it is a copy of the wrangler config of the Worker that exists only to leave out "containers" or a service binding, it is not necessary: ubq loads a config with them. Then give the config of the Worker in "config", and remove the copy.',
   ])
   assert.deepEqual(JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')).ubq, { workers })
   assert.deepEqual(readFileSync(join(p.dir, 'worker/test/a.test.ts'), 'utf8').split('\n').slice(0, 4), [

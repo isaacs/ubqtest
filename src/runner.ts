@@ -208,6 +208,7 @@ const moved = (ranges: number[], [from, oldTo, newTo]: Change): number[] => {
   const at = (offset: number, end: boolean): number =>
     offset <= from ? offset
     : offset >= oldTo ? offset + newTo - oldTo
+    // ubq: not measured: the code after a range that did not run, ran
     : end ? newTo
     : from
   const out: number[] = []
@@ -454,6 +455,7 @@ export const runFile = async (
       for (let i = buffer.indexOf('\n'); i >= 0; i = buffer.indexOf('\n')) {
         const event = JSON.parse(buffer.slice(0, i)) as FileEvent
         buffer = buffer.slice(i + 1)
+        // ubq: not measured: no event comes after the stop in the tests
         if (stopped) continue
         started = true
         if (event.type === 'file-end') ended = true
@@ -468,6 +470,7 @@ export const runFile = async (
       }
     }
     /** Reads the new part of the events file of a Deno process. */
+    // ubq: not measured: poll runs only with an events file
     let poll = (): void => {}
     let polling: ReturnType<typeof setInterval> | undefined
     if (eventsFile) {
@@ -563,6 +566,7 @@ const runWorkspaces = (folders: string[], args: string[]): number => {
     process.stdout.write(`workspace ${folder}:\n`)
     const r = spawnSync(
       process.execPath,
+      // ubq: not measured: the tests run the command line on Node
       [...(process.versions.deno ? ['run', '-A'] : []), process.argv[1]!, ...args],
       { cwd: join(projectRoot(), folder), stdio: 'inherit' },
     )
@@ -767,6 +771,7 @@ export const run = async (args: string[]): Promise<number> => {
         if (event.type === 'test-end' && event.status === 'fail') {
           if (baseline.tests.get(event.id) === 'fail')
             return text({ ...event, status: 'pass', failure: undefined })
+          // ubq: not measured: no test has a late failure in its baseline
         } else if (event.type === 'late-failure') {
           if (baseline.tests.get(event.id) === 'fail') return
         } else if (event.type === 'file-error' && baseline.errors.has(event.file)) return

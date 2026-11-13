@@ -71,9 +71,12 @@ export const mutate = async (
     if (stored.some(hash => hash !== fileHash(file)))
       throw new UsageError(`${file} changed after the last run of its tests. Run them first: ubq --changed`)
     // Deno compiles JSX before a load hook can change the source.
+    // ubq: not measured: on Deno, only the built package counts JSX
     if (process.versions.deno && /\.[jt]sx$/.test(file))
+      // ubq: not measured: on Deno, only the built package counts JSX
       throw new UsageError(`ubq mutate cannot change ${file} on Deno. Run it on Node or Bun.`)
     const all = mutants(readFileSync(join(root, file), 'utf8'), file)
+    // ubq: not measured: the parser reads each file that a test loaded
     if (!all) throw new UsageError(`ubq cannot read the syntax of ${file}`)
     for (const mutant of all) {
       if (m[2] && mutant.line !== +m[2]) continue
@@ -102,6 +105,7 @@ export const mutate = async (
   const busy = new Map<string, Promise<unknown>>()
   const alone = <T>(tfile: string, fn: () => Promise<T>): Promise<T> => {
     const next = (busy.get(tfile) ?? Promise.resolve()).then(fn)
+    // ubq: not measured: the check of one change does not reject
     busy.set(tfile, next.catch(() => {}))
     return next
   }

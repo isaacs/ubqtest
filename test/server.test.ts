@@ -1,6 +1,6 @@
 // The background server: `ubq server`.
 import { spawnSync } from 'node:child_process'
-import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, env, test } from 'ubqtest'
 import { cli, project, remove } from './setup.ts'
@@ -55,6 +55,10 @@ test('a run with the server gives the same text, with test processes of the serv
   // A test process uses the entry that the server made.
   assert.equal(run('fail.ts', 'mock.ts', 'pass.ts'), alone)
 
+  // A second server cannot listen, and ends.
+  const second = p.ubq('server', '--foreground')
+  assert.deepEqual([second.code, /^ubq server: listen EADDRINUSE/.test(second.err)], [4, true])
+
   assert.equal(p.ubq('server', 'stop').out, 'server: stopped\n')
   for (let i = 0; i < 100 && existsSync(join(p.dir, '.ubq/server.sock')); i++) await sleep(20)
   assert.equal(existsSync(join(p.dir, '.ubq/server.sock')), false)
@@ -94,4 +98,14 @@ test('the output of a test comes through the server, and a different runtime sto
   const bun = spawnSync('bun', [cli, 'out.test.ts', 'pass.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
   assert.match(bun.stdout, /^fail: 1 failed, 5 passed, 1 skipped/m)
   assert.equal(p.ubq('server', 'stop').out, 'server: not running\n')
+})
+
+test('a socket path that is too long', { skip: process.platform === 'win32' && 'Windows has a named pipe' }, () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  // From a deep folder, the path to the socket is long.
+  const deep = join(p.dir, ...Array(35).fill('a'))
+  mkdirSync(deep, { recursive: true })
+  const r = spawnSync('node', [cli, 'server'], { cwd: deep, encoding: 'utf8' })
+  assert.deepEqual([r.status, r.stderr], [4, `ubq: the path of the project is too long for a socket: ${join(p.dir, '.ubq/server.sock')}\n`])
 })

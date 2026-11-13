@@ -349,6 +349,7 @@ export const convertSource = (
       const parent = path[i - 1]!
       if (parent.type === 'Program' || parent.type === 'BlockStatement' || parent.type === 'SwitchCase') return path[i]!
     }
+    // ubq: not measured: a statement is always inside the Program
     return path.at(-1)!
   }
   const todo = (path: Node[], message: string): void => {
@@ -386,6 +387,7 @@ export const convertSource = (
     }
     pieces[pieces.length - 1] += rule.slice(last)
     changes++
+    // ubq: not measured: each rule names a function of ubqtest
     for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual)\b/g) ?? []) used.add(name)
     if (!parts.length) {
       replace(node.start, node.end, pieces[0]!)
@@ -397,6 +399,7 @@ export const convertSource = (
     return parts
   }
   const pick = (rule: Rule, argc: number): string | undefined =>
+    // ubq: not measured: each rule of string form has a $ place
     typeof rule === 'string' ? (argc >= (rule.match(/\$\d/g)?.length ?? 0) ? rule : undefined)
     : (rule[argc] ?? rule[Math.max(...Object.keys(rule).map(Number).filter(n => n <= argc))])
 
@@ -451,6 +454,7 @@ export const convertSource = (
   /** The text from the start of the parameters of a function to their end, with the parentheses. */
   const paramSpan = (fn: Node): [number, number] | undefined => {
     const params = fn.params as Node[]
+    // ubq: not measured: the callers give only a function with a parameter
     if (!params.length) return undefined
     const open = source.lastIndexOf('(', params[0]!.start)
     const body = fn.body as Node
@@ -458,6 +462,7 @@ export const convertSource = (
     const head = source.slice(fn.start, params[0]!.start)
     if (open < fn.start || !head.includes('(')) return [params[0]!.start, params.at(-1)!.end]
     const close = source.lastIndexOf(')', source.lastIndexOf(fn.type === 'ArrowFunctionExpression' ? '=>' : '{', body.start))
+    // ubq: not measured: the parameters in parentheses have a close
     return close > open ? [open, close + 1] : undefined
   }
 
@@ -684,7 +689,8 @@ export const convertSource = (
     }
     if (role === 'hook') {
       if (restoresOnly(args[0]) && removeStatement(path)) return []
-      const once = /^(before|after)(All)?$/.exec(nameOf(callee) ?? '')
+      // roleOf gives a role only to a name.
+      const once = /^(before|after)(All)?$/.exec(nameOf(callee)!)
       const inner = path.some(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration')
       if (once?.[1] === 'before' && !inner) {
         const body = topLevelBlock(node, path)
@@ -1022,6 +1028,7 @@ export const convertSource = (
   let at = 0
   for (const edit of edits) {
     if (edit.start < at)
+      // ubq: not measured: no known input makes two changes overlap
       throw new Error(`the command cannot change line ${source.slice(0, edit.start).split('\n').length}. Write that statement in a different form, or convert this file by hand.`)
     code += source.slice(at, edit.start) + edit.text
     at = edit.end
@@ -1037,6 +1044,7 @@ export const convertSource = (
     const helpers = imports.find(n => (n.source as { value?: unknown }).value === 'ubqtest/workers')
     // After the line of the last import. The file has one: that of ubqtest.
     const lineEnd = code.indexOf('\n', imports.at(-1)!.end)
+    // ubq: not measured: a test file has code after its last import
     const at = lineEnd < 0 ? code.length : lineEnd
     const added = `${helpers ? '' : "\nimport { migrate } from 'ubqtest/workers'"}\n\n${lines.join('\n')}`
     code = code.slice(0, at) + added + code.slice(at)
@@ -1153,6 +1161,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     // sentence. The full text of each hint is below the files.
     for (const t of result.todos) {
       if (!hints.includes(t.text)) hints.push(t.text)
+      // ubq: not measured: each TODO text has a full stop
       out(`  ${file}:${t.line}  [${hints.indexOf(t.text) + 1}] ${/^.*?[.:](?=\s|$)/.exec(t.text)?.[0] ?? t.text}`)
     }
   }

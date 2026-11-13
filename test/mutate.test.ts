@@ -153,3 +153,18 @@ test('fails with no change', () => {
   })
   assert.deepEqual([v8.status, v8.stderr], [4, 'ubq: ubq mutate needs source counters. Remove UBQ_COVERAGE=v8.\n'])
 })
+
+test('a change that removes a "!", in code that runs while the test file loads', { timeout: 30_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(join(p.dir, 'lib/c.ts'), 'export const ON = !false\n')
+  writeFileSync(join(p.dir, 'c.test.ts'), "import { assert, test } from 'ubqtest'\nimport { ON } from './lib/c.ts'\ntest('t', () => assert(typeof ON === 'boolean'))\n")
+  p.ubq('c.test.ts')
+  assert.deepEqual(p.ubq('mutate', 'lib/c.ts').out.split('\n').slice(0, 4), [
+    'SURVIVED lib/c.ts:1:19',
+    '  > export const ON = !false',
+    '  with ! changed to nothing, no test failed',
+    '  tests that run this code: 1. For the tests of the line: ubq covers lib/c.ts:1',
+  ])
+})

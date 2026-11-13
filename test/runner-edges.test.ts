@@ -129,3 +129,23 @@ for (const [signal, exit] of [['SIGTERM', 143], ['SIGINT', 130]] as const)
     p.ubq('a.test.ts')
     assert.equal(p.ubq('diff').out.trimEnd().split('\n').at(-1), 'note: run 1 did not end')
   })
+
+test('a package.json that is not JSON', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'package.json'), '{')
+  writeFileSync(join(p.dir, 'a.test.ts'), PASS)
+  const r = p.ubq()
+  assert.deepEqual([r.code, r.out.split('\n')[0]], [1, 'ERROR a.test.ts'])
+})
+
+test('--changed after a source file went away', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'src/gone.ts'), 'export const gone = 1\n')
+  writeFileSync(join(p.dir, 'a.test.ts'), "import { assert, test } from 'ubqtest'\nimport { gone } from './src/gone.ts'\ntest('p', () => assert(gone))\n")
+  assert.equal(p.ubq('a.test.ts').code, 0)
+  rmSync(join(p.dir, 'src/gone.ts'))
+  const r = p.ubq('--changed')
+  assert.deepEqual([r.code, r.out.split('\n').slice(0, 2)], [1, ['changed: src/gone.ts', 'ERROR a.test.ts']])
+})

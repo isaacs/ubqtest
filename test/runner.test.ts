@@ -186,6 +186,10 @@ test('a loop that does not return is stopped, with the line of the loop', () => 
     assert.match(r.out.join('\n'), /ERROR busy\.ts\n  ubq stopped the process\. The tests after the stuck test did not run\./)
   }
   assert.equal(ubq(['busy.ts', 'pass.ts']).out.at(-1), 'fail: 1 errors, 1 failed, 6 passed, 1 skipped')
+  // The V8 collector, in a test process and in the process of the runner.
+  const v8 = { UBQ_COVERAGE: 'v8' }
+  assert.deepEqual(ubq(['busy.ts', 'pass.ts'], v8).out.slice(2, 4), ['  at busy.ts:5:3', '  > while (true) x += n'])
+  assert.equal(ubq(['pass.ts'], v8).code, 0)
 })
 
 test('processes that a test file leaves behind are stopped', () => {

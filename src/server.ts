@@ -46,6 +46,7 @@ const ask = async (type: 'status' | 'stop'): Promise<string | undefined> => {
   return new Promise(done => {
     let text = ''
     socket.setEncoding('utf8').on('data', (data: string) => (text += data))
+    // ubq: not measured: a local socket gives no error after it connects
     socket.on('error', () => done(undefined))
     socket.on('close', () => done(text))
     socket.write(JSON.stringify({ type }) + '\n')
@@ -77,6 +78,7 @@ export const serverCommand = async (args: string[], out: (text: string) => void)
   const log = openSync(join(stateDir(), 'server.log'), 'a')
   spawn(
     process.execPath,
+    // ubq: not measured: the tests run the command line on Node
     [...(process.versions.deno ? ['run', '-A'] : []), process.argv[1]!, 'server', '--foreground'],
     { cwd: projectRoot(), detached: true, windowsHide: true, stdio: ['ignore', log, log] },
   ).unref()
@@ -89,6 +91,7 @@ export const serverCommand = async (args: string[], out: (text: string) => void)
       return 0
     }
   }
+  // ubq: not measured: the tests have no server that fails to start
   throw new UsageError(`the server did not start. Its errors are in ${join(stateDir(), 'server.log')}`)
 }
 
@@ -130,6 +133,7 @@ const serve = (): Promise<number> =>
           stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
           env: base,
         })
+        // ubq: not measured: a warm process reads its stdin before it ends
         child.stdin!.on('error', () => {})
         child.on('close', () => (pool = pool.filter(c => c !== child)))
         pool.push(child)
@@ -170,6 +174,7 @@ const serve = (): Promise<number> =>
       }
       const child = pool.shift()
       fill()
+      // ubq: not measured: no warm process of the tests ends early
       if (!child) return none()
       used++
       socket.write(frame('i', String(child.pid)))
@@ -184,11 +189,13 @@ const serve = (): Promise<number> =>
 
     const server = createServer(socket => {
       active()
+      // ubq: not measured: a local socket gives no error in the tests
       socket.on('error', () => {})
       let text = ''
       const onData = (data: Buffer): void => {
         text += data
         const end = text.indexOf('\n')
+        // ubq: not measured: a request is one short line, in one chunk
         if (end < 0) return
         socket.off('data', onData)
         const request = JSON.parse(text.slice(0, end)) as Request
@@ -211,6 +218,8 @@ const serve = (): Promise<number> =>
     })
     server.on('error', error => {
       process.stderr.write(`ubq server: ${error.message}\n`)
+      // The watcher keeps the process alive.
+      watcher?.close()
       done(4)
     })
 
@@ -231,7 +240,9 @@ const serve = (): Promise<number> =>
           }, 20),
         )
       })
+      // ubq: not measured: the tests make no error of the watcher
       watcher.on('error', () => {})
+      // ubq: not measured: each runtime of the tests can watch a tree
     } catch {
       // This runtime cannot watch a folder with its subfolders.
     }

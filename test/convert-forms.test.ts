@@ -714,3 +714,35 @@ for (const [name, file, source, result, migrate] of cases)
     const converted = convertSource(source.join('\n') + '\n', file, parse, children, migrate)
     assert.deepEqual(converted?.code.trimEnd().split('\n'), result)
   })
+
+test('imports on the last line, with no line end', () => {
+  const convert = (source: string[]) => convertSource(source.join('\n'), 'a.ts', parse, children, [])?.code
+  assert.equal(
+    convert(["it('a', () => { expect(1).toBe(1) })", "import { it } from 'vitest'", "import { expect } from 'vitest'"]),
+    "test('a', () => { assert.equal(1, 1) })\nimport { assert, test } from 'ubqtest'\n",
+  )
+  assert.equal(
+    convert([
+      "import { env } from 'cloudflare:test'",
+      "import { expect, it } from 'vitest'",
+      "it('a', () => { expect(env && createExecutionContext()).toBeTruthy() })",
+      "import { createExecutionContext } from 'cloudflare:test'",
+    ]),
+    "import { env } from 'cloudflare:workers'\nimport { executionContext } from 'ubqtest/workers'\nimport { assert, test } from 'ubqtest'\ntest('a', () => { assert(env && executionContext()) })\n",
+  )
+})
+
+test('mock.method of node:test, and a hook at the top level with declarations below it', () => {
+  const convert = (source: string[]) => convertSource(source.join('\n') + '\n', 'a.ts', parse, children, [])?.code.trimEnd().split('\n')
+  assert.deepEqual(convert(["import { mock, test } from 'node:test'", "test('a', () => {", "  const s = mock.method(o, 'f').mockReturnValue(2)", '})']), [
+    "import { spyOn, test } from 'ubqtest'",
+    "test('a', () => {",
+    "  const s = spyOn(o, 'f', () => 2)",
+    '})',
+  ])
+  // A declaration with no names, and an export with no declaration.
+  assert.deepEqual(
+    convert(["import { beforeAll, it } from 'vitest'", 'let n = 0', 'beforeAll(() => {', '  n = 1', '})', "it('a', () => {})", 'const {} = {}', 'export { n }']),
+    ["import { test } from 'ubqtest'", 'let n = 0', '{', '  n = 1', '}', "test('a', () => {})", 'const {} = {}', 'export { n }'],
+  )
+})

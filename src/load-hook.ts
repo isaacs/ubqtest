@@ -43,6 +43,7 @@ export const withCounters = <T extends Loaded>(url: string, result: T, find: (pa
   if (!url.startsWith('file:')) return result
   // With a load hook, Deno 2.9 gives no format for a JSON file
   // that `require` loads, and then reads the file as JavaScript.
+  // ubq: not measured: this module loads before the counters start
   if (deno && !result.format && /\.json$/.test(url)) return { ...result, format: 'json' }
   // A mocked module instance has a query on its URL.
   const path = fileURLToPath(url.replace(/\?.*$/, ''))
@@ -53,6 +54,7 @@ export const withCounters = <T extends Loaded>(url: string, result: T, find: (pa
     // different positions, and it gives no format. The counters
     // need the positions of the source, so this hook reads the
     // file and removes the types.
+    // ubq: not measured: this module loads before the counters start
     if (/\.[jt]sx$/.test(path)) {
       // Deno made JavaScript from the JSX, with a source map. The
       // counters go into that JavaScript.
@@ -60,19 +62,25 @@ export const withCounters = <T extends Loaded>(url: string, result: T, find: (pa
       return made === undefined ? result : { ...result, source: made }
     }
     const ts = /\.[cm]?ts$/.test(path)
+    // ubq: not measured: this module loads before the counters start
     if (!ts && !/\.[cm]?js$/.test(path)) return result
     const changed = counters.change(path, readFileSync(path, 'utf8'))
+    // ubq: not measured: this module loads before the counters start
     if (!changed) return result
+    // ubq: not measured: this module loads before the counters start
     const js = ts && !changed.js ? nodeModule.stripTypeScriptTypes(changed.source) : changed.source
     // With no map in the text, Deno changes the positions in a
     // stack trace with the map of its own JavaScript.
+    // ubq: not measured: this module loads before the counters start
     return { ...result, source: ts ? js + NO_MAP : js }
   }
+  // ubq: not measured: this module loads before the counters start
   if (!FORMATS.has(result.format as string)) return result
   const changed = counters.change(path, (result.source as { toString(): string } | undefined)?.toString())
   if (!changed) return result
   // The cache can have the source with no types. Node then does
   // not load its code that removes types.
+  // ubq: not measured: this module loads before the counters start
   const format = result.format === 'commonjs-typescript' ? 'commonjs' : 'module'
   return { ...result, source: changed.source, ...(changed.js && { format }) }
 }

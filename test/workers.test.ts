@@ -122,6 +122,10 @@ test('a test that blocks the thread of workerd, and a source file with an error'
     '  at test/setup.ts:2:7',
     "  > await migrate('DB')",
   ])
+  // The test file throws after its first test.
+  writeFileSync(join(p.dir, 'test/throws.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow new Error('at load')\n")
+  const throws = p.ubq('test/throws.test.ts')
+  assert.deepEqual([throws.code, throws.out[0], throws.out.includes('  Error: at load')], [1, 'ERROR test/throws.test.ts', true])
   writeFileSync(join(p.dir, 'src/text.ts'), 'export const shout = (\n')
   assert.deepEqual(p.ubq('test/worker.test.ts').out.slice(0, 2), [
     'ERROR test/worker.test.ts',
@@ -211,6 +215,7 @@ test('modules in workerd: each form of a package, and files that are not code', 
         './list': [{ node: './node.js' }, './list.js'],
         './features/*': './features/*.js',
         './deep/*.js': { import: './deep/*.mjs' },
+        './none': [{ node: './node.js' }],
       },
     }),
     'workerd.js': "export const which = 'workerd'\n",
@@ -234,9 +239,12 @@ test('modules in workerd: each form of a package, and files that are not code', 
     'index.js': "module.exports = require('./impl.js')\n",
     'impl.js': "exports.plain = require('fields').field\nexports['not-a-name'] = 1\nexports.class = 2\nexports.default = 3\n",
   })
+  // The exports of a file of a second package, and a module with no names.
+  dep('again', { 'package.json': '{}', 'index.js': "module.exports = require('plain/impl.js')\n", 'five.js': 'module.exports = 5\n' })
   writeFileSync(join(p.dir, 'test/data.json'), '{ "n": 1 }')
   writeFileSync(join(p.dir, 'test/query.sql'), 'select 1')
   writeFileSync(join(p.dir, 'test/old.cjs'), "exports.old = 'cjs'\n")
+  writeFileSync(join(p.dir, 'test/typed.cts'), "exports.typed = (n: number): number => n * 2\n")
   writeFileSync(join(p.dir, 'test/view.jsx'), 'export const View = () => <b>x</b>\n')
   writeFileSync(
     join(p.dir, 'test/modules.test.ts'),
@@ -248,15 +256,19 @@ import { typed } from 'typed'
 import { field } from 'fields'
 import { part } from 'fields/lib/part'
 import whole, { plain } from 'plain'
+import { plain as again } from 'again'
+import five from 'again/five.js'
 import { assert, test } from 'ubqtest'
 import data from './data.json'
 import { old } from './old.cjs'
+import { typed as twice } from './typed.cts'
 import query from './query.sql'
 
 test('packages', () => {
   assert.deepEqual([which, list, feature, deep, typed(1), field, part, plain], ['workerd', 'list', 'one', 'two', 2, 'module', 'part', 'main'])
   // The names of a CommonJS file that are not names of JavaScript are on the default export.
   assert.deepEqual([whole['not-a-name'], whole.class, whole.default], [1, 2, 3])
+  assert.deepEqual([again, five, twice(2)], ['main', 5, 4])
 })
 test('files that are not code', () => {
   assert.deepEqual([data, query, old], [{ n: 1 }, 'select 1', 'cjs'])
@@ -265,6 +277,8 @@ test('a JSX file, and a file that is not there', async () => {
   await assert.rejects(import('./view.jsx'), /ubq cannot run a JSX file in the Workers runtime/)
   await assert.rejects(import('./no-such-file.js'), /No such module/)
   await assert.rejects(import('no-such-package'), /No such module/)
+  // No entry of the list has the conditions of workerd.
+  await assert.rejects(import('conditions/none'), /No such module/)
 })
 `,
   )
@@ -303,7 +317,10 @@ test('a config with no name, no main, and no vars', async () => {
   config({
     compatibility_date: '2026-07-01',
     alias: { 'other-name': 'pkg' },
-    d1_databases: [{ binding: 'DB', database_name: 'd', database_id: '00000000-0000-0000-0000-000000000000' }],
+    d1_databases: [
+      { binding: 'DB', database_name: 'd', database_id: '00000000-0000-0000-0000-000000000000' },
+      { binding: 'DB2', database_name: 'd2', database_id: '00000000-0000-0000-0000-000000000001', migrations_dir: 'none' },
+    ],
     services: [{ binding: 'SELF', service: 'ubq' }],
   })
   assert.deepEqual(p.ubq('small/small.test.ts'), { code: 0, out: ['pass: 0 failed, 1 passed'], err: '' })

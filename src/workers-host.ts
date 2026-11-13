@@ -116,6 +116,7 @@ const pick = (target: unknown, conditions: Set<string>, star?: string): string |
 const findPackage = (specifier: string, from: string, require: boolean): string | undefined => {
   // ubq: not measured: the callers give only package names
   const [, name, rest = ''] = /^((?:@[^/]+\/)?[^/]+)(\/.*)?$/.exec(specifier) ?? []
+  // ubq: not measured: the callers give only package names
   if (!name) return undefined
   let dir: string | undefined
   for (let at = from; ; at = dirname(at)) {
@@ -175,6 +176,7 @@ const commonJs = (path: string): boolean => {
       // No package.json in this folder.
     }
   }
+  // ubq: not measured: a project always has a package.json
   return true
 }
 
@@ -202,6 +204,7 @@ const namesOf = (path: string): Set<string> => {
       const other = /^\.\.?\//.test(specifier) ? findFile(resolve(dirname(path), specifier)) : findPackage(specifier, dirname(path), true)
       if (other && commonJs(other)) for (const name of namesOf(other)) names.add(name)
     }
+    // ubq: not measured: workerd cannot load what the lexer cannot read
   } catch {
     // Text that the lexer cannot read: the default export only.
   }
@@ -251,9 +254,11 @@ const inFunction = (code: string, imports: number): string => {
   let at = 0
   for (let i = 0; i < imports; i++) {
     at = code.indexOf('\n', at) + 1
+    // ubq: not measured: a file has more lines than imports
     if (!at) return code
   }
   at = Math.max(0, at - 1)
+  // ubq: not measured: a test file always imports ubqtest
   return `${code.slice(0, at)}${at ? ';' : ''}export const ${RUN} = async () => {${code.slice(at)}\n}\n`
 }
 
@@ -273,7 +278,9 @@ const moduleOf = (path: string): Record<string, unknown> => {
     // If a test of ubq started this process, the counters are those
     // of that test (`child-coverage.ts`).
     const forTest = shared[Symbol.for('ubqtest.child.source')] as ((path: string, source: string) => { source: string; js: boolean } | undefined) | undefined
+    // ubq: not measured: the test that started this process counts ubq
     const changed = counters.wants(path) ? counters.change(path, source) : forTest?.(path, source)
+    // ubq: not measured: the test that started this process counts ubq
     const own = changed?.source ?? source
     // A module that workerd gets this way has no `import.meta.url`.
     code = (ts && !changed?.js ? strip(own) : own)
@@ -302,6 +309,7 @@ try {
   wrangler = (await import(pathToFileURL(main).href)) as Wrangler
   miniflare = nodeModule.createRequire(main)('miniflare') as MiniflareModule
 } catch (error) {
+  // ubq: not measured: only a damaged wrangler package gives this
   if ((error as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') throw error
   stop('this test file runs in the Workers runtime, and the project does not have wrangler. Run: npm install --save-dev wrangler')
 }
@@ -332,9 +340,12 @@ const bindings = { ...wranglerConfig.vars, ...entry?.vars }
 
 // A service binding to a Worker that is not part of this run would
 // stop workerd when it starts. It gets an answer that says so.
+// ubq: not measured: no config of the tests has external Workers
 const present = new Set([name, ...externalWorkers.map(worker => worker.name)])
 const services = Object.fromEntries(
+  // ubq: not measured: wrangler always gives serviceBindings
   Object.entries((workerOptions.serviceBindings as Record<string, unknown>) ?? {}).map(([binding, target]) => {
+    // ubq: not measured: wrangler gives each service binding as an object
     const service = typeof target === 'string' ? target : (target as { name?: unknown } | null)?.name
     if (typeof service !== 'string' || present.has(service)) return [binding, target]
     return [
@@ -378,6 +389,7 @@ globalThis[Symbol.for('ubqtest.collector')] = {
 }
 `
 const migrations: Job['migrations'] = {}
+// ubq: not measured: wrangler always gives d1_databases
 for (const db of wranglerConfig.d1_databases ?? []) {
   const dir = resolve(dirname(configPath), db.migrations_dir ?? 'migrations')
   migrations[db.binding] =
@@ -415,6 +427,7 @@ const options = {
       else if (raw === 'ubqtest') found = join(OWN, `index${EXT}`)
       else if (raw === 'ubqtest/workers') found = join(OWN, `workers${EXT}`)
       else if (/^(\.|\/|[A-Za-z]:[\\/])/.test(raw)) found = findFile(path)
+      // ubq: not measured: workerd always sends the referrer
       else if (!/^[a-z-]+:/.test(raw)) found = findPackage(raw, dirname(toPath(url.searchParams.get('referrer') ?? '')), require)
       if (!found) return new miniflare.Response(null, { status: 404 })
       // `require` gets the file itself, not the ES module for `import`.
@@ -461,6 +474,7 @@ const options = {
     ...externalWorkers,
   ],
 }
+// ubq: not measured: this repository has miniflare 5, with this function
 const mf = new miniflare.Miniflare(miniflare.convertV4MiniflareOptions?.(options) ?? options)
 
 // --- Events ---
@@ -469,6 +483,7 @@ const fd = process.env.UBQ_EVENTS ? openSync(process.env.UBQ_EVENTS, 'a') : 3
 const write = (event: UbqEvent): void => {
   try {
     writeSync(fd, JSON.stringify(event) + '\n')
+    // ubq: not measured: the runner reads events until this process ends
   } catch {
     // The runner went away.
   }
@@ -538,11 +553,14 @@ try {
   // An error of the main module of the Worker stops workerd when it
   // starts. miniflare has the text of workerd in its message.
   const text = String((error as Error).stack)
+  // ubq: not measured: start errors of workerd in tests have a message
   const [, message, at] = /Uncaught ([^\n\\"]+)(?:\\n\s+at ([^\s\\"]+))?/.exec(text) ?? []
   // With no such error, the reasons are the messages of workerd.
   const reasons = [...new Set([...text.matchAll(/"message":("(?:[^"\\]|\\.)*")/g)].map(m => JSON.parse(m[1]!) as string))]
   process.stderr.write(
+    // ubq: not measured: each message has an error type and no stack
     message ? `${/Error\b/.test(message) ? message : `Error: ${message}`}\n${at ? `    at ${at.replace(toName(root) + '/', '')}\n` : ''}`
+    // ubq: not measured: start errors of workerd in tests have a message
     : reasons.length ? `Error: workerd did not start. ${reasons.join(' ')}\n`
     : `${text}\n`,
   )

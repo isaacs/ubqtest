@@ -258,5 +258,13 @@ describe('bun', () => {
     ])
     // The mutation check makes its changes in the JSX source.
     assert.deepEqual(sh('bun', [cli, 'mutate', 'src/view.tsx:5'], p.dir), ['mutate: 0 of 2 changes survived'])
+    // A plain program with inspector coverage: the places of the
+    // JavaScript that Bun made go to the JSX source.
+    p.configure({ bunInspectorCoverage: true })
+    const env = { ...process.env, NODE_COMPILE_CACHE: '' }
+    assert.equal(spawnSync('bun', ['view.tsx'], { cwd: p.dir, encoding: 'utf8', env }).status, 0)
+    assert.deepEqual(sh('node', [cli, 'sql', "select distinct file from coverage where test like 'view.tsx%' and file = 'src/view.tsx'"], p.dir), [
+      '{"file":"src/view.tsx"}',
+    ])
   })
 })

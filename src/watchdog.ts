@@ -32,6 +32,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
  * process on the default port.
  */
 const mainStack = async (): Promise<Location[]> => {
+  // ubq: not measured: SIGKILL ends it before it writes coverage
   if (process.versions.bun || process.versions.deno) return []
   // Windows has no such signal. Node has a function with the same
   // effect, but not in a worker thread, so a new process calls it.
@@ -45,8 +46,10 @@ const mainStack = async (): Promise<Location[]> => {
         webSocketDebuggerUrl: string
       }[]
       if (list[0]) return pausedStack(list[0].webSocketDebuggerUrl, process.pid, process.cwd())
+      // ubq: not measured: SIGKILL ends it before it writes coverage
     } catch {}
   }
+  // ubq: not measured: SIGKILL ends it before it writes coverage
   return []
 }
 
@@ -54,12 +57,14 @@ const stuck = async (id: string, timeout: number, at?: Location): Promise<void> 
   const frames = await mainStack()
   // With source counters, the columns are those of the changed source.
   const stack =
+    // ubq: not measured: SIGKILL ends it before it writes coverage
     data.counters ?
       frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) }))
     : frames
   const failure: Failure = {
     kind: 'timeout',
     message: stuckMessage(timeout),
+    // ubq: not measured: SIGKILL ends it before it writes coverage
     ...(stack[0] ? { at: stack[0], stack } : at && { at }),
   }
   counts.fail++
@@ -76,7 +81,9 @@ const stuck = async (id: string, timeout: number, at?: Location): Promise<void> 
     { type: 'file-end', file: data.file, unselected: data.unselected },
   ]
   const { textSink } = await import('./sink-text.ts')
+  // ubq: not measured: SIGKILL ends it before it writes coverage
   const sink: Sink = textSink(text => void writeSync(1, text))
+  // ubq: not measured: SIGKILL ends it before it writes coverage
   sink({ type: 'test-start', id, timeout, ...(at && { at }) })
   events.push({
     type: 'run-end',
@@ -86,6 +93,7 @@ const stuck = async (id: string, timeout: number, at?: Location): Promise<void> 
     unselected: data.unselected,
     code: 1,
   })
+  // ubq: not measured: SIGKILL ends it before it writes coverage
   for (const event of events) sink(event)
   process.kill(process.pid, 'SIGKILL')
 }

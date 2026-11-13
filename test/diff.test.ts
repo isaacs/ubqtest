@@ -91,6 +91,8 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   assert.deepEqual(p.lines('uncovered', '--diff'), [
     "0 uncovered ranges in the changed lines of 0 files",
   ])
+  // A file with no change since the commit.
+  assert.deepEqual(p.lines('mutate', '--diff', 'src/shape.ts'), ['mutate: 0 of 0 changes survived'])
   assert.deepEqual(p.lines('uncovered', '--diff=HEAD~1', 'src/shape.ts'), [
     "src/shape.ts:7:38  ? { kind: 'square', side: 3 }",
     "1 uncovered ranges in the changed lines of 1 files",
