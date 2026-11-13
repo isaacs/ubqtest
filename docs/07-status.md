@@ -1259,3 +1259,31 @@ A local run counts only Node, and it had 465 ranges after this
 work. The next files: `src/test.ts` (33), `src/runner.ts` (33),
 `src/cli.ts` (26), `src/vitest-config.ts` (20).
 
+The merged list of CI went from 326 to 279 ranges with tests of
+the runner, the command line, the server, `mockImport`, and the
+type check (`test/runner-edges.test.ts`, `test/mock.test.ts`, and
+more cases in `test/cli.test.ts`, `test/server.test.ts`,
+`test/api-errors.test.ts`, `test/typecheck.test.ts`,
+`test/select.test.ts`). The cases found three defects, all
+corrected:
+
+- A lone test file that did not load ubqtest gave no report, and
+  exit code 0. If it called `process.exit` when it loaded, the
+  process ended with no report. Such a file now runs again in a
+  child process, which reports it.
+- `ubq covers <file>:<line>` for a line with no code threw an
+  error with a stack. It is now a usage error (exit code 4).
+- In this repository, the stack of a stuck test on Deno could
+  start in `dist/child-preload.js`. The probe now skips the frames
+  of `src/` and `dist/` as well as of its own folder.
+
+Some ranges are not reachable by a test of this repository. The
+preload modules (`src/child-coverage.ts`, `src/counter-collector.ts`,
+`src/load-hook.ts`, `src/child-preload.ts`) load before the hooks
+that add counters, in each process. Their code has no counters
+there. These wait for the comment that marks code as not measured.
+
+CI caches the npm downloads and the browser, and runs `npm run
+typecheck` in one job. Each job saves 5 to 20 s of setup. The test
+steps are most of the time (45 to 205 s; Windows is the slowest).
+
