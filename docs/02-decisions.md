@@ -1219,3 +1219,26 @@ skill says not to fake the platform in a test.
   from the real path. So the runner on Bun, on Deno, and from the
   built files is coverage of `src/`.
 
+## D56. A comment marks code as not measured, with a reason (user and agent, 2026-11-13)
+
+The user agreed to a comment that marks code as not measured, for
+the ranges that stay after merged runs (D54) and tests.
+
+- **Form.** `// ubq: not measured: <reason>`, or the same text in
+  `/* */`. A comment with no reason does not count: the reader of
+  the code must see why no test runs it.
+- **Place.** A line with only the comment, above the range. Or the
+  first line of the range, or its second line: the range of a
+  block starts at `{`, and the comment goes on the first line in
+  the block. A comment at the end of a line does not mark the
+  range on the next line.
+- **Effect.** `ubq uncovered` does not list the range, and does
+  not count it for its exit code. It prints how many ranges it
+  left out. The store and the other commands do not change.
+
+**Reason.** Some code cannot run in a test: a fallback for a value
+that is never absent, or, in the repository of ubq, the preload
+modules, which load before the hooks that add counters. With no
+mark, the list never gets to 0, and a real gap is hard to see in
+it. A count in the output keeps the marks visible.
+

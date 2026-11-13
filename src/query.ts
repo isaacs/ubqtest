@@ -118,7 +118,16 @@ export interface Uncovered {
   sourceLine: string
   /** Lines in the range after the first. */
   moreLines: number
+  /** The reason of a `ubq: not measured:` comment for the range (D56). */
+  notMeasured?: string
 }
+
+/**
+ * The reason of `// ubq: not measured: <reason>` in `text`. A
+ * comment with no reason does not count.
+ */
+const notMeasured = (text: string): string | undefined =>
+  [...text.matchAll(/\bubq: not measured:[ \t]*([^\n]*?)[ \t]*(?:\*\/|$)/gm)].find(m => m[1])?.[1]
 
 /** Files that have coverage rows and are not test files. */
 export const coveredFiles = (db: DatabaseSync): string[] =>
@@ -162,7 +171,13 @@ export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {
     const lines = source.text.slice(s, e).split('\n')
     const at = source.at(s)
     const sourceLine = source.text.slice(source.starts[at.line - 1], source.starts[at.line] ?? source.text.length)
-    out.push({ file, ...at, text: lines[0]!.trimEnd(), sourceLine, moreLines: lines.length - 1 })
+    // The comment is on a line of its own above the range, or on one
+    // of the first two lines of the range: a block starts with `{`
+    // (D56).
+    const above = at.line > 1 ? source.text.slice(source.starts[at.line - 2], source.starts[at.line - 1]) : ''
+    const first = source.text.slice(source.starts[at.line - 1], source.starts[at.line + (lines.length > 1 ? 1 : 0)] ?? source.text.length)
+    const reason = (/^\s*(\/\/|\/\*)/.test(above) && notMeasured(above)) || notMeasured(first)
+    out.push({ file, ...at, text: lines[0]!.trimEnd(), sourceLine, moreLines: lines.length - 1, ...(reason && { notMeasured: reason }) })
   }
   return out
 }

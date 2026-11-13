@@ -1,6 +1,6 @@
 // Per-test coverage, the store, and the queries.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { fileURLToPath } from 'node:url'
@@ -138,4 +138,43 @@ test('adds', () => {
     0,
     ['0 uncovered ranges in 0 of the 0 files that tests ran (2 test helpers and 1 build files are not in this list)'],
   ])
+})
+
+test('a "ubq: not measured:" comment with a reason takes a range out of the list', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(
+    join(p.dir, 'lib/parts.ts'),
+    `export const parts = (n: number): string => {
+  if (n > 100) {
+    // ubq: not measured: no caller gives more than 100
+    return 'many'
+  }
+  if (n < 0) return 'none' /* ubq: not measured: the type is a count */
+  if (n === 7) {
+    // ubq: not measured:
+    return 'seven'
+  }
+  return 'some'
+}
+`,
+  )
+  writeFileSync(join(p.dir, 'parts.test.ts'), "import { assert, test } from 'ubqtest'\nimport { parts } from './lib/parts.ts'\ntest('some', () => assert.equal(parts(3), 'some'))\n")
+  p.ubq('parts.test.ts')
+  // The comment with no reason does not count.
+  const r = p.ubq('uncovered')
+  assert.deepEqual([r.code, r.out.trimEnd().split('\n')], [
+    1,
+    [
+      'lib/parts.ts:7:16  { (+3 lines)',
+      '1 uncovered ranges in 1 of the 1 files that tests ran',
+      '2 ranges with a "ubq: not measured:" comment are not in this list',
+    ],
+  ])
+  // A change after the run: the stored places are not the places of
+  // the file now.
+  appendFileSync(join(p.dir, 'lib/parts.ts'), '// a change\n')
+  const changed = p.ubq('uncovered')
+  assert.deepEqual([changed.code, changed.out.split('\n')[0]], [1, 'lib/parts.ts  changed after the last run of its tests. Run them first: ubq --changed'])
 })

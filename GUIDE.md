@@ -548,6 +548,16 @@ does not change it. Do not write tests for a helper. With no
 is a helper. A change to a helper still makes `ubq --changed` run
 the tests that loaded it.
 
+Code that no test can run can have a comment with the reason:
+`// ubq: not measured: <reason>`. Examples: a fallback for a
+value that is never absent, or code that runs before the coverage
+hooks start. Put the comment on a line of its own above the code,
+or at the end of the first line of the code. For a block, the
+first line in the block also works. `ubq uncovered` does not list
+that code, and it prints how many ranges it left out. A comment
+with no reason does not count. Look for a test first: the comment
+is for code that a test cannot reach.
+
 ## Requirements
 
 Node 24 or later, or Bun, or Deno. TypeScript runs with no build

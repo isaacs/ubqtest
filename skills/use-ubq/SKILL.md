@@ -44,7 +44,8 @@ If `ubq uncovered` lists code for a different runtime or system,
 the guide has "Code for more than one runtime or system": run
 the tests in each environment, and merge the stores with `ubq
 merge`. Do not write a test that fakes the platform to reach
-that code, if a real run can reach it.
+that code, if a real run can reach it. A `// ubq: not measured:
+<reason>` comment is only for code that no test can reach.
 
 For a Cloudflare Worker, the guide has "Tests of a Cloudflare
 Worker": the `workers` key of the configuration makes test files

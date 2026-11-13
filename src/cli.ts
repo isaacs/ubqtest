@@ -361,18 +361,30 @@ const main = async (args: string[]): Promise<number> => {
             throw new UsageError(`${f} changed after the last run of its tests. Run them first: ubq --changed`)
       }
       let total = 0
+      /** Ranges with a `ubq: not measured:` comment (D56). */
+      let notMeasured = 0
       /** Files with a range in the list. */
       const listed = new Set<string>()
       /** Files whose stored coverage is all of a different content, from a different environment. */
       const old: string[] = []
+      /** Files that changed after the last run of their tests: the stored places are not their places. */
+      const changed: string[] = []
       for (const f of files) {
         if (!hasCoverage(db, f)) {
           old.push(f)
           continue
         }
+        if (stale(db, f)) {
+          changed.push(f)
+          continue
+        }
         for (const u of uncovered(db, f)) {
           if (diff && !diff.get(f)!.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
             continue
+          if (u.notMeasured) {
+            notMeasured++
+            continue
+          }
           total++
           listed.add(f)
           if (ELSEWHERE.test(u.sourceLine)) elsewhere++
@@ -382,6 +394,7 @@ const main = async (args: string[]): Promise<number> => {
       }
       for (const f of unloaded) out(`${f}  no test loads this file`)
       for (const f of old) out(`${f}  the stored coverage is of a different content of this file. Run the tests again.`)
+      for (const f of changed) out(`${f}  changed after the last run of its tests. Run them first: ubq --changed`)
       if (diff) {
         const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
         out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
@@ -394,6 +407,8 @@ const main = async (args: string[]): Promise<number> => {
               ` (${[helpers && `${helpers} test helpers`, built && `${built} build files`].filter(Boolean).join(' and ')} are not in this list)`
             : ''),
         )
+      if (notMeasured)
+        out(`${notMeasured} ranges with a "ubq: not measured:" comment are not in this list`)
       // The list is for the runs of more than one environment.
       const envs = environments(db)
       if (envs.length > 1) out(`coverage of: ${envs.join(', ')}`)
@@ -410,7 +425,7 @@ const main = async (args: string[]): Promise<number> => {
         )
       }
       // For a check in CI: code of the program that no test runs.
-      return total || unloaded.length || old.length ? 1 : 0
+      return total || unloaded.length || old.length || changed.length ? 1 : 0
     }
 
     case 'covers': {

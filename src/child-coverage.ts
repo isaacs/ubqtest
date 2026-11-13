@@ -57,6 +57,7 @@ const MODULE = /[\\/]child-preload\.[jt]s\b/
  * subcommand, if the program is Deno and the subcommand runs code.
  * A Deno that starts through a shell or a script does not get it.
  */
+// ubq: not measured: child-preload.ts runs it before counters start
 const forDeno = (program: string, args: string[]): string[] =>
   /(^|[\\/])deno(\.exe)?$/i.test(program) && /^(run|test|serve)$/.test(args[0] ?? '') && !args.some(arg => arg.includes('child-preload.')) ?
     [args[0]!, `--preload=${PRELOAD.href}`, ...args.slice(1)]
@@ -78,6 +79,7 @@ const STARTED = Symbol.for('ubqtest.child')
 export const patchSpawn = (): void => {
   const shared = globalThis as { [PATCHED]?: boolean }
   if (shared[PATCHED] || process.versions.bun || process.versions.deno) return
+  // ubq: not measured: child-preload.ts runs it before counters start
   shared[PATCHED] = true
   // spawn, exec, execFile, and fork end in this method.
   const proto = ChildProcess.prototype as unknown as { spawn(options: { envPairs?: string[]; file?: string; args?: string[] }): unknown }
@@ -142,6 +144,7 @@ const writers: (() => void)[] = []
 
 
 /** Counts for the files of one project, and writes the counts to `dir`. */
+// ubq: not measured: child-preload.ts runs it before counters start
 const count = ([root, dir]: Scope): Counting => {
   const shared = globalThis as Record<symbol, unknown>
   const all = (shared[Symbol.for(COUNTERS)] ??= new Map<string, Uint32Array>()) as Map<string, Uint32Array>
@@ -208,10 +211,12 @@ declare const Bun: {
  * can start after this module: the runner loads one test file in
  * its own process.
  */
+// ubq: not measured: child-preload.ts runs it before counters start
 const taken = (path: string): boolean =>
   !!(globalThis as Record<symbol, unknown>)[Symbol.for('ubqtest.collector')] && path.startsWith(projectRoot() + sep)
 
 /** For a process below a test process: counts for each project of the list. */
+// ubq: not measured: child-preload.ts runs it before counters start
 export const startChild = (): void => {
   const shared = globalThis as { [STARTED]?: boolean }
   if (shared[STARTED]) return
