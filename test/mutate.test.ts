@@ -102,6 +102,9 @@ test('mutate lists each change that no test fails for, and does not change the f
     const result = bun('mutate', 'src/price.ts')
     // TEMPORARY: the cause of a rare false kill in CI.
     const kills = (existsSync(log) ? readFileSync(log, 'utf8') : '').split('\n').filter(line => line.includes('"text":"1"'))
+    // A kill that the second run took back: the store of the CI job
+    // keeps this output (ubq show).
+    for (const kill of kills) console.log(kill)
     assert.equal(result.split('\n').at(-2), 'mutate: 1 of 4 changes survived, 2 more are in code that no passing test runs (ubq uncovered)', kills.join('\n'))
   }
 })
@@ -173,4 +176,46 @@ test('a change that removes a "!", in code that runs while the test file loads',
     '  with ! changed to nothing, no test failed',
     '  tests that run this code: 1. For the tests of the line: ubq covers lib/c.ts:1',
   ])
+})
+
+test('a change that only a file error kills runs one more time', { timeout: 30_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(join(p.dir, 'lib/half.ts'), 'export const half = (n: number): number => n / 2\n')
+  // The process ends early one time: when the marker is not there.
+  writeFileSync(
+    join(p.dir, 'half.test.ts'),
+    `import { existsSync, writeFileSync } from 'node:fs'
+import { assert, test } from 'ubqtest'
+import { half } from './lib/half.ts'
+test('half', () => {
+  assert.equal(typeof half(4), 'number')
+  if (!existsSync('crashed')) {
+    writeFileSync('crashed', '')
+    process.exit(1)
+  }
+})
+`,
+  )
+  writeFileSync(join(p.dir, 'crashed'), '')
+  assert.equal(p.ubq('half.test.ts').last, 'pass: 0 failed, 1 passed')
+  rmSync(join(p.dir, 'crashed'))
+  // The first change ends the process. The run again passes.
+  assert.equal(p.ubq('mutate', 'lib/half.ts').out.trimEnd().split('\n').at(-1), 'mutate: 2 of 2 changes survived')
+  // A change that ends the process each time stays killed.
+  writeFileSync(join(p.dir, 'half.test.ts'), "import { assert, test } from 'ubqtest'\nimport { half } from './lib/half.ts'\ntest('half', () => {\n  assert.equal(typeof half(4), 'number')\n  if (half(4) !== 2) process.exit(1)\n})\n")
+  assert.equal(p.ubq('half.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('mutate', 'lib/half.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 2 changes survived')
+})
+
+test('a change that makes a loop that does not end is killed after two runs', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(join(p.dir, 'lib/steps.ts'), 'export const steps = (n: number): number => {\n  let i = 0\n  while (i < n) i += 2\n  return i\n}\n')
+  writeFileSync(join(p.dir, 'steps.test.ts'), "import { assert, test } from 'ubqtest'\nimport { steps } from './lib/steps.ts'\ntest('steps', () => assert.equal(steps(4), 4))\n")
+  assert.equal(p.ubq('steps.test.ts').last, 'pass: 0 failed, 1 passed')
+  // `2` changed to `0` never ends: a timeout in each run.
+  assert.equal(p.ubq('mutate', 'lib/steps.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 3 changes survived')
 })

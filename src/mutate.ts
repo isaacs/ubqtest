@@ -109,20 +109,29 @@ export const mutate = async (
     busy.set(tfile, next.catch(() => {}))
     return next
   }
-  /** True if a test fails with the change. */
-  const fails = async ({ file, mutant, tests, ms }: Job): Promise<boolean> => {
+  /**
+   * The result of the tests with the change: 'fail' if a test
+   * failed, 'error' if only a file error or a timeout came, or
+   * undefined.
+   */
+  const check = async ({ file, mutant, tests, ms }: Job): Promise<'fail' | 'error' | undefined> => {
     const env = {
       UBQ_MUTANT: JSON.stringify([join(root, file), mutant.start, mutant.end, mutant.text]),
       UBQ_LIMIT: String(Math.max(MIN_LIMIT, Math.ceil(ms * 10))),
     }
+    let result: 'error' | undefined
     for (const [tfile, ids] of tests) {
-      let failed = false
+      let failed: 'fail' | 'error' | undefined
       await alone(tfile, () =>
         runFile(
           { file: tfile, lines: [], ids },
           event => {
-            if (event.type === 'test-end' ? event.status === 'fail' : event.type === 'late-failure' || event.type === 'file-error') {
-              failed = true
+            const kind =
+              event.type === 'late-failure' || (event.type === 'test-end' && event.status === 'fail' && event.failure?.kind !== 'timeout') ? 'fail'
+              : event.type === 'file-error' || (event.type === 'test-end' && event.status === 'fail') ? 'error'
+              : undefined
+            if (kind) {
+              if (failed !== 'fail') failed = kind
               // TEMPORARY: the cause of a rare false kill in CI.
               if (process.env.UBQ_MUTATE_LOG)
                 process
@@ -135,9 +144,19 @@ export const mutate = async (
           env,
         ),
       )
-      if (failed) return true
+      if (failed === 'fail') return failed
+      result ??= failed
     }
-    return false
+    return result
+  }
+  /**
+   * True if a test fails with the change. A file error or a timeout
+   * can come from the machine (a crash, a slow moment), so it counts
+   * only if it comes again in a second run.
+   */
+  const fails = async (job: Job): Promise<boolean> => {
+    const result = await check(job)
+    return result === 'fail' || (result === 'error' && (await check(job)) !== undefined)
   }
   const survivors: Job[] = []
   const queue = [...jobs]

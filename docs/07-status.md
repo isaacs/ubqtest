@@ -173,6 +173,9 @@ All entries are from 2026-11-11 to 2026-11-13.
   `test/server.test.ts` fail two times in CI.
 - **Load errors** in a folder whose name has a space have their
   place, on each runtime.
+- **Mutate reruns** (D58). A change that only a file error or a
+  timeout killed runs again, and counts as killed only if it fails
+  again.
 
 ## Open, waiting for a decision
 
@@ -222,9 +225,14 @@ Core and runner:
   - lost events: fd 3 blocks with each runtime as parent and child;
   - the write of child coverage: it is in a `try`.
   Six full Bun runs under load, and many runs of the test, passed.
-  A change counts as killed for any file error, a crash too. The
-  test also depends on the stored coverage of a test that its file
-  no longer has ('not below zero').
+  It failed a second time in CI, in a Node job on macOS, at the
+  same Bun step. Two more full CI runs passed. Since D58, a change
+  that only a file error or a timeout killed runs again, so such a
+  failure no longer fails the test. The test logs each first-run
+  kill of that change (`UBQ_MUTATE_LOG`, temporary) as its output:
+  `ubq show` on the store of a macOS CI job shows it. The test
+  also depends on the stored coverage of a test that its file no
+  longer has ('not below zero').
 - Many test files run `ubq` in `test/fixtures` and share its
   store. A test that reads a row from that store can see the rows
   of a different file. `test/bun.test.ts` has its own project now.

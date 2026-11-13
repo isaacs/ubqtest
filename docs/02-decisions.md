@@ -1255,3 +1255,15 @@ it. A count in the output keeps the marks visible.
   text does not show output of a test process that is not from a
   test. The runner prints results, and failures with the next
   command to run, and nothing else.
+
+## D58. A change that only a file error or a timeout kills runs again (user, 2026-11-13)
+
+Answer to Q13. In `ubq mutate`, a change is killed at once if a
+test fails with an assertion or an error. If only a file error (a
+crash, an early exit, a stop by the runner) or a timeout came, the
+same tests run one more time with the same change. The change is
+killed only if a failure of any kind comes again.
+
+**Reason.** A crash or a slow moment of the machine must not hide a
+change that no test catches. A real loop or crash comes again. The
+cost is one more run only for such a change.
