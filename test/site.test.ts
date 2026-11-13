@@ -42,4 +42,9 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   // Code text with `<` stays text.
   assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<code>ubq &lt;file&gt;:&lt;line&gt;<\/code>|&lt;test id&gt;/)
   assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<link rel="alternate" type="text\/markdown" href="\.\.\/guide\.md"/)
+  // A link preview needs the full URL of the page and of an image.
+  const guide = readFileSync(join(dir, 'guide/index.html'), 'utf8')
+  assert(guide.includes('<meta property="og:url" content="https://ubq.dev/guide/">'))
+  assert(guide.includes('<meta property="og:image" content="https://ubq.dev/static/logo-white.png">'))
+  assert(existsSync(join(dir, 'static/logo-white.png')))
 })

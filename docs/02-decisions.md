@@ -681,6 +681,12 @@ tokens than HTML.
 
 Not built: search. The upload to a host is D46.
 
+The site is at `https://ubq.dev`. Each page has that address in
+its link preview tags (`og:url`, `og:image`), because a preview
+needs full URLs. The image is `site/static/logo-white.png`: it has
+a background, so it shows on a dark page too. All other links of
+the site stay relative.
+
 ## D45. Front-end tests: Playwright with Chromium, one function (user and agent, 2026-11-12)
 
 `import { browser } from 'ubqtest/browser'`. `await browser()`
