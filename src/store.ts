@@ -10,7 +10,7 @@ import { projectRoot, stateDir } from './project.ts'
 
 export { stateDir }
 
-const SCHEMA_VERSION = 7
+const SCHEMA_VERSION = 8
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -21,6 +21,13 @@ const COMMIT_MS = 50
 // row for each test and file keeps the table and its index small.
 // `hash` is the content hash of `file` at the time of the run.
 // `ubq --changed` compares it with the file as it is now.
+//
+// `other_coverage` holds the coverage of a test from a different
+// environment (D54): a runtime and a system, such as `bun-darwin`.
+// A row goes there when a run in a new environment replaces it in
+// `coverage`, and when `ubq merge` reads the store of a different
+// machine. Only the commands that list coverage read it. `ubq
+// --changed` uses `coverage`, which has the last run of each test.
 //
 // `test.code` is a digest of the content of each file in which the
 // process of the test ran code, up to the end of the test. Two runs
@@ -94,6 +101,16 @@ create table test_file (
   hash text not null
 ) without rowid;
 create index coverage_file on coverage (file);
+create table other_coverage (
+  env text not null,
+  tfile text not null,
+  test text not null,
+  file text not null,
+  ranges text not null,
+  hash text not null,
+  primary key (env, tfile, test, file)
+) without rowid;
+create index other_coverage_file on other_coverage (file);
 create index test_file_run on test (file, run);
 `
 
@@ -105,6 +122,12 @@ export interface Store {
   sink(run: number): Sink
   close(): void
 }
+
+/**
+ * The environment of a run, as SQL on its row `r`: the name of the
+ * runtime and of the system, such as `node-linux`.
+ */
+export const ENV = "(substr(r.runtime, 1, instr(r.runtime, ' ') - 1) || '-' || substr(r.platform, 1, instr(r.platform, ' ') - 1))"
 
 const sourcePath = (hash: string): string => join(stateDir(), 'sources', hash)
 
@@ -212,8 +235,33 @@ export const openStore = (): Store => {
       const getFailure = db.prepare('select failure from test where run = ? and id = ?')
       const addError = db.prepare('insert into file_error (run, file, failure) values (?, ?, ?)')
       const setCode = db.prepare('update test set code = ? where run = ? and id = ?')
-      const dropTestCov = db.prepare('delete from coverage where tfile = ? and test = ?')
-      const dropGoneCov = db.prepare('delete from coverage where tfile = ? and run < ?')
+      const env = (db.prepare(`select ${ENV} as env from run r where r.id = ?`).get(run) as { env: string } | undefined)?.env ?? ''
+      // Coverage of a test from a run in a different environment
+      // stays, in `other_coverage`. The rows of this environment
+      // there are older than this run.
+      const keepSql = `insert or replace into other_coverage (env, tfile, test, file, ranges, hash)
+        select ${ENV}, c.tfile, c.test, c.file, c.ranges, c.hash from coverage c join run r on r.id = c.run
+        where ${ENV} != ? and c.tfile = ?`
+      const keepTest = db.prepare(`${keepSql} and c.test = ?`)
+      const keepGone = db.prepare(`${keepSql} and c.run < ?`)
+      const dropOtherTest = db.prepare('delete from other_coverage where env = ? and tfile = ? and test = ?')
+      const dropOtherFile = db.prepare('delete from other_coverage where env = ? and tfile = ?')
+      const dropTest = db.prepare('delete from coverage where tfile = ? and test = ?')
+      const dropTestCov = {
+        run(tfile: string, test: string): void {
+          keepTest.run(env, tfile, test)
+          dropOtherTest.run(env, tfile, test)
+          dropTest.run(tfile, test)
+        },
+      }
+      const dropGone = db.prepare('delete from coverage where tfile = ? and run < ?')
+      const dropGoneCov = {
+        run(tfile: string, before: number): void {
+          keepGone.run(env, tfile, before)
+          dropOtherFile.run(env, tfile)
+          dropGone.run(tfile, before)
+        },
+      }
       const addCov = db.prepare(
         'insert or replace into coverage (tfile, test, file, run, ranges, hash) values (?, ?, ?, ?, ?, ?)',
       )

@@ -1090,3 +1090,54 @@ see code that runs only on a different runtime (the Bun preload,
 the module that workerd runs). The plan for that is coverage from
 more than one run, merged: see `07-status.md`.
 
+## D54. Coverage from more than one environment, in one store (user and agent, 2026-11-13)
+
+An environment is a runtime and a system: `node-linux`,
+`bun-darwin`, `deno-win32`. One run in one environment cannot run
+each line of a project that has code for more than one. The store
+keeps the coverage of each, and the commands that list coverage
+read all of it.
+
+- **The table `coverage`** does not change: the last run of each
+  test, which `ubq --changed` needs.
+- **The table `other_coverage`** has the coverage of a test from a
+  different environment, with the content hash of each file.
+  - A run in a new environment replaces the rows of a test in
+    `coverage`. The old rows go to `other_coverage` first, with
+    their environment.
+  - A run removes the rows of its own environment from
+    `other_coverage` for the tests that it ran: they are older.
+  - `ubq merge <store>...` copies the `coverage` rows and the
+    `other_coverage` rows of other stores there.
+- **`ubq uncovered` and `ubq covers`** read `coverage` and the rows
+  of `other_coverage` whose hash is that of the file as it is
+  now. A file with no row that counts gets a line that says so,
+  and exit code 1.
+- **`ubq mutate`** selects tests with the same rows. A test of a
+  different environment can be in the selection.
+
+**Reason.** The user wants ubq to check its own tests with no code
+marked as not measured. ubq has code for Bun, for Deno, and for
+Windows. A project with a branch for each system has the same
+need.
+
+**Why a second table, and not a column.** `ubq --changed` reads
+`coverage` with one row for each test and file, and moves the
+ranges when a file changes. Rows of other environments there
+would change that logic. Old rows of other environments are
+safe only if they are read with a hash check, which the second
+table does.
+
+**In CI of ubq:** each job keeps `.ubq/runs.db` as an artifact.
+The job `coverage` merges them and prints the list. It does not
+fail for the list yet.
+
+**Limits.**
+
+- Coverage of a file from a different environment is lost when
+  the file changes, until the tests run there again.
+- A store of a different ubq version is refused.
+- The systems must give a file the same bytes. A Windows checkout
+  with CRLF line ends has other hashes. This repository has
+  `eol=lf` in `.gitattributes`.
+

@@ -87,6 +87,9 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
   test(`the ubq command on ${cmd}, with coverage`, { skip: has(cmd) }, () => {
     const ubq = join(pkg, 'cli.js')
+    // The store keeps the coverage of each runtime (D54). This test
+    // is about one runtime.
+    remove(join(dir, '.ubq'))
     assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 0 failed, 2 passed'])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
       'src/add.ts:4:22  (): number => 0',
@@ -187,6 +190,8 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   // counters go into its JavaScript, and its source map gives the
   // places in the source.
   addJsx(p.dir)
+  // Only the coverage of the run on Deno.
+  remove(join(p.dir, '.ubq'))
   assert.deepEqual(await run(deno, 'view.tsx'), ['pass: 0 failed, 3 passed', ''])
   assert.deepEqual(await run(deno, 'uncovered', 'src/view.tsx'), [
     'src/view.tsx:8:37  <b>many',

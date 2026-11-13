@@ -217,6 +217,7 @@ ubq diff [run] [run]      the tests whose status differs in two runs
 ubq slow [run]            the slowest tests
 ubq uncovered [file]      code that no test ran, in each file that a test loaded. Not test files, and not test helpers. Exit code 1 if it lists code.
 ubq uncovered --diff      code that no test ran, in the lines that you changed (from the last git commit)
+ubq merge <store>...      adds the coverage of other stores: a project folder, a .ubq folder, or a runs.db file
 ubq covers <file>:<line>  the tests that ran a line
 ubq sql '<query>'         a read-only SQL query, as JSON lines
 ```
@@ -329,6 +330,25 @@ A different browser version, or a shared download:
   for a cache that many CI jobs share.
 - `UBQ_BROWSER=<path of a Chromium or Chrome program>` makes the
   tests use that program. No download is necessary then.
+
+## Code for more than one runtime or system
+
+Some code runs only on Bun, or only on Windows. One run cannot
+run each line of such a project. The store keeps the coverage of
+each environment (a runtime and a system, such as `bun-darwin`),
+and `ubq uncovered` lists the code that no environment ran.
+
+- On one machine: run the tests on each runtime. `ubq`, then `bun
+  node_modules/.bin/ubq`. The second run does not remove the
+  coverage of the first.
+- For other systems: keep `.ubq/runs.db` of each CI job (an
+  artifact), and merge them in one job: `ubq merge <store>...`,
+  then `ubq uncovered`.
+- Coverage of a file counts only if the file has the same content
+  as now. Make each store from the same commit.
+- `ubq uncovered` prints the environments, if there is more than
+  one: `coverage of: bun-darwin, node-linux`.
+- `ubq --changed` uses only the last run of each test.
 
 ## Tests that start a process
 

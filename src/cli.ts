@@ -14,10 +14,12 @@ import {
   coveredFiles,
   covers,
   diffRuns,
+  environments,
   failures,
   fileErrors,
   filesOf,
   flake,
+  hasCoverage,
   history,
   incomplete,
   lastResult,
@@ -69,6 +71,7 @@ const USAGE = `usage:
   ubq diff [run] [run]       the tests with a different status in two runs (default: the last run and the run before it)
   ubq slow [run]             the slowest tests of a run (default: the last run)
   ubq uncovered [file]       code that no test ran
+  ubq merge <store>...       adds the coverage of other stores (a project folder, a .ubq folder, or a runs.db file), such as the stores of CI jobs on other systems
   ubq uncovered --diff       code that no test ran, in the lines that differ from the last git commit (--diff=<commit>: from that commit)
   ubq covers <file>:<line>   the tests that ran a line
   ubq mutate <file>[:<line>] a mutation check: makes small changes to the file, one at a time, and lists each change that no test fails for
@@ -148,6 +151,7 @@ const main = async (args: string[]): Promise<number> => {
     return spawnSync(process.execPath, process.versions.deno ? ['run', '-A', ...install] : install, { stdio: 'inherit' }).status ?? 1
   }
   if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
+  if (command === 'merge') return (await import('./merge.ts')).mergeCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')
@@ -347,7 +351,13 @@ const main = async (args: string[]): Promise<number> => {
       let total = 0
       /** Files with a range in the list. */
       const listed = new Set<string>()
+      /** Files whose stored coverage is all of a different content, from a different environment. */
+      const old: string[] = []
       for (const f of files) {
+        if (!hasCoverage(db, f)) {
+          old.push(f)
+          continue
+        }
         for (const u of uncovered(db, f)) {
           if (diff && !diff.get(f)!.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
             continue
@@ -358,6 +368,7 @@ const main = async (args: string[]): Promise<number> => {
         }
       }
       for (const f of unloaded) out(`${f}  no test loads this file`)
+      for (const f of old) out(`${f}  the stored coverage is of a different content of this file. Run the tests again.`)
       if (diff) {
         const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
         out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
@@ -368,6 +379,9 @@ const main = async (args: string[]): Promise<number> => {
           `${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran` +
             (helpers ? ` (${helpers} test helpers are not in this list)` : ''),
         )
+      // The list is for the runs of more than one environment.
+      const envs = environments(db)
+      if (envs.length > 1) out(`coverage of: ${envs.join(', ')}`)
       const weak = incomplete(db)
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')
@@ -376,7 +390,7 @@ const main = async (args: string[]): Promise<number> => {
         )
       }
       // For a check in CI: code of the program that no test runs.
-      return total || unloaded.length ? 1 : 0
+      return total || unloaded.length || old.length ? 1 : 0
     }
 
     case 'covers': {

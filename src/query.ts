@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
-import { fileHash } from './store.ts'
+import { ENV, fileHash } from './store.ts'
 
 type Span = [start: number, end: number]
 
@@ -80,9 +80,32 @@ const rangesOf = (
 ): { tfile: string; test: string; ranges: number[] }[] =>
   (
     db
-      .prepare('select tfile, test, ranges from coverage where file = ? order by tfile, test')
-      .all(file) as { tfile: string; test: string; ranges: string }[]
+      .prepare(
+        // The rows of a different environment count if they are of
+        // the file as it is now (D54).
+        `select tfile, test, ranges from coverage where file = ?1
+         union all select tfile, test, ranges from other_coverage where file = ?1 and hash = ?2
+         order by tfile, test`,
+      )
+      .all(file, fileHash(file)) as { tfile: string; test: string; ranges: string }[]
   ).map(r => ({ ...r, ranges: JSON.parse(r.ranges) as number[] }))
+
+/**
+ * The environments whose coverage the store has: that of the last
+ * run of each test, and those of `other_coverage`.
+ */
+export const environments = (db: DatabaseSync): string[] =>
+  (
+    db
+      .prepare(
+        `select distinct ${ENV} as env from coverage c join run r on r.id = c.run
+         union select distinct env from other_coverage order by 1`,
+      )
+      .all() as { env: string }[]
+  ).map(r => r.env)
+
+/** True if the store has coverage of `file` as it is now, or coverage of the last run of a test. */
+export const hasCoverage = (db: DatabaseSync, file: string): boolean => rangesOf(db, file).length > 0
 
 export interface Uncovered {
   file: string
@@ -99,7 +122,9 @@ export const coveredFiles = (db: DatabaseSync): string[] =>
   (
     db
       .prepare(
-        'select distinct file from coverage where file not in (select tfile from coverage) order by file',
+        // A file can run only in a different environment (D54).
+        `select distinct file from (select file from coverage union select file from other_coverage)
+         where file not in (select tfile from coverage union select tfile from other_coverage) order by file`,
       )
       .all() as { file: string }[]
   ).map(r => r.file)
@@ -151,8 +176,9 @@ export const covers = (db: DatabaseSync, file: string, line: number): Covers => 
     return false
   })
   return {
-    tests: rows.flatMap(r => (r.test ? [r.test] : [])),
-    loads: rows.flatMap(r => (r.test ? [] : [r.tfile])),
+    // A test can have a row for each environment.
+    tests: [...new Set(rows.flatMap(r => (r.test ? [r.test] : [])))],
+    loads: [...new Set(rows.flatMap(r => (r.test ? [] : [r.tfile])))],
   }
 }
 
@@ -168,8 +194,9 @@ export const coversAt = (db: DatabaseSync, file: string, at: number): Covers => 
     return false
   })
   return {
-    tests: rows.flatMap(r => (r.test ? [r.test] : [])),
-    loads: rows.flatMap(r => (r.test ? [] : [r.tfile])),
+    // A test can have a row for each environment.
+    tests: [...new Set(rows.flatMap(r => (r.test ? [r.test] : [])))],
+    loads: [...new Set(rows.flatMap(r => (r.test ? [] : [r.tfile])))],
   }
 }
 

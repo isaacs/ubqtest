@@ -1160,18 +1160,12 @@ with a new environment.
 
 To do next, in this order:
 
-1. **Coverage from more than one run, merged.** The user wants
-   this so that ubq can check itself with no code marked as not
-   measured. A run on Node, a run on Bun, and a run on Deno each
-   run code that the others cannot (`src/bun-preload.ts`,
-   `src/bun-coverage.ts`, the Deno branches of
-   `src/counters-preload.ts`). `src/workers-entry.ts` runs only
-   in workerd, which sends counts to its host already. The store
-   has coverage for each test, so a merge is a store that takes
-   the runs of a second store, or a command that reads more than
-   one store. CI would run each runtime, keep the store as an
-   artifact, and one job would merge them and run `ubq
-   uncovered`.
+1. **Coverage from more than one run, merged: done (D54).**
+   Source: `src/merge.ts`, the table `other_coverage` in
+   `src/store.ts`. Checks: `test/merge.test.ts`. CI keeps the
+   store of each job, and the job `coverage` merges them and
+   prints the list of `ubq uncovered`. It does not fail for the
+   list yet.
 2. **Tests for the 533 uncovered ranges** that are real gaps.
 3. **A comment that marks code as not measured, with a reason.**
    The user agreed to it, for what stays after 1 and 2.

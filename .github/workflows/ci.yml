@@ -61,3 +61,39 @@ jobs:
       - name: Test on Deno
         if: matrix.runtime == 'deno'
         run: deno run -A dist/cli.js
+      # The store has the coverage of this runtime on this system.
+      # The `coverage` job merges the stores of all jobs (D54).
+      - name: Keep the run store
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: store-${{ matrix.runtime }}-${{ matrix.os }}-${{ matrix.node }}-${{ matrix.shell }}
+          path: .ubq/runs.db*
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 3
+
+  # Which code of ubq does no job run? One runtime on one system
+  # cannot run each line: there is code for Bun, for Deno, and for
+  # Windows. This job does not fail for the list yet: the suite has
+  # gaps (docs/07-status.md).
+  coverage:
+    name: coverage of all jobs
+    needs: test
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: store-*
+          path: stores
+      - name: Merge the stores
+        run: node src/cli.ts merge stores/*
+      - name: Code that no job runs
+        run: node src/cli.ts uncovered || true
