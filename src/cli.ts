@@ -197,10 +197,15 @@ const main = async (args: string[]): Promise<number> => {
       const types = typeErrors(db, row.id)
       for (const e of types) sink(e)
       if (row.code === null) out(`run ${row.id} did not end`)
-      else
-        out(
-          `${row.code ? 'fail' : 'pass'}: ${row.fail} failed, ${row.pass} passed${types.length ? `, ${types.length} type errors` : ''} (run ${row.id})`,
-        )
+      else {
+        // The same parts as the last line of the run.
+        const parts = [`${row.fail} failed`, `${row.pass} passed`]
+        if (row.errors) parts.unshift(`${row.errors} errors`)
+        if (row.skip) parts.push(`${row.skip} skipped`)
+        if (row.unselected) parts.push(`${row.unselected} not selected`)
+        if (types.length) parts.push(`${types.length} type errors`)
+        out(`${row.code ? 'fail' : 'pass'}: ${parts.join(', ')} (run ${row.id})`)
+      }
       return row.code ?? 1
     }
 

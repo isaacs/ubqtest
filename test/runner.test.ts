@@ -217,5 +217,5 @@ test('a closed stdout does not stop a run of many files', () => {
   )
   const r = spawnSync(`node "${cli}" fail.ts pass.ts | node head.mjs`, { cwd: p.dir, encoding: 'utf8', shell: true })
   assert.deepEqual([r.stdout.split('\n').length, r.stderr], [3, ''])
-  assert.equal(p.ubq('failures').last, 'fail: 15 failed, 5 passed')
+  assert.equal(p.ubq('failures').last, 'fail: 15 failed, 5 passed, 1 skipped')
 })

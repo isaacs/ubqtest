@@ -267,7 +267,10 @@ const runCleanups = async (
       if (result instanceof Promise)
         await Promise.race([
           result,
-          new Promise((_, reject) => (timer = setTimeout(reject, fn.limit ?? timeout, TIMEOUT).unref())),
+          // This timer keeps the process alive. With no timer, a
+          // promise that never settles lets the process end, with no
+          // report of the cleanup function.
+          new Promise((_, reject) => (timer = setTimeout(reject, fn.limit ?? timeout, TIMEOUT))),
         ])
     } catch (error) {
       const cause = error === TIMEOUT ? undefined : errorFailure(error)
