@@ -3,7 +3,8 @@
   <img src="static/logo.svg" alt="" width="136" height="136">
   <p class="wordmark">ubq</p>
   <h1>The best test tool for coding agents. Their humans like it too.</h1>
-  <p class="sub">Tests for TypeScript and JavaScript, on Node, Bun, and Deno. No build step. No configuration. No output that nobody reads.</p>
+  <p class="sub">Tests for TypeScript and JavaScript, on Node, Bun, and
+  Deno.<br>No build step. No tricky config. No output that nobody reads.</p>
   <code class="install">npm install --save-dev ubqtest</code>
   <div class="buttons">
     <a class="button-link" href="guide/">Get started</a>
@@ -104,7 +105,9 @@ describe('parse', () =&gt; {
 
 <div class="band">
   <h2>Why a different test tool?</h2>
-  <p class="lead">Most test tools print for a person at a terminal: progress, colors, and a long report. An agent pays for each of those lines, and then must find the three that matter. These are the opinions that ubq has about that.</p>
+  <p class="lead">Most test tools print for a person at a terminal: progress, colors, and a long report.
+  <br>An agent pays for each of those lines, and then must find the three that
+  matter.<br>These are the opinions that ubq has about that.</p>
   <dl class="rules">
     <dt>Output is a cost.</dt>
     <dd>If a line does not help with the next decision, ubq does not print it. The report of a run with no failures is one line.</dd>
@@ -122,17 +125,24 @@ describe('parse', () =&gt; {
 </div>
 
 <div class="band center">
-  <h2>Three runtimes, the same results</h2>
-  <ul class="runtimes">
-    <li>Node 24 and later</li>
+  <h2>Every runtime, Consistent results</h2>
+  <ul class="platforms">
+    <li>Node</li>
     <li>Bun</li>
     <li>Deno</li>
+    <li><a href="/guide#tests-in-a-browser">Browsers</a></li>
   </ul>
-  <p class="lead">Linux, macOS, and Windows. Each test file runs in its own process, in parallel, in a random order. A run with a failure prints its seed. <a href="index.md">The limits are in the overview.</a></p>
+  <ul class="platforms">
+    <li>Linux</li>
+    <li>Windows</li>
+    <li>macOS</li>
+  </ul>
+  <p class="lead">Each test file runs in its own process, in parallel, in a
+  random order.<br>A run with a failure prints its seed.</p>
 </div>
 
 <div class="band">
-  <h2>For agents, and for the people who set them up</h2>
+  <h2 class="padbottom">For agents, and humans who work with them</h2>
   <div class="split">
     <div>
       <h3>If you are an agent</h3>

@@ -23,16 +23,16 @@ interface Page {
   /** The name in menus. */
   name: string
   /** One line for the lists of pages. */
-  about: string
-  group: 'use' | 'design'
+  about?: string
+  group?: 'use' | 'design'
 }
 
 const PAGES: Page[] = [
-  { source: 'GUIDE.md', slug: 'guide', name: 'Guide', about: 'How to write and run tests: the API, the rules, and the commands.', group: 'use' },
+  { source: 'GUIDE.md', slug: 'guide', name: 'Guide', about: 'The API, the rules, and the commands.', group: 'use' },
   { source: 'docs/api.md', slug: 'api', name: 'API reference', about: 'Each export of the package, with its type.', group: 'use' },
   { source: 'CONVERT.md', slug: 'convert', name: 'Convert a project', about: 'How to move a project from tap, node:test, vitest, jest, or mocha.', group: 'use' },
   { source: 'docs/08-config.md', slug: 'config', name: 'Configuration', about: 'Which files ubq runs, and the `ubq` key of `package.json`.', group: 'use' },
-  { source: 'skills/use-ubq/SKILL.md', slug: 'skill', name: 'Agent skill', about: 'The `use-ubq` skill that `ubq skill` writes for Claude Code.', group: 'use' },
+  { source: 'skills/use-ubq/SKILL.md', slug: 'skill', name: 'Agent skill', about: 'The `use-ubq` skill that `ubq skill` writes for your agent.', group: 'use' },
   { source: 'LICENSE.md', slug: 'license', name: 'License', about: 'Blue Oak Model License 1.0.0.', group: 'use' },
 
   { source: 'docs/00-initial-prompt.md', slug: 'docs/goals', name: 'Goals', about: 'The goals of the project, from its author.', group: 'design' },
@@ -47,8 +47,8 @@ const PAGES: Page[] = [
   { source: 'docs/10-bun-coverage-api.md', slug: 'docs/bun-coverage', name: 'Coverage on Bun', about: 'What ubq needs from Bun for coverage of each test.', group: 'design' },
   { source: 'docs/11-server.md', slug: 'docs/server', name: 'Server', about: 'The optional background server.', group: 'design' },
 ]
-const HOME = { source: 'README.md', slug: 'index' }
-const DOCS = { source: 'docs/README.md', slug: 'docs' }
+const HOME: Page = { name: 'Home', source: 'README.md', slug: 'index' }
+const DOCS: Page = { name: 'Docs', source: 'docs/README.md', slug: 'docs' }
 const bySource = new Map<string, string>([HOME, DOCS, ...PAGES].map(p => [p.source, p.slug]))
 
 const read = (file: string): string => readFileSync(resolve(root, file), 'utf8')
@@ -152,8 +152,9 @@ const DECISIONS = 'docs/02-decisions.md'
 const decisions = new Map<string, string>()
 for (const [, text = '', number = ''] of read(DECISIONS).matchAll(/^## ((D\d+)\..*)$/gm)) decisions.set(number, headingId(text))
 
-const render = (page: { source: string; slug: string }, markdown: string): { html: string; title: string } => {
+const render = (page: Page, markdown: string): { html: string; title: string } => {
   const ids = new Map<string, number>()
+  const { about } = page
   let title = ''
   /** True in a heading, and in the text of a link. A number there is not a link. */
   let plain = false
@@ -195,7 +196,11 @@ const render = (page: { source: string; slug: string }, markdown: string): { htm
         plain = false
         if (depth === 1) {
           title ||= text.replace(/`/g, '')
-          return `<h1>${inner}</h1>\n`
+          return `<h1>${inner}</h1>\n${
+            about ? `<p class="about">${
+              (new Marked().parse(about) as string).substring(3)
+            }\n` : ''
+          }`
         }
         const base = headingId(text)
         const count = ids.get(base) ?? 0
@@ -216,10 +221,10 @@ const markdownCopy = (page: { source: string; slug: string }, markdown: string):
   markdown.replace(/(?<=\]\()([^)\s]+)(?=\))/g, href => link(page, href, true))
 
 const NAV: [name: string, to: string][] = [
+  ['Docs', 'docs/index.html'],
   ['Guide', 'guide/index.html'],
   ['API', 'api/index.html'],
   ['Convert', 'convert/index.html'],
-  ['Docs', 'docs/index.html'],
   ['llms.txt', 'llms.txt'],
 ]
 
@@ -269,7 +274,7 @@ const side = (slug: string): string => {
     PAGES.filter(p => p.group === group)
       .map(p => `      <li${p.slug === slug ? ' class="current-page"' : ''}><a href="${rel(slug, htmlFile(p.slug))}">${p.name}</a></li>`)
       .join('\n')
-  return `<nav class="side" aria-label="Documents">
+  return `<nav class="side" aria-label="Documentation">
     <h2>Use ubq</h2>
     <ul>
 ${list('use')}
@@ -282,7 +287,7 @@ ${list('design')}
 }
 
 /** Writes a document page: the HTML and the markdown copy. */
-const documentPage = (page: { source: string; slug: string }, markdown: string): void => {
+const documentPage = (page: Page, markdown: string): void => {
   const { html, title } = render(page, markdown)
   const body = `<div class="columns">
   ${side(page.slug)}
@@ -308,7 +313,7 @@ const rows = (group: Page['group']): string =>
     .join('\n')
 documentPage(
   DOCS,
-  `# Documents
+  `# Documentation
 
 ## Use ubq
 
@@ -316,7 +321,7 @@ ${rows('use')}
 
 ## Design
 
-These documents record how ubq was designed and built: the
+This documentation record how ubq was designed and built: the
 decisions and their reasons, the measurements, and the status of
 the work. Agents and people wrote them during the work, for the
 agents and people who maintain the tool.
@@ -342,7 +347,7 @@ const list = (group: Page['group']): string =>
   PAGES.filter(p => p.group === group && p.slug !== 'license')
     .map(p => `- [${p.name}](${p.source}): ${p.about}`)
     .join('\n')
-const notFound = { source: '404.md', slug: '404' }
+const notFound: Page = { name: '404', source: '404.md', slug: '404' }
 const notFoundText = `# This page is not here
 
 The address is wrong, or the page moved. These are the pages of
@@ -356,7 +361,7 @@ ${list('use')}
 ## If you are an agent
 
 Each page is also a markdown file: \`<page>.md\`. The index of the
-documents is [llms.txt](/llms.txt). All the user documents are in
+documents is [llms.txt](/llms.txt). All the user documentation is in
 one file: [llms-full.txt](/llms-full.txt). In a project that has the package, \`npx ubq
 guide\` prints the guide for the installed version.
 `
@@ -382,7 +387,7 @@ Each page of this site is also a markdown file: \`<page>.md\`. In a project that
 
 ubq has no \`it\`, no \`expect\`, no hooks, and no \`.only\`. Read the guide before you write a test.
 
-## Documents
+## Documentation
 
 - [Overview](index.md): what ubq is, the commands, and the limits.
 ${entries('use')}

@@ -242,6 +242,9 @@ footer p {
   margin-top: 0;
   font-size: 2.1rem;
 }
+.doc p.about {
+  font-style: italic;
+}
 .doc h2 {
   margin-top: 2.5rem;
   padding-bottom: 0.3rem;
@@ -359,7 +362,7 @@ table tr td:first-child code {
   border-radius: 40px;
   background: #2d2d2d;
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 1.2rem;
 }
 .buttons {
   display: flex;
@@ -374,7 +377,6 @@ table tr td:first-child code {
   border-radius: 40px;
   background: var(--accent);
   color: #fff;
-  font-size: 0.9rem;
   transition: background-color 0.3s ease;
   text-align: center;
 }
@@ -405,9 +407,12 @@ table tr td:first-child code {
   font-size: 1.6rem;
   text-align: center;
 }
+.band > h2.padbottom {
+  padding: 0 0 0.5rem;
+}
 .band > .lead {
   max-width: 40rem;
-  margin: 0 auto 2rem;
+  margin: 0 auto 1rem;
   text-align: center;
   color: var(--soft);
 }
@@ -509,22 +514,28 @@ table tr td:first-child code {
 .rules dd {
   margin: 0.2rem 0 0;
 }
-.runtimes {
+.platforms {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.75rem;
-  margin: 0 0 1rem;
+  margin: 0 0 0.6rem;
   padding: 0;
   list-style: none;
 }
-.runtimes li {
-  padding: 0.4rem 1.1rem;
+.platforms + .platforms {
+  margin-bottom: 1rem;
+}
+.platforms li {
+  padding: 0.2rem 1rem;
   border-radius: 40px;
   background: var(--panel);
   box-shadow: inset 0 0 0 1px var(--line);
   font-family: var(--head);
   font-weight: 700;
+}
+.platforms li a:hover {
+  text-decoration: none;
 }
 .center {
   text-align: center;
