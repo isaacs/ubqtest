@@ -542,3 +542,36 @@ test('a Workers project with no vitest config, and one whose package.json is not
   const key = '"workers": [{"config":"wrangler.jsonc","include":["*.test.ts"]}]'
   assert(p.ubq('convert', 'w.test.ts').out.includes(`\nadd to "ubq" in package.json, from vitest.config.ts: ${key}\n`))
 })
+
+test('tap: the scripts test and snap of package.json become test and test:update', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'test'))
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
+  const pkg = (scripts: Record<string, string>) =>
+    writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', scripts }, null, 2) + '\n')
+  const scripts = () => (JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts
+  const line = 'changed the scripts of package.json: "test": "ubq", "test:update": "ubq"'
+
+  // --dry changes no file.
+  pkg({ lint: 'eslint', test: 'tap', snap: 'tap' })
+  assert(p.ubq('convert', '--dry', 'test').out.includes(`\nto change the scripts of package.json: "test": "ubq", "test:update": "ubq"\n`))
+  assert.deepEqual(scripts(), { lint: 'eslint', test: 'tap', snap: 'tap' })
+  // The new script takes the place of the old one.
+  assert(p.ubq('convert', 'test').out.includes(`\n${line}\n`))
+  assert.deepEqual(Object.entries(scripts()), [['lint', 'eslint'], ['test', 'ubq'], ['test:update', 'ubq']])
+  // The name snapshot, and both names.
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
+  pkg({ test: 'tap', snapshot: 'tap', snap: 'tap' })
+  assert(p.ubq('convert', 'test').out.includes(`\n${line}\n`))
+  assert.deepEqual(scripts(), { test: 'ubq', 'test:update': 'ubq' })
+  // Scripts with other commands do not change.
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
+  pkg({ test: 'tap --coverage-report=text', snap: 'tap' })
+  assert(!p.ubq('convert', 'test').out.includes('package.json'))
+  assert.deepEqual(scripts(), { test: 'tap --coverage-report=text', snap: 'tap' })
+  // A package.json that is not JSON.
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
+  writeFileSync(join(p.dir, 'package.json'), '{ not json')
+  assert.equal(p.ubq('convert', 'test').code, 0)
+})

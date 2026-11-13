@@ -1267,3 +1267,20 @@ killed only if a failure of any kind comes again.
 **Reason.** A crash or a slow moment of the machine must not hide a
 change that no test catches. A real loop or crash comes again. The
 cost is one more run only for such a change.
+
+## D59. The npm script `test:update` writes snapshots (user, 2026-11-13)
+
+When `npm_lifecycle_event` is `test:update`, the run has
+`--update`. The guides suggest `"scripts": { "test": "ubq",
+"test:update": "ubq" }`. `ubq convert` changes the tap scripts
+`"test": "tap"` and `"snap": "tap"` (or `"snapshot": "tap"`) to
+these two.
+
+With this script, a run of all tests writes all snapshots. A
+plain `ubq --update` with no test stays an error (D31): a person
+who runs the script chose the update of all snapshots, and a
+person or an agent who types `--update` names the tests.
+
+**Reason.** tap writes snapshots for the npm scripts `snap` and
+`snapshot`. A project that moves from tap keeps the same habit,
+with a name that says what the script does.

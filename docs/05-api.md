@@ -189,6 +189,9 @@ older run saved (D31).
   file. `ubq --update <file>` or `ubq --update '<test id>'` runs
   the named tests and writes their snapshots. `--update` with no
   test is an error.
+- When npm starts ubq for the script `test:update`
+  (`npm_lifecycle_event`), `--update` is on, and a run of all
+  tests writes all snapshots (D59).
 - An update of one test keeps the entries of the other tests. An
   entry of a test that the file no longer has is removed.
 - The failure shows the lines that differ, and the command that

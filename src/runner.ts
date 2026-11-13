@@ -620,11 +620,14 @@ export const run = async (args: string[]): Promise<number> => {
     seed = +text
     selection = selection.toSpliced(seedAt, 2)
   }
-  const update = selection.includes('--update')
+  // `npm run test:update`: the script of the project that writes
+  // snapshots. It can update all of them: the person chose it (D59).
+  const script = process.env.npm_lifecycle_event === 'test:update'
+  const update = script || selection.includes('--update')
   if (update) {
     selection = selection.filter(a => a !== '--update')
     // An update of all snapshots hides changes that nobody looked at.
-    if (repeat || !selection.length || selection.some(a => a.startsWith('--')))
+    if (repeat || (!selection.length && !script) || selection.some(a => a.startsWith('--')))
       throw new UsageError(
         "--update needs the tests whose snapshots it writes, and no other option: ubq --update <file>, or ubq --update '<test id>'",
       )

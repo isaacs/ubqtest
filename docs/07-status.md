@@ -176,6 +176,9 @@ All entries are from 2026-11-11 to 2026-11-13.
 - **Mutate reruns** (D58). A change that only a file error or a
   timeout killed runs again, and counts as killed only if it fails
   again.
+- **`npm run test:update`** (D59) writes snapshots. The guides
+  suggest the scripts `test` and `test:update`, and `ubq convert`
+  changes the tap scripts `snap` and `snapshot` to `test:update`.
 
 ## Open, waiting for a decision
 

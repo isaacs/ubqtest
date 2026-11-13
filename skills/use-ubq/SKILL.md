@@ -20,6 +20,9 @@ npx ubq doctor           checks the setup, and prints one FIX line for each prob
 ```
 
 If `ubqtest` is not installed: `npm install --save-dev ubqtest`.
+Put `"scripts": { "test": "ubq", "test:update": "ubq" }` in
+`package.json`. `npm run test:update` runs the tests and writes
+their snapshots.
 On Bun, the command is `bun node_modules/.bin/ubq`.
 
 ## To write or correct tests

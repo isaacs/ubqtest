@@ -1216,6 +1216,29 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     out(
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
+  // tap writes snapshots when npm starts it for a script named snap
+  // or snapshot. ubq does so for the script test:update (D59).
+  try {
+    const pkgPath = join(root, 'package.json')
+    const text = readFileSync(pkgPath, 'utf8')
+    const pkg = JSON.parse(text) as { scripts?: Record<string, string> }
+    const scripts = pkg.scripts ?? {}
+    const snap = ['snap', 'snapshot'].filter(key => scripts[key] === 'tap')
+    if (scripts.test === 'tap' && snap.length) {
+      pkg.scripts = Object.fromEntries(
+        Object.entries(scripts).flatMap(([key, value]) =>
+          key === 'test' ? [[key, 'ubq']]
+          : key === snap[0] ? [['test:update', 'ubq']]
+          : snap.includes(key) ? []
+          : [[key, value]],
+        ),
+      )
+      if (!dry) writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
+      out(`${dry ? 'to change' : 'changed'} the scripts of package.json: "test": "ubq", "test:update": "ubq"`)
+    }
+  } catch {
+    // No package.json that is JSON.
+  }
   // A TODO can look easy. The reader must know why it is there.
   if (todos)
     out(

@@ -32,8 +32,8 @@ has the API and the rules of ubq.
    step 1, or you must know the reason for each difference. A
    test that passed before and is skipped or removed now is a
    defect of the conversion.
-7. **Clean up.** Set `"test": "ubq"` in the `scripts` of
-   `package.json`. Remove the old test tool, its plugins, and its
+7. **Clean up.** Set `"test": "ubq"` and `"test:update": "ubq"`
+   in the `scripts` of `package.json`. Remove the old test tool, its plugins, and its
    configuration (`.taprc`, `vitest.config.*`, `jest.config.*`,
    `.mocharc.*`, `c8` and `nyc` settings), and the entries for
    the old tool in `types` of `tsconfig.json`. Change the test
@@ -60,9 +60,14 @@ unless the test found a defect. Do not make an assertion weaker.
 - A tap test with subtests becomes `describe`.
 
 It does not change the name of a file or the source of the
-project. It changes `package.json` in one case: for a project of
-the vitest plugin for Workers, it writes the `workers` key of the
-ubq configuration, if the key is not there.
+project. It changes `package.json` in two cases:
+
+- For a project of the vitest plugin for Workers, it writes the
+  `workers` key of the ubq configuration, if the key is not there.
+- If the scripts are `"test": "tap"` and `"snap": "tap"` (or
+  `"snapshot": "tap"`), they become `"test": "ubq"` and
+  `"test:update": "ubq"`. `npm run test:update` writes snapshots,
+  as `npm run snap` did with tap.
 
 The report has one line for each TODO, with the number of a hint.
 The full text of each hint is below the files, one time.
@@ -153,8 +158,8 @@ Things to check by hand:
 - **Snapshots.** tap keeps them in `tap-snapshots/`. ubq keeps
   them in `ubq-snapshots/`, in a different form. When the tests
   pass with the old tool, run `npx ubq --update <file>` for each
-  file with `assert.snapshot`, read the new files, and remove
-  `tap-snapshots/`.
+  file with `assert.snapshot` (or `npm run test:update`), read the
+  new files, and remove `tap-snapshots/`.
 - **`t.skip`, `{ skip: true }`, `{ todo: true }`.** Give the
   reason as text: `test(name, { skip: 'needs a GPU' }, fn)`.
 - **Coverage settings.** tap fails a run with less than full

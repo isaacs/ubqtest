@@ -52,6 +52,17 @@ ubq --changed            the tests that ran code that changed
 node test/parse.test.ts  a test file is a plain program (also: deno run -A, bun)
 ```
 
+Put these scripts in `package.json`:
+
+```json
+"scripts": { "test": "ubq", "test:update": "ubq" }
+```
+
+`npm test` runs the tests. `npm run test:update` runs them and
+writes their snapshots: ubq turns on `--update` when npm starts
+it for the script `test:update`. `npm run test:update -- <file>`
+writes only the snapshots of that file.
+
 Each run also runs the type checker, if the project has
 `tsconfig.json` and the `typescript` package. Each type error is a
 `TYPE` block, and the run fails. The tests run in any case.
@@ -182,8 +193,9 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   })
   ```
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
-  saved text fails. Only `ubq --update <file or test id>` writes
-  them. Read the new text before you commit it.
+  saved text fails. Only `ubq --update <file or test id>`, or `npm
+  run test:update` (see "Run"), writes them. Read the new text
+  before you commit it.
 
 ## Names that do not exist
 
