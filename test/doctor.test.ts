@@ -1,6 +1,6 @@
 // `ubq doctor` and `ubq guide`.
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
@@ -81,3 +81,69 @@ test('skill writes to the skill folders of the project and to the folder of the 
     readFileSync(new URL('../skills/use-ubq/SKILL.md', import.meta.url), 'utf8'),
   )
 })
+
+test('doctor: a folder with no package.json, a browser test, a Workers project, and tsconfig files', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
+  const doctor = (cmd = 'node', ...args: string[]): string[] =>
+    spawnSync(cmd, [...args, cli, 'doctor'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } }).stdout.trimEnd().split('\n')
+  const find = (lines: string[], start: string): string | undefined => lines.find(line => line.startsWith(start))
+
+  // A test file for a browser, and the project has no driver.
+  writeFileSync(join(p.dir, 'page.test.ts'), "import { test } from 'ubqtest'\nimport { browser } from 'ubqtest/browser'\ntest('a', async () => void (await browser()))\n")
+  assert.equal(
+    find(doctor(), 'FIX  a test file imports'),
+    "FIX  a test file imports 'ubqtest/browser', and the project does not have playwright-core. Run: npm install --save-dev playwright-core, then: npx ubq browser install",
+  )
+  rmSync(join(p.dir, 'page.test.ts'))
+
+  // More than one wrangler config, and no vitest config: one entry for each, a folder first.
+  mkdirSync(join(p.dir, 'api'))
+  writeFileSync(join(p.dir, 'wrangler.jsonc'), '{}')
+  writeFileSync(join(p.dir, 'api/wrangler.toml'), '')
+  writeFileSync(join(p.dir, 'w.test.ts'), "import { env } from 'cloudflare:workers'\nimport { test } from 'ubqtest'\ntest('a', () => void env)\n")
+  const lines = doctor()
+  const at = lines.findIndex(line => line.startsWith('FIX  this project has tests of a Cloudflare Worker'))
+  assert.deepEqual(JSON.parse(lines.slice(at + 1, lines.indexOf('}', at) + 1).join('\n')), {
+    workers: [
+      { config: 'api/wrangler.toml', include: ['api/**/*.test.ts'] },
+      { config: 'wrangler.jsonc', include: ['**/*.test.ts'] },
+    ],
+  })
+  // The key is set, and the project has wrangler.
+  p.configure({ workers: [{ config: 'wrangler.jsonc', include: ['w.test.ts'] }] })
+  symlinkSync(fileURLToPath(new URL('../node_modules/wrangler', import.meta.url)), join(p.dir, 'node_modules/wrangler'), 'junction')
+  assert.equal(find(doctor(), 'ok   wrangler'), 'ok   wrangler, for tests in the Workers runtime')
+
+  // A tsconfig that the check cannot read, one that extends a second one, and one with no options.
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ not json')
+  assert.equal(find(doctor(), 'FIX  tsconfig'), undefined)
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "./base.json" }')
+  assert.deepEqual([find(doctor(), 'FIX  tsconfig'), find(doctor(), 'ok   tsconfig')], [undefined, undefined])
+  // No test file imports with the .ts extension: one option is necessary.
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
+  assert.equal(
+    find(doctor(), 'FIX  tsconfig'),
+    'FIX  tsconfig.json: set "erasableSyntaxOnly": true in compilerOptions. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+  )
+
+  // The project cannot import ubqtest. The link is a junction on Windows.
+  const link = join(p.dir, 'node_modules/ubqtest')
+  if (process.platform === 'win32') rmdirSync(link)
+  else rmSync(link)
+  assert.equal(find(doctor(), 'FIX  the project cannot'), "FIX  the project cannot import 'ubqtest'. Run: npm install --save-dev ubqtest")
+  // No package.json at or above the folder.
+  rmSync(join(p.dir, 'package.json'))
+  assert.equal(
+    find(doctor(), 'FIX  no package.json'),
+    `FIX  no package.json at or above ${p.dir}. The folder of package.json is the project. Run: npm init -y`,
+  )
+})
+
+for (const [cmd, name, ...args] of [['bun', 'Bun'], ['deno', 'Deno', 'run', '-A']] as const)
+  test(`doctor names the runtime: ${name}`, { skip: spawnSync(cmd, ['--version']).status !== 0 && `${cmd} is not installed` }, () => {
+    const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
+    const first = spawnSync(cmd, [...args, cli, 'doctor'], { cwd: fileURLToPath(new URL('./fixtures/cov/', import.meta.url)), encoding: 'utf8' }).stdout.split('\n')[0]!
+    assert.match(first, new RegExp(`^ok   ${name} \\d+\\.\\d+`))
+  })

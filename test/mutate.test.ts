@@ -99,3 +99,57 @@ test('mutate lists each change that no test fails for, and does not change the f
     assert.equal(bun('mutate', 'src/price.ts').split('\n').at(-2), 'mutate: 1 of 4 changes survived, 2 more are in code that no passing test runs (ubq uncovered)')
   }
 })
+
+test('mutate with more than one file: the order of the report, a long line, a test that fails, and wrong arguments', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(
+    join(p.dir, 'lib/a.ts'),
+    `export const LIMIT = 10
+export const over = (n: number): boolean => n > LIMIT
+export const label = (n: number): string => (n === 0 ? 'none' : n === 1 ? 'one' : 'many') + ' items in the list of things that the function counts for the caller'
+`,
+  )
+  writeFileSync(
+    join(p.dir, 'lib/b.ts'),
+    'export const twice = (n: number): number => n * 2\nexport const sign = (n: number): number => {\n  if (n < 0) return -1\n  return 1\n}\n',
+  )
+  // Assertions that pass for each change, and a test that fails with no change.
+  writeFileSync(
+    join(p.dir, 'm.test.ts'),
+    `import { assert, test } from 'ubqtest'
+import { label, over } from './lib/a.ts'
+import { sign, twice } from './lib/b.ts'
+test('weak', () => {
+  assert.equal(typeof over(100), 'boolean')
+  assert.match(label(5), /items/)
+  assert.equal(typeof twice(2), 'number')
+  assert(sign(5) > 0)
+})
+test('fails with no change', () => {
+  assert.equal(sign(-5), 1)
+})
+`,
+  )
+  assert.equal(p.ubq('m.test.ts').last, 'fail: 1 failed, 1 passed')
+  const lines = p.ubq('mutate', 'lib/b.ts', 'lib/a.ts').out.trimEnd().split('\n')
+  // In the order of the files and of the places, not of the arguments.
+  assert.deepEqual(
+    lines.filter(line => line.startsWith('SURVIVED')),
+    ['lib/a.ts:2:47', 'lib/a.ts:3:48', 'lib/a.ts:3:52', 'lib/a.ts:3:67', 'lib/a.ts:3:71', 'lib/b.ts:1:47', 'lib/b.ts:1:49', 'lib/b.ts:3:9', 'lib/b.ts:3:11'].map(
+      place => `SURVIVED ${place}`,
+    ),
+  )
+  // A source line of more than 100 characters is cut.
+  assert.equal(lines[6], "  > export const label = (n: number): string => (n === 0 ? 'none' : n === 1 ? 'one' : 'many') + ' items …")
+  assert.equal(lines.at(-1), 'mutate: 9 of 12 changes survived, 1 more are in code that no passing test runs (ubq uncovered)')
+  assert.equal(p.ubq('mutate', 'lib/a.ts:99').out, 'mutate: 0 of 0 changes survived\n')
+  assert.deepEqual([p.ubq('mutate', 'lib/nope.ts').code, p.ubq('mutate', 'lib/nope.ts').err], [4, 'ubq: no test loaded lib/nope.ts. Run the tests first: ubq\n'])
+  const v8 = spawnSync('node', [fileURLToPath(new URL('../src/cli.ts', import.meta.url)), 'mutate', 'lib/a.ts'], {
+    cwd: p.dir,
+    encoding: 'utf8',
+    env: { ...process.env, UBQ_COVERAGE: 'v8' },
+  })
+  assert.deepEqual([v8.status, v8.stderr], [4, 'ubq: ubq mutate needs source counters. Remove UBQ_COVERAGE=v8.\n'])
+})
