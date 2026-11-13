@@ -60,6 +60,19 @@ test('later', { skip: 'not now' }, () => assert(true))
   ])
   assert.match(p.ubq('history', 'many.test.ts > later').out, /\n0 failed, 0 passed, 2 skipped in 2 runs \(times are UTC\)\n$/)
   assert.deepEqual(p.ubq('failures', '1').out, 'pass: 0 failed, 12 passed, 1 skipped (run 1)\n')
+  // A run of one test: the others are not selected.
+  p.ubq('many.test.ts > later')
+  assert.equal(p.ubq('failures').last, 'fail: 0 failed, 0 passed, 1 skipped, 12 not selected')
+  // A test that passed, and now is skipped, is an other change.
+  writeFileSync(join(p.dir, 'many.test.ts'), "import { test } from 'ubqtest'\ntest('later', { skip: 'x' }, () => {})\n")
+  p.ubq('many.test.ts')
+  writeFileSync(join(p.dir, 'many.test.ts'), "import { assert, test } from 'ubqtest'\ntest('later', () => assert(true))\n")
+  p.ubq('many.test.ts')
+  assert.deepEqual(p.ubq('diff').out.trimEnd().split('\n'), [
+    'pass many.test.ts > later (was skip in run 4)',
+    'run 4 to run 5: 0 new failures, 0 fixed, 1 other changes, 0 the same',
+  ])
+  assert.match(error('skill', 'nope')[1], /^ubq: unknown agent "nope"\. The agents are: claude, .* A folder also works: ubq skill \.myagent\/skills$/)
 })
 
 test('a file that ends the process, cut output, and a run of only skipped tests', { timeout: 60_000 }, () => {

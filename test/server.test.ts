@@ -1,8 +1,9 @@
 // The background server: `ubq server`.
-import { appendFileSync, existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, env, test } from 'ubqtest'
-import { project, remove } from './setup.ts'
+import { cli, project, remove } from './setup.ts'
 
 // The server has a socket file. Windows has none.
 
@@ -71,4 +72,24 @@ test('a server that died does not stop a run', { timeout: 120_000 }, async () =>
   // A new server takes the place of the dead one.
   assert.match(p.ubq('server').out, /^server: pid \d+, 8 test processes wait, 0 used/)
   assert.equal(p.ubq('server', 'stop').out, 'server: stopped\n')
+})
+
+test('the output of a test comes through the server, and a different runtime stops it', { timeout: 120_000 }, () => {
+  const p = project()
+  cleanup(() => {
+    p.ubq('server', 'stop')
+    remove(p.dir)
+  })
+  writeFileSync(
+    join(p.dir, 'out.test.ts'),
+    "import { spawnSync } from 'node:child_process'\nimport { assert, test } from 'ubqtest'\ntest('o', () => {\n  console.log('to stdout')\n  console.error('to stderr')\n  // A child process writes to the streams of the process.\n  spawnSync(process.execPath, ['-e', 'console.log(1); console.error(2)'], { stdio: 'inherit' })\n  assert.equal(1, 2)\n})\n",
+  )
+  p.ubq('server')
+  const out = p.ubq('out.test.ts', 'pass.ts').out
+  assert.match(out, /^  \| to stdout\n  \| to stderr$/m)
+  // The test processes of the server loaded the code of a different
+  // runtime. The server stops, and the run starts its own processes.
+  const bun = spawnSync('bun', [cli, 'out.test.ts', 'pass.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
+  assert.match(bun.stdout, /^fail: 1 failed, 5 passed, 1 skipped/m)
+  assert.equal(p.ubq('server', 'stop').out, 'server: not running\n')
 })
