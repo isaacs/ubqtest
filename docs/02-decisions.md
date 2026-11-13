@@ -627,9 +627,14 @@ Three parts, each for a different kind of work:
    and a table of the failures that come after a conversion, with
    the cause of each.
 3. **The `use-ubq` skill** (`skills/use-ubq/SKILL.md`, and `ubq
-   skill` to copy it into `.claude/skills/` of a project) tells an
-   agent to read the two guides of the installed package, and
-   gives the order of the work.
+   skill` to copy it into a project) tells an agent to read the
+   two guides of the installed package, and gives the order of
+   the work. `ubq skill` writes to each `.<name>/skills` folder
+   that the project has, and to the folder of the agent that runs
+   the command, which it knows from the variables that the agent
+   sets (the list of pnpm). With none, it writes to
+   `.claude/skills`. `ubq skill <agent or folder>` writes only
+   there (user, 2026-11-13).
 
 **Reason.** A program does the certain changes faster and with
 fewer errors than an agent. An agent does the changes that need

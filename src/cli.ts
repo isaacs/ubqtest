@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The `ubq` command: runs tests, and answers questions about stored
 // runs. See docs/04-architecture.md, section 5.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { doctor } from './doctor.ts'
 import { mutate } from './mutate.ts'
 import { testdirPath } from './fixtures.ts'
@@ -35,6 +35,19 @@ import { textSink } from './sink-text.ts'
 import { run, UsageError } from './runner.ts'
 import { fileHash, openStore } from './store.ts'
 
+/**
+ * For each coding agent: its names for `ubq skill <agent>`, the
+ * variables that it sets for the commands that it runs, and its
+ * skill folder. The variables are the same list as pnpm.
+ */
+const SKILL_DIRS: [names: string[], variables: string[], dir: string][] = [
+  [['claude'], ['CLAUDECODE', 'CLAUDE_CODE'], '.claude/skills'],
+  [['cursor'], ['CURSOR_AGENT'], '.cursor/skills'],
+  [['gemini'], ['GEMINI_CLI'], '.gemini/skills'],
+  [['copilot'], ['COPILOT_AGENT', 'COPILOT_CLI'], '.github/skills'],
+  [['codex', 'antigravity', 'agents'], ['ANTIGRAVITY_AGENT', 'CODEX_THREAD_ID', 'CODEX_SANDBOX', 'AI_AGENT'], '.agents/skills'],
+]
+
 /** A file that can have code. */
 const CODE = /\.([cm]?[jt]s|[jt]sx)$/
 
@@ -66,7 +79,7 @@ const USAGE = `usage:
   ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
-  ubq skill                  writes the use-ubq skill for coding agents to .claude/skills/use-ubq/SKILL.md of the project
+  ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (claude, cursor, gemini, copilot, codex)
 `
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
@@ -92,10 +105,32 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'skill') {
     // The skill is at the package root. The bundle is there too.
     const from = new URL(import.meta.url.endsWith('.ts') ? '../skills/use-ubq/SKILL.md' : './skills/use-ubq/SKILL.md', import.meta.url)
-    const to = join(projectRoot(), '.claude', 'skills', 'use-ubq')
-    mkdirSync(to, { recursive: true })
-    writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
-    out(`wrote ${rel(join(to, 'SKILL.md'))}`)
+    const root = projectRoot()
+    const dirs = new Set<string>()
+    // `ubq skill cursor`, `ubq skill .myagent/skills`
+    for (const arg of rest) {
+      const known = SKILL_DIRS.find(([names]) => names.includes(arg))
+      if (!known && !/[\\/]/.test(arg))
+        throw new UsageError(
+          `unknown agent "${arg}". The agents are: ${SKILL_DIRS.flatMap(([names]) => names).join(', ')}. A folder also works: ubq skill .myagent/skills`,
+        )
+      dirs.add(known?.[2] ?? rel(resolve(arg)))
+    }
+    if (!rest.length) {
+      // The skill folders that the project has: `.claude/skills`,
+      // `.cursor/skills`, `.agents/skills`.
+      for (const name of readdirSync(root))
+        if (name.startsWith('.') && existsSync(join(root, name, 'skills'))) dirs.add(`${name}/skills`)
+      // The folder of the agent that runs this command.
+      for (const [, variables, dir] of SKILL_DIRS) if (variables.some(name => process.env[name])) dirs.add(dir)
+      if (!dirs.size) dirs.add('.claude/skills')
+    }
+    for (const dir of [...dirs].sort()) {
+      const to = join(root, dir, 'use-ubq')
+      mkdirSync(to, { recursive: true })
+      writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
+      out(`wrote ${rel(join(to, 'SKILL.md'))}`)
+    }
     return 0
   }
   if (command === 'browser') {

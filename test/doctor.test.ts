@@ -1,5 +1,7 @@
 // `ubq doctor` and `ubq guide`.
-import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { project } from './setup.ts'
@@ -45,4 +47,35 @@ test('guide prints the guide of the package', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   assert.equal(p.ubq('guide').out, readFileSync(new URL('../GUIDE.md', import.meta.url), 'utf8'))
+})
+
+test('skill writes to the skill folders of the project and to the folder of the agent', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
+  // The agent that runs this test can set these variables.
+  const env = { ...process.env }
+  for (const name of ['CLAUDECODE', 'CLAUDE_CODE', 'CURSOR_AGENT', 'GEMINI_CLI', 'ANTIGRAVITY_AGENT', 'COPILOT_AGENT', 'COPILOT_CLI', 'CODEX_THREAD_ID', 'CODEX_SANDBOX', 'AI_AGENT'])
+    delete env[name]
+  const skill = (more: Record<string, string> = {}, ...args: string[]) =>
+    spawnSync('node', [cli, 'skill', ...args], { cwd: p.dir, encoding: 'utf8', env: { ...env, ...more } }).stdout.trimEnd().split('\n')
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md'])
+  rmSync(join(p.dir, '.claude'), { recursive: true })
+  assert.deepEqual(skill({ GEMINI_CLI: '1' }), ['wrote .gemini/skills/use-ubq/SKILL.md'])
+  mkdirSync(join(p.dir, '.cursor/skills'), { recursive: true })
+  assert.deepEqual(skill({ CODEX_SANDBOX: 'seatbelt' }), [
+    'wrote .agents/skills/use-ubq/SKILL.md',
+    'wrote .cursor/skills/use-ubq/SKILL.md',
+    'wrote .gemini/skills/use-ubq/SKILL.md',
+  ])
+  assert(!existsSync(join(p.dir, '.claude')))
+  // A named agent or folder is the only place.
+  assert.deepEqual(skill({ GEMINI_CLI: '1' }, 'copilot', '.mine/skills'), [
+    'wrote .github/skills/use-ubq/SKILL.md',
+    'wrote .mine/skills/use-ubq/SKILL.md',
+  ])
+  assert.equal(
+    readFileSync(join(p.dir, '.agents/skills/use-ubq/SKILL.md'), 'utf8'),
+    readFileSync(new URL('../skills/use-ubq/SKILL.md', import.meta.url), 'utf8'),
+  )
 })

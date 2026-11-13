@@ -129,9 +129,15 @@ tests, read `npx ubq guide`. Run `npx ubq --changed` after a
 change, then `npx ubq uncovered --diff`.
 ```
 
-`npx ubq skill` writes a skill for Claude Code to
-`.claude/skills/use-ubq/SKILL.md`. The skill tells the agent to
-read the guides of the installed package.
+`npx ubq skill` writes a skill (`use-ubq/SKILL.md`) for coding
+agents. It writes to each skill folder that the project has
+(`.claude/skills`, `.cursor/skills`, `.agents/skills`, and others
+of that form), and to the folder of the agent that runs the
+command: Claude Code, Cursor, Gemini, Copilot, or Codex. With
+none of these, it writes to `.claude/skills`. To select the
+place, name the agent or a folder: `npx ubq skill cursor`, `npx
+ubq skill .myagent/skills`. The skill tells the
+agent to read the guides of the installed package.
 
 The guides are also files of the package: `GUIDE.md` and
 `CONVERT.md`.
