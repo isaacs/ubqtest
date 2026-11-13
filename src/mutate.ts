@@ -8,7 +8,7 @@ import { createRequire } from 'node:module'
 import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import { isHelper, UsageError } from './config.ts'
+import { isBuild, isHelper, UsageError } from './config.ts'
 import { changedLines, diffOption } from './git.ts'
 import type { Mutant } from './instrument.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
@@ -53,8 +53,9 @@ export const mutate = async (
 
   // With `--diff`: only the lines that differ from the commit.
   const diff = commit === undefined ? undefined : changedLines(commit)
-  // Not a test helper: a change to one tests the tests (D51).
-  if (diff && !args.length) args = [...diff.keys()].filter(f => known.includes(f) && !isHelper(f)).map(f => join(root, f))
+  // Not a test helper: a change to one tests the tests (D51). Not
+  // build output (D55).
+  if (diff && !args.length) args = [...diff.keys()].filter(f => known.includes(f) && !isHelper(f) && !isBuild(f)).map(f => join(root, f))
 
   const jobs: Job[] = []
   let uncovered = 0

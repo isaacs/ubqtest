@@ -113,6 +113,8 @@ export interface Uncovered {
   column: number
   /** The first line of the code that did not run. */
   text: string
+  /** The whole line of the source where the range starts. */
+  sourceLine: string
   /** Lines in the range after the first. */
   moreLines: number
 }
@@ -154,7 +156,9 @@ export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {
     const [s, e] = source.trim(span)
     if (s === e) continue
     const lines = source.text.slice(s, e).split('\n')
-    out.push({ file, ...source.at(s), text: lines[0]!.trimEnd(), moreLines: lines.length - 1 })
+    const at = source.at(s)
+    const sourceLine = source.text.slice(source.starts[at.line - 1], source.starts[at.line] ?? source.text.length)
+    out.push({ file, ...at, text: lines[0]!.trimEnd(), sourceLine, moreLines: lines.length - 1 })
   }
   return out
 }

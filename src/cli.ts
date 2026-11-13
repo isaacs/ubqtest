@@ -34,7 +34,7 @@ import {
   uncovered,
 } from './query.ts'
 import { textSink } from './sink-text.ts'
-import { isHelper } from './config.ts'
+import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
 import { fileHash, openStore } from './store.ts'
 
@@ -50,6 +50,9 @@ const SKILL_DIRS: [names: string[], variables: string[], dir: string][] = [
   [['copilot'], ['COPILOT_AGENT', 'COPILOT_CLI'], '.github/skills'],
   [['codex', 'antigravity', 'agents'], ['ANTIGRAVITY_AGENT', 'CODEX_THREAD_ID', 'CODEX_SANDBOX', 'AI_AGENT'], '.agents/skills'],
 ]
+
+/** A line of code for one runtime or one system. */
+const ELSEWHERE = /process\.platform|process\.versions\.(bun|deno)|typeof (Bun|Deno)\b|\bDeno\.|\bBun\.|['"](win32|darwin|linux)['"]/
 
 /** A file that can have code. */
 const CODE = /\.([cm]?[jt]s|[jt]sx)$/
@@ -331,8 +334,12 @@ const main = async (args: string[]): Promise<number> => {
       const covered = coveredFiles(db)
       // A test helper is not code of the program (D51). A file that
       // the command names is in the list in each case.
-      let files = rest[0] ? [file(rest[0])] : covered.filter(f => !isHelper(f))
-      const helpers = rest[0] ? 0 : covered.length - files.length
+      // The same is true for build output and build tools (D55).
+      let files = rest[0] ? [file(rest[0])] : covered.filter(f => !isHelper(f) && !isBuild(f))
+      const helpers = rest[0] ? 0 : covered.filter(isHelper).length
+      const built = rest[0] ? 0 : covered.filter(f => !isHelper(f) && isBuild(f)).length
+      /** Ranges in code for one runtime or one system. */
+      let elsewhere = 0
       if (rest[0] && !covered.includes(files[0]!))
         throw new UsageError(`no test loaded ${files[0]}`)
       /** Changed files with code that no test loads. */
@@ -342,7 +349,7 @@ const main = async (args: string[]): Promise<number> => {
         const tests = new Set(testFiles(db))
         if (!rest[0])
           for (const f of diff.keys())
-            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && !isHelper(f) && fileHash(f)) unloaded.push(f)
+            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f)) unloaded.push(f)
         // The places of the stored coverage must be the places of the file.
         for (const f of files)
           if (stale(db, f))
@@ -363,6 +370,7 @@ const main = async (args: string[]): Promise<number> => {
             continue
           total++
           listed.add(f)
+          if (ELSEWHERE.test(u.sourceLine)) elsewhere++
           const more = u.moreLines ? ` (+${u.moreLines} lines)` : ''
           out(`${u.file}:${u.line}:${u.column}  ${u.text}${more}`)
         }
@@ -377,11 +385,18 @@ const main = async (args: string[]): Promise<number> => {
       else
         out(
           `${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran` +
-            (helpers ? ` (${helpers} test helpers are not in this list)` : ''),
+            (helpers || built ?
+              ` (${[helpers && `${helpers} test helpers`, built && `${built} build files`].filter(Boolean).join(' and ')} are not in this list)`
+            : ''),
         )
       // The list is for the runs of more than one environment.
       const envs = environments(db)
       if (envs.length > 1) out(`coverage of: ${envs.join(', ')}`)
+      // One run cannot run such code. The reader must know the way.
+      if (elsewhere)
+        out(
+          `note: ${elsewhere} of these ranges are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide`,
+        )
       const weak = incomplete(db)
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')

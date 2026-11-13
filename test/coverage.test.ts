@@ -93,17 +93,24 @@ test('uncovered leaves out test helpers, and its exit code is 1 for code that no
   cleanup(() => rmSync(p.dir, { recursive: true }))
   mkdirSync(join(p.dir, 'test'))
   mkdirSync(join(p.dir, 'lib'))
-  writeFileSync(join(p.dir, 'lib/add.ts'), 'export const add = (a: number, b: number): number => a + b\nexport const never = (): number => 0\n')
+  writeFileSync(
+    join(p.dir, 'lib/add.ts'),
+    "export const add = (a: number, b: number): number => a + b\nexport const never = (): number => 0\nexport const sep = (): string => (process.platform === 'none' ? '?' : '/')\n",
+  )
+  // A tool of the build, with a function that no test calls.
+  mkdirSync(join(p.dir, 'scripts'))
+  writeFileSync(join(p.dir, 'scripts/tool.ts'), "export const tool = (): string => 'tool'\nexport const unused = (): string => 'no'\n")
   // A helper with a function that no test calls.
   writeFileSync(join(p.dir, 'test/scenario.ts'), "export const start = (): string => 'on'\nexport const unused = (): string => 'off'\n")
   writeFileSync(
     join(p.dir, 'test/add.test.ts'),
     `import { assert, test } from 'ubqtest'
-import { add } from '../lib/add.ts'
+import { add, sep } from '../lib/add.ts'
+import { tool } from '../scripts/tool.ts'
 import { start } from './scenario.ts'
 
 test('adds', () => {
-  assert.deepEqual([start(), add(1, 2)], ['on', 3])
+  assert.deepEqual([start(), add(1, 2), sep(), tool()], ['on', 3, '/', 'tool'])
 })
 `,
   )
@@ -114,13 +121,21 @@ test('adds', () => {
   assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
   assert.deepEqual(uncovered(), [
     1,
-    ['lib/add.ts:2:22  (): number => 0', '1 uncovered ranges in 1 of the 1 files that tests ran (1 test helpers are not in this list)'],
+    [
+      'lib/add.ts:2:22  (): number => 0',
+      "lib/add.ts:3:63  ? '?'",
+      '2 uncovered ranges in 1 of the 1 files that tests ran (1 test helpers and 1 build files are not in this list)',
+      'note: 1 of these ranges are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide',
+    ],
   ])
   // A file that the command names is in the list.
   assert.deepEqual(uncovered('test/scenario.ts'), [1, ["test/scenario.ts:2:23  (): string => 'off'", '1 uncovered ranges in test/scenario.ts']])
   // The `helpers` key replaces the folder names.
-  p.configure({ helpers: [] })
-  assert.equal(p.ubq('uncovered').out.trimEnd().split('\n').at(-1), '2 uncovered ranges in 2 of the 2 files that tests ran')
-  p.configure({ helpers: ['test/**', 'lib/**'] })
-  assert.deepEqual(uncovered(), [0, ['0 uncovered ranges in 0 of the 0 files that tests ran (2 test helpers are not in this list)']])
+  p.configure({ helpers: [], build: [] })
+  assert.equal(p.ubq('uncovered').out.trimEnd().split('\n').at(-2), '4 uncovered ranges in 3 of the 3 files that tests ran')
+  p.configure({ helpers: ['test/**', 'lib/**'], build: ['scripts/**'] })
+  assert.deepEqual(uncovered(), [
+    0,
+    ['0 uncovered ranges in 0 of the 0 files that tests ran (2 test helpers and 1 build files are not in this list)'],
+  ])
 })
