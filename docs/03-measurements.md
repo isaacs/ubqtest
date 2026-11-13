@@ -468,3 +468,46 @@ shell (158.0).
 7. Chromium gives the call count of each function of a script
    file that the page loads (`browser/cov.ts`): `a` 1, `b` 0. A
    script that is text in the HTML is not in the report.
+
+## 14. The Workers runtime (2026-11-13)
+
+Script: `workerd/load.ts`. `miniflare` 4.20260730.0 with `workerd`
+1.20260730.1, on Node 26.5. The script starts one workerd process
+with a D1 binding. A function of the script (the "module fallback
+service" of workerd) gets each import that workerd cannot resolve.
+It reads the file from the disk, removes the types with
+`stripTypeScriptTypes` of Node, and gives the text back.
+
+| Step | Time |
+| --- | --- |
+| Start workerd, load 2 `.ts` files, one D1 query | 65 ms |
+| Start workerd, load `src/index.ts` (28 files), one test | 290 ms |
+| A second request to the same worker | 3 ms |
+| The first start after the install | 1580 ms |
+
+1. workerd loads TypeScript files from the disk at the time of
+   the import. No bundle step is necessary. This is the same place
+   where the runner on Node adds the source counters, so coverage
+   for each test can use the same code.
+2. `cloudflare:workers` resolves, and a D1 query on a local
+   database works.
+3. The test API of ubq (`src/index.ts`, not changed) loads with
+   the `nodejs_compat` flag and runs a test. The events of the test
+   arrive on `node:diagnostics_channel`. The script had to change
+   three things first:
+   - `import.meta.url` and `import.meta.dirname` are undefined in
+     a module from the fallback service. The script puts the
+     values in the text.
+   - `node:inspector` has no `Session`. Coverage must come from
+     source counters.
+   - `process.getActiveResourcesInfo` does not exist.
+4. Not available in workerd: `beforeExit` and `exit` events (ubq
+   uses them to know that a file ended), `worker_threads` (the
+   watchdog), a real file system (`testdir`, snapshot files), and
+   module hooks (`mockImport`).
+5. The place of a test in its `test-start` event was wrong
+   (`../entry.mjs`). The stack frames of workerd have paths with no
+   `file:` scheme and no first `/`.
+6. Not measured: many test files, one workerd for each file
+   against one for all, and the cost of the counters.
+
