@@ -684,8 +684,8 @@ Not built: search. The upload to a host is D46.
 The site is at `https://ubq.dev`. Each page has that address in
 its link preview tags (`og:url`, `og:image`), because a preview
 needs full URLs. The image is `site/static/logo-1200x630.png`
-(the middle of `logo-1200x1200.png`, in the shape of a wide card). All other links of the site stay
-relative.
+(the middle of `logo-1200x1200.png`, in the shape of a wide
+card). All other links of the site stay relative.
 
 ## D45. Front-end tests: Playwright with Chromium, one function (user and agent, 2026-11-12)
 
