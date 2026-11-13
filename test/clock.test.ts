@@ -52,6 +52,13 @@ test('an interval runs one time for each period, and a timer can start a timer',
   await assert.rejects(clock.runAll(), /setInterval, never ends\. Use tick\(ms\)/)
   clearInterval(interval)
   assert.equal(clock.timers, 0)
+  // An interval with no time runs at once, as setTimeout(fn, 0)
+  // does, then each 1 ms.
+  const fast = spy()
+  const every = setInterval(fast)
+  await clock.tick(3)
+  clearInterval(every)
+  assert.equal(fast.calls.length, 4)
 })
 
 test('the clock takes over Date, performance, hrtime, node:timers, and AbortSignal.timeout', async () => {
@@ -177,6 +184,9 @@ test('the promise timers, a signal, and process.hrtime', async () => {
   const first = ticks.next()
   await clock.tick(10)
   assert.deepEqual(await first, { value: 'tick', done: false })
+  const plain = promises.setInterval()[Symbol.asyncIterator]().next()
+  await clock.tick(1)
+  assert.deepEqual(await plain, { value: undefined, done: false })
   const pause = promises.scheduler.yield()
   await clock.tick(0)
   assert.equal(await pause, undefined)

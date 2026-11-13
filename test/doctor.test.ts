@@ -26,6 +26,9 @@ test('doctor states the fix for each problem of the setup', () => {
     lines: ["ok   import from 'ubqtest' works in this project", 'ok   10 test files', 'doctor: 0 problems'],
   })
 
+  p.configure({ include: ['empty.ts', 'fail.ts', 'fix.ts', 'flip.ts', 'leak.ts', 'load-error.ts'] })
+  assert.match(doctor().lines[2]!, /^FIX  4 files have tests, and "ubq" with no arguments does not run them: mock\.ts, pass\.ts, snap\.ts, sometimes\.ts\. Give each one/)
+
   p.configure({ include: ['*.ts'], retries: 2 })
   assert.equal(doctor().lines[1], 'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers')
 
