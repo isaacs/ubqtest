@@ -28,8 +28,8 @@
     "site": "node scripts/site.ts",
     "preversion": "npm test",
     "postversion": "git push origin --follow-tags",
-    "site:go": "wrangler@4 deploy",
-    "site:dev": "wrangler@4 dev"
+    "site:go": "wrangler deploy",
+    "site:dev": "wrangler dev"
   },
   "devDependencies": {
     "@sveltejs/acorn-typescript": "^1.0.13",
