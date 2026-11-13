@@ -250,7 +250,7 @@ ${slug === '404' ? '<base href="/">\n' : ''}<title>${escape(title)}</title>
 </head>
 <body class="${bodyClass}">
 <header id="top">
-  <a class="brand" href="${rel(slug, 'index.html')}"><img src="${rel(slug, 'static/logo.svg')}" alt="" width="40" height="40"><span>ubq</span> <small>${escape(pkg.version)}</small></a>
+  <a class="brand" href="${rel(slug, 'index.html')}"><img src="${rel(slug, 'static/logo.svg')}" alt="" width="40" height="40"><span>ubq</span> <small>${escape(pkg.version)}</small><b class="beta">(beta)</b></a>
   <nav aria-label="Site">
     <ul>
 ${NAV.map(([name, to]) => `      <li${current(to)}><a href="${rel(slug, to)}">${name}</a></li>`).join('\n')}

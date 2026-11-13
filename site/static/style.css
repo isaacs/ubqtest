@@ -148,7 +148,7 @@ blockquote {
   color: var(--hover);
   text-decoration: none;
 }
-#top .brand small {
+#top .brand small, #top .brand b.beta {
   font-size: 0.8rem;
   font-weight: 400;
   letter-spacing: 0;
