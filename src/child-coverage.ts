@@ -38,13 +38,21 @@ const scopes = (text = process.env[ENV]): Scope[] => {
 type Env = Record<string, string | undefined>
 /** Adds the preload module to the options of Node and Bun in an environment. */
 const withPreload = (env: Env): void => {
-  if (!env.NODE_OPTIONS?.includes(PRELOAD.href)) env.NODE_OPTIONS = `${env.NODE_OPTIONS ? env.NODE_OPTIONS + ' ' : ''}--import ${PRELOAD.href}`
-  const path = fileURLToPath(PRELOAD)
-  // The options of Bun have no form for a path with a space.
-  if (!/\s/.test(path) && !env.BUN_OPTIONS?.includes(path)) env.BUN_OPTIONS = `${env.BUN_OPTIONS ? env.BUN_OPTIONS + ' ' : ''}--preload ${path}`
+  // One copy of the module is enough. A second copy of ubq can be
+  // above this process: the built package runs the tests of the
+  // source.
+  if (!MODULE.test(env.NODE_OPTIONS ?? '')) env.NODE_OPTIONS = `${env.NODE_OPTIONS ? env.NODE_OPTIONS + ' ' : ''}--import ${PRELOAD.href}`
+  // The options of Bun have no form for a path with a space, and
+  // they read `\` as the start of an escape.
+  const path = fileURLToPath(PRELOAD).split(sep).join('/')
+  if (!/\s/.test(path) && !MODULE.test(env.BUN_OPTIONS ?? '')) env.BUN_OPTIONS = `${env.BUN_OPTIONS ? env.BUN_OPTIONS + ' ' : ''}--preload ${path}`
 }
+/** The preload module of some copy of ubq, in the options of a runtime. */
+const MODULE = /[\\/]child-preload\.[jt]s\b/
 
 const PATCHED = Symbol.for('ubqtest.spawn')
+/** True if a copy of this module counts in this process. */
+const STARTED = Symbol.for('ubqtest.child')
 /**
  * A process can give its child a new environment, with none of the
  * variables of this file. Then the child has no coverage, with no
@@ -192,6 +200,9 @@ const taken = (path: string): boolean =>
 
 /** For a process below a test process: counts for each project of the list. */
 export const startChild = (): void => {
+  const shared = globalThis as { [STARTED]?: boolean }
+  if (shared[STARTED]) return
+  shared[STARTED] = true
   const list = scopes()
     // The test process of a project has the collector of that
     // project. Two sets of counters in one file do not work.
