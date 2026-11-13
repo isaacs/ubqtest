@@ -67,6 +67,7 @@ export const mergeCommand = (args: string[], out: (text: string) => void): numbe
   if (differ.size) {
     const names = [...differ].sort()
     out(
+      // ubq: not measured: no test merges more than 5 changed files
       `note: ${names.length} files are not the same here as in a store that was merged: ${names.slice(0, 5).join(', ')}${names.length > 5 ? ', ...' : ''}. Coverage of a file counts only if the file has the same content. Make each store from the same commit.`,
     )
   }

@@ -1,5 +1,5 @@
 // `ubqtest/browser`: a page of a real browser, and `assert.eventually`.
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -131,6 +131,15 @@ check()`,
   const bad = p.ubq('served.test.ts')
   assert.equal(bad.code, 4)
   assert.match(bad.err, /"ubq\.browser\.command" in package\.json \(node app\/absent\.js\) ended with exit code 1\. Its output is in \.ubq[\\/]browser-server\.log/)
+  // A command that ends with no output.
+  writeFileSync(join(p.dir, 'app/quiet.js'), '')
+  p.configure({ browser: { url: `http://localhost:${port}`, command: 'node app/quiet.js' } })
+  assert.match(p.ubq('served.test.ts').err, /\(node app\/quiet\.js\) ended with exit code 0\. Its output is in \.ubq[\\/]browser-server\.log\n$/)
+  // A server that answers before the run: the runner does not start one.
+  const server = spawn('node', ['app/server.js'], { cwd: p.dir, stdio: 'ignore' })
+  cleanup(() => void server.kill())
+  spawnSync('node', ['-e', `const check = () => fetch('http://localhost:${port}').then(() => process.exit(0), () => setTimeout(check, 50))\ncheck()`])
+  assert.equal(p.ubq('served.test.ts').last, 'pass: 0 failed, 1 passed')
   p.configure({ browser: { command: 'x' } })
   assert.match(p.ubq('pass.ts').err, /"ubq\.browser" in package\.json must be an object with "url"/)
 })
@@ -229,4 +238,14 @@ test('title', { timeout: 30_000 }, async () => {
     '2 uncovered ranges in src/app.ts',
     '',
   ])
+})
+
+test('a browser path in UBQ_BROWSER that is not there', { timeout: 30_000 }, () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  writeFileSync(join(p.dir, 'page.test.ts'), "import { test } from 'ubqtest'\nimport { browser } from 'ubqtest/browser'\ntest('page', async () => {\n  await browser()\n})\n")
+  const env = { ...process.env, CI: '', UBQ_BROWSER: join(p.dir, 'no-such-browser') }
+  const run = spawnSync('node', [createRequire(import.meta.url).resolve('../src/cli.ts'), 'page.test.ts'], { cwd: p.dir, encoding: 'utf8', env })
+  assert.deepEqual([run.status, run.stdout.split('\n')[0]], [1, 'FAIL page.test.ts > page'])
+  assert.match(run.stdout, /no-such-browser/)
 })

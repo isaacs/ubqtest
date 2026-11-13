@@ -58,6 +58,7 @@ export const runBaseline = async (ref: string, files: string[] | undefined): Pro
   // A run that was stopped can leave its checkout.
   remove()
   const added = git(['worktree', 'add', '--detach', tree, full.out])
+  // ubq: not measured: git can add a worktree in each test
   if (!added.ok) throw new UsageError(`git cannot make a checkout of ${ref}: ${added.err}`)
   try {
     const root = join(tree, prefix.out)
@@ -82,6 +83,7 @@ export const runBaseline = async (ref: string, files: string[] | undefined): Pro
         `the run of the baseline ${ref} did not work (exit code ${code}):\n${stderr.trim().split('\n').slice(-12).join('\n')}`,
       )
     const path = join(root, '.ubq', 'runs.db')
+    // ubq: not measured: the run of a baseline always makes a store
     if (!existsSync(path)) return result
     const db = new DatabaseSync(path, { readOnly: true })
     for (const t of db
@@ -117,6 +119,7 @@ export const compare = (
     if (status === 'fail') (before === 'fail' ? old : fresh).push(id)
     else if (status === 'pass' && before === 'fail') fixed.push(id)
   }
+  // ubq: not measured: no baseline test has a new file error
   for (const file of errors) (base.errors.has(file) ? old : fresh).push(`ERROR ${file}`)
   const gone = [...base.tests.keys()].filter(id => !now.has(id)).length
   const parts = [
@@ -130,6 +133,7 @@ export const compare = (
     if (!ids.length) return
     lines.push(head)
     for (const id of ids.slice(0, 20)) lines.push(`  ${id}`)
+    // ubq: not measured: no baseline test has more than 20 changes
     if (ids.length > 20) lines.push(`  and ${ids.length - 20} more`)
   }
   list("failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):", old)

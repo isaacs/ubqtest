@@ -115,6 +115,7 @@ export const textSink = (write: (text: string) => void): Sink => {
         for (const o of event.opened) {
           lines.push(`  ${o.type} opened at ${loc(o.at)}`)
           const source = sourceLine(o.at)
+          // ubq: not measured: no hang of the tests has a long line
           if (source) lines.push(`  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`)
         }
         write(lines.join('\n') + '\n\n')

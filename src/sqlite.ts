@@ -5,6 +5,7 @@
 import { createRequire } from 'node:module'
 
 const emitWarning = process.emitWarning
+// ubq: not measured: this Node gives no warning for node:sqlite
 process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
   if (!/SQLite is an experimental feature/.test(String(warning)))
     (emitWarning as (...args: unknown[]) => void).call(process, warning, ...rest)

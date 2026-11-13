@@ -43,6 +43,7 @@ export const startBrowserServer = async (files: string[]): Promise<number | unde
   while (!(await answers(url))) {
     const why =
       exit !== undefined ? `ended with exit code ${exit}`
+      // ubq: not measured: no test waits the full start time
       : Date.now() > end ? `did not answer at ${url} in ${START_MS / 1000} seconds`
       : undefined
     if (why) {

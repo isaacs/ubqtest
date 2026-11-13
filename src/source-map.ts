@@ -132,6 +132,7 @@ export const sourceRegions = (regions: Region[], made: string, source: string): 
       const at = all[k]![1]
       start = Math.min(start, at)
       TOKEN.lastIndex = at
+      // ubq: not measured: each point of a map is at a token
       end = Math.max(end, at + (TOKEN.exec(source)?.[0].length ?? 0))
     }
     return { ...region, start, end }
@@ -229,6 +230,7 @@ export const builtSources = (
   let all: [number, number, number][]
   try {
     all = allPoints(map.mappings, made, index => sources[index]?.lines)
+    // ubq: not measured: a build tool writes the mappings as text
   } catch {
     return undefined
   }
@@ -252,6 +254,7 @@ export const builtSources = (
   regions.forEach((region, i) => {
     if (i === 0) return
     const from = first(region.start)
+    // ubq: not measured: each region of a built file has a point
     if (from >= all.length || all[from]![0] >= region.end) return
     const [, index, at] = all[from]!
     const source = sources[index]!

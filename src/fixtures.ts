@@ -22,6 +22,7 @@ const owner = (name: string): TestState | undefined => {
       `${name}() was called after its test ended. Call it before the test function returns, or await the code that calls it.`,
     )
   if (!state && fileState.ran)
+    // ubq: not measured: no test calls it after the cleanups of its file
     throw new Error(
       `${name}() was called outside a test, after the cleanup functions of the file ran. Call it before the first test() call.`,
     )

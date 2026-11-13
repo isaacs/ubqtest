@@ -150,6 +150,7 @@ export const pruneSources = (db: DatabaseSync): void => {
   try {
     for (const name of readdirSync(join(stateDir(), 'sources')))
       if (!used.has(name)) rmSync(sourcePath(name), { force: true })
+    // ubq: not measured: each prune in the tests has a sources folder
   } catch {
     // No stored content.
   }
@@ -174,6 +175,7 @@ export const openStore = (): Store => {
       try {
         db.exec('pragma journal_mode = wal; pragma synchronous = normal')
         return db
+        // ubq: not measured: no store of the tests is locked when it opens
       } catch (error) {
         if (tries === 100 || !/locked/.test((error as Error).message)) throw error
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20)
@@ -297,6 +299,7 @@ export const openStore = (): Store => {
               mkdirSync(join(stateDir(), 'sources'), { recursive: true })
               copyFileSync(join(projectRoot(), file), sourcePath(h))
             }
+            // ubq: not measured: no copy of a source fails in the tests
           } catch {
             // `--changed` then selects by file, not by range.
           }
@@ -328,6 +331,7 @@ export const openStore = (): Store => {
       const flush = (): void => {
         clearTimeout(timer)
         timer = undefined
+        // ubq: not measured: each flush in the tests has events
         if (!pending.length) return
         const events = pending
         pending = []
@@ -350,6 +354,7 @@ export const openStore = (): Store => {
               run,
               event.id,
               fileOf(event.id),
+              // ubq: not measured: each test of the tests has a line
               lines.get(event.id) ?? null,
               event.status,
               event.ms,

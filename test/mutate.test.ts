@@ -52,6 +52,7 @@ const b = !a && { 1: true }[1] /* || */ || import('./x.ts')
     ],
   )
   assert.equal(mutants('const = 1', 'a.ts'), undefined)
+  assert.equal(mutants('const = 1', 'a.mjs'), undefined)
 })
 
 test('mutate lists each change that no test fails for, and does not change the file', { timeout: 30_000 }, () => {

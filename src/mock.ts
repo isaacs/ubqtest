@@ -113,6 +113,7 @@ const registerBun = (): void => {
             let dep: string
             try {
               dep = Bun.resolveSync(specifier, dirname(file))
+              // ubq: not measured: Bun resolves each import of the tests
             } catch {
               return all
             }
@@ -124,6 +125,7 @@ const registerBun = (): void => {
               : all
           },
         )
+        // ubq: not measured: each mocked file has a code extension
         return { contents, loader: CODE.exec(file)?.[1] ?? 'js' }
       })
     },
@@ -142,6 +144,7 @@ const bare = (load: Loader<unknown>): string | undefined => {
 const register = (): void => {
   if (registered) return
   if (!bun && typeof nodeModule.registerHooks !== 'function')
+    // ubq: not measured: each runtime of the tests has registerHooks
     throw new Error('mockImport does not work on this runtime yet. It needs module.registerHooks.')
   registered = true
   ;(globalThis as Record<symbol, unknown>)[KEY] = table
@@ -226,6 +229,7 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
   if (missed) {
     const path = bun ? bare(subject) : undefined
     if (!path) throw new TypeError(`the first argument of mockImport ${SHAPE}`)
+    // ubq: not measured: no test mocks a package on Bun
     await loaded
     loaded = import(`${path}?mock=${id}`) as Promise<M>
   }

@@ -23,6 +23,7 @@ export const headCommit = (): string | undefined => {
       const gitDir =
         statSync(dot).isDirectory() ? dot : resolve(dir, (read(dot) ?? '').replace(/^gitdir: /, ''))
       const head = read(join(gitDir, 'HEAD'))
+      // ubq: not measured: git always writes HEAD
       if (!head) return undefined
       if (!head.startsWith('ref: ')) return head
       const ref = head.slice(5)
@@ -62,6 +63,7 @@ export const changedLines = (commit: string): Map<string, Lines[]> => {
   const { spawnSync } = process.getBuiltinModule('node:child_process')
   const git = (...args: string[]): string => {
     const r = spawnSync('git', args, { cwd: projectRoot(), encoding: 'utf8', maxBuffer: 1 << 28 })
+    // ubq: not measured: git is on the path in each test
     if (r.error) throw new UsageError(`--diff needs git: ${r.error.message}`)
     if (r.status) throw new UsageError(`--diff: ${r.stderr.trim().split('\n')[0]}`)
     return r.stdout

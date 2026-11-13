@@ -26,17 +26,20 @@ registerHooks({
       // Deno gives the URL of a file that does not exist.
       if (!deno || !result.url.startsWith('file:') || existsSync(fileURLToPath(result.url))) return result
     } catch (error) {
+      // ubq: not measured: this module loads before the counters start
       if ((error as NodeJS.ErrnoException).code !== 'ERR_MODULE_NOT_FOUND') throw error
       missing = error
     }
     for (const source of SOURCE[ext]!) {
       try {
         const found = next(specifier.slice(0, -ext.length) + source, context)
+        // ubq: not measured: this module loads before the counters start
         if (!deno || existsSync(fileURLToPath(found.url))) return found
       } catch {
         // Not this name.
       }
     }
+    // ubq: not measured: this module loads before the counters start
     if (result) return result
     throw missing
   },

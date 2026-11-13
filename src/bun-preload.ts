@@ -26,6 +26,7 @@ if (counters) {
   announce()
   const read = (path: string): string => {
     const source = readFileSync(path, 'utf8')
+    // ubq: not measured: this module loads before the counters start
     return (counters.wants(path) ? counters.change(path, source)?.source : undefined) ?? source
   }
   ;(globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] = read
@@ -39,6 +40,7 @@ if (counters) {
       build.onLoad({ filter }, ({ path }) => ({
         contents: read(path),
         // Bun reads JSX in a `.js` file.
+        // ubq: not measured: this module loads before the counters start
         loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
       }))
     },

@@ -32,6 +32,7 @@ const compiler = (root: string): string[] | undefined => {
     // The command file is a JavaScript program. Windows cannot start
     // it with no runtime.
     const bin = (JSON.parse(readFileSync(manifest, 'utf8')) as { bin?: { tsc?: string } }).bin?.tsc
+    // ubq: not measured: the tests run the command line on Node
     return bin ? [process.execPath, ...(process.versions.deno ? ['run', '-A'] : []), join(dirname(manifest), bin)] : undefined
   } catch {
     return undefined

@@ -36,7 +36,7 @@ export default defineWorkersConfig({
       workers: {
         wrangler: { configPath: './worker/wrangler.toml' },
         miniflare: {
-          bindings: { TEXT: \`plain\`, 'a-key': -1, LIST: [1, 'two'], NESTED: { a: null }, [computed]: 1, CALL: make(), TEMPLATE: \`a\${b}\`, NEGATIVE: -x },
+          bindings: { TEXT: \`plain\`, 'a-key': -1, LIST: [1, 'two'], NESTED: { a: null }, INNER: { [computed]: 1 }, [computed]: 1, CALL: make(), TEMPLATE: \`a\${b}\`, NEGATIVE: -x },
         },
       },
     },
@@ -56,6 +56,7 @@ export default defineWorkersConfig({
         },
         setupFiles: ['worker/setup.ts'],
         notes: [
+          'the binding INNER of miniflare.bindings in vitest.config.mts is not a plain value. Add it to "vars" by hand.',
           'the binding (a computed key) of miniflare.bindings in vitest.config.mts is not a plain value. Add it to "vars" by hand.',
           'the binding CALL of miniflare.bindings in vitest.config.mts is not a plain value. Add it to "vars" by hand.',
           'the binding TEMPLATE of miniflare.bindings in vitest.config.mts is not a plain value. Add it to "vars" by hand.',

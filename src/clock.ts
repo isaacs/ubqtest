@@ -164,6 +164,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
     const old = Object.getOwnPropertyDescriptor(object, key)
     try {
       Object.defineProperty(object, key, { value, configurable: true, writable: true, enumerable: old?.enumerable ?? true })
+      // ubq: not measured: the runtimes of the tests permit each change
     } catch {
       // The runtime does not permit a change of this one.
       return

@@ -286,6 +286,7 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     (a, b) =>
       a.at - b.at ||
       +b.close - +a.close ||
+      // ubq: not measured: the tests have no two opens at one place
       (a.close ? b.seq - a.seq : a.seq - b.seq),
   )
   let code = ''

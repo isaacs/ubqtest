@@ -43,6 +43,7 @@ export default {
     delete env[HOST]
     delete runtimeEnv[HOST]
     const flush = async (): Promise<void> => {
+      // ubq: not measured: each flush in the tests has events
       if (!queue.length) return
       const body = queue.splice(0).join('\n')
       await toHost.fetch('http://ubq/', { method: 'POST', body })

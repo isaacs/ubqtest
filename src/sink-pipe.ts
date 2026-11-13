@@ -10,8 +10,10 @@ export const startPipe = (): void => {
   let closed = false
   // Deno cannot write to a descriptor that it got from its parent.
   // The runner gives a Deno test process a file for its events.
+  // ubq: not measured: the library loads this before the counters start
   if (process.env.UBQ_EVENTS) fd = openSync(process.env.UBQ_EVENTS, 'a')
   // A hang rerun on Deno has no runner that reads events.
+  // ubq: not measured: the library loads this before the counters start
   else if (process.versions.deno) closed = true
   subscribe(CHANNEL, event => {
     if (closed) return

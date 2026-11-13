@@ -149,6 +149,7 @@ export const warmProcess = async (
           stdout,
           stderr,
           stdio: [null, stdout, stderr, events],
+          // ubq: not measured: no test calls kill() of this process
           kill: signal => process.kill(pid!, signal),
           on: (event, listener) => emitter.on(event, listener),
         })

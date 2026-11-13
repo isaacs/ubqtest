@@ -150,6 +150,7 @@ const main = async (args: string[]): Promise<number> => {
     } catch {
       throw new UsageError('the project does not have the playwright-core package. Run: npm install --save-dev playwright-core')
     }
+    // ubq: not measured: CI runs this as a step, outside the tests
     const install = [cli, 'install', 'chromium', '--only-shell']
     return spawnSync(process.execPath, process.versions.deno ? ['run', '-A', ...install] : install, { stdio: 'inherit' }).status ?? 1
   }
@@ -380,6 +381,7 @@ const main = async (args: string[]): Promise<number> => {
         }
         for (const u of uncovered(db, f)) {
           if (diff && !diff.get(f)!.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
+            // ubq: not measured: no diff test has a range out of it
             continue
           if (u.notMeasured) {
             notMeasured++
@@ -448,6 +450,7 @@ const main = async (args: string[]): Promise<number> => {
       return 0
     }
   }
+  // ubq: not measured: each name in QUERIES has a case above
   throw new UsageError(`unknown command: ${command}`)
 }
 

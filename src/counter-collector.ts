@@ -29,6 +29,7 @@ const parse = (): typeof import('./instrument.ts').instrument | undefined => {
     loadingParser = true
     try {
       instrument = (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')).instrument
+      // ubq: not measured: this module loads before the counters start
     } catch {
       // From the source of ubq, Deno 2.9 cannot load the parser in
       // a load hook. A file with no cache entry then runs with no
@@ -39,6 +40,7 @@ const parse = (): typeof import('./instrument.ts').instrument | undefined => {
     }
     // The parser ran with no counters in this process. The next
     // process finds it in the cache.
+    // ubq: not measured: this module loads before the counters start
     for (const [file, root] of parserKeys.splice(0)) {
       try {
         cached(file, readFileSync(PARSER, 'utf8'), false, root)
@@ -99,6 +101,7 @@ export const currentSources = (result: Instrumented, root = projectRoot()): Sour
   result.sources?.filter(source => {
     try {
       return hash('sha1', readFileSync(join(root, source.file))) === source.hash
+      // ubq: not measured: this module loads before the counters start
     } catch {
       return false
     }
@@ -114,6 +117,7 @@ export const columnFromCache = (file: string, line: number, column: number): num
     const source = readFileSync(join(projectRoot(), file), 'utf8')
     const { shifts } = JSON.parse(readFileSync(cachePath(file, source), 'utf8')) as Instrumented
     return originalColumn(shifts[line], column)
+    // ubq: not measured: this module loads before the counters start
   } catch {
     return column
   }
@@ -146,10 +150,12 @@ export const cached = (
   if (result && (result.js !== undefined || !needsJs)) return result
   // The parser file itself, before the parser is complete: the hook
   // or the program loads it now.
+  // ubq: not measured: this module loads before the counters start
   if (!result && from === PARSER && !instrument) {
     parserKeys.push([file, root])
     return undefined
   }
+  // ubq: not measured: this module loads before the counters start
   if (!result && loadingParser) return undefined
   result ??= parse()?.(source, file)
   if (result) {
@@ -165,6 +171,7 @@ export const cached = (
       const tmp = `${path}.${process.pid}.tmp`
       writeFileSync(tmp, JSON.stringify(result))
       renameSync(tmp, path)
+      // ubq: not measured: this module loads before the counters start
     } catch {
       // The cache is an aid. The run does not need it.
     }
@@ -181,6 +188,7 @@ export const cached = (
 export const prepareCounters = (path: string): boolean => {
   try {
     return !!cached(rel(path), readFileSync(path, 'utf8'), true)
+    // ubq: not measured: this module loads before the counters start
   } catch {
     // The file went away.
     return false
@@ -192,6 +200,7 @@ export const prepareCounters = (path: string): boolean => {
  * process has a collector.
  */
 export const startCounters = (): Counters | undefined => {
+  // ubq: not measured: this module loads before the counters start
   if (shared[KEY]) return undefined
   // The counters of a second collector are in the same Map: a
   // process can also count for the test that started it
@@ -251,6 +260,7 @@ export const startCounters = (): Counters | undefined => {
     // `node_modules`, or outside the root through a link. In the
     // repository of ubq they are the project.
     wants: path => path.startsWith(root) && !path.includes(modules),
+    // ubq: not measured: this module loads before the counters start
     compiled(path, made) {
       const file = rel(path)
       const result = cached(file, made)
@@ -270,8 +280,10 @@ export const startCounters = (): Counters | undefined => {
     change(path, source) {
       const file = rel(path)
       // The source of a mutation check is not for the cache.
+      // ubq: not measured: this module loads before the counters start
       const changed = source === undefined ? undefined : mutated(path, source)
       const result =
+        // ubq: not measured: this module loads before the counters start
         source === undefined ? undefined
         : changed === undefined ? cached(file, source, false, projectRoot(), path, builtMap(path, source))
         : parse()?.(changed, file)

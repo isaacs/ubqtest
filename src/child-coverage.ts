@@ -32,6 +32,7 @@ const scopes = (text = process.env[ENV]): Scope[] => {
   try {
     // ubq: not measured: ubq sets this for each test process
     return JSON.parse(text || '[]') as Scope[]
+    // ubq: not measured: ubq writes JSON to this variable
   } catch {
     return []
   }

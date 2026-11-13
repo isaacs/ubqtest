@@ -10,6 +10,7 @@ const buffer = Buffer.alloc(65536)
 const read = (): number => {
   try {
     return readSync(0, buffer)
+    // ubq: not measured: a read of the job gives no error in the tests
   } catch (error) {
     // On Windows, the end of a pipe is an error.
     if ((error as NodeJS.ErrnoException).code === 'EOF') return 0
@@ -23,6 +24,7 @@ if (!text) process.exit(0)
 const job = JSON.parse(text) as { file: string; env: Record<string, string> }
 // The environment of the runner, as a process that the runner
 // starts has it.
+// ubq: not measured: the job has each variable of the warm process
 for (const name of Object.keys(process.env)) if (!(name in job.env)) delete process.env[name]
 Object.assign(process.env, job.env)
 process.argv[1] = job.file

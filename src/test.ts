@@ -437,6 +437,7 @@ const starts: number[] = []
 let unselected = 0
 const selected = (entry: Entry): boolean => {
   if (!lines.length && !wanted.length) return true
+  // ubq: not measured: each test has a call site
   const line = entry.at?.line ?? 0
   return (
     lines.some(l => line <= l && !starts.some(s => s > line && s <= l)) ||
@@ -446,6 +447,7 @@ const selected = (entry: Entry): boolean => {
 
 let draining = false
 const drain = async (): Promise<void> => {
+  // ubq: not measured: drain does not start two times in the tests
   if (draining) return
   draining = true
   if (!started) {
@@ -500,6 +502,7 @@ const leaked = (): void => {
   // On a slow machine, this timer and the last timer of a test can
   // be due in the same turn. Then nothing is open, and the process
   // is about to exit. One more wait tells the two cases apart.
+  // ubq: not measured: the second wait is for a slow machine
   if (!pending.length && !waitedAgain) {
     waitedAgain = true
     idle = setTimeout(leaked, IDLE_MS).unref()
@@ -536,6 +539,7 @@ const stray = (error: unknown): void => {
     })
   }
   if (active) return active.fail(errorFailure(error))
+  // ubq: not measured: an assertion outside a test fails the file first
   if (error instanceof AssertionFailure) return
   start()
   emit({ type: 'file-error', file: file!, failure: errorFailure(error) })
@@ -595,6 +599,7 @@ process.on('beforeExit', noMoreWork)
 // calls this when the file is loaded.
 if (host)
   host.finish = async () => {
+    // ubq: not measured: the Workers tests end with an empty queue
     while (scheduled || draining || queue.length) await new Promise(done => setTimeout(done, 1))
     noMoreWork()
   }

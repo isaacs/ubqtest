@@ -45,6 +45,7 @@ const plain = (node: Node): unknown => {
 const keyOf = (property: Node): string | undefined => {
   if (property.type !== 'Property' || property.computed) return undefined
   const key = property.key as Node & { name?: string }
+  // ubq: not measured: a key that is not computed is a name or a literal
   return key.type === 'Identifier' ? key.name : key.type === 'Literal' ? String(key.value) : undefined
 }
 

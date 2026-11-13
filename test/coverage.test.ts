@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { fileURLToPath } from 'node:url'
-import { flatten } from '../src/coverage.ts'
+import { addCoverage, flatten } from '../src/coverage.ts'
 import { fixtures, project } from './setup.ts'
 
 const cwd = `${fixtures}cov/`
@@ -14,6 +14,9 @@ const run = (cmd: string, ...args: string[]) => {
   return { code: r.status, out: r.stdout.trimEnd().split('\n'), err: r.stderr }
 }
 const ubq = (...args: string[]) => run('node', cli, ...args)
+// The library loaded its copy before coverage started. This copy
+// has coverage.
+const { originalColumn }: typeof import('../src/counters.ts') = await import('../src/counters.ts?copy' as string)
 const reset = () => rmSync(`${cwd}.ubq`, { recursive: true, force: true })
 
 test('flatten gives the count of the innermost range', () => {
@@ -29,6 +32,18 @@ test('flatten gives the count of the innermost range', () => {
   assert.deepEqual(flatten([{ ranges: [r(5, 9, 1)] }, { ranges: [r(20, 30, 3)] }]), [5, 9, 1, 20, 30, 3])
   // Of two ranges with one start, the shorter is inside.
   assert.deepEqual(flatten([{ ranges: [r(0, 5, 0)] }, { ranges: [r(0, 10, 1)] }]), [0, 5, 0, 5, 10, 1])
+})
+
+test('addCoverage adds the counts of a file that is in the list', () => {
+  const files = [{ file: 'a.ts', ranges: [0, 5, 1] }]
+  addCoverage(files, [{ file: 'a.ts', ranges: [0, 5, 1] }, { file: 'b.ts', ranges: [0, 1, 1] }])
+  assert.deepEqual(files, [{ file: 'a.ts', ranges: [0, 5, 2] }, { file: 'b.ts', ranges: [0, 1, 1] }])
+})
+
+test('a column in the text of a counter is the place where the counter went', () => {
+  // 5 characters went in before column 3 of the source.
+  const shifts = [2, 5]
+  assert.deepEqual([originalColumn(shifts, 2), originalColumn(shifts, 4), originalColumn(shifts, 9)], [2, 3, 4])
 })
 
 test('a run with preload has full coverage', () => {

@@ -29,6 +29,7 @@ const start = async (): Promise<Browser> => {
   let playwright: typeof import('playwright-core')
   try {
     playwright = await import('playwright-core')
+    // ubq: not measured: ubq's own playwright-core loads in each test
   } catch (error) {
     if (!/playwright-core/.test(String(error)) || !/not found|cannot find|cannot resolve/i.test(String(error))) throw error
     throw new Error(

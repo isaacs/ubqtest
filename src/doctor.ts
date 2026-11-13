@@ -31,6 +31,7 @@ export const doctor = (out: (text: string) => void): number => {
   if (v.deno) ok(`Deno ${v.deno}`)
   else if (v.bun) ok(`Bun ${v.bun}`)
   else if (+v.node.split('.')[0]! >= 24) ok(`Node ${v.node}`)
+  // ubq: not measured: the tests run on Node 24 or later
   else fix(`Node ${v.node} is too old. ubq needs Node 24 or later. Install it, and put it first on the path.`)
 
   if (existsSync(join(root, 'package.json'))) ok(`project: ${root}`)
@@ -55,6 +56,7 @@ export const doctor = (out: (text: string) => void): number => {
         'no test files. The name of a test file must end in .test.ts (or .test.js, .test.mts, ...). Rename the files, or set "ubq": { "include": ["test/**/*.ts"] } in package.json.',
       )
   } catch (error) {
+    // ubq: not measured: select() throws only usage errors
     if (!(error instanceof UsageError)) throw error
     fix(error.message)
   }
@@ -99,6 +101,7 @@ export const doctor = (out: (text: string) => void): number => {
     const configs = globSync('**/wrangler.{jsonc,json,toml}', { cwd: root, exclude: skip })
       .map(file => file.split('\\').join('/'))
       // The first entry that has a file wins: a folder goes before the root.
+      // ubq: not measured: no test has two configs at one depth
       .sort((a, b) => b.split('/').length - a.split('/').length || a.localeCompare(b))
     const entries =
       vitest?.projects.map(project => project.entry) ??

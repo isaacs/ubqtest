@@ -87,3 +87,11 @@ test('the report has 8 differences at most, and the count of the others', () => 
     'actual:   a\n          b\nexpected: c\nnote: n',
   )
 })
+
+test('diffDeep goes into an object one time, also in a cycle', () => {
+  const a: Record<string, unknown> = { n: 1 }
+  a.self = a
+  const e: Record<string, unknown> = { n: 2 }
+  e.self = e
+  assert.deepEqual(diffDeep(a, e).diffs.map(d => d.path), ['.n'])
+})

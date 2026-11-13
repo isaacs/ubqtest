@@ -42,6 +42,7 @@ export const trackOpened = (file: string): ((pending: string[]) => never) => {
     const opened = new Map<string, Opened>()
     for (const { type: raw, stack } of alive.values()) {
       const type = types.get(raw.toLowerCase())
+      // ubq: not measured: each type in the list has a type of the hook
       const at = type ? userFrames(stack, 1)[0] : undefined
       if (type && at) opened.set(`${type} ${at.file}:${at.line}:${at.column}`, { type, at })
     }
@@ -83,6 +84,7 @@ const rerun = (file: string, id: TestId): Opened[] => {
   )
   try {
     return JSON.parse(readFileSync(result, 'utf8')) as Opened[]
+    // ubq: not measured: each rerun in the tests times out again
   } catch {
     // The rerun did not time out, or the process died.
     return []
@@ -99,6 +101,7 @@ export const hangReruns = (ids: TestId[]): Hang[] => {
   if (process.versions.bun || config().hangRerun === false) return []
   return ids.slice(0, MAX_RERUNS).flatMap(id => {
     const opened = rerun(id.slice(0, id.indexOf(' > ')), id)
+    // ubq: not measured: each rerun in the tests times out again
     return opened.length ? [{ type: 'hang' as const, id, opened }] : []
   })
 }

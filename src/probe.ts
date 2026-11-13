@@ -57,6 +57,7 @@ export const pausedStack = (url: string, pid: number, root: string): Promise<Loc
           }),
         )
       } else if (m.id === 3) {
+        // ubq: not measured: the inspector at the URL is of this process
         resolve(m.result?.result?.value === pid ? frames.slice(0, 6) : [])
         ws.close()
       }
@@ -70,6 +71,7 @@ export const pausedStack = (url: string, pid: number, root: string): Promise<Loc
 export const debugProcess = (pid: number): void => {
   try {
     ;(process as { _debugProcess?: (pid: number) => void })._debugProcess?.(pid)
+    // ubq: not measured: this call to a live process does not throw
   } catch {
     // The process ended, or it is not a Node process.
   }

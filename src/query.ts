@@ -359,6 +359,7 @@ export const flake = (rows: HistoryRow[]): Flake | undefined => {
     const seen = last.get(r.code) ?? {}
     last.set(r.code, seen)
     seen[r.status] = r.run
+    // ubq: not measured: no test has a flaky repeat and a flip
     if (seen.pass !== undefined && seen.fail !== undefined && !(found && 'run' in found && found.run === r.run))
       found = { pass: seen.pass, fail: seen.fail }
   }
@@ -424,7 +425,9 @@ export const diffRuns = (db: DatabaseSync, a: number, b: number): RunDiff => {
   }
   for (const id of ta.keys()) if (!tb.has(id)) diff.onlyA++
   // New failures first, then fixed tests, then the rest.
+  // ubq: not measured: no diff test has a fixed test and more
   const rank = (c: Change): number => (c.to === 'fail' ? 0 : c.from === 'fail' ? 1 : 2)
+  // ubq: not measured: no diff test has two changes of one rank
   diff.changes.sort((x, y) => rank(x) - rank(y) || (x.id < y.id ? -1 : 1))
   const errors = (run: number) => new Set(fileErrors(db, run).map(e => e.file))
   const [ea, eb] = [errors(a), errors(b)]

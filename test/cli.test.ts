@@ -122,4 +122,9 @@ test('much output', () => {
     4,
     'ubq: skipped.test.ts:99 has no code\n',
   ])
+  // A line of space, and a last line with no line end.
+  writeFileSync(join(p.dir, 'spaced.test.ts'), "import { test } from 'ubqtest'\n  \ntest('s', () => {})")
+  p.ubq('spaced.test.ts')
+  assert.equal(p.ubq('covers', 'spaced.test.ts:2').err, 'ubq: spaced.test.ts:2 has no code\n')
+  assert.equal(p.ubq('covers', 'spaced.test.ts:3').out, 'spaced.test.ts > s\nspaced.test.ts (while the file loads)\n1 tests run spaced.test.ts:3\n')
 })

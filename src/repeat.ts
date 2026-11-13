@@ -54,6 +54,7 @@ export const repeater = (times: number, send: Sink): Repeater => {
   /** Adds the round of a file to the results. The process of the file has ended. */
   const fold = (file: string): void => {
     const r = rounds.get(file)
+    // ubq: not measured: each file that ends had a round
     if (!r) return
     rounds.delete(file)
     for (const [id, events] of r.tests) {
