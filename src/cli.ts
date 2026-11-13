@@ -454,6 +454,15 @@ const main = async (args: string[]): Promise<number> => {
   throw new UsageError(`unknown command: ${command}`)
 }
 
+// A reader that closes the pipe early, as `ubq uncovered | head`
+// does, is not an error.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error: NodeJS.ErrnoException) => {
+    // ubq: not measured: only a defect in ubq gives a different error
+    if (error.code !== 'EPIPE') throw error
+  })
+}
+
 try {
   // A run of one file in this process sets its own exit code.
   process.exitCode ||= await main(process.argv.slice(2))

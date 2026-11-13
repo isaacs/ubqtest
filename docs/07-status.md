@@ -1344,8 +1344,6 @@ Found, not changed (each waits for a decision):
   gives "the test process ended before the file did ... in test: t",
   with a stack frame of `src/workers-entry.ts`. On Node the same
   file gives a plain load error.
-- `ubq uncovered | head` ends with an EPIPE stack when `head` closes
-  the pipe.
 - The fake clock runs `setInterval(fn)` with no time at once, then
   each 1 ms. Node waits 1 ms for the first call.
 

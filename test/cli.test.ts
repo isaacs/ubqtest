@@ -1,5 +1,5 @@
 // The command line: help, and the message for each wrong command.
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
@@ -127,4 +127,13 @@ test('much output', () => {
   p.ubq('spaced.test.ts')
   assert.equal(p.ubq('covers', 'spaced.test.ts:2').err, 'ubq: spaced.test.ts:2 has no code\n')
   assert.equal(p.ubq('covers', 'spaced.test.ts:3').out, 'spaced.test.ts > s\nspaced.test.ts (while the file loads)\n1 tests run spaced.test.ts:3\n')
+})
+
+test('a reader that closes the pipe early', async () => {
+  const child = spawn('node', [cli, 'help'], { stdio: ['ignore', 'pipe', 'pipe'] })
+  child.stdout.destroy()
+  let err = ''
+  child.stderr.on('data', (data: Buffer) => (err += data))
+  const code = await new Promise(done => child.on('close', done))
+  assert.deepEqual([code, err], [0, ''])
 })
