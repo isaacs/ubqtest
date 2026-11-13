@@ -267,8 +267,15 @@ const moduleOf = (path: string): Record<string, unknown> => {
   const ts = /\.[cm]?ts$/.test(path)
   let code = source
   if (path.startsWith(OWN)) {
+    // In the repository of ubq, the files of ubq are project files,
+    // and have counters.
+    // If a test of ubq started this process, the counters are those
+    // of that test (`child-coverage.ts`).
+    const forTest = shared[Symbol.for('ubqtest.child.source')] as ((path: string, source: string) => { source: string; js: boolean } | undefined) | undefined
+    const changed = counters.wants(path) ? counters.change(path, source) : forTest?.(path, source)
+    const own = changed?.source ?? source
     // A module that workerd gets this way has no `import.meta.url`.
-    code = (ts ? strip(source) : source)
+    code = (ts && !changed?.js ? strip(own) : own)
       .replaceAll('import.meta.url', JSON.stringify(pathToFileURL(path).href))
       // The path module of workerd has the rules of POSIX, also on
       // Windows.
@@ -341,6 +348,34 @@ const flags = new Set(workerOptions.compatibilityFlags)
 if (!flags.has('nodejs_compat_v2')) flags.add('nodejs_compat')
 
 const ENTRY = join(OWN, `workers-entry${EXT}`)
+// The first module that workerd runs. The code of a file with
+// counters asks for its counters by name and count, when the file
+// loads. So the place for them must exist before each other
+// module: the entry module, its imports, and the main module of
+// the Worker. The collector gives the counts to the test API,
+// which sends them to this process: it has the regions.
+const SETUP = `
+const counters = new Map()
+globalThis[Symbol.for(${JSON.stringify(COUNTERS)})] = {
+  get(file, size) {
+    let counts = counters.get(file)
+    if (counts?.length !== size) counters.set(file, (counts = new Uint32Array(size)))
+    return counts
+  },
+}
+globalThis[Symbol.for('ubqtest.collector')] = {
+  mode: 'full',
+  async take() {
+    const files = []
+    for (const [file, counts] of counters) {
+      if (!counts.some(Boolean)) continue
+      files.push({ file, counts: [...counts] })
+      counts.fill(0)
+    }
+    return files
+  },
+}
+`
 const migrations: Job['migrations'] = {}
 for (const db of wranglerConfig.d1_databases ?? []) {
   const dir = resolve(dirname(configPath), db.migrations_dir ?? 'migrations')
@@ -401,10 +436,13 @@ const options = {
           // The classes that the config names (Durable Objects,
           // Workflows) are exports of the main module of the Worker.
           contents:
+            "import './ubq-setup.mjs'\n" +
             `import entry from ${JSON.stringify('/' + toName(ENTRY))}\n` +
             (main ? `export * from ${JSON.stringify('/' + toName(resolve(dirname(configPath), main)))}\n` : '') +
             'export default entry\n',
         },
+        // Not the first one: the first module is the one that workerd starts.
+        { type: 'ESModule', path: '/ubq-setup.mjs', contents: SETUP },
       ],
       unsafeUseModuleFallbackService: true,
       bindings,
@@ -466,7 +504,13 @@ const handle = async (event: UbqEvent | { type: 'load-error'; text: string }): P
   } else if (event.type === 'coverage') {
     // The counts of workerd go into the arrays of this process,
     // which has the regions of each file.
-    for (const { file, counts: from } of event.files as unknown as RawCoverage[]) counts.get(file)?.set(from)
+    for (const { file, counts: from } of event.files as unknown as RawCoverage[]) {
+      const mine = counts.get(file)
+      // A key with `//` is of the test that started this process.
+      // Those counts are a total, which this process writes.
+      if (file.startsWith('//')) mine?.forEach((n, i) => (mine[i] = n + (from[i] ?? 0)))
+      else mine?.set(from)
+    }
     event.files = (await collector.take()) as Coverage['files']
     if (!event.files.length) return
   } else fixPlaces(event)

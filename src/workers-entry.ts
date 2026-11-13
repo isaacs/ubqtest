@@ -6,7 +6,6 @@ import { env as runtimeEnv } from 'cloudflare:workers'
 import { subscribe } from 'node:diagnostics_channel'
 import { format } from 'node:util'
 import type { Config } from './config.ts'
-import { COUNTERS } from './counters.ts'
 import { CHANNEL } from './emit.ts'
 import { RUN, WORKERD, type Workerd } from './workerd.ts'
 
@@ -27,30 +26,6 @@ export interface RawCoverage {
 }
 
 const shared = globalThis as Record<symbol, unknown>
-
-// The code of a project file asks for its counters by name and
-// count. The main module of the Worker loads when workerd starts,
-// before the first request, and after this module.
-const counters = new Map<string, Uint32Array>()
-shared[Symbol.for(COUNTERS)] = {
-  get(file: string, size: number): Uint32Array {
-    let counts = counters.get(file)
-    if (counts?.length !== size) counters.set(file, (counts = new Uint32Array(size)))
-    return counts
-  },
-}
-shared[Symbol.for('ubqtest.collector')] = {
-  mode: 'full',
-  async take(): Promise<RawCoverage[]> {
-    const files: RawCoverage[] = []
-    for (const [file, counts] of counters) {
-      if (!counts.some(Boolean)) continue
-      files.push({ file, counts: [...counts] })
-      counts.fill(0)
-    }
-    return files
-  },
-}
 
 /** The name of the binding that sends events to the host process. */
 export const HOST = '__UBQ_HOST'

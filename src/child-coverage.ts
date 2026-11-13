@@ -51,6 +51,8 @@ const withPreload = (env: Env): void => {
 const MODULE = /[\\/]child-preload\.[jt]s\b/
 
 const PATCHED = Symbol.for('ubqtest.spawn')
+/** The key of the function that adds the counters of this module to the text of a file. */
+export const CHILD_SOURCE = Symbol.for('ubqtest.child.source')
 /** True if a copy of this module counts in this process. */
 const STARTED = Symbol.for('ubqtest.child')
 /**
@@ -214,6 +216,16 @@ export const startChild = (): void => {
     for (const one of writers) one()
   }
   process.on('exit', write)
+  // And after each `exit` listener of the program: a listener can
+  // run code of the project. The listener above runs in the order
+  // of its start, which is before those of the program. Bun does
+  // not call `process.emit` for this event.
+  const emit = process.emit as (this: NodeJS.Process, ...args: unknown[]) => boolean
+  process.emit = function (this: NodeJS.Process, ...args: unknown[]): boolean {
+    const result = emit.apply(this, args)
+    if (args[0] === 'exit') write()
+    return result
+  } as typeof process.emit
   // SIGKILL, and each kill on Windows, give no notice.
   setInterval(write, WRITE_MS).unref()
   // A test stops a server with a signal. With no handler, the
@@ -230,6 +242,11 @@ export const startChild = (): void => {
       }
       process.on(signal, handler)
     }
+  // A process can give code to a runtime that is not this one: the
+  // host of workerd reads each module from the disk. It adds the
+  // counters with this function.
+  ;(globalThis as Record<symbol, unknown>)[CHILD_SOURCE] = (path: string, source: string) =>
+    taken(path) ? undefined : list.find(counting => counting.wants(path))?.change(path, source)
   if (process.versions.bun) {
     for (const [i, counting] of list.entries())
       Bun.plugin({
