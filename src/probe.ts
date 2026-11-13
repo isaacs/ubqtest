@@ -1,9 +1,13 @@
 // Reads the stack of a process that is in a loop that does not
 // return. The inspector can pause such a process, because it
 // interrupts the JavaScript engine.
-import { relative, sep } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Location } from './events.ts'
+
+// The source and the build of ubq. In the repository of ubq, a test
+// process can load the code of both.
+const OWN = ['src', 'dist'].map(dir => join(import.meta.dirname, '..', dir) + sep)
 
 /** Time after the limit of a test before a watchdog acts. */
 export const GRACE_MS = 2000
@@ -37,8 +41,7 @@ export const pausedStack = (url: string, pid: number, root: string): Promise<Loc
           const script = urls.get(f.location.scriptId)
           if (!script?.startsWith('file:')) continue
           const path = fileURLToPath(script)
-          if (path.includes(`${sep}node_modules${sep}`) || path.startsWith(import.meta.dirname + sep))
-            continue
+          if (path.includes(`${sep}node_modules${sep}`) || OWN.some(dir => path.startsWith(dir))) continue
           frames.push({
             file: relative(root, path).split(sep).join('/'),
             line: f.location.lineNumber + 1,
