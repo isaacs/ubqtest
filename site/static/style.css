@@ -237,6 +237,7 @@ footer p {
   flex: 1;
   min-width: 0;
   max-width: 48rem;
+  position: relative;
   padding-top: 1rem;
 }
 .doc h1 {
@@ -262,7 +263,10 @@ footer p {
 .as-markdown {
   margin: 0 0 0.5rem;
   font-size: 0.8rem;
-  text-align: right;
+  position: absolute;
+  right: 0;
+  top: 1rem;
+  max-width: 25%;
 }
 .table {
   overflow-x: auto;
@@ -288,6 +292,9 @@ table tr td:first-child code {
   text-wrap:nowrap;
 }
 @media (max-width: 760px) {
+  .doc {
+    padding-top: 1rem;
+  }
   .columns {
     flex-direction: column-reverse;
     gap: 1rem;
@@ -544,8 +551,14 @@ table tr td:first-child code {
 
 /* A phone. */
 @media (max-width: 520px) {
+  .doc {
+    padding-top: 0;
+  }
   #top {
     padding: 0.4rem 0.5rem;
+  }
+  .as-markdown {
+    top: 0;
   }
   #top nav a {
     padding: 0.35rem 0.45rem;

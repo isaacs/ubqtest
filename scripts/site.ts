@@ -300,7 +300,7 @@ const documentPage = (page: Page, markdown: string): void => {
   const body = `<div class="columns">
   ${side(page.slug)}
   <main class="doc">
-    <p class="as-markdown"><a href="${rel(page.slug, page.slug + '.md')}">This page as markdown</a></p>
+    <p class="as-markdown"><a title="This page as markdown, for agents" href="${rel(page.slug, page.slug + '.md')}">markdown</a></p>
 ${html}
   </main>
 </div>`
