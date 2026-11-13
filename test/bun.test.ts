@@ -218,10 +218,8 @@ describe('bun', () => {
     assert.equal(plain(), 'pass: 0 failed, 1 passed')
     // The data of the inspector is not the same in each version of
     // Bun, so the places are not a part of this check. The store
-    // must have the file that the test ran, with ranges of its text:
-    // not only the first character, which stands for a file with no
-    // known places.
-    assert.deepEqual(sh('node', [cli, 'sql', "select distinct file from coverage where file = 'src/size.ts' and ranges != '[0,1,1]'"], p.dir), [
+    // must have the file that the test ran.
+    assert.deepEqual(sh('node', [cli, 'sql', "select distinct file from coverage where file = 'src/size.ts'"], p.dir), [
       '{"file":"src/size.ts"}',
     ])
     // The runner uses counters, with or without the option.

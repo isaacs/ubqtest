@@ -1314,3 +1314,38 @@ The rest of the list: branches of `? :` for cases that tests do
 not make, paths for a runtime or a system, catch blocks for errors
 of the file system, and paths of Workers configs.
 
+Later the same day, each range of the list got a test or a D56
+comment. The merged list of CI went to 11 ranges, then fewer. About
+160 ranges have a D56 comment. Two kinds of reason:
+
+- The range cannot have counts: a preload module loads before the
+  counters, the stuck path of the watchdog ends with SIGKILL before
+  it writes coverage, or a runtime always gives the value.
+- No test makes the case yet ("no test ..."). A later test can
+  close such a range: remove the comment when it does.
+
+A unit test of a module that the library loads (`coverage.ts`,
+`counters.ts`, `stack.ts`, `child-read.ts`) imports a copy with a
+query (`'../src/stack.ts?copy'`). The library loaded its own copy
+before coverage started, so V8 has no block counts for that copy.
+
+Defects found and corrected: `ubq server --foreground` with a server
+that already runs printed the listen error and did not end (its
+folder watcher kept it alive).
+
+Found, not changed (each waits for a decision):
+
+- Bun 1.4.4 (CI) gives inspector coverage of a plain program with
+  only the module range: no function or block counts. ubq then
+  stores only the first character of each file. Bun 1.4.3 gives
+  places. The ranges of `src/bun-coverage.ts` that map places stay
+  in the list of CI for this reason.
+- A Workers test file that throws after its first `test()` call
+  gives "the test process ended before the file did ... in test: t",
+  with a stack frame of `src/workers-entry.ts`. On Node the same
+  file gives a plain load error.
+- `ubq uncovered | head` ends with an EPIPE stack when `head` closes
+  the pipe.
+- The fake clock runs `setInterval(fn)` with no time at once, then
+  each 1 ms. Node waits 1 ms for the first call.
+
