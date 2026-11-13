@@ -120,7 +120,7 @@ assert.snapshot(value)             // compares with saved text
 assert.fail(message)
 
 spy(impl?)                         // records calls in spy.calls: { args, result, error }
-spyOn(object, key, impl?)          // replaces a method until the test ends
+spyOn(object, key, impl?)          // replaces a method until the test ends. A second spyOn on the key replaces the first.
 await mockImport(() => import('../src/a.ts'), [
   [() => import('../src/dep.ts'), { fn: replacement }],
 ])                                 // a new instance of a.ts with a mocked dep.ts
@@ -348,3 +348,6 @@ step, so the code must use only syntax that can be erased: no
 
 Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.
+
+ubq cannot run tests in the Workers runtime of Cloudflare. A file
+that imports from `cloudflare:` does not load.

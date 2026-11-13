@@ -32,6 +32,9 @@ test('doctor states the fix for each problem of the setup', () => {
   assert.match(doctor().lines[2]!, /^FIX  tsconfig\.json: set "allowImportingTsExtensions": true in compilerOptions\./)
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true } }')
   assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
+
+  writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:test'\n")
+  assert.match(doctor().lines[2]!, /^FIX  this project has tests for the Workers runtime of Cloudflare/)
 })
 
 test('guide prints the guide of the package', () => {

@@ -958,3 +958,37 @@ Known limits:
 - In this repository, the files in `src/` are the library, and the
   collectors leave the library out. So `ubq uncovered src/...` has
   no data here.
+
+## Report from a Cloudflare Workers project (2026-11-13)
+
+An agent tried to convert a project with two Workers from vitest
+(`@cloudflare/vitest-pool-workers`), and went back. ubq cannot run
+tests in the Workers runtime (workerd).
+
+Done from the report:
+
+- `ubq doctor` reports a project with Workers tests. `ubq convert`
+  prints a note for files that import from `cloudflare:`. The
+  guides say that ubq cannot run these tests.
+- `ubq convert` now converts a spy chain on the line that makes the
+  spy (`vi.spyOn(o, 'k').mockImplementation(f)`), `s.mock.calls[i]`
+  and `s.mock.calls.length`, `toBeCloseTo`, and `toHaveProperty`
+  with one plain key. It removes a hook that only calls
+  `vi.restoreAllMocks()`.
+- Hints: one for `beforeAll` at the top level, one for `beforeAll`
+  in a `describe`, one for `afterAll`, one for a restore call, and
+  one for `toContainEqual`.
+- `ubq doctor` asks for `allowImportingTsExtensions` only if a
+  test file imports with the `.ts` extension.
+
+A trial shows that workerd can run the test API
+(`03-measurements.md`, section 14). The design needs decisions
+from the user: Q10 in `09-questions.md`.
+
+Not done, from the same report:
+
+- A run of one file prints the type errors of all files.
+- No assertion for "an array has an element that deep-equals
+  this" (`toContainEqual`).
+- ubq uses the `tsconfig.json` at the root. A second one in a
+  folder of the project is not used.

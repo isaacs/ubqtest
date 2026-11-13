@@ -54,7 +54,21 @@ export const doctor = (out: (text: string) => void): number => {
     fix(error.message)
   }
 
-  if (tests.some(file => readFileSync(join(root, file), 'utf8').includes('ubqtest/browser'))) {
+  const sources = tests.map(file => readFileSync(join(root, file), 'utf8'))
+
+  let workersPool = false
+  try {
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+    workersPool = '@cloudflare/vitest-pool-workers' in { ...pkg.dependencies, ...pkg.devDependencies }
+  } catch {
+    // The check of package.json above reports this.
+  }
+  if (workersPool || sources.some(source => /from\s+['"]cloudflare:/.test(source)))
+    fix(
+      "this project has tests for the Workers runtime of Cloudflare (a test file imports from 'cloudflare:', or the project has @cloudflare/vitest-pool-workers). ubq cannot run tests in that runtime. A file that imports from 'cloudflare:' does not load. Keep those tests on the tool that runs them now.",
+    )
+
+  if (sources.some(source => source.includes('ubqtest/browser'))) {
     try {
       createRequire(join(root, 'package.json')).resolve('playwright-core')
       ok("playwright-core, for 'ubqtest/browser'. If a test says that the browser is not installed: npx ubq browser install")
@@ -94,10 +108,17 @@ export const doctor = (out: (text: string) => void): number => {
     }
     // A config that extends a different config can get the options from it.
     if (options && !inherits) {
-      const missing = ['allowImportingTsExtensions', 'erasableSyntaxOnly'].filter(key => options[key] !== true)
+      const reasons = {
+        allowImportingTsExtensions: 'A test file imports a file with the .ts extension.',
+        erasableSyntaxOnly: 'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+      }
+      const tsImport = sources.some(source => /from\s+['"]\.{1,2}\/[^'"]*\.[cm]?tsx?['"]/.test(source))
+      const missing = (['allowImportingTsExtensions', 'erasableSyntaxOnly'] as const).filter(
+        key => options[key] !== true && (key === 'erasableSyntaxOnly' || tsImport),
+      )
       if (missing.length)
         fix(
-          `tsconfig.json: set ${missing.map(key => `"${key}": true`).join(' and ')} in compilerOptions. Test files import source files with the .ts extension, and the runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).`,
+          `tsconfig.json: set ${missing.map(key => `"${key}": true`).join(' and ')} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
         )
       else ok('tsconfig.json')
     }

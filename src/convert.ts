@@ -90,6 +90,16 @@ const MATCHERS: Record<string, Rule> = {
   toHaveBeenCalledTimes: 'assert.equal(<$0>.calls.length, $1)',
   toHaveBeenCalledOnce: 'assert.equal(<$0>.calls.length, 1)',
   toMatchSnapshot: { 1: 'assert.snapshot($0)' },
+  // The default of jest and vitest: 2 digits.
+  toBeCloseTo: { 2: 'assert(Math.abs(<$0> - <$1>) < 0.005)' },
+  // The same as `key in object`. The arguments keep their order.
+  toHaveProperty: { 2: 'assert(Reflect.has($0, $1))' },
+}
+
+/** More help for a matcher that has no rule. */
+const MATCHER_HINTS: Record<string, string> = {
+  toContainEqual:
+    ' For an array, find the element, then compare it: const found = list.find(x => x.id === id); assert.deepEqual(found, expected).',
 }
 /** With `.not`. A matcher that is not here and makes `assert(x)` becomes `assert(!(x))`. */
 const NOT_MATCHERS: Record<string, Rule> = {
@@ -140,6 +150,12 @@ const ASSERT: Record<string, Rule> = {
 
 const TODO = {
   hook: 'ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
+  hookFile:
+    'ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
+  hookFileEnd: 'ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.',
+  hookGroup:
+    'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+  restore: 'A spyOn spy goes back when its test ends. Remove this call. ubq has no call that puts the method back before that.',
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
@@ -389,6 +405,85 @@ export const convertSource = (
   /** True if `name` is in the text of a node, as a word. */
   const mentions = (node: Node, name: string): boolean => new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`).test(text(node))
 
+  /** `vi.restoreAllMocks()`, `mock.restoreAll()`. */
+  const restoresAll = (node: Node | undefined): boolean => {
+    const callee = node?.type === 'CallExpression' ? (node.callee as Node) : undefined
+    if (callee?.type !== 'MemberExpression') return false
+    const owner = roleOf(callee.object as Node)
+    const method = nameOf(callee.property as Node)
+    return (owner === 'vi' && method === 'restoreAllMocks') || (owner === 'mock' && method === 'restoreAll')
+  }
+  /** A function that does nothing but `vi.restoreAllMocks()`. */
+  const restoresOnly = (fn: Node | undefined): boolean => {
+    if (!fn || !FUNCTION.has(fn.type)) return false
+    const body = fn.body as Node
+    if (body.type !== 'BlockStatement') return restoresAll(body)
+    const statements = body.body as unknown as Node[]
+    return statements.length === 1 && statements[0]!.type === 'ExpressionStatement' && restoresAll(statements[0]!.expression as Node)
+  }
+  const inHook = (path: Node[]): boolean =>
+    path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
+
+  /**
+   * `vi.spyOn(o, 'k').mockImplementation(f)` becomes
+   * `spyOn(o, 'k', f)`. `vi.fn().mockReturnValue(v)` becomes
+   * `spy(() => v)`. Returns the nodes to walk next.
+   */
+  const spyChain = (node: Node, made: Node, method: string): Node[] | undefined => {
+    const value = (node.arguments as Node[])[0]
+    const wrap = (
+      {
+        mockImplementation: ['', ''],
+        mockReturnValue: ['() => ', ''],
+        mockResolvedValue: ['async () => ', ''],
+        mockRejectedValue: ['async () => { throw ', ' }'],
+      } as Record<string, [string, string]>
+    )[method]
+    if (!wrap || !value || (node.arguments as Node[]).length !== 1 || made.type !== 'CallExpression') return undefined
+    const callee = made.callee as Node
+    const inner = made.arguments as Node[]
+    if (callee.type !== 'MemberExpression' || callee.computed) return undefined
+    const owner = roleOf(callee.object as Node)
+    const maker = nameOf(callee.property as Node)
+    const name =
+      owner !== 'vi' && owner !== 'mock' ? undefined
+      : maker === 'fn' && !inner.length ? 'spy'
+      : (maker === 'spyOn' || (owner === 'mock' && maker === 'method')) && inner.length === 2 ? 'spyOn'
+      : undefined
+    if (!name) return undefined
+    // `() => {}` with an object in it is a block.
+    const [before, after] = method !== 'mockImplementation' && value.type === 'ObjectExpression' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
+    replace(callee.start, callee.end, name)
+    replace(inner.at(-1)?.end ?? callee.end, value.start, (inner.length ? ', ' : '(') + before)
+    replace(value.end, node.end, after + ')')
+    used.add(name)
+    changes++
+    return [...inner, value]
+  }
+
+  /**
+   * `s.mock.calls.length` becomes `s.calls.length`, and
+   * `s.mock.calls[0][1]` becomes `s.calls[0].args[1]`. `path` ends
+   * at the node of `s.mock`.
+   */
+  const spyCalls = (node: Node, path: Node[]): boolean => {
+    const calls = path.at(-2)!
+    const use = path.at(-3)
+    if (nameOf(calls.property as Node) !== 'calls' || use?.type !== 'MemberExpression' || use.object !== calls) return false
+    if (!use.computed) {
+      if (nameOf(use.property as Node) !== 'length') return false
+    } else {
+      // `s.mock.calls[0]!` has one more node around it.
+      const outer = path.at(-4)?.type === 'TSNonNullExpression' ? path.at(-4)! : use
+      const next = path.at(outer === use ? -4 : -5)
+      const optional = next?.type === 'MemberExpression' && next.object === outer && next.optional
+      edits.push({ start: outer.end, end: outer.end, text: optional ? '?.args' : '.args' })
+    }
+    replace((node.object as Node).end, calls.end, '.calls')
+    changes++
+    return true
+  }
+
   // --- The rules ---
   /** A test or a group: `it(...)`, `test(...)`, `t.test(...)`, `describe(...)`. */
   const definition = (call: Node, path: Node[], kind: 'test' | 'describe', fromTap: boolean): void => {
@@ -456,8 +551,9 @@ export const convertSource = (
     else if (node.type === 'MemberExpression') {
       // spy.mock.calls of jest and vitest
       const parent = path.at(-2)
-      if (nameOf(node.property as Node) === 'mock' && parent?.type === 'MemberExpression' && /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? ''))
-        todo(path, TODO.spyImpl)
+      if (nameOf(node.property as Node) === 'mock' && parent?.type === 'MemberExpression' && /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? '')) {
+        if (!spyCalls(node, path)) todo(path, TODO.spyImpl)
+      }
     }
     else if (node.type === 'Identifier' && roleOf(node) === 'tap') {
       // helper(t, value)
@@ -477,7 +573,15 @@ export const convertSource = (
       return args
     }
     if (role === 'hook') {
-      todo(path, TODO.hook)
+      if (restoresOnly(args[0]) && removeStatement(path)) return []
+      const once = /^(before|after)(All)?$/.exec(nameOf(callee) ?? '')
+      todo(
+        path,
+        !once ? TODO.hook
+        : path.some(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') ? TODO.hookGroup
+        : once[1] === 'before' ? TODO.hookFile
+        : TODO.hookFileEnd,
+      )
       return undefined
     }
     if (role === 'assert') {
@@ -523,6 +627,10 @@ export const convertSource = (
         replace(callee.start, callee.end, 'spyOn')
         used.add('spyOn')
         changes++
+      } else if (restoresAll(node)) {
+        // ubq does this when each test ends.
+        if (!inHook(path) || !removeStatement(path)) todo(path, TODO.restore)
+        return []
       } else
         todo(
           path,
@@ -533,7 +641,9 @@ export const convertSource = (
       return undefined
     }
     if (/^mock(Implementation|ReturnValue|ResolvedValue|RejectedValue|Reset|Clear|Restore)(Once)?$/.test(method)) {
-      todo(path, TODO.spyImpl)
+      const found = spyChain(node, object, method)
+      if (found) return found
+      todo(path, method === 'mockRestore' ? TODO.restore : TODO.spyImpl)
       return undefined
     }
 
@@ -553,7 +663,7 @@ export const convertSource = (
     if (!subject) return undefined
     const all = [subject, ...args]
     const fail = (): undefined => {
-      todo(path, `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`)
+      todo(path, `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.${MATCHER_HINTS[method] ?? ''}`)
       return undefined
     }
     if (method === 'toMatch' && args[0]) {
@@ -579,6 +689,8 @@ export const convertSource = (
       awaited(node, path)
       return rewrite(node, args.length ? 'assert.rejects($0, $1)' : 'assert.rejects($0, Error)', all)
     }
+    // A name with a path ('a.b') is not one key.
+    if (method === 'toHaveProperty' && !/^(['"])[\w$-]+\1$/.test(args[0] ? text(args[0]) : '')) return fail()
     let rule = pick((not ? NOT_MATCHERS[method] : undefined) ?? MATCHERS[method] ?? '$9', all.length)
     if (!rule || rule === '$9') return fail()
     if (not && !NOT_MATCHERS[method]) {
@@ -758,6 +870,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   let todos = 0
   let unknown = 0
   const unnamed: string[] = []
+  let workers = 0
   for (const path of files.sort()) {
     const file = rel(path)
     let result: Converted | undefined
@@ -775,6 +888,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     todos += result.todos.length
     if (!dry) writeFileSync(path, result.code)
     if (!TEST_NAME.test(file)) unnamed.push(file)
+    if (/from\s+['"]cloudflare:/.test(result.code)) workers++
     out(`converted ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`)
     for (const t of result.todos) out(`  ${file}:${t.line}  ${t.text}`)
   }
@@ -785,9 +899,13 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     const folders = [...new Set(unnamed.map(f => f.split('/')[0]!))]
     const globs = folders.map(f => (unnamed.includes(f) ? f : `${f}/**/*.${/\.[cm]?tsx?$/.test(unnamed[0]!) ? 'ts' : 'js'}`))
     out(
-      `note: ${unnamed.length} of these files do not have a name that ubq runs (*.test.ts). Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
+      `note: ${unnamed.length} of these files do not have a name that ubq runs (*.test.ts). A file with no tests (a helper) needs no change. Rename a file that has tests, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
   }
+  if (workers)
+    out(
+      `note: ${workers} of these files import from 'cloudflare:'. ubq cannot run tests in the Workers runtime of Cloudflare, so these files do not load. Keep the tests of a Worker on the tool that runs them now.`,
+    )
   if (changed) out('next: read `ubq guide convert`, do each TODO(ubq), then run: ubq')
   return 0
 }

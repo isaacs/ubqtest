@@ -88,7 +88,7 @@ describe('g', () => {
     expect(p).resolves.toBe(1)
     const s = vi.fn(() => 1)
     expect(s).toHaveBeenCalledWith(1, 2)
-    expect(f()).toBeCloseTo(1)
+    expect(f()).toSatisfy(ok)
   })
   it.skip('b', () => {})
   it('c', () => {}, 100)
@@ -108,8 +108,8 @@ describe('g', () => {
     '    assert.equal(await p, 1)',
     '    const s = spy(() => 1)',
     '    assert.deepEqual(s.calls.at(-1)?.args, [1, 2])',
-    '    // TODO(ubq): ubq has no toBeCloseTo. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
-    '    expect(f()).toBeCloseTo(1)',
+    '    // TODO(ubq): ubq has no toSatisfy. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+    '    expect(f()).toSatisfy(ok)',
     '  })',
     "  // TODO(ubq): Give the reason: { skip: 'the reason' }.",
     "  test('b', { skip: 'TODO(ubq): the reason' }, () => {})",
@@ -171,7 +171,7 @@ t.test('load', async t => {
   assert.deepEqual(p.ubq('convert', 'old.ts').out.split('\n'), [
     'converted old.ts (tap): 9 changes, 0 TODO',
     'convert: 1 files changed, 0 TODO comments',
-    'note: 1 of these files do not have a name that ubq runs (*.test.ts). Rename them, or add to package.json: "ubq": { "include": ["old.ts"] }. Use "exclude" for files in that folder that are not test files.',
+    'note: 1 of these files do not have a name that ubq runs (*.test.ts). A file with no tests (a helper) needs no change. Rename a file that has tests, or add to package.json: "ubq": { "include": ["old.ts"] }. Use "exclude" for files in that folder that are not test files.',
     'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
     '',
   ])
@@ -180,4 +180,67 @@ t.test('load', async t => {
   assert.equal(p.ubq('convert', 'old.ts').out, 'convert: 0 files changed, 0 TODO comments, 1 files with no known test tool\n')
   assert.deepEqual([p.ubq('convert').code, p.ubq('convert', 'nope').code], [4, 4])
   assert.match(p.ubq('guide', 'convert').out, /^# ubq guide: convert\n/)
+})
+
+test('vitest: spy chains, calls of a spy, restore calls, and hooks that run one time', () => {
+  const r = convert(`import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+
+afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+beforeAll(async () => { await migrate() })
+afterAll(() => close())
+
+describe('group', () => {
+  beforeAll(async () => { await row() })
+  it('a', () => {
+    const f = vi.spyOn(globalThis, 'fetch').mockImplementation(impl)
+    vi.spyOn(o, 'k').mockResolvedValue({ a: 1 })
+    const g = vi.fn().mockRejectedValue(new Error('no'))
+    expect(f.mock.calls[0]![0]).toBe('u')
+    expect(f.mock.calls[1]?.[0]).toBe('u')
+    expect(f.mock.calls.length).toBe(2)
+    expect(f.mock.calls[0]).toEqual(['u'])
+    expect(1.234).toBeCloseTo(1.23)
+    expect(o).not.toHaveProperty('k')
+    expect(o).toHaveProperty('a.b')
+    f.mockRestore()
+    vi.restoreAllMocks()
+  })
+})
+`)
+  assert(r)
+  const todo = (text: string): string => `// TODO(ubq): ${text}`
+  const restore = todo('A spyOn spy goes back when its test ends. Remove this call. ubq has no call that puts the method back before that.')
+  assert.deepEqual(r.code, [
+    "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
+    '',
+    todo('ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.'),
+    'beforeAll(async () => { await migrate() })',
+    todo('ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.'),
+    'afterAll(() => close())',
+    '',
+    "describe('group', () => {",
+    '  ' + todo('ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).'),
+    '  beforeAll(async () => { await row() })',
+    "  test('a', () => {",
+    "    const f = spyOn(globalThis, 'fetch', impl)",
+    "    spyOn(o, 'k', async () => ({ a: 1 }))",
+    "    const g = spy(async () => { throw new Error('no') })",
+    "    assert.equal(f.calls[0]!.args[0], 'u')",
+    "    assert.equal(f.calls[1]?.args?.[0], 'u')",
+    '    assert.equal(f.calls.length, 2)',
+    "    assert.deepEqual(f.calls[0].args, ['u'])",
+    '    assert(Math.abs(1.234 - 1.23) < 0.005)',
+    "    assert(!(Reflect.has(o, 'k')))",
+    '    ' + todo('ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.'),
+    "    expect(o).toHaveProperty('a.b')",
+    '    ' + restore,
+    '    f.mockRestore()',
+    '    ' + restore,
+    '    vi.restoreAllMocks()',
+    '  })',
+    '})',
+  ])
 })

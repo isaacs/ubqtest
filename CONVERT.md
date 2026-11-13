@@ -220,7 +220,9 @@ Things to check by hand:
 - **`expect.any`, `expect.objectContaining`, `expect.anything`.**
   `assert.match` with a partial object does the work of
   `objectContaining`. For `any(String)`, assert on `typeof`.
-- **`toBeCloseTo(b)`.** `assert(Math.abs(a - b) < 0.005)`.
+- **`toContainEqual(b)`.** ubq has no assertion for "some element
+  equals this". Find the element, then compare it:
+  `assert.deepEqual(list.find(x => x.id === b.id), b)`.
 - **`it.each(table)`.** A `for` loop around `test()`. Each test
   name must be different: put the value in the name.
 - **`.only`.** The command removes it. ubq runs one test from the
@@ -239,10 +241,17 @@ Things to check by hand:
   import at the top of the file.
 - **`mockReturnValue`, `mockResolvedValue`, `mockImplementation`.**
   A spy gets its implementation when it is made: `spy(() => 1)`,
-  `spy(async () => value)`. For a different result in each call,
-  write the logic in the implementation.
+  `spy(async () => value)`. The command converts a call that is
+  on the line that makes the spy. For a call on a later line, or
+  for a different result in each call, write the logic in the
+  implementation. In one test, a second `spyOn` on the same key
+  replaces the first.
 - **`fn.mock.calls[0]`** is `fn.calls[0]?.args`.
   `fn.mock.results[0].value` is `fn.calls[0]?.result`.
+- **`vi.restoreAllMocks()`, `mockRestore()`.** A `spyOn` spy goes
+  back when its test ends. The command removes a hook that only
+  restores. Remove the other calls. ubq has no call that puts
+  the method back before the test ends.
 - **`vi.useFakeTimers()`, `vi.advanceTimersByTime(ms)`.**
   `const clock = fakeClock({ now: 0 })`, then `await
   clock.tick(ms)`. The clock goes back when the test ends.
@@ -252,6 +261,9 @@ Things to check by hand:
 - **A DOM (jsdom, happy-dom), a custom environment, a
   transform.** ubq has none. Tell the user about each test file
   that needs one.
+- **A Cloudflare Worker (`cloudflare:test`,
+  `@cloudflare/vitest-pool-workers`).** ubq cannot run tests in
+  the Workers runtime. Do not convert these tests. Tell the user.
 
 ## mocha
 
@@ -294,6 +306,23 @@ ubq has no `beforeEach`, `afterEach`, `beforeAll`, or `afterAll`.
   file, before the first `test`. `cleanup`, `testdir`, `env`, and
   `spyOn` at the top level last until the file ends. Top-level
   `await` works.
+  A `beforeAll` callback runs after the whole file loaded. Code at
+  the top level runs at its place, so put it after the
+  declarations that it uses.
+- **Setup one time for a group.** A `describe` function cannot
+  `await`. Make a function that does the work one time, and await
+  it at the start of each test of the group:
+
+  ```ts
+  let ready: Promise<void> | undefined
+  const setup = () => (ready ??= prepare())
+  test('first', async () => {
+    await setup()
+  })
+  ```
+
+  Tests that need the result of an earlier group in a shared
+  database are fragile. A test that makes its own rows is better.
 - **Setup one time for all files.** ubq has none. Each test file
   is its own process. Put the setup in a module, and import it in
   each test file that needs it.
