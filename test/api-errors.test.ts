@@ -302,3 +302,30 @@ test('each kind of failed assertion has a report with the two values and the pla
   )
   assert.equal(r.last, 'fail: 2 errors, 11 failed, 1 passed')
 })
+
+test('a snapshot file that cannot be written, two open timers, and a changed variable', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  // A file where the folder of the snapshots must be.
+  writeFileSync(join(p.dir, 'ubq-snapshots'), '')
+  const snap = p.ubq('--update', 'snap.ts')
+  assert.deepEqual([snap.code, snap.out.split('\n')[0]], [1, 'ERROR snap.ts'])
+  assert.match(snap.out, /^  Error: EEXIST: /m)
+  writeFileSync(
+    join(p.dir, 'open.test.ts'),
+    `import { assert, test } from 'ubqtest'
+test('two timers', () => {
+  setInterval(() => {}, 1000)
+  setInterval(() => {}, 1000)
+  assert(true)
+})
+test('changes a variable', () => {
+  process.env.HOME = 'changed'
+  assert(true)
+})
+`,
+  )
+  const open = p.ubq('open.test.ts', 'pass.ts').out
+  assert.match(open, /^  the test changed the environment variable HOME and did not put it back\./m)
+  assert.match(open, /^  still open: Timeout x2$/m)
+})

@@ -52,6 +52,8 @@ test('a run with the server gives the same text, with test processes of the serv
   appendFileSync(join(p.dir, 'src/word.ts'), '// a change\n')
   for (let i = 0; i < 100 && !status().prepared; i++) await sleep(20)
   assert.equal(status().prepared, 1)
+  // A test process uses the entry that the server made.
+  assert.equal(run('fail.ts', 'mock.ts', 'pass.ts'), alone)
 
   assert.equal(p.ubq('server', 'stop').out, 'server: stopped\n')
   for (let i = 0; i < 100 && existsSync(join(p.dir, '.ubq/server.sock')); i++) await sleep(20)
