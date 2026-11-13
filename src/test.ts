@@ -3,6 +3,7 @@
 import { clearTimeout, now, setImmediate, setTimeout } from './real.ts'
 import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
+import { readChildren } from './child-read.ts'
 import { config } from './config.ts'
 import { COLUMN } from './counters.ts'
 import { type Collector, mergeRanges } from './coverage.ts'
@@ -79,7 +80,7 @@ export const setCollector = (c: Collector | undefined): void => {
 
 /** Emits a `coverage` event for the code that ran since the last one. */
 const cover = async (id?: string): Promise<void> => {
-  const more = moreCoverage.splice(0)
+  const more = [...moreCoverage.splice(0), ...readChildren()]
   if (!collector) return
   const files = await collector.take()
   for (const extra of more) {
@@ -458,6 +459,8 @@ const drain = async (): Promise<void> => {
     const failure = await runCleanups(fileCleanups, DEFAULT_TIMEOUT, fn => fn())
     if (failure) emit({ type: 'file-error', file: file!, failure })
   }
+  // What a child process wrote after the last test ended.
+  await cover()
   draining = false
   scheduled = false
   // This timer does not keep the process alive. It fires only if

@@ -5,6 +5,7 @@ import { hash } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { join, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { type Collector, flatten } from './coverage.ts'
 import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
@@ -23,7 +24,7 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 let instrument: typeof import('./instrument.ts').instrument | undefined
 
 /** Loads the parser. Most processes find their files in the cache and do not need it. */
-const parse = (): typeof import('./instrument.ts').instrument => {
+const parse = (): typeof import('./instrument.ts').instrument | undefined => {
   if (!instrument) {
     loadingParser = true
     try {
@@ -31,9 +32,22 @@ const parse = (): typeof import('./instrument.ts').instrument => {
     } finally {
       loadingParser = false
     }
+    // The parser ran with no counters in this process. The next
+    // process finds it in the cache.
+    for (const [file, root] of parserKeys.splice(0)) {
+      try {
+        cached(file, readFileSync(PARSER, 'utf8'), false, root)
+      } catch {
+        // The cache is an aid.
+      }
+    }
   }
   return instrument
 }
+/** The file of the parser. In the repository of ubq it is a project file. */
+const PARSER = fileURLToPath(new URL(INSTRUMENT, import.meta.url))
+/** The key and the project root of each collector that wanted counters for the parser file. */
+const parserKeys: [file: string, root: string][] = []
 /**
  * True while the parser loads. In the repository of ubq, the parser
  * is a file of the project, and the load hook gets it. It cannot
@@ -58,8 +72,9 @@ export interface Counters {
   compiled(path: string, made: string): string | undefined
 }
 
-const cachePath = (file: string, source: string): string =>
-  join(projectRoot(), '.ubq', 'counters', hash('sha1', `${CACHE_VERSION}\0${file}\0${source}`) + '.json')
+/** The cache entry of a file. `root` is the project that the file belongs to. */
+export const cachePath = (file: string, source: string, root = projectRoot()): string =>
+  join(root, '.ubq', 'counters', hash('sha1', `${CACHE_VERSION}\0${file}\0${source}`) + '.json')
 
 /**
  * The column in the source of a column in the changed source of a
@@ -76,15 +91,20 @@ export const columnFromCache = (file: string, line: number, column: number): num
   }
 }
 
-let madeDir = false
-
 /**
  * The changed source of a file, from the cache. Makes the entry if
  * it is absent. With `strip`, the entry of a TypeScript file also
  * gets the source with the types removed.
  */
-const cached = (file: string, source: string, strip = false): Instrumented | undefined => {
-  const path = cachePath(file, source)
+export const cached = (
+  file: string,
+  source: string,
+  strip = false,
+  root = projectRoot(),
+  /** The path of the file, if the caller is a load hook. */
+  from?: string,
+): Instrumented | undefined => {
+  const path = cachePath(file, source, root)
   let result: Instrumented | undefined
   try {
     result = JSON.parse(readFileSync(path, 'utf8')) as Instrumented
@@ -94,13 +114,18 @@ const cached = (file: string, source: string, strip = false): Instrumented | und
   // Bun has no function that removes types and keeps each position.
   const needsJs = strip && /\.[cm]?ts$/.test(file) && !!nodeModule.stripTypeScriptTypes
   if (result && (result.js !== undefined || !needsJs)) return result
+  // The parser file itself, before the parser is complete: the hook
+  // or the program loads it now.
+  if (!result && from === PARSER && !instrument) {
+    parserKeys.push([file, root])
+    return undefined
+  }
   if (!result && loadingParser) return undefined
-  result ??= parse()(source, file)
+  result ??= parse()?.(source, file)
   if (result) {
     try {
       if (needsJs) result.js = nodeModule.stripTypeScriptTypes(result.code)
-      if (!madeDir) mkdirSync(join(projectRoot(), '.ubq', 'counters'), { recursive: true })
-      madeDir = true
+      mkdirSync(join(root, '.ubq', 'counters'), { recursive: true })
       // Other processes read the cache at the same time, so the
       // file must be complete when it gets its name.
       const tmp = `${path}.${process.pid}.tmp`
@@ -134,13 +159,16 @@ export const prepareCounters = (path: string): boolean => {
  */
 export const startCounters = (): Counters | undefined => {
   if (shared[KEY]) return undefined
+  // The counters of a second collector are in the same Map: a
+  // process can also count for the test that started it
+  // (`child-coverage.ts`). This Map has only the files of this one.
+  const all = (shared[Symbol.for(COUNTERS)] ??= new Map<string, Uint32Array>()) as Map<string, Uint32Array>
   const counters = new Map<string, Uint32Array>()
   const regions = new Map<string, Region[]>()
   /** Files that had their first snapshot. */
   const seen = new Set<string>()
   /** Count of project files that have no counters. */
   let unread = 0
-  shared[Symbol.for(COUNTERS)] = counters
   const shifts = new Map<string, Record<number, number[]>>()
   // Stack traces have columns of the changed source.
   shared[Symbol.for(COLUMN)] = (file: string, line: number, column: number): number =>
@@ -170,8 +198,8 @@ export const startCounters = (): Counters | undefined => {
   const use = (file: string, result: Instrumented): void => {
     // A second instance of a module (mockImport) counts in the same
     // array. A new array would lose the counts of the first one.
-    if (counters.get(file)?.length !== result.regions.length)
-      counters.set(file, new Uint32Array(result.regions.length))
+    if (counters.get(file)?.length !== result.regions.length) counters.set(file, new Uint32Array(result.regions.length))
+    all.set(file, counters.get(file)!)
     regions.set(file, result.regions)
   }
 
@@ -202,8 +230,8 @@ export const startCounters = (): Counters | undefined => {
       const changed = source === undefined ? undefined : mutated(path, source)
       const result =
         source === undefined ? undefined
-        : changed === undefined ? cached(file, source)
-        : parse()(changed, file)
+        : changed === undefined ? cached(file, source, false, projectRoot(), path)
+        : parse()?.(changed, file)
       if (!result) {
         unread++
         return undefined

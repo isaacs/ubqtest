@@ -585,3 +585,13 @@ writes:
 Not possible to catch: SIGKILL, and each kill on Windows. A write
 on a timer keeps the counts up to the last write.
 
+### 15.4 After the build of D53
+
+- The suite of ubq: 14.75 s with child coverage, 14.25 s without
+  (mean of 2). This repository loads the preload as TypeScript
+  source in each child, which costs 35 ms and not 4 ms.
+- `ubq uncovered` sees 50 of the 53 source files.
+- A child that counts for two projects had two handlers for each
+  signal. Each one saw the other and did nothing, so the child did
+  not end. The handlers are now one set for the process.
+

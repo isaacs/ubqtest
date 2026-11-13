@@ -2,6 +2,7 @@
 // A load plugin adds counters to each project file before Bun
 // compiles it. The runner starts each Bun test process this way.
 import { readFileSync } from 'node:fs'
+import { announce } from './child-coverage.ts'
 import { startCounters } from './counter-collector.ts'
 import { SOURCE } from './counters.ts'
 import { projectRoot } from './project.ts'
@@ -21,6 +22,8 @@ declare const Bun: {
 
 const counters = startCounters()
 if (counters) {
+  // The processes that the tests start count too (D53).
+  announce()
   const read = (path: string): string => {
     const source = readFileSync(path, 'utf8')
     return (counters.wants(path) ? counters.change(path, source)?.source : undefined) ?? source

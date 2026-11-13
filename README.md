@@ -164,6 +164,8 @@ comment with the instruction.
   properties does not load on Node. Bun runs it.
 - `.tsx` and `.jsx` files run on Bun and Deno, with coverage.
 - Tests of one file run one at a time.
+- A test that starts a command or a server as a child process
+  gets the coverage of that process, on Node and Bun.
 - Tests of front-end code run in a real browser, with Playwright
   and Chromium: `import { browser } from 'ubqtest/browser'`. The
   project installs `playwright-core`. There is no DOM in the test

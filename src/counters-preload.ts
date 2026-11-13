@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { registerHooks, stripTypeScriptTypes } from 'node:module'
 import { fileURLToPath } from 'node:url'
+import { announce } from './child-coverage.ts'
 import { startCounters } from './counter-collector.ts'
 
 const FORMATS = new Set(['module', 'commonjs', 'module-typescript', 'commonjs-typescript'])
@@ -53,6 +54,8 @@ registerHooks({
 })
 
 const counters = startCounters()
+// The processes that the tests start count too (D53).
+if (counters) announce()
 if (counters)
   registerHooks({
     load(url, context, next) {

@@ -1011,3 +1011,82 @@ ubq: the two older rules do that.
 tests (`03-measurements.md`, section 15). That needs coverage of
 child processes.
 
+## D53. A test has the coverage of its child processes (user and agent, 2026-11-13)
+
+The code of the project that runs in a process below a test
+process is coverage of the test that runs then. The user decided
+that this is on in each run, with no setting: with it off, `ubq
+--changed` and `ubq uncovered` give wrong answers for a project
+whose tests start a command or a server, and many do.
+
+- **The method:** source counters, through a preload module
+  (`src/child-preload.ts`) that each child loads from
+  `NODE_OPTIONS` (`--import`) or `BUN_OPTIONS` (`--preload`).
+  Not V8 dumps (`NODE_V8_COVERAGE`): they slow all code of the
+  process, 2.5 to 14 times, and each process writes 100 to 370 kB
+  (`03-measurements.md`, section 15). The counters cost 4 ms for
+  each child process, and nothing after that for code that is not
+  of the project.
+- **The environment:** a test process with source counters
+  (`announce` in `src/child-coverage.ts`) sets the two option
+  variables and `UBQ_CHILD_COVERAGE`: a JSON list of pairs, the
+  root of a project and a folder for the counts
+  (`.ubq/children/<pid of the test process>`).
+- **A child with a new environment:** on Node, the module changes
+  `ChildProcess.prototype.spawn` and the three sync spawn
+  functions, so that each environment gets the variables. Without
+  this, such a child has no coverage, and nothing says so. tap
+  does the same. On Bun and Deno the functions do not have that
+  form, so only a child that gets the environment of its parent
+  counts.
+- **What a child does:** it adds counters to the files of each
+  project of the list (a load hook on Node, a plugin on Bun), and
+  writes its total counts to the folder: when it exits, when it
+  gets SIGTERM, SIGINT, or SIGHUP, and each 200 ms. For a signal,
+  it writes and then ends with the same signal. If the program
+  has a handler of its own, the module does nothing.
+- **What the test process does:** when a test ends, and when the
+  file ends, it reads the folder (`src/child-read.ts`), takes the
+  difference from the last read, and adds the ranges to the
+  `coverage` event, as for a page of a browser (D47). The regions
+  of a file come from the cache entry that the child made.
+- **A list of projects,** because a test of one project can start
+  the tests of a second one. That is each test of ubq that runs
+  `ubq` in a fixture project. The nested processes count the
+  files of the fixture for their own runner, and the files of ubq
+  for the outer test. The two sets have different keys. A file
+  that the collector of a test process has gets no second set of
+  counters.
+
+**Limits.**
+
+- A child on Deno has no coverage: see "Deno children" below.
+- SIGKILL, and each kill on Windows, give no notice. The counts
+  since the last write (200 ms at most) are lost.
+- Counts that arrive after a test ended go to the next test, or to
+  the file.
+- A Node that is too old for `module.registerHooks` runs with no
+  counters.
+- The columns of an error stack that a child prints are those of
+  the code with counters.
+- A statement after a call of `process.exit` in the same block
+  counts as run if the block ran.
+- The folders in `.ubq/children/` of a test process that was
+  killed stay.
+
+**Deno children: a path forward.** Deno has `--preload <file>` as
+an argument, and no variable for it. The spawn functions that this
+module changes can add the argument: if the program of the child
+is `deno` (or its full path) and the first argument is `run`,
+`test`, or `serve`, put `--preload <file>` after that argument.
+This fails for a script that starts Deno through a shell or a
+wrapper, and it must not run for other subcommands. The collector
+in the child is the load hook of Node, which Deno has. A variable
+of Deno for a preload module would be the complete answer.
+
+**Coverage of ubq itself.** With D52 and this, `ubq uncovered` in
+the repository of ubq sees 50 of the 53 source files. It cannot
+see code that runs only on a different runtime (the Bun preload,
+the module that workerd runs). The plan for that is coverage from
+more than one run, merged: see `07-status.md`.
+

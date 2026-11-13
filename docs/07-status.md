@@ -1141,16 +1141,39 @@ D52: the files of ubq are project files in this repository. `ubq
 uncovered` lists 291 ranges in 24 of the 28 files that test
 processes load. 25 more files run only in child processes.
 
-Coverage of child processes is investigated
-(`03-measurements.md`, section 15) and not built. The method: a
-preload module with source counters, which each child gets from
-`NODE_OPTIONS`. The user decided that it must be on by default.
+Coverage of child processes: done (D53). Source:
+`src/child-coverage.ts`, `src/child-preload.ts`,
+`src/child-read.ts`. Checks: `test/children.test.ts`. With it,
+`ubq uncovered` here sees 50 of the 53 source files, with 533
+uncovered ranges. The suite takes 14.75 s with it and 14.25 s
+without (this repository uses the preload as TypeScript source,
+which is the slow form).
 
-Future work that the user named:
+Checked by hand with the built package, on a project with a
+command, a child with a new environment, and a server that the
+test stops: the runner on Node and on Deno gives the same
+coverage. The runner on Bun does not have the code of the child
+with a new environment.
 
-- Coverage from more than one run, folded together. For example a
-  run on Node, a run on Bun, and a run on Deno: each one runs code
-  that the others cannot.
-- A comment that marks code as not measured, with a reason. The
-  user agreed to it. It waits for the child process work.
+To do next, in this order:
+
+1. **Coverage from more than one run, merged.** The user wants
+   this so that ubq can check itself with no code marked as not
+   measured. A run on Node, a run on Bun, and a run on Deno each
+   run code that the others cannot (`src/bun-preload.ts`,
+   `src/bun-coverage.ts`, the Deno branches of
+   `src/counters-preload.ts`). `src/workers-entry.ts` runs only
+   in workerd, which sends counts to its host already. The store
+   has coverage for each test, so a merge is a store that takes
+   the runs of a second store, or a command that reads more than
+   one store. CI would run each runtime, keep the store as an
+   artifact, and one job would merge them and run `ubq
+   uncovered`.
+2. **Tests for the 533 uncovered ranges** that are real gaps.
+3. **A comment that marks code as not measured, with a reason.**
+   The user agreed to it, for what stays after 1 and 2.
+4. **Deno children.** D53 has the path: add `--preload` to the
+   arguments of a `deno run` child.
+5. The parser does not read `src/assert.ts`, so each test file of
+   this repository has coverage `partial`.
 

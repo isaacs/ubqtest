@@ -330,6 +330,36 @@ A different browser version, or a shared download:
 - `UBQ_BROWSER=<path of a Chromium or Chrome program>` makes the
   tests use that program. No download is necessary then.
 
+## Tests that start a process
+
+A test can start the program under test as a child process: a
+command, or a server. The code of the project that the child runs
+is coverage of the test, as the code that the test process runs.
+So `ubq --changed`, `ubq uncovered`, and `ubq covers` work for
+code that only a child runs. No setup is necessary.
+
+```ts
+import { spawnSync } from 'node:child_process'
+import { assert, test } from 'ubqtest'
+
+test('the command prints its version', () => {
+  const r = spawnSync('node', ['src/cli.ts', '--version'], { encoding: 'utf8' })
+  assert.match(r.stdout, /^\d+\.\d+\.\d+\n$/)
+})
+```
+
+- It works for a child on Node or Bun, and for the processes that
+  the child starts. A child on Deno has no coverage.
+- Stop a server with `child.kill()` in `cleanup`, and wait for its
+  `close` event. The child writes its counts when it gets the
+  signal. A child that ends with SIGKILL, and each child that is
+  killed on Windows, can lose the counts of its last 200 ms.
+- ubq adds a module to `NODE_OPTIONS` and `BUN_OPTIONS` in the
+  environment of the test process, so that each child loads it. A
+  child with a new environment gets it too, if the runner is Node.
+- An error stack that the child prints has the correct lines. The
+  columns can be too large, because the code has counters.
+
 ## Tests of a Cloudflare Worker
 
 The test file runs in workerd, the runtime of Workers, with the
