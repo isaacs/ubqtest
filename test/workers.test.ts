@@ -327,3 +327,11 @@ test('a config with no name, no main, and no vars', async () => {
     '  the test file did not load: this test file runs in the Workers runtime, and the project does not have wrangler. Run: npm install --save-dev wrangler',
   ])
 })
+
+test('the helpers of ubqtest/workers work only in the Workers runtime', async () => {
+  const { executionContext } = await import('ubqtest/workers')
+  assert.throws(() => executionContext(), {
+    message:
+      'executionContext works only in a test file that runs in the Workers runtime. Add the file to "workers" in the "ubq" key of package.json.',
+  })
+})

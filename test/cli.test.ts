@@ -66,11 +66,18 @@ test('later', { skip: 'not now' }, () => assert(true))
   // A test that passed, and now is skipped, is an other change.
   writeFileSync(join(p.dir, 'many.test.ts'), "import { test } from 'ubqtest'\ntest('later', { skip: 'x' }, () => {})\n")
   p.ubq('many.test.ts')
-  writeFileSync(join(p.dir, 'many.test.ts'), "import { assert, test } from 'ubqtest'\ntest('later', () => assert(true))\n")
+  // A new failure is first in the list.
+  writeFileSync(
+    join(p.dir, 'many.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('later', () => assert(true))\ntest('broken', () => assert.equal(1, 2))\n",
+  )
   p.ubq('many.test.ts')
   assert.deepEqual(p.ubq('diff').out.trimEnd().split('\n'), [
+    'fail many.test.ts > broken (did not run in run 4)',
+    '  expected values to be equal',
     'pass many.test.ts > later (was skip in run 4)',
-    'run 4 to run 5: 0 new failures, 0 fixed, 1 other changes, 0 the same',
+    'run 4 to run 5: 1 new failures, 0 fixed, 1 other changes, 0 the same, 1 only in run 5',
+    'details: ubq failures 5',
   ])
   assert.match(error('skill', 'nope')[1], /^ubq: unknown agent "nope"\. The agents are: claude, .* A folder also works: ubq skill \.myagent\/skills$/)
 })

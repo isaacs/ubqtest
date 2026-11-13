@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { project } from './setup.ts'
@@ -100,4 +101,20 @@ test('merge adds the coverage of the store of a second copy of the project', { t
     ],
   ])
   assert.deepEqual(ubq('merge', 'nope')[0], 4)
+  const usage = (...args: string[]) => spawnSync('node', [cli, ...args], { cwd: copy, encoding: 'utf8' }).stderr
+  assert.equal(usage('merge'), 'ubq: ubq merge needs the stores to add: a project folder, a .ubq folder, or a runs.db file\n')
+  // A store with no coverage rows.
+  const empty = join(copy, 'empty.db')
+  cpSync(join(p.dir, '.ubq/runs.db'), empty)
+  const db = new DatabaseSync(empty)
+  db.exec('delete from coverage; delete from other_coverage')
+  db.close()
+  assert.deepEqual(ubq('merge', empty), [0, [`merged ${empty}: 0 coverage rows of no run`]])
+  // A store of a different version of ubq.
+  const old = join(copy, 'old.db')
+  const oldDb = new DatabaseSync(old)
+  oldDb.exec('pragma user_version = 1')
+  oldDb.close()
+  assert.equal(usage('merge', old), `ubq: ${old} is the store of a different version of ubq. Make it with the version of this project.\n`)
 })
+
