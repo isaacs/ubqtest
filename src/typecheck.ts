@@ -59,22 +59,29 @@ const configFolders = (root: string, files: string[]): string[] => {
 }
 
 /** Runs the checker on the config of one folder. */
-const check = (tsc: string[], root: string, folder: string): { child: ChildProcess; errors: Promise<TypeCheckError[]> } => {
+const check = (tsc: string[], root: string, folder: string): { child?: ChildProcess; errors: Promise<TypeCheckError[]> } => {
   // The checker keeps its data for the next run. Each config has
   // its own file.
   const name = folder === root ? 'tsbuildinfo' : `tsbuildinfo-${rel(folder).replaceAll('/', '-')}`
-  const child = spawn(
-    tsc[0]!,
-    [...tsc.slice(1), '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', join(stateDir(), 'types', name), '-p', folder],
-    { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
-  )
+  const failed = (error: Error): TypeCheckError[] => [
+    { type: 'type-error', code: 'ubq', message: `the type checker did not start: ${error.message}` },
+  ]
+  let child: ChildProcess
+  try {
+    child = spawn(
+      tsc[0]!,
+      [...tsc.slice(1), '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', join(stateDir(), 'types', name), '-p', folder],
+      { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
+    )
+  } catch (error) {
+    // On Windows, a file that is not a program throws here.
+    return { errors: Promise.resolve(failed(error as Error)) }
+  }
   const errors = new Promise<TypeCheckError[]>(done => {
     let text = ''
     child.stdout!.setEncoding('utf8').on('data', (data: string) => (text += data))
     const errors: TypeCheckError[] = []
-    child.on('error', error =>
-      done([{ type: 'type-error', code: 'ubq', message: `the type checker did not start: ${error.message}` }]),
-    )
+    child.on('error', error => done(failed(error)))
     child.on('close', () => {
       for (const line of text.split('\n')) {
         const m = ERROR.exec(line)
@@ -112,7 +119,7 @@ export const typeCheck = (background = false, files: string[] = []): Checking | 
   if (!tsc || !folders.length) return undefined
   const checks = folders.map(folder => check(tsc, root, folder))
   type Handle = { ref?(): void; unref?(): void }
-  const handles: Handle[] = checks.flatMap(({ child }) => [child, child.stdout as Handle])
+  const handles: Handle[] = checks.flatMap(({ child }) => (child ? [child, child.stdout as Handle] : []))
   if (background) for (const h of handles) h.unref?.()
   return {
     // Two configs can have the same file.
