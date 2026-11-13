@@ -45,6 +45,6 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   // A link preview needs the full URL of the page and of an image.
   const guide = readFileSync(join(dir, 'guide/index.html'), 'utf8')
   assert(guide.includes('<meta property="og:url" content="https://ubq.dev/guide/">'))
-  assert(guide.includes('<meta property="og:image" content="https://ubq.dev/static/logo-white.png">'))
-  assert(existsSync(join(dir, 'static/logo-white.png')))
+  assert(guide.includes('<meta property="og:image" content="https://ubq.dev/static/logo-1200x1200.png">'))
+  assert(existsSync(join(dir, 'static/logo-1200x1200.png')))
 })

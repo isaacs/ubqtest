@@ -245,12 +245,12 @@ ${slug === '404' ? '<base href="/">\n' : ''}<title>${escape(title)}</title>
 <meta property="og:site_name" content="ubq">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(pkg.description)}">
-${slug === '404' ? '' : `<meta property="og:url" content="${SITE}${slug === 'index' ? '' : slug + '/'}">\n`}<meta property="og:image" content="${SITE}static/logo-white.png">
-<meta property="og:image:width" content="1648">
-<meta property="og:image:height" content="1648">
+${slug === '404' ? '' : `<meta property="og:url" content="${SITE}${slug === 'index' ? '' : slug + '/'}">\n`}<meta property="og:image" content="${SITE}static/logo-1200x1200.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="1200">
 <meta property="og:image:alt" content="The ubq logo">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="${SITE}static/logo-white.png">
+<meta name="twitter:image" content="${SITE}static/logo-1200x1200.png">
 <link rel="icon" type="image/svg+xml" href="${rel(slug, 'static/logo.svg')}">
 <link rel="stylesheet" href="${rel(slug, 'static/style.css')}">
 <link rel="alternate" type="text/markdown" href="${rel(slug, slug + '.md')}" title="This page as markdown">
