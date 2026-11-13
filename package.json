@@ -1,6 +1,6 @@
 {
   "name": "ubqtest",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "The test framework designed specifically for coding agents who write TypeScript, and their humans.",
   "repository": {
     "type": "git",
