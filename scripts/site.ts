@@ -30,7 +30,7 @@ interface Page {
 const PAGES: Page[] = [
   { source: 'GUIDE.md', slug: 'guide', name: 'Guide', about: 'The API, the rules, and the commands.', group: 'use' },
   { source: 'docs/api.md', slug: 'api', name: 'API reference', about: 'Each export of the package, with its type.', group: 'use' },
-  { source: 'CONVERT.md', slug: 'convert', name: 'Convert a project', about: 'How to move a project from tap, node:test, vitest, jest, or mocha.', group: 'use' },
+  { source: 'CONVERT.md', slug: 'convert', name: 'Convert a project', about: 'How to move a project from tap, node:test, vitest, jest, bun:test, or mocha.', group: 'use' },
   { source: 'docs/08-config.md', slug: 'config', name: 'Configuration', about: 'Which files ubq runs, and the `ubq` key of `package.json`.', group: 'use' },
   { source: 'skills/use-ubq/SKILL.md', slug: 'skill', name: 'Agent skill', about: 'The `use-ubq` skill that `ubq skill` writes for your agent.', group: 'use' },
   { source: 'LICENSE.md', slug: 'license', name: 'License', about: 'Blue Oak Model License 1.0.0.', group: 'use' },
@@ -39,11 +39,11 @@ const PAGES: Page[] = [
   { source: 'docs/01-agent-ideation.md', slug: 'docs/agent-needs', name: 'What agents need', about: 'What an agent needs from a test tool. Written by an agent, before the design.', group: 'design' },
   { source: 'docs/02-decisions.md', slug: 'docs/decisions', name: 'Decisions', about: 'Each design decision, with its reason.', group: 'design' },
   { source: 'docs/03-measurements.md', slug: 'docs/measurements', name: 'Measurements', about: 'The measured costs that the design depends on.', group: 'design' },
-  { source: 'docs/04-architecture.md', slug: 'docs/architecture', name: 'Architecture', about: 'The parts, the process model, events, coverage, and the store.', group: 'design' },
+  { source: 'docs/04-architecture.md', slug: 'docs/architecture', name: 'Architecture', about: 'The plan from before the build: the parts, the process model, events, coverage, and the store.', group: 'design' },
   { source: 'docs/05-api.md', slug: 'docs/api-design', name: 'API design', about: 'The test file API, and what is absent on purpose.', group: 'design' },
   { source: 'docs/06-events.md', slug: 'docs/events', name: 'Events', about: 'The events that a test process sends to the runner.', group: 'design' },
   { source: 'docs/07-status.md', slug: 'docs/status', name: 'Status', about: 'What is built, and what waits for a decision.', group: 'design' },
-  { source: 'docs/09-questions.md', slug: 'docs/questions', name: 'Open questions', about: 'Points that wait for a decision.', group: 'design' },
+  { source: 'docs/09-questions.md', slug: 'docs/questions', name: 'Open questions', about: 'Questions for the user, and the decision that answered each one.', group: 'design' },
   { source: 'docs/10-bun-coverage-api.md', slug: 'docs/bun-coverage', name: 'Coverage on Bun', about: 'What ubq needs from Bun for coverage of each test.', group: 'design' },
   { source: 'docs/11-server.md', slug: 'docs/server', name: 'Server', about: 'The optional background server.', group: 'design' },
 ]
@@ -359,7 +359,7 @@ ${rows('use')}
 
 ## Design
 
-This documentation record how ubq was designed and built: the
+These documents record how ubq was designed and built: the
 decisions and their reasons, the measurements, and the status of
 the work. Agents and people wrote them during the work, for the
 agents and people who maintain the tool.

@@ -6,8 +6,9 @@ and the people who work with them.
 The package is `ubqtest`. The command is `ubq`. It runs on Node 24
 or later, Bun, and Deno, with no build step and no configuration.
 
-> **Status:** not released yet. CI passes on Linux, macOS, and
-> Windows, with Node, Bun, and Deno.
+> **Status:** early. The versions are 0.0.x, and the API can
+> change. CI passes on Linux, macOS, and Windows, with Node, Bun,
+> and Deno.
 
 ## Why a different test tool
 
@@ -98,7 +99,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | --- | --- |
 | `ubq` | Runs all test files (`*.test.ts`, `*.test.js`, and so on), and the type checker of the project. |
 | `ubq <file>`, `ubq <file>:<line>`, `ubq '<test id>'` | Runs one file, one test, or one group. |
-| `ubq --changed` | Runs the tests that ran code that changed after their last run. |
+| `ubq --changed` | Runs the tests that ran code that changed after their last run, and new test files. |
 | `ubq --failed` | Runs the tests that failed in their last run. |
 | `ubq --repeat <n> ...` | Runs tests n times and counts the failures of each, to find a flaky test. |
 | `ubq --baseline <commit> ...` | Shows only the failures that the commit does not have. |
@@ -121,7 +122,8 @@ configuration.
 - Each test file runs in its own process. Files run in parallel,
   in a random order. A run with a failure prints the seed.
 - The type checker of the project (`tsc --noEmit`) runs at the
-  same time, if the project has `tsconfig.json`. A type error
+  same time, if the project has `tsconfig.json` and the
+  `typescript` package. A type error
   fails the run. A run of a selection fails only for the type
   errors of the files that it used.
 - A test that goes over its time limit fails, and the report
@@ -144,7 +146,8 @@ change, then `npx ubq uncovered --diff`.
 agents. It writes to each skill folder that the project has
 (`.claude/skills`, `.cursor/skills`, `.agents/skills`, and others
 of that form), and to the folder of the agent that runs the
-command: Claude Code, Cursor, Gemini, Copilot, or Codex. With
+command: Claude Code, Cursor, Gemini, Copilot, Codex, or
+Antigravity. With
 none of these, it writes to `.claude/skills`. To select the
 place, name the agent or a folder: `npx ubq skill cursor`, `npx
 ubq skill .myagent/skills`. The skill tells the
@@ -175,7 +178,8 @@ comment with the instruction.
 - `.tsx` and `.jsx` files run on Bun and Deno, with coverage.
 - Tests of one file run one at a time.
 - A test that starts a command or a server as a child process
-  gets the coverage of that process, on Node and Bun.
+  gets the coverage of that process, on Node, Bun, or Deno. For a
+  Deno child, the test process must be Node.
 - Tests of front-end code run in a real browser, with Playwright
   and Chromium: `import { browser } from 'ubqtest/browser'`. The
   project installs `playwright-core`. There is no DOM in the test
@@ -184,7 +188,7 @@ comment with the instruction.
   of the wrangler config: the `workers` key, and
   `'ubqtest/workers'`. The project installs `wrangler`.
 - Configuration is the `ubq` key of `package.json`: `include`,
-  `exclude`, `timeout`, `browser`, `workers`, and two switches. Most projects need none.
+  `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`, and two switches. Most projects need none.
   See [docs/08-config.md](docs/08-config.md).
 
 ## More documents

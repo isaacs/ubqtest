@@ -58,8 +58,6 @@ run in parallel. Events of one file keep their order.
 | `type-error` | runner role | one error from the type checker of the project, after all file streams |
 | `run-end` | runner role | totals and the exit code of the run |
 
-`hang` (build step 4) is not defined yet.
-
 ## 3. Rules
 
 1. **One JSON object for each line.** No line breaks in an object.

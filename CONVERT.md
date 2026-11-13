@@ -1,7 +1,7 @@
 # ubq guide: convert
 
 How to move the tests of a project from tap, `node:test`, vitest,
-jest, or mocha to `ubqtest`. This text comes from the installed
+jest, `bun:test`, or mocha to `ubqtest`. This text comes from the installed
 package. `ubq guide convert` prints it. Read `ubq guide` first: it
 has the API and the rules of ubq.
 
@@ -177,6 +177,7 @@ Things to check by hand:
 | `assert.strictEqual`, `assert.equal` | `assert.equal` |
 | `assert.deepStrictEqual`, `assert.deepEqual` | `assert.deepEqual` |
 | `assert.notStrictEqual` | `assert.notEqual` |
+| `assert.notDeepStrictEqual(a, b)`, `assert.notDeepEqual(a, b)` | `assert(!isDeepEqual(a, b))` |
 | `assert.ok(a)` | `assert(a)` |
 | `assert.throws(fn)`, `assert.rejects(p)` | the same with `Error` as the expected error |
 | `assert.ifError(err)` | `assert(!err)` |
@@ -188,8 +189,8 @@ Things to check by hand:
   (not strict) are loose.** In ubq they are strict.
 - **`assert.doesNotThrow(fn)`.** Call the function, and assert on
   its result.
-- **`assert.notDeepStrictEqual`, `assert.doesNotMatch`.** Write
-  the condition: `assert(!pattern.test(text))`.
+- **`assert.doesNotMatch`.** Write the condition:
+  `assert(!pattern.test(text))`.
 - **The test object `t`.** `t.mock.fn()` is `spy()`. `t.after(fn)`
   is `cleanup(fn)`. `t.test(...)` is a subtest: use `describe`.
   `t.diagnostic(text)` is `console.log(text)`. `t.skip()` in a
@@ -326,8 +327,9 @@ Things to check by hand:
 
 The command converts `describe` and `it` with `node:assert`. It
 does not convert `chai` or `sinon`. Write those assertions by hand
-with the tables above. `this.timeout(ms)` becomes
-`test(name, { timeout: ms }, fn)`.
+with the tables above. The command does not change
+`this.timeout(ms)`, and writes no TODO for it. Change it by hand
+to `test(name, { timeout: ms }, fn)`.
 
 ## Hooks
 

@@ -1,6 +1,6 @@
 // `fakeClock`: a clock that the test moves. It replaces the timers
 // and the clocks of the process until the test ends. See
-// docs/05-api.md, section 8.
+// docs/05-api.md, section 7.
 import * as nodeModule from 'node:module'
 import { createRequire } from 'node:module'
 import { cleanup } from './fixtures.ts'

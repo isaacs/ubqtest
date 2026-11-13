@@ -8,8 +8,8 @@ compiles, and each line of `bad.ts` gives the compile error that
 this document claims. `mock-rt.ts` proves the mock call at run time
 on Node and Deno.
 
-Not in this document: the CLI, the config, the fake clock, and
-snapshots. Each one gets its own document.
+Not in this document: the CLI (`ubq guide`) and the config
+(`08-config.md`).
 
 ## 1. A full example
 
@@ -85,8 +85,8 @@ test(name: string, options: { skip?: string | false; timeout?: number }, fn): vo
 - A test with zero assertions fails.
 - Tests in a file run one at a time (D5).
 - Tests must not depend on each other or on their order. The CLI
-  runs single tests by ID, and a later step adds random order with
-  a seed.
+  runs single tests by ID. Test files run in a random order, and
+  the tests of one file run in the order of the file (D28).
 - `name` must be unique in its `describe` group. A duplicate is an
   error, because the name is part of the test ID
   (`test/parse.ts > parse > circle`).
@@ -129,6 +129,7 @@ assert.deepEqual(actual, expected, message?)
 assert.match(actual, pattern, message?)
 assert.throws(fn, expected, message?)          // returns the Error
 await assert.rejects(promise, expected, message?)  // resolves to the Error
+await assert.eventually(fn, pattern, message?) // as match; calls fn until it matches, 2000 ms at most
 assert.snapshot(value, message?)               // compares with saved text
 assert.fail(message)                           // returns never
 ```
@@ -142,6 +143,9 @@ assert.fail(message)                           // returns never
 | `match` | `actual` has the shape of `pattern`. See below. |
 | `throws` | `fn` throws an error that fits `expected`. |
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
+
+`isDeepEqual(a, b)` returns true or false by the rules of
+`deepEqual`. It is not an assertion (D50).
 
 **`match` patterns.** One function covers "looks like this":
 
@@ -410,7 +414,8 @@ test.skip('x', () => {})
 
 | Call | Text of the error |
 | --- | --- |
-| `test.skip`, `test.todo` | `Use test(name, { skip: "reason" }, fn)` |
+| `test.skip` | `Use test(name, { skip: "reason" }, fn)` |
+| `test.todo` | `Use test(name, { skip: "todo: reason" }, fn)` |
 | `test.only` | `ubq has no .only. Select tests on the command line: ubq <file>:<line>` |
 | `test.each` | `Use a for loop around test()` |
 | `assert.ok` | `Use assert(value)` |

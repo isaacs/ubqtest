@@ -18,7 +18,8 @@ The runner starts each Bun test process with the preload.
 This is correct and fast. It has these limits:
 
 - A plain `bun test/foo.ts` has no preload, so it records no
-  coverage. On Node, such a run records partial coverage.
+  coverage, or partial coverage with `bunInspectorCoverage`
+  (D39). On Node, such a run records partial coverage.
 - A file that the parser of ubq cannot read gets no counters.
 - The package carries a TypeScript parser (232 KB) for this.
 
@@ -59,10 +60,12 @@ export function pick(a: number, b: string | null): string {
 export const unused = (): number => 1
 ```
 
-A program cannot change these offsets to source positions. It
-cannot read the JavaScript of a loaded module
+A program cannot change these offsets to exact source positions.
+It cannot read the JavaScript of a loaded module
 (`Debugger.getScriptSource` does not exist), and it cannot read
-the source map that Bun keeps for stack traces.
+the source map that Bun keeps for stack traces. ubq makes a guess
+from the output of the transpiler of Bun (D39,
+`src/bun-coverage.ts`).
 
 ## The change to Bun
 

@@ -119,7 +119,7 @@ test that would pass for the wrong reason.
 
 ## API
 
-[Complete API reference](/api)
+[Complete API reference](https://ubq.dev/api/)
 
 ```ts
 test(name, fn)

@@ -93,7 +93,7 @@ older run.
 
 ## Log
 
-All entries are from 2026-11-11 to 2026-11-13.
+All entries are from 2026-11-11 to 2026-11-14.
 
 - **Step 0.** Project files, the API and events documents, the
   first benchmark.
@@ -209,8 +209,6 @@ Core and runner:
 
 - Bun gives different columns for some frames, and no place for an
   assertion in a timer callback.
-- A timer that a timed-out test leaves keeps the process alive
-  until it fires.
 - No leak check for changed globals after each test.
 - The watchdog uses inspector port 9229. If a different process
   has it, the failure has no stack.

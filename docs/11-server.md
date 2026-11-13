@@ -40,8 +40,8 @@ starts, but for these points:
 
 The server stops, and the runner starts its own processes, if the
 runner has a different runtime or a different ubq (`stamp` in
-`src/pool.ts`: the path and version of the runtime, and the
-newest change time of the files of ubq).
+`src/pool.ts`: the path and version of the runtime, the folder
+of ubq, and the newest change time of its files).
 
 ## Parts
 
@@ -56,6 +56,10 @@ the server to run any file as the user of the server, so only
 that user can connect. Errors of the server go to
 `.ubq/server.log`. The state is in the project folder, so two git
 worktrees have two servers.
+
+On Windows, the server has a named pipe in place of a socket
+file, and `taskkill` in place of a process group. The file
+`.ubq/server.sock` there only tells that a server started.
 
 A request is one line of JSON. The answer to `run` is a stream of
 frames (one tag character, a length of 4 bytes, the data): `i`
@@ -119,6 +123,3 @@ and returns the same text.
   process behind is a surprise, and in CI it is an error.
 - No process of the server for a run of one file: that file runs
   in the process of the runner.
-- On Windows, the server has a named pipe in place of a socket
-  file, and `taskkill` in place of a process group. The file
-  `.ubq/server.sock` there only tells that a server started.

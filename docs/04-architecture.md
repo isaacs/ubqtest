@@ -6,7 +6,8 @@ design choice below points at a number in `03-measurements.md`
 (written as "M 2.3" for section 2.3 of that file).
 
 Status: the user accepted the plan on 2026-11-11, with the answers
-in `02-decisions.md` (D9 to D14). No product code exists yet.
+in `02-decisions.md` (D9 to D14). Later decisions changed parts
+of it. `07-status.md` has the current state.
 
 Fixed points:
 
@@ -76,12 +77,11 @@ Reasons:
   (M 5). That ties or beats each Node-based tool that isolates
   files (M 4).
 
-Worker threads are not in the first version. They save 25% of the
-time (M 5), but `process.chdir` does not work in a worker, and
+Worker threads are not planned (D34). They save 25% of the time
+(M 5), but `process.chdir` does not work in a worker, and
 `process.env`, signal handlers, and native addons are shared with
-other files. Shared processes ran the suite in 191 ms (M 5). Both
-stay as later options for projects that accept less isolation
-(D9).
+other files. Shared processes ran the suite in 191 ms (M 5), and
+are not planned either.
 
 **Fast path for one file.** When the selection contains one file,
 the CLI does not start a child. It turns on the compile cache and
@@ -89,10 +89,8 @@ coverage, then imports the test file into its own process. The
 prototype measured 37.5 ms for this case (M 5). This is the common
 case in an edit loop.
 
-**Scheduling.** The runner starts files in this order: files that
-failed in the last run, files that cover changed code, then all
-others with the slowest first (from stored durations). The first
-failure prints at once.
+**Scheduling.** The runner starts the files in a random order,
+with a seed (D28). The first failure prints at once.
 
 **Child flags.** The runner starts each child with the compile
 cache on (saves 19 ms for each file, M 3) and with a preload module
@@ -122,9 +120,8 @@ document before any code.
 Each event has a version field. A passing assertion carries only
 the test ID and `ok`, so the common case stays small.
 
-**Transport: JSON lines on file descriptor 3.** The child collects
-the events of a test and writes them with one sync write at the
-end of that test.
+**Transport: JSON lines on file descriptor 3.** The child writes each
+event at once, with a sync write.
 
 - Speed is not a factor. All methods cost about 1 microsecond for
   each event (M 6).
@@ -138,14 +135,19 @@ Children do not write to the database. Writers to one SQLite file
 wait for each other (M 6).
 
 On Deno, `writeSync(3)` fails (M 9): Deno has its own numbers for
-open files. The process still has the descriptor, so the pipe sink
-opens `/dev/fd/3` there and writes to that.
+open files. The runner gives a Deno process a file
+(`UBQ_EVENTS`), and reads the file while it grows.
 
 ## 4. Coverage
 
+Under the runner, each runtime uses source counters (D25, D33).
+The text below describes V8 precise coverage, which a plain Node
+program and `UBQ_COVERAGE=v8` use, and which is the reference for
+the counters.
+
 **Method: V8 precise coverage through `node:inspector`, with
-`callCount: true, detailed: true`.** This is the only mode that
-gives correct data for each test (M 2.1).
+`callCount: true, detailed: true`.** Of the V8 modes, this is the
+only one that gives correct data for each test (M 2.1).
 
 Flow:
 
@@ -166,8 +168,6 @@ Cost and how the plan pays for it:
 - Coverage counters slow hot loops by up to 13 times and typical
   code by about 6% (M 2.2). The plan accepts this (D1). Other
   tools that use V8 coverage pay the same cost.
-- Subtests: a snapshot at the end of each leaf test. A parent test
-  gets the union of its children plus its own code.
 
 ### Source counters, for Bun
 
@@ -185,15 +185,12 @@ collector adds counters to the source (D10).
   costs microseconds, and the counters do not stop optimization.
 - The runner starts each Bun child with `--preload`. A plain
   `bun test/foo.ts` has no preload, so the plugin cannot change
-  static imports (M 11). The tool states that such a run has no
-  coverage, and names the `bunfig.toml` preload line that fixes it.
+  static imports (M 11). Such a run records coverage `none`, or
+  `partial` with `bunInspectorCoverage` (D39). `ubq uncovered`
+  names such files.
 - The plugin needs a TypeScript parser. It goes into the bundle,
   so the package still has no dependencies at install time.
 - The transformed source is cached by content hash.
-
-Source counters could also replace V8 coverage on Node and Deno
-later, if snapshot cost or hot-loop cost becomes a problem. They
-need a preload there too.
 
 A separate project can propose a per-test coverage API to Bun.
 When Bun has one, the Bun collector can drop the counters.
@@ -260,12 +257,13 @@ Selection modes:
    run.
 2. Select each test that ran code in a changed file, and each
    changed or new test file.
-3. If a changed file has no coverage data (a config file, a
-   fixture, a lock file), run all tests and state the reason.
 
-The first version works at file level. A later version can use
-ranges, so that a change in one function selects only the tests
-that ran that function.
+A change in a file that no test loaded as code selects no test
+(see `07-status.md`).
+
+`--changed` selects tests by the changed range of a file, so that
+a change in one function selects only the tests that ran that
+function (D41).
 
 `--repeat <n>` goes with each selection. It runs the selected
 tests n times, one repeat after the other, each in new processes.
@@ -301,7 +299,7 @@ These checks make a wrong pass hard to produce (D2, D3).
 | Case | How the tool detects it |
 | --- | --- |
 | Zero assertions | count on `test-end` |
-| Assertion after the test ended | the `t` object knows that it ended, and `AsyncLocalStorage` identifies the test for free calls (M 8: no cost) |
+| Assertion after the test ended | the state of the test knows that it ended, and `AsyncLocalStorage` identifies the test for free calls (M 8: no cost) |
 | Unhandled rejection, uncaught error | process event, plus `AsyncLocalStorage` for the test |
 | Test promise never settles and the event loop is empty | the process is about to exit while a test is open |
 | Filter matched nothing | count in the runner |
@@ -352,14 +350,13 @@ Two text sinks, as in D4:
 Each failure block ends with the command that runs that test again.
 The summary line has a fixed format and includes the run ID.
 
-Exit codes, as a proposal:
+Exit codes:
 
 | Code | Meaning |
 | --- | --- |
 | 0 | all selected tests passed |
 | 1 | one or more tests failed |
 | 2 | no tests matched |
-| 3 | coverage below the required level |
 | 4 | error in the tool, the config, or the command |
 
 ## 10. Module mocks
@@ -367,12 +364,9 @@ Exit codes, as a proposal:
 `module.registerHooks` supports this with no flags (M 10):
 
 ```ts
-const subject = await t.mockImport<
-  typeof import('../src/subject.ts'),
-  { '../src/dep.ts': typeof import('../src/dep.ts') }
->('../src/subject.ts', {
-  '../src/dep.ts': { fetchUser: id => ({ id, name: 'x' }) },
-})
+const subject = await mockImport(() => import('../src/subject.ts'), [
+  [() => import('../src/dep.ts'), { fetchUser: id => ({ id, name: 'x' }) }],
+])
 ```
 
 - The type checker rejects a mock that does not match the real
@@ -392,7 +386,7 @@ proven.
 | Store | yes | yes | yes |
 | Per-test coverage | source counters, or V8 (D25) | source counters (D33) | source counters (section 4) |
 | Module mocks | `registerHooks` | `registerHooks` | `Bun.plugin` resolve and load hooks |
-| Transport from a child | fd 3 | `/dev/fd/3` | fd 3 |
+| Transport from a child | fd 3 | a file (`UBQ_EVENTS`) | fd 3 |
 | Hang reports | yes | yes | handle list is empty (M 9), needs its own method |
 
 The order is Node, then Bun, then Deno. Bun comes before Deno
@@ -427,9 +421,9 @@ snapshots, and about 8 ms to load and run the library and the
 test. A snapshot costs 0.43 ms in a real test process, because the
 cost follows all functions that the process loaded, with the ones
 in Node itself. The prototype child took 40 ms. The run store adds
-about 50 ms to the run. The known ways to get faster are source
-counters in place of V8 snapshots (section 4), and the background
-server (below).
+about 50 ms to the run. Two ways to get faster are now built:
+source counters in place of V8 snapshots (D25), and the
+background server (`11-server.md`).
 
 The first two targets were 40 and 65 ms before step 2. The
 prototype did not have the store, and its 10 snapshots were
@@ -459,7 +453,7 @@ Later speed work, in order of expected gain:
 1. A background server that keeps warm child processes ready. It
    removes most of the 27 ms start from the edit loop. Built:
    `11-server.md`.
-2. Range-level `--changed`.
+2. Range-level `--changed`. Built (D41).
 
 Worker threads and shared processes are not planned (D34).
 
@@ -487,9 +481,6 @@ Until step 3, the tool's own tests run on `node:test`.
 The user answered the first set of questions (D9 to D14). These
 points are still open, and each one has a step that settles it:
 
-- Source counters on Node in place of V8 snapshots, to get nearer
-  to the 200-file target. The instrumenter exists (D22). The user
-  has not decided this.
 - Hang reports on Bun (step 5).
 - Retention limits for the store, against real project sizes
   (step 2).
