@@ -123,14 +123,21 @@ const KEYWORDS = new Set(
   'as async await break case catch class const continue default do else export extends false finally for from function if import in instanceof interface let new null of return satisfies switch this throw true try type typeof undefined void while'.split(' '),
 )
 const TS = /(\/\/.*|\/\*[^]*?\*\/)|('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\[^])*`)|\b(\d[\d_.]*)\b|([A-Za-z_$][\w$]*)/g
-/** TypeScript with a `span` for each comment, string, number, and keyword. */
-const typescript = (code: string): string => {
+/**
+ * TypeScript with a `span` for each comment, string, number, and
+ * keyword. A name with an `href` from `link` is a link.
+ */
+const typescript = (code: string, link?: (name: string) => string | undefined): string => {
   let html = ''
   let last = 0
   for (const m of code.matchAll(TS)) {
     const kind = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'n' : KEYWORDS.has(m[0]) ? 'k' : ''
     html += escape(code.slice(last, m.index))
-    html += kind ? `<span class="${kind}">${escape(m[0])}</span>` : escape(m[0])
+    const href = kind ? undefined : link?.(m[0])
+    html +=
+      kind ? `<span class="${kind}">${escape(m[0])}</span>`
+      : href ? `<a href="${href}">${escape(m[0])}</a>`
+      : escape(m[0])
     last = m.index + m[0].length
   }
   return html + escape(code.slice(last))
@@ -142,8 +149,8 @@ const terminal = (code: string): string =>
     .replace(/^(pass:)/gm, '<span class="good">$1</span>')
     .replace(/^(\$ )(.*)$/gm, '<span class="c">$1</span><span class="cmd">$2</span>')
 
-const code = (text: string, lang = ''): string =>
-  `<pre class="${lang ? 'lang-' + escape(lang) : 'plain'}"><code>${/^[jt]sx?$/.test(lang) ? typescript(text) : lang ? escape(text) : terminal(text)}</code></pre>\n`
+const code = (text: string, lang = '', link?: (name: string) => string | undefined): string =>
+  `<pre class="${lang ? 'lang-' + escape(lang) : 'plain'}"><code>${/^[jt]sx?$/.test(lang) ? typescript(text, link) : lang ? escape(text) : terminal(text)}</code></pre>\n`
 
 /** The HTML of a markdown source, and its first heading. */
 /** The text of a heading as the first part of its `id`. */
@@ -152,6 +159,7 @@ const headingId = (text: string): string => text.toLowerCase().replace(/[^\w]+/g
 // The documents name a decision by its number: D14. Each number is
 // a link to the heading of the decision.
 const DECISIONS = 'docs/02-decisions.md'
+const API = 'docs/api.md'
 const decisions = new Map<string, string>()
 for (const [, text = '', number = ''] of read(DECISIONS).matchAll(/^## ((D\d+)\..*)$/gm)) decisions.set(number, headingId(text))
 
@@ -161,6 +169,27 @@ const render = (page: Page, markdown: string): { html: string; title: string } =
   let title = ''
   /** True in a heading, and in the text of a link. A number there is not a link. */
   let plain = false
+  // In the API reference, the name of an item of the page, in code,
+  // is a link to the heading of the item: `### \`Name\``. The ids
+  // are the ids that the heading renderer gives.
+  const items = new Map<string, string>()
+  if (page.source === API) {
+    const seen = new Map<string, number>()
+    for (const token of new Marked().lexer(markdown)) {
+      if (token.type !== 'heading' || token.depth === 1) continue
+      const base = headingId(token.text)
+      const count = seen.get(base) ?? 0
+      seen.set(base, count + 1)
+      const name = /^`(\w+)`$/.exec(token.text)?.[1]
+      if (name) items.set(name, count ? `${base}-${count}` : base)
+    }
+  }
+  /** The id of the last heading. The item there does not link to itself. */
+  let current = ''
+  const itemLink = (name: string): string | undefined => {
+    const id = items.get(name)
+    return id && id !== current ? `#${id}` : undefined
+  }
   const marked = new Marked({
     extensions: [
       {
@@ -181,7 +210,7 @@ const render = (page: Page, markdown: string): { html: string; title: string } =
       }
     },
     renderer: {
-      code: ({ text, lang }: Tokens.Code) => code(text, lang),
+      code: ({ text, lang }: Tokens.Code) => code(text, lang, itemLink),
       // A path of the repository, in code text, is a link.
       codespan: ({ text, linked }: Tokens.Codespan & { linked?: boolean }) => {
         const href = linked ? undefined : mention(page, text)
@@ -209,6 +238,7 @@ const render = (page: Page, markdown: string): { html: string; title: string } =
         const count = ids.get(base) ?? 0
         ids.set(base, count + 1)
         const id = count ? `${base}-${count}` : base
+        current = id
         return `<h${depth} id="${id}">${inner}<a class="selflink" href="#${id}" aria-label="Link to this section">#</a></h${depth}>\n`
       },
     },

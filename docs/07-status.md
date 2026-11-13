@@ -179,6 +179,11 @@ All entries are from 2026-11-11 to 2026-11-13.
 - **`npm run test:update`** (D59) writes snapshots. The guides
   suggest the scripts `test` and `test:update`, and `ubq convert`
   changes the tap scripts `snap` and `snapshot` to `test:update`.
+- **Release job.** The `stage` job does not run the tests. The CI
+  workflow runs them, and a maintainer approves the staged version
+  only if CI passed.
+- **API reference links.** On the site, a name in the code of the
+  API reference that is an item of the page links to its heading.
 
 ## Open, waiting for a decision
 

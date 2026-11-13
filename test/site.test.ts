@@ -47,4 +47,14 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   assert(guide.includes('<meta property="og:url" content="https://ubq.dev/guide/">'))
   assert(guide.includes('<meta property="og:image" content="https://ubq.dev/static/logo-1200x630.png">'))
   assert(existsSync(join(dir, 'static/logo-1200x630.png')))
+  // In the API reference, the name of an item of the page, in code,
+  // is a link to its heading. A name and its type differ only in case.
+  const api = readFileSync(join(dir, 'api/index.html'), 'utf8')
+  const section = (id: string): string => api.slice(api.indexOf(`<h3 id="${id}">`), api.indexOf('<h3', api.indexOf(`<h3 id="${id}">`) + 1))
+  assert.match(section('fakeclock'), /=&gt; <a href="#fakeclock-1">FakeClock<\/a>;/)
+  assert.match(section('fakeclock'), /options\?: <a href="#fakeclockoptions">FakeClockOptions<\/a>/)
+  assert.match(section('fakeclock'), /<a href="#spy">spy<\/a>\(\)/)
+  assert.match(section('spy-1'), /calls: <a href="#spycall">SpyCall<\/a>/)
+  // Not the name that the item declares.
+  assert.match(section('fakeclock-1'), /interface<\/span> FakeClock \{/)
 })
