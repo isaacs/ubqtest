@@ -27,6 +27,8 @@ test('flatten gives the count of the innermost range', () => {
     [0, 10, 1, 10, 20, 2, 20, 30, 0, 30, 40, 2, 40, 50, 1, 50, 60, 0, 60, 100, 1],
   )
   assert.deepEqual(flatten([{ ranges: [r(5, 9, 1)] }, { ranges: [r(20, 30, 3)] }]), [5, 9, 1, 20, 30, 3])
+  // Of two ranges with one start, the shorter is inside.
+  assert.deepEqual(flatten([{ ranges: [r(0, 5, 0)] }, { ranges: [r(0, 10, 1)] }]), [0, 5, 0, 5, 10, 1])
 })
 
 test('a run with preload has full coverage', () => {

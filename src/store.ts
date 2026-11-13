@@ -235,7 +235,8 @@ export const openStore = (): Store => {
       const getFailure = db.prepare('select failure from test where run = ? and id = ?')
       const addError = db.prepare('insert into file_error (run, file, failure) values (?, ?, ?)')
       const setCode = db.prepare('update test set code = ? where run = ? and id = ?')
-      const env = (db.prepare(`select ${ENV} as env from run r where r.id = ?`).get(run) as { env: string } | undefined)?.env ?? ''
+      // The run row exists from the start of the run.
+      const env = (db.prepare(`select ${ENV} as env from run r where r.id = ?`).get(run) as { env: string }).env
       // Coverage of a test from a run in a different environment
       // stays, in `other_coverage`. The rows of this environment
       // there are older than this run.

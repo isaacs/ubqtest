@@ -355,7 +355,8 @@ const methods = {
         'snapshot',
         result.message!,
         message,
-        result.diffs && { diffs: result.diffs, more: result.more ?? 0 },
+        // checkSnapshot always sets `more` with `diffs`.
+        result.diffs && { diffs: result.diffs, more: result.more! },
       )
   },
   fail(message: string): never {

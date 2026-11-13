@@ -66,6 +66,35 @@ test('a store that does not open', () => {
   assert.match(plain.stdout, /^note: this run is not stored: /m)
 })
 
+test('the commands that read a run, with a store that has no runs', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'a.test.ts'), PASS)
+  p.ubq('a.test.ts')
+  const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'))
+  db.exec('pragma foreign_keys = off')
+  for (const { name } of db.prepare("select name from sqlite_master where type = 'table'").all() as { name: string }[]) db.exec(`delete from ${name}`)
+  db.close()
+  const errors = ['failures', 'slow', 'diff', 'diff 5'].map(c => p.ubq(...c.split(' '))).map(r => [r.code, r.err])
+  assert.deepEqual(errors, [
+    [4, 'ubq: run (last) is not in the store\n'],
+    [4, 'ubq: run (last) is not in the store\n'],
+    [4, 'ubq: ubq diff needs two runs, and the store has no runs\n'],
+    [4, 'ubq: run 5 is not in the store: the store has no runs\n'],
+  ])
+})
+
+test('a write of bytes, with an encoding and a callback', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('t', async () => {\n  await new Promise(done => process.stdout.write(Buffer.from('bytes\\n'), 'utf8', done))\n  assert(false)\n})\n",
+  )
+  writeFileSync(join(p.dir, 'b.test.ts'), PASS)
+  assert.match(p.ubq('a.test.ts', 'b.test.ts').out, /^  \| bytes$/m)
+})
+
 test('a store of a different version starts again', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))

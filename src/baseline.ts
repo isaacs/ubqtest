@@ -28,6 +28,7 @@ const CLI = fileURLToPath(
 
 const git = (args: string[]): { ok: boolean; out: string; err: string } => {
   const r = spawnSync('git', args, { cwd: projectRoot(), encoding: 'utf8' })
+  // ubq: not measured: the output is null only if git does not start
   return { ok: r.status === 0, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() }
 }
 

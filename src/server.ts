@@ -20,6 +20,7 @@ const POOL = 8
 const IDLE_MS = 30 * 60_000
 
 // The source is `.ts`, and the bundle is `.js`.
+// ubq: not measured: the package test does not start the server
 const WARM = fileURLToPath(new URL(`./warm${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url))
 
 /** Variables that a shell changes, and that no runtime reads when it starts. */

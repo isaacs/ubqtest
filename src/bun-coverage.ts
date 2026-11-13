@@ -141,6 +141,7 @@ export const startBunInspector = (): Collector => {
       const files: Coverage['files'] = []
       const scripts = await new Promise<Script[]>(resolve =>
         session.post('Profiler.takePreciseCoverage', (error, result) =>
+          // ubq: not measured: the inspector gives no error after it starts
           resolve(error ? [] : (result.result as Script[])),
         ),
       )

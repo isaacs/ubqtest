@@ -21,6 +21,7 @@ test('diffEqual says why two values are not the same', () => {
     note: 'first difference at index 50; text shown from index 30',
   })
   assert.deepEqual(diffEqual('a', 'b'), { path: '', actual: "'a'", expected: "'b'" })
+  assert.deepEqual(diffEqual('ab', 'a'), { path: '', actual: "'ab'", expected: "'a'" })
   // A space that is not ASCII, and a character with no width.
   assert.deepEqual(diffEqual('a b', 'a\u00a0b'), { path: '', actual: '"a b"', expected: '"a\\u00a0b"' })
   assert.deepEqual(diffEqual('a\u200bb', 'ab'), { path: '', actual: '"a\\u200bb"', expected: '"ab"' })

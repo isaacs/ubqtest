@@ -114,6 +114,7 @@ const pick = (target: unknown, conditions: Set<string>, star?: string): string |
 
 /** The file of a package for `import 'name/subpath'`, with the conditions that wrangler uses. */
 const findPackage = (specifier: string, from: string, require: boolean): string | undefined => {
+  // ubq: not measured: the callers give only package names
   const [, name, rest = ''] = /^((?:@[^/]+\/)?[^/]+)(\/.*)?$/.exec(specifier) ?? []
   if (!name) return undefined
   let dir: string | undefined
@@ -392,7 +393,9 @@ for (const db of wranglerConfig.d1_databases ?? []) {
 const options = {
   unsafeModuleFallbackService(request: { url: string; headers: { get(name: string): string | null } }) {
     const url = new URL(request.url)
+    // ubq: not measured: workerd always sends rawSpecifier
     const raw = url.searchParams.get('rawSpecifier') ?? ''
+    // ubq: not measured: workerd always sends specifier
     const path = toPath(url.searchParams.get('specifier') ?? '')
     const require = request.headers.get('X-Resolve-Method') === 'require'
     let found: string | undefined
@@ -508,7 +511,8 @@ const handle = async (event: UbqEvent | { type: 'load-error'; text: string }): P
       const mine = counts.get(file)
       // A key with `//` is of the test that started this process.
       // Those counts are a total, which this process writes.
-      if (file.startsWith('//')) mine?.forEach((n, i) => (mine[i] = n + (from[i] ?? 0)))
+      // Both have one count for each region of the file.
+      if (file.startsWith('//')) mine?.forEach((n, i) => (mine[i] = n + from[i]!))
       else mine?.set(from)
     }
     event.files = (await collector.take()) as Coverage['files']

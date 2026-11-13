@@ -114,6 +114,7 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   if (typeof fn !== 'function')
     throw new TypeError(`test ${JSON.stringify(name)} has no function`)
   const at = callSite()
+  // ubq: not measured: a call of test() from a file has a call site
   file ??= FILE || at?.file || rel(process.argv[1] ?? '')
   const id = [file, ...groups.map(g => g.name), name].join(SEPARATOR)
   if (ids.has(id))
@@ -176,6 +177,7 @@ let watchdog: Worker | undefined
 const watch = (message: WatchMessage): void => watchdog?.postMessage(message)
 
 /** The path of the test file. Known after the first `test()` call. */
+// ubq: not measured: argv[1] is the test file in a plain run
 export const currentFile = (): string => file ?? FILE ?? rel(process.argv[1] ?? '')
 
 let started = false
@@ -194,6 +196,7 @@ const start = (): void => {
     watchdog.unref()
   }
   openAtStart = openNow()
+  // ubq: not measured: argv[1] is the test file in a plain run
   file ??= FILE || rel(process.argv[1] ?? '')
   emit({
     type: 'file-start',

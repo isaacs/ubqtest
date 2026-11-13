@@ -456,6 +456,7 @@ try {
   process.exitCode ||= await main(process.argv.slice(2))
 } catch (error) {
   const usage = error instanceof UsageError
+  // ubq: not measured: only a defect in ubq gives a different error
   process.stderr.write(`ubq: ${usage ? error.message : (error as Error).stack}\n`)
   process.exitCode = 4
 }

@@ -19,6 +19,7 @@ export const headCommit = (): string | undefined => {
     const dot = join(dir, '.git')
     if (existsSync(dot)) {
       // In a worktree, `.git` is a file that names the git folder.
+      // ubq: not measured: a `.git` file that exists can be read
       const gitDir =
         statSync(dot).isDirectory() ? dot : resolve(dir, (read(dot) ?? '').replace(/^gitdir: /, ''))
       const head = read(join(gitDir, 'HEAD'))

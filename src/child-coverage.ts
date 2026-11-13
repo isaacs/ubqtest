@@ -30,6 +30,7 @@ const PRELOAD = new URL(import.meta.url.endsWith('.ts') ? './child-preload.ts' :
 type Scope = [root: string, dir: string]
 const scopes = (text = process.env[ENV]): Scope[] => {
   try {
+    // ubq: not measured: ubq sets this for each test process
     return JSON.parse(text || '[]') as Scope[]
   } catch {
     return []
@@ -42,10 +43,12 @@ const withPreload = (env: Env): void => {
   // One copy of the module is enough. A second copy of ubq can be
   // above this process: the built package runs the tests of the
   // source.
+  // ubq: not measured: ubq sets NODE_OPTIONS for each test process
   if (!MODULE.test(env.NODE_OPTIONS ?? '')) env.NODE_OPTIONS = `${env.NODE_OPTIONS ? env.NODE_OPTIONS + ' ' : ''}--import ${PRELOAD.href}`
   // The options of Bun have no form for a path with a space, and
   // they read `\` as the start of an escape.
   const path = fileURLToPath(PRELOAD).split(sep).join('/')
+  // ubq: not measured: ubq sets BUN_OPTIONS for each test process
   if (!/\s/.test(path) && !MODULE.test(env.BUN_OPTIONS ?? '')) env.BUN_OPTIONS = `${env.BUN_OPTIONS ? env.BUN_OPTIONS + ' ' : ''}--preload ${path}`
 }
 /** The preload module of some copy of ubq, in the options of a runtime. */

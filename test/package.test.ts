@@ -2,7 +2,7 @@
 // installs it: as a plain program on each runtime, through the
 // `ubq` command, and for the type checker.
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -109,6 +109,15 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
       '1 uncovered ranges in 1 of the 1 files that tests ran',
     ])
   })
+
+test('ubq skill and ubq convert from the package', () => {
+  const ubq = join(built, 'cli.js')
+  assert.deepEqual(sh('node', ubq, 'skill', '.agent/skills').lines, ['wrote .agent/skills/use-ubq/SKILL.md'])
+  assert.equal(readFileSync(join(dir, '.agent/skills/use-ubq/SKILL.md'), 'utf8'), readFileSync(join(root, 'skills/use-ubq/SKILL.md'), 'utf8'))
+  writeFileSync(join(dir, 'v.test.ts'), "import { expect, test } from 'vitest'\ntest('x', () => expect(1).toBe(1))\n")
+  cleanup(() => remove(join(dir, 'v.test.ts')))
+  assert.equal(sh('node', ubq, 'convert', '--dry', 'v.test.ts').lines[0], 'converted v.test.ts (vitest): 2 changes, 0 TODO')
+})
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
   test(`the tests of a Worker in workerd, with the ubq command on ${cmd}`, { skip: has(cmd), timeout: 120_000 }, () => {

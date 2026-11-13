@@ -37,6 +37,7 @@ export const startBrowserServer = async (files: string[]): Promise<number | unde
   // The server must not keep the runner open.
   child.unref()
   let exit: number | null | undefined
+  // ubq: not measured: the code is null only after a signal
   child.on('exit', code => (exit = code ?? 1))
   const end = Date.now() + START_MS
   while (!(await answers(url))) {

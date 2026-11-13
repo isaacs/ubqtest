@@ -33,7 +33,8 @@ interface V8Script {
 export const sourceCoverage = (sources: SourceRegions[], counts: ArrayLike<number>, seen: Set<string>): Coverage['files'] => {
   const files: Coverage['files'] = []
   for (const source of sources) {
-    const own = Uint32Array.from(source.counters, list => list.reduce((sum, i) => sum + (counts[i] ?? 0), 0))
+    // Each index is a counter of the built file.
+    const own = Uint32Array.from(source.counters, list => list.reduce((sum, i) => sum + counts[i]!, 0))
     // Region 0 is the module, which ran if the built file ran. Code
     // of this source ran if a different region did.
     if (!own.some((n, i) => i > 0 && n > 0) && seen.has(source.file)) continue
@@ -157,6 +158,7 @@ export const startCoverage = (early = false): Collector | undefined => {
   const take = (): Promise<V8Script[]> =>
     new Promise((resolve, reject) =>
       session.post('Profiler.takePreciseCoverage', (error, result) =>
+        // ubq: not measured: the inspector gives no error after it starts
         error ? reject(error) : resolve(result.result),
       ),
     )

@@ -43,6 +43,7 @@ export const pageCoverage = (scripts: Script[], base: string): Coverage['files']
       if (inlineMap(script.source)?.sources?.length !== 1) continue
       // The widest range is first: it is the script, and it becomes
       // the file.
+      // ubq: not measured: test files have no two ranges with one start
       const made = functions.flatMap(f => f.ranges).sort((a, b) => a.startOffset - b.startOffset || b.endOffset - a.endOffset)
       const regions = sourceRegions(
         made.map(r => ({ start: r.startOffset, end: r.endOffset, fn: true, parent: -1 })),
