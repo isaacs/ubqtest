@@ -243,6 +243,31 @@ test('--baseline shows only the failures that the commit does not have', () => {
   assert.deepEqual(err('--baseline'), [4, 'ubq: --baseline needs a git commit, such as: ubq --baseline HEAD\n'])
   assert.deepEqual(err('--baseline', 'HEAD', '--failed'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
   assert.deepEqual(err('--baseline', 'HEAD', '--repeat', '2'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
+
+  // A file error in the commit and in the working tree. With packed
+  // refs, the run reads the commit from the file of packed refs.
+  writeFileSync(join(p.dir, 'broken.test.ts'), "throw new Error('at load')\n")
+  git('add', '-A')
+  git('commit', '-q', '-m', 'broken')
+  git('pack-refs', '--all')
+  const broken = p.ubq('--baseline', 'HEAD', 'broken.test.ts')
+  assert.deepEqual(lines(broken.out).slice(-4).map(l => l.replace(/\(\w{7}\)/, '(COMMIT)').replace(/ \(run \d+\)$/, '')), [
+    'baseline HEAD (COMMIT): 0 new failures, 1 failed in the baseline too, 0 fixed',
+    "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
+    '  ERROR broken.test.ts',
+    'fail: 1 errors, 0 failed, 0 passed',
+  ])
+  const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: p.dir, encoding: 'utf8' }).stdout.trim()
+  p.ubq('two.test.ts')
+  assert.match(p.ubq('history', 'two.test.ts > square').out, new RegExp(`  ${commit.slice(0, 7)}  fail `))
+
+  // A commit with a wrong config: its run does not work.
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', ubq: { nope: 1 } }))
+  git('commit', '-q', '-am', 'wrong config')
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module' }))
+  const wrong = p.ubq('--baseline', 'HEAD', 'two.test.ts')
+  assert.equal(wrong.code, 4)
+  assert.match(wrong.err, /^ubq: the run of the baseline HEAD did not work \(exit code 4\):\nubq: /)
   rmSync(p.dir, { recursive: true })
 })
 

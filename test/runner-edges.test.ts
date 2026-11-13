@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { assert, cleanup, test } from 'ubqtest'
 import { cli, project } from './setup.ts'
 
@@ -61,6 +62,18 @@ test('a store that does not open', () => {
   assert.match(r.out, /^note: this run is not stored: /m)
 })
 
+test('a store of a different version starts again', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'a.test.ts'), PASS)
+  p.ubq('a.test.ts')
+  assert.match(p.ubq('a.test.ts').out, / \(run 2\)\n$/)
+  const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'))
+  db.exec('pragma user_version = 1')
+  db.close()
+  assert.match(p.ubq('a.test.ts').out, / \(run 1\)\n$/)
+})
+
 for (const [signal, exit] of [['SIGTERM', 143], ['SIGINT', 130]] as const)
   test(`${signal} ends the run`, { skip: process.platform === 'win32' && 'no signals on Windows' }, async () => {
     const p = project()
@@ -73,7 +86,8 @@ for (const [signal, exit] of [['SIGTERM', 143], ['SIGINT', 130]] as const)
     const child = spawn('node', [cli, 'a.test.ts', 'b.test.ts'], { cwd: p.dir, env: { ...process.env, CI: '' } })
     const closed = new Promise(r => child.on('close', r))
     while (!existsSync(join(p.dir, 'started'))) await new Promise(r => setTimeout(r, 20))
-    child.kill(signal)
+    // Deno gives `close` no exit code after `child.kill()`.
+    process.kill(child.pid!, signal)
     assert.equal(await closed, exit)
     // The store has the run, with no end.
     const failures = p.ubq('failures')
