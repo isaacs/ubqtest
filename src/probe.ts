@@ -5,9 +5,9 @@ import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Location } from './events.ts'
 
-// The source and the build of ubq. In the repository of ubq, a test
-// process can load the code of both.
-const OWN = ['src', 'dist'].map(dir => join(import.meta.dirname, '..', dir) + sep)
+// The folder of this code, and the source and the build of ubq. In
+// the repository of ubq, a test process can load the code of both.
+const OWN = [import.meta.dirname, join(import.meta.dirname, '../src'), join(import.meta.dirname, '../dist')].map(dir => dir + sep)
 
 /** Time after the limit of a test before a watchdog acts. */
 export const GRACE_MS = 2000
