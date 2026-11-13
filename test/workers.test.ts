@@ -1,6 +1,6 @@
 // Tests of a Cloudflare Worker, in workerd (D48).
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -191,4 +191,139 @@ test('an alias and packages', () => {
 `,
   )
   assert.deepEqual(p.ubq('test/env.test.ts'), { code: 0, out: ['pass: 0 failed, 3 passed'], err: '' })
+})
+
+test('modules in workerd: each form of a package, and files that are not code', slow, () => {
+  const p = project()
+  const dep = (name: string, files: Record<string, string>): void => {
+    for (const [file, text] of Object.entries(files)) {
+      const path = join(p.dir, 'node_modules', name, file)
+      mkdirSync(join(path, '..'), { recursive: true })
+      writeFileSync(path, text)
+    }
+  }
+  // `exports` with conditions, a list, and patterns.
+  dep('conditions', {
+    'package.json': JSON.stringify({
+      type: 'module',
+      exports: {
+        '.': { workerd: './workerd.js', default: './default.js' },
+        './list': [{ node: './node.js' }, './list.js'],
+        './features/*': './features/*.js',
+        './deep/*.js': { import: './deep/*.mjs' },
+      },
+    }),
+    'workerd.js': "export const which = 'workerd'\n",
+    'default.js': "export const which = 'default'\n",
+    'list.js': "export const list = 'list'\n",
+    'features/one.js': "export const feature = 'one'\n",
+    'deep/two.mjs': "export const deep = 'two'\n",
+  })
+  // `exports` as one path, to a TypeScript file.
+  dep('typed', { 'package.json': '{ "type": "module", "exports": "./index.ts" }', 'index.ts': "export const typed = (n: number): number => n + 1\n" })
+  // No `exports`: `module` for an import, `main` for a require, and a path in the package.
+  dep('fields', {
+    'package.json': '{ "module": "./esm.js", "main": "./cjs.js" }',
+    'esm.js': "export const field = 'module'\n",
+    'cjs.js': "exports.field = 'main'\n",
+    'lib/part.js': "exports.part = 'part'\n",
+  })
+  // No fields: `index.js`. It gives the exports of a second file, and names that are not names of JavaScript.
+  dep('plain', {
+    'package.json': '{}',
+    'index.js': "module.exports = require('./impl.js')\n",
+    'impl.js': "exports.plain = require('fields').field\nexports['not-a-name'] = 1\nexports.class = 2\nexports.default = 3\n",
+  })
+  writeFileSync(join(p.dir, 'test/data.json'), '{ "n": 1 }')
+  writeFileSync(join(p.dir, 'test/query.sql'), 'select 1')
+  writeFileSync(join(p.dir, 'test/old.cjs'), "exports.old = 'cjs'\n")
+  writeFileSync(join(p.dir, 'test/view.jsx'), 'export const View = () => <b>x</b>\n')
+  writeFileSync(
+    join(p.dir, 'test/modules.test.ts'),
+    `import { which } from 'conditions'
+import { list } from 'conditions/list'
+import { feature } from 'conditions/features/one'
+import { deep } from 'conditions/deep/two.js'
+import { typed } from 'typed'
+import { field } from 'fields'
+import { part } from 'fields/lib/part'
+import whole, { plain } from 'plain'
+import { assert, test } from 'ubqtest'
+import data from './data.json'
+import { old } from './old.cjs'
+import query from './query.sql'
+
+test('packages', () => {
+  assert.deepEqual([which, list, feature, deep, typed(1), field, part, plain], ['workerd', 'list', 'one', 'two', 2, 'module', 'part', 'main'])
+  // The names of a CommonJS file that are not names of JavaScript are on the default export.
+  assert.deepEqual([whole['not-a-name'], whole.class, whole.default], [1, 2, 3])
+})
+test('files that are not code', () => {
+  assert.deepEqual([data, query, old], [{ n: 1 }, 'select 1', 'cjs'])
+})
+test('a JSX file, and a file that is not there', async () => {
+  await assert.rejects(import('./view.jsx'), /ubq cannot run a JSX file in the Workers runtime/)
+  await assert.rejects(import('./no-such-file.js'), /No such module/)
+  await assert.rejects(import('no-such-package'), /No such module/)
+})
+`,
+  )
+  assert.deepEqual(p.ubq('test/modules.test.ts'), { code: 0, out: ['pass: 0 failed, 3 passed'], err: '' })
+})
+
+test('a wrangler config with few keys, and errors of the setup', slow, () => {
+  const p = project()
+  const config = (value: unknown): void => writeFileSync(join(p.dir, 'small.jsonc'), JSON.stringify(value))
+  const configure = (): void =>
+    writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', ubq: { workers: [{ config: 'small.jsonc', include: ['small/*.test.ts'] }] } }))
+  configure()
+  mkdirSync(join(p.dir, 'small'))
+  mkdirSync(join(p.dir, 'node_modules/pkg'))
+  writeFileSync(join(p.dir, 'node_modules/pkg/package.json'), '{ "type": "module", "exports": "./index.js" }')
+  writeFileSync(join(p.dir, 'node_modules/pkg/index.js'), "export const pkg = 'pkg'\n")
+  writeFileSync(
+    join(p.dir, 'small/small.test.ts'),
+    `import { env } from 'cloudflare:workers'
+import { pkg } from 'other-name'
+import { assert, test } from 'ubqtest'
+import { migrate } from 'ubqtest/workers'
+
+const e = env as unknown as { SELF: { fetch(url: string): Promise<Response> } }
+test('a config with no name, no main, and no vars', async () => {
+  assert.equal(pkg, 'pkg')
+  // A D1 database with no folder of migrations.
+  await migrate('DB')
+  await assert.rejects(migrate('NOPE'), /no D1 database with the binding "NOPE"/)
+  // A service binding to this Worker is not replaced.
+  assert.equal(typeof e.SELF.fetch, 'function')
+})
+`,
+  )
+  // No name, no main, no vars. An alias to a package. A service binding to the Worker itself.
+  config({
+    compatibility_date: '2026-07-01',
+    alias: { 'other-name': 'pkg' },
+    d1_databases: [{ binding: 'DB', database_name: 'd', database_id: '00000000-0000-0000-0000-000000000000' }],
+    services: [{ binding: 'SELF', service: 'ubq' }],
+  })
+  assert.deepEqual(p.ubq('small/small.test.ts'), { code: 0, out: ['pass: 0 failed, 1 passed'], err: '' })
+
+  // The main module of the Worker throws a value that is not an error.
+  writeFileSync(join(p.dir, 'small/main.ts'), "throw 'not an error'\n")
+  config({ compatibility_date: '2026-07-01', main: 'small/main.ts', alias: { 'other-name': 'pkg' } })
+  assert.deepEqual(p.ubq('small/small.test.ts').out.slice(0, 2), ['ERROR small/small.test.ts', '  the test file did not load: not an error'])
+
+  // A config that wrangler refuses.
+  config({ compatibility_date: 1 })
+  assert.match(p.ubq('small/small.test.ts').out[1]!, /^  the test file did not load: wrangler cannot read small\.jsonc\. /)
+
+  // A project with no wrangler.
+  // The link is a junction on Windows, which is a folder: `rmSync` of Node 24.11 does not remove it.
+  const link = join(p.dir, 'node_modules/wrangler')
+  if (process.platform === 'win32') rmdirSync(link)
+  else rmSync(link)
+  assert.deepEqual(p.ubq('small/small.test.ts').out.slice(0, 2), [
+    'ERROR small/small.test.ts',
+    '  the test file did not load: this test file runs in the Workers runtime, and the project does not have wrangler. Run: npm install --save-dev wrangler',
+  ])
 })

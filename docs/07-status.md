@@ -1248,7 +1248,14 @@ checked results as tests.
   `?? ''`). They wait for the comment that marks code as not
   measured, or for removal.
 
-A local run counts only Node, and it had 486 ranges after this
-work. The next files: `src/workers-host.ts` (54), `src/test.ts`
-(33), `src/runner.ts` (33), `src/cli.ts` (26).
+- `src/workers-host.ts`: 54 ranges, now 31. Two tests in
+  `test/workers.test.ts`: each form of a package (conditions, a
+  list, patterns, `module` and `main`, a CommonJS file that gives
+  the exports of a second file, JSON, text, JSX, a file that is
+  not there), and a wrangler config with few keys with the errors
+  of the setup.
+
+A local run counts only Node, and it had 465 ranges after this
+work. The next files: `src/test.ts` (33), `src/runner.ts` (33),
+`src/cli.ts` (26), `src/vitest-config.ts` (20).
 
