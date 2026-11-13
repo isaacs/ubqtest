@@ -88,7 +88,7 @@ const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'co
 
 const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
-  if (command === 'help' || command === '--help') {
+  if (command === 'help' || command === '--help' || command === '-h') {
     out(USAGE.trimEnd())
     return 0
   }
