@@ -17,7 +17,10 @@ const project = () => {
   cpSync(`${fixtures}workers`, dir, { recursive: true })
   writeFileSync(
     join(dir, 'package.json'),
-    JSON.stringify({ type: 'module', ubq: { workers: [{ config: 'wrangler.jsonc', include: ['test/**/*.test.ts'] }] } }),
+    JSON.stringify({
+      type: 'module',
+      ubq: { workers: [{ config: 'wrangler.jsonc', include: ['test/**/*.test.ts'], vars: { MODE: 'test', EXTRA: { a: 1 } } }] },
+    }),
   )
   mkdirSync(join(dir, 'node_modules'))
   symlinkSync(root, join(dir, 'node_modules/ubqtest'), 'junction')
@@ -107,9 +110,74 @@ test('a test that blocks the thread of workerd, and a source file with an error'
     'FAIL test/stuck.test.ts > a loop',
     '  the test did not end in 200 ms, and the process does not respond. The code is in a loop that does not return.',
   ])
+  // A module that the test file imports cannot do I/O when it loads.
+  writeFileSync(join(p.dir, 'test/setup.ts'), "import { migrate } from 'ubqtest/workers'\nawait migrate('DB')\nexport const ready = true\n")
+  writeFileSync(
+    join(p.dir, 'test/setup.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { ready } from './setup.ts'\ntest('ready', () => assert(ready))\n",
+  )
+  assert.deepEqual(p.ubq('test/setup.test.ts').out.slice(0, 4), [
+    'ERROR test/setup.test.ts',
+    '  the test file did not load: a module did I/O while it loaded (a query, a fetch, a timer, or a random value). workerd permits that only in the test file itself, not in a module that it imports. Put the work in a function that the module exports, and await that function at the top level of the test file.',
+    '  at test/setup.ts:2:7',
+    "  > await migrate('DB')",
+  ])
   writeFileSync(join(p.dir, 'src/text.ts'), 'export const shout = (\n')
   assert.deepEqual(p.ubq('test/worker.test.ts').out.slice(0, 2), [
     'ERROR test/worker.test.ts',
     '  the test file did not load: Expression expected',
   ])
+})
+
+test('test values for vars, a service that is absent, an alias, and a CommonJS package', slow, () => {
+  const p = project()
+  // The file of `wrangler dev` for secrets. A test must not get them.
+  writeFileSync(join(p.dir, '.dev.vars'), 'GREETING=secret\nAPI_KEY=real-key\n')
+  // An ES module package that imports a name from a CommonJS package.
+  const dep = (name: string, files: Record<string, string>): void => {
+    mkdirSync(join(p.dir, 'node_modules', name, 'lib'), { recursive: true })
+    for (const [file, text] of Object.entries(files)) writeFileSync(join(p.dir, 'node_modules', name, file), text)
+  }
+  dep('cjs-dep', {
+    'package.json': '{ "name": "cjs-dep", "main": "index.js" }',
+    'index.js': `"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const util_1 = require("./lib/util");
+const data = require("./data.json");
+class Webhook { sign(text) { return (0, util_1.wrap)(text) + data.mark; } }
+exports.Webhook = Webhook;
+exports.version = '1';
+`,
+    'lib/util.js': 'exports.wrap = text => `[${text}]`;\n',
+    'data.json': '{ "mark": "!" }',
+  })
+  dep('esm-dep', {
+    'package.json': '{ "name": "esm-dep", "type": "module", "exports": "./index.mjs" }',
+    'index.mjs': "import { Webhook } from 'cjs-dep'\nimport whole from 'cjs-dep'\nexport const sign = text => new Webhook().sign(text) + whole.version\n",
+  })
+  writeFileSync(
+    join(p.dir, 'test/env.test.ts'),
+    `import { env } from 'cloudflare:workers'
+import { aliased } from 'aliased'
+import { version } from 'cjs-dep'
+import { sign } from 'esm-dep'
+import { assert, test } from 'ubqtest'
+
+const e = env as unknown as Record<string, unknown> & { OTHER: { fetch(url: string): Promise<Response> } }
+test('vars', () => {
+  assert.deepEqual([e.GREETING, e.MODE, e.EXTRA, e.API_KEY], ['hello', 'test', { a: 1 }, undefined])
+})
+test('a service that is not part of the run', async () => {
+  const response = await e.OTHER.fetch('http://x/')
+  assert.deepEqual(
+    [response.status, await response.text()],
+    [503, 'ubq: the service "other-worker" of the binding OTHER is not part of this test run'],
+  )
+})
+test('an alias and packages', () => {
+  assert.deepEqual([aliased, sign('a'), version], ['yes', '[a]!1', '1'])
+})
+`,
+  )
+  assert.deepEqual(p.ubq('test/env.test.ts'), { code: 0, out: ['pass: 0 failed, 3 passed'], err: '' })
 })

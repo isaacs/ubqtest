@@ -3,7 +3,10 @@
   "name": "ubq-fixture",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-01",
-  "vars": { "GREETING": "hello" },
+  "vars": { "GREETING": "hello", "MODE": "config" },
+  "alias": { "aliased": "./test/aliased.ts" },
+  // A Worker that is not part of a test run.
+  "services": [{ "binding": "OTHER", "service": "other-worker" }],
   "d1_databases": [
     { "binding": "DB", "database_name": "notes", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" },
   ],

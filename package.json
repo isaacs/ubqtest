@@ -35,6 +35,7 @@
     "@sveltejs/acorn-typescript": "^1.0.13",
     "@types/node": "^26.6.6",
     "acorn": "^8.19.0",
+    "cjs-module-lexer": "^2.3.0",
     "esbuild": "^0.28.2",
     "marked": "^18.2.0",
     "playwright-core": "^1.65.0",

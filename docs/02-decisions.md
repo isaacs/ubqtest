@@ -817,7 +817,22 @@ no `preload` key, and a first version with known limits.
   file, adds the source counters, and removes the types. It finds
   files as a bundler does (`./a` and `./a.js` for `a.ts`), and
   packages with the conditions `workerd`, `worker`, `browser`.
-  There is no bundle step.
+  The `alias` key of the wrangler config applies. There is no
+  bundle step.
+- **A CommonJS file is two modules.** workerd gives a CommonJS
+  module only a default export, and many ES module packages import
+  names from a CommonJS package (`13-agent-feedback-0.0.4.md`,
+  item 1). `import` of the file gets an ES module with the named
+  exports, which `cjs-module-lexer` finds as Node does. That
+  module imports the file itself, which has a second name
+  (`<path>.ubq.cjs`). `require` gets the file itself. The default
+  export is `module.exports`, as on Node.
+- **Vars:** the `vars` of the wrangler config, then `vars` of the
+  `workers` entry. Not `.dev.vars` and not `.env`: wrangler reads
+  them for `wrangler dev`, and they can have real secrets.
+- **A service binding to a Worker that is not in the run** gets a
+  function that answers 503. With no such function, workerd does
+  not start.
 - **The main module of the Worker** is an export of the module
   that workerd starts, so the classes that the config names
   (Durable Objects, Workflows) exist.
@@ -848,8 +863,12 @@ no `preload` key, and a first version with known limits.
 gaps): `testdir`, `mockImport`, and `assert.snapshot` throw in
 workerd. A timeout has no list of open things and no hang rerun.
 A stuck test has no stack. No JSX files. A CommonJS package gives
-only its default export. No `SELF` fetcher, and no storage for
-each test. `fakeClock` does not replace the names of
+only its default export (corrected after the first report: see
+"A CommonJS file is two modules"). No `SELF` fetcher, and no
+storage for each test. A module that the test file imports
+cannot do I/O when it loads: workerd does not permit it, also
+after an `await` and also for a promise that the request
+resolves. `fakeClock` does not replace the names of
 `node:timers`.
 
 **Reason.** The report in `12-agent-feedback-0.0.3.md`: a Workers

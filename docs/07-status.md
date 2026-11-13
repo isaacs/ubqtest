@@ -1020,11 +1020,50 @@ Known gaps, for future work:
 - A `SELF` fetcher: a request that goes through the runtime to
   the handler of the Worker.
 - Storage for each test, not for each file.
-- JSX files, and named imports from a CommonJS package.
+- JSX files.
 - Test values for bindings that are not in the wrangler config
   (`miniflare.bindings` of the vitest plugin).
 - Other helpers of `cloudflare:test`: queues, Durable Object
   internals, Workflows.
 - `fakeClock` for names imported from `node:timers`.
 - The background server does not keep workerd processes ready.
+
+## Second report from the Workers project (2026-11-13)
+
+`13-agent-feedback-0.0.4.md`: one of the two Workers converted
+(163 tests pass in workerd). The other did not load. Done from
+the report:
+
+- A CommonJS package gives its named exports. A test file that
+  imports `@anthropic-ai/sdk` and Hono loads (checked by hand).
+  This was the one thing that stopped the project.
+- A test does not get `.dev.vars` or `.env`. The `workers` entry
+  has `vars` for test values.
+- A service binding to a Worker that is not in the run gets a
+  stand-in. If workerd does not start, the report has the reason
+  that workerd gave.
+- The `alias` key of the wrangler config applies.
+- A run of one Workers test file did not go to workerd if the file
+  loaded on Node: the runner loads one file in its own process.
+  Corrected.
+- I/O at the top level of a module that the test file imports:
+  not possible in workerd (two trials). The error now says what
+  to do, and the guides say it.
+- `ubq convert`: `not.toMatch(/re/)` converts (it stopped the
+  whole file before), `expect.stringContaining('text')` becomes a
+  RegExp, the other `expect.*` matchers get a TODO, `toContain`
+  becomes `?.includes`, and `toThrow(value)` gets a TODO. The
+  summary line counts the files that did not convert.
+
+Not done:
+
+- Type errors in a run of a selection, and a second
+  `tsconfig.json`: Q11.
+- `ubq show '<test id>'` for a test whose file did not load says
+  "no stored result". It could name the error of the file.
+- The output of a test that passes shows only in `ubq show`.
+- A sentence in the output of `ubq convert` for a helper of the
+  project that returns a restore function.
+- A call of a method (RPC) on the stand-in of a service throws
+  "internal error", with no name of the service.
 

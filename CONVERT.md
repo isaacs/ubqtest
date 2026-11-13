@@ -277,11 +277,16 @@ Things to check by hand:
 
   ubq has no `SELF`, `fetchMock`, `runInDurableObject`, or the
   other names: write the test without them. Values that the
-  vitest config gave to the tests (`miniflare.bindings`) must
-  come from the wrangler config, or from the test file.
+  vitest config gave to the tests (`miniflare.bindings`) go in
+  `vars` of the `workers` entry in the ubq configuration.
   The plugin gave each test its own storage. ubq gives each
   test file its own storage. A setup file of the vitest config
-  (`setupFiles`) becomes a module that each test file imports.
+  (`setupFiles`) becomes a module that exports a function, and
+  each test file awaits that function at its top level. The
+  module cannot do the work when it loads: workerd permits I/O
+  at the top level only in the test file itself. For D1
+  migrations, the line is `await migrate('DB')` in each test
+  file.
 
 ## mocha
 
@@ -361,6 +366,7 @@ Find the kind of the failure before you change a line.
 | `the test file did not load` | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source". |
 | `the file registered no tests` | The file is a helper, not a test file. | Put it in `"exclude"`. |
 | a `TYPE` block | The type checker runs with each run. | Correct the type. A mock must have the types of the real export. |
+| a `TYPE` block at a converted assertion | `expect()` took a value of each type. `assert` is strict: the actual value cannot be `undefined` where a method is called on it, and the expected value must have the type of the actual value. | Add `!` or `?.` to the actual value, or narrow it first with `assert(value)`. If the two types differ on purpose, write `assert.deepEqual<unknown>(a, b)`. |
 
 A test that fails in ubq for one of the first six causes was not
 correct before: it passed for the wrong reason. Correct the test.

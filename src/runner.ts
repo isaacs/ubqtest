@@ -683,7 +683,8 @@ export const run = async (args: string[]): Promise<number> => {
   }
 
   // Each run of a TypeScript project also checks the types (D38).
-  const lone = files.length === 1 && !repeat && !baselineRef
+  // A Workers test file cannot load in this process.
+  const lone = files.length === 1 && !repeat && !baselineRef && !workersConfig(files[0]!.file)
   const checking = typeCheck(lone)
 
   // One file runs in this process. It has the runner role for itself.

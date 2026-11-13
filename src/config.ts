@@ -19,7 +19,7 @@ export interface Config {
   /** The server of the pages for `ubqtest/browser` (D45). */
   browser?: { url: string; command?: string }
   /** Test files that run in workerd, each group with its wrangler config (D48). */
-  workers?: { config: string; include: string[] }[]
+  workers?: { config: string; include: string[]; vars?: Record<string, unknown> }[]
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -41,8 +41,9 @@ const workers = (v: unknown): boolean =>
   v.length > 0 &&
   v.every(entry => {
     if (typeof entry !== 'object' || !entry || Array.isArray(entry)) return false
-    const { config, include, ...more } = entry as Record<string, unknown>
-    return typeof config === 'string' && !!config && globs(include) && !Object.keys(more).length
+    const { config, include, vars, ...more } = entry as Record<string, unknown>
+    const object = vars === undefined || (typeof vars === 'object' && !!vars && !Array.isArray(vars))
+    return typeof config === 'string' && !!config && globs(include) && object && !Object.keys(more).length
   })
 
 const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]> = {
@@ -52,7 +53,7 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   hangRerun: [v => typeof v === 'boolean', 'true or false'],
   bunInspectorCoverage: [v => typeof v === 'boolean', 'true or false'],
   browser: [browser, 'an object with "url", and "command" if ubq must start the server, such as { "url": "http://localhost:5173", "command": "npm run dev" }'],
-  workers: [workers, 'a list of objects with "config" and "include", such as [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }]'],
+  workers: [workers, 'a list of objects with "config" and "include", and "vars" for test values, such as [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }]'],
 }
 
 let cached: Config | undefined

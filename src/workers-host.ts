@@ -6,7 +6,8 @@
 import { existsSync, openSync, readdirSync, readFileSync, statSync, writeSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { dirname, join, resolve, sep } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
+import { init, parse as parseCommonJs } from 'cjs-module-lexer'
 import { config } from './config.ts'
 import { startCounters } from './counter-collector.ts'
 import { COLUMN, COUNTERS } from './counters.ts'
@@ -35,9 +36,13 @@ interface Wrangler {
   unstable_getMiniflareWorkerOptions(config: string): {
     workerOptions: { name?: string; compatibilityFlags?: string[] } & Record<string, unknown>
     main?: string
-    externalWorkers?: unknown[]
+    externalWorkers?: { name?: string }[]
   }
-  unstable_readConfig(args: { config: string }): { d1_databases?: { binding: string; migrations_dir?: string }[] }
+  unstable_readConfig(args: { config: string }): {
+    d1_databases?: { binding: string; migrations_dir?: string }[]
+    vars?: Record<string, unknown>
+    alias?: Record<string, string>
+  }
   unstable_splitSqlQuery(sql: string): string[]
 }
 
@@ -148,10 +153,16 @@ const findPackage = (specifier: string, from: string, require: boolean): string 
   return findFile(join(dir, 'index.js'))
 }
 
-/** True for a file that is CommonJS: its name says so, or its package does. */
+/**
+ * True for a file that is CommonJS: its name says so, or its
+ * package does and its text has no `import` or `export` statement.
+ * Many packages with no `type` have ES modules in `.js` files, for
+ * bundlers.
+ */
 const commonJs = (path: string): boolean => {
   if (/\.c[jt]s$/.test(path)) return true
   if (!/\.js$/.test(path) || !path.includes(`${sep}node_modules${sep}`)) return false
+  if (/^\s*(import|export)\b\s*["'{*\w]/m.test(readFileSync(path, 'utf8'))) return false
   for (let at = dirname(path); at !== dirname(at); at = dirname(at)) {
     try {
       return (JSON.parse(readFileSync(join(at, 'package.json'), 'utf8')) as { type?: string }).type !== 'module'
@@ -161,6 +172,50 @@ const commonJs = (path: string): boolean => {
   }
   return true
 }
+
+// --- CommonJS ---
+
+// workerd gives a CommonJS module only a default export. Node, and
+// the bundle that wrangler makes, also give the names that the
+// module sets on `exports`. So a CommonJS file has two modules
+// here: the file itself, with this text after its name, and an ES
+// module at the name of the file, which has the named exports.
+const CJS = '.ubq.cjs'
+
+await init()
+const exportNames = new Map<string, Set<string>>()
+/** The names that a CommonJS file exports, as Node finds them. */
+const namesOf = (path: string): Set<string> => {
+  let names = exportNames.get(path)
+  if (names) return names
+  exportNames.set(path, (names = new Set()))
+  try {
+    const { exports, reexports } = parseCommonJs(readFileSync(path, 'utf8'))
+    for (const name of exports) names.add(name)
+    // module.exports = require('./other')
+    for (const specifier of reexports) {
+      const other = /^\.\.?\//.test(specifier) ? findFile(resolve(dirname(path), specifier)) : findPackage(specifier, dirname(path), true)
+      if (other && commonJs(other)) for (const name of namesOf(other)) names.add(name)
+    }
+  } catch {
+    // Text that the lexer cannot read: the default export only.
+  }
+  return names
+}
+
+/** The ES module for `import` of a CommonJS file. */
+const facade = (path: string): string => {
+  const names = [...namesOf(path)].filter(name => name !== 'default' && /^[A-Za-z_$][\w$]*$/.test(name) && !RESERVED.has(name))
+  return (
+    `import cjs from ${JSON.stringify('/' + toName(path) + CJS)}\nexport default cjs\n` +
+    (names.length ? `export const { ${names.join(', ')} } = cjs\n` : '')
+  )
+}
+const RESERVED = new Set(
+  'await break case catch class const continue debugger delete do else enum export extends false finally for function if implements import in instanceof interface let new null package private protected public return static super switch this throw true try typeof var void while with yield'.split(
+    ' ',
+  ),
+)
 
 // --- The text of modules ---
 
@@ -220,7 +275,7 @@ const moduleOf = (path: string): Record<string, unknown> => {
     if (ts && !changed?.js) code = strip(code)
     if (path === file && changed && changed.imports >= 0) code = inFunction(code, changed.imports)
   } else if (ts) code = strip(source)
-  return commonJs(path) ? { name, commonJsModule: code } : { name, esModule: code }
+  return commonJs(path) ? { name, esModule: facade(path) } : { name, esModule: code }
 }
 
 // --- workerd ---
@@ -239,14 +294,42 @@ try {
   stop('this test file runs in the Workers runtime, and the project does not have wrangler. Run: npm install --save-dev wrangler')
 }
 
+// wrangler prints which files it read. That text is not output of
+// the tests.
+const log = console.log
+console.log = () => {}
 const { workerOptions, main, externalWorkers = [] } = wrangler.unstable_getMiniflareWorkerOptions(configPath)
+const wranglerConfig = wrangler.unstable_readConfig({ config: configPath })
+console.log = log
+const name = workerOptions.name ?? 'ubq'
+
+// wrangler adds the values of `.dev.vars` and `.env`, for `wrangler
+// dev`. Those can be real secrets. A test gets the `vars` of the
+// wrangler config, then the `vars` of the ubq configuration.
+const entry = config().workers?.find(one => resolve(root, one.config) === resolve(configPath))
+const bindings = { ...wranglerConfig.vars, ...entry?.vars }
+
+// A service binding to a Worker that is not part of this run would
+// stop workerd when it starts. It gets an answer that says so.
+const present = new Set([name, ...externalWorkers.map(worker => worker.name)])
+const services = Object.fromEntries(
+  Object.entries((workerOptions.serviceBindings as Record<string, unknown>) ?? {}).map(([binding, target]) => {
+    const service = typeof target === 'string' ? target : (target as { name?: unknown } | null)?.name
+    if (typeof service !== 'string' || present.has(service)) return [binding, target]
+    return [
+      binding,
+      () =>
+        new miniflare.Response(`ubq: the service "${service}" of the binding ${binding} is not part of this test run`, { status: 503 }),
+    ]
+  }),
+)
 const flags = new Set(workerOptions.compatibilityFlags)
 // The test API uses modules of Node.
 if (!flags.has('nodejs_compat_v2')) flags.add('nodejs_compat')
 
 const ENTRY = join(OWN, `workers-entry${EXT}`)
 const migrations: Job['migrations'] = {}
-for (const db of wrangler.unstable_readConfig({ config: configPath }).d1_databases ?? []) {
+for (const db of wranglerConfig.d1_databases ?? []) {
   const dir = resolve(dirname(configPath), db.migrations_dir ?? 'migrations')
   migrations[db.binding] =
     !existsSync(dir) ? []
@@ -266,11 +349,25 @@ const options = {
     const require = request.headers.get('X-Resolve-Method') === 'require'
     let found: string | undefined
     try {
-      if (raw === 'ubqtest') found = join(OWN, `index${EXT}`)
+      // The file itself of a CommonJS module.
+      const file = path.endsWith(CJS) ? path.slice(0, -CJS.length) : undefined
+      if (file && isFile(file)) {
+        const source = readFileSync(file, 'utf8')
+        return new miniflare.Response(JSON.stringify({ name: toName(path), commonJsModule: /\.cts$/.test(file) ? strip(source) : source }), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      const alias = wranglerConfig.alias?.[raw]
+      if (alias)
+        found =
+          /^\.\.?\//.test(alias) ? findFile(resolve(dirname(configPath), alias)) : findPackage(alias, dirname(configPath), require)
+      else if (raw === 'ubqtest') found = join(OWN, `index${EXT}`)
       else if (raw === 'ubqtest/workers') found = join(OWN, `workers${EXT}`)
       else if (/^(\.|\/|[A-Za-z]:[\\/])/.test(raw)) found = findFile(path)
       else if (!/^[a-z-]+:/.test(raw)) found = findPackage(raw, dirname(toPath(url.searchParams.get('referrer') ?? '')), require)
       if (!found) return new miniflare.Response(null, { status: 404 })
+      // `require` gets the file itself, not the ES module for `import`.
+      if (require && commonJs(found)) found += CJS
       if (found !== path) return new miniflare.Response(null, { status: 301, headers: { Location: '/' + toName(found) } })
       return new miniflare.Response(JSON.stringify(moduleOf(found)), { headers: { 'Content-Type': 'application/json' } })
     } catch (error) {
@@ -281,7 +378,7 @@ const options = {
   workers: [
     {
       ...workerOptions,
-      name: workerOptions.name ?? 'ubq',
+      name,
       compatibilityFlags: [...flags],
       modulesRoot: '/',
       modules: [
@@ -297,8 +394,9 @@ const options = {
         },
       ],
       unsafeUseModuleFallbackService: true,
+      bindings,
       serviceBindings: {
-        ...(workerOptions.serviceBindings as object),
+        ...services,
         // workerd sends the events of the file here.
         async [HOST](request: { text(): Promise<string> }) {
           for (const line of (await request.text()).split('\n')) await handle(JSON.parse(line) as UbqEvent)
@@ -335,7 +433,17 @@ let code = 0
 const handle = async (event: UbqEvent | { type: 'load-error'; text: string }): Promise<void> => {
   if (event.type === 'load-error') {
     // A path in the text has the form of a module name of workerd.
-    process.stderr.write(event.text.replaceAll(toName(root) + '/', '') + '\n')
+    const text = event.text.replaceAll(toName(root) + '/', '')
+    process.stderr.write(
+      (/Disallowed operation called within global scope/.test(text) ?
+        // The first line of workerd names a "global scope" and a
+        // "handler", which a test file does not have.
+        text.replace(
+          /^.*$/m,
+          'Error: a module did I/O while it loaded (a query, a fetch, a timer, or a random value). workerd permits that only in the test file itself, not in a module that it imports. Put the work in a function that the module exports, and await that function at the top level of the test file.',
+        )
+      : text) + '\n',
+    )
     code = 1
     return
   }
@@ -370,8 +478,12 @@ try {
   // starts. miniflare has the text of workerd in its message.
   const text = String((error as Error).stack)
   const [, message, at] = /Uncaught ([^\n\\"]+)(?:\\n\s+at ([^\s\\"]+))?/.exec(text) ?? []
+  // With no such error, the reasons are the messages of workerd.
+  const reasons = [...new Set([...text.matchAll(/"message":("(?:[^"\\]|\\.)*")/g)].map(m => JSON.parse(m[1]!) as string))]
   process.stderr.write(
-    message ? `${/Error\b/.test(message) ? message : `Error: ${message}`}\n${at ? `    at ${at.replace(toName(root) + '/', '')}\n` : ''}` : `${text}\n`,
+    message ? `${/Error\b/.test(message) ? message : `Error: ${message}`}\n${at ? `    at ${at.replace(toName(root) + '/', '')}\n` : ''}`
+    : reasons.length ? `Error: workerd did not start. ${reasons.join(' ')}\n`
+    : `${text}\n`,
   )
   code = 1
 }

@@ -324,8 +324,17 @@ Objects, vars). The project must have `wrangler`. Tell ubq which
 test files are Workers tests, in `package.json`:
 
 ```json
-{ "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] } }
+{
+  "ubq": {
+    "workers": [
+      { "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"], "vars": { "API_KEY": "a test value" } }
+    ]
+  }
+}
 ```
+
+`vars` is optional. Its values go on top of the `vars` of the
+wrangler config.
 
 ```ts
 import { env } from 'cloudflare:workers'
@@ -345,6 +354,21 @@ test('lists the notes', async () => {
 
 - `env` comes from the runtime (`cloudflare:workers`), not from
   ubq. It has the bindings of the wrangler config.
+- A test does not get the values of `.dev.vars` or `.env`. Those
+  files can have real secrets. Give test values in `vars` of the
+  `workers` entry.
+- A service binding to a Worker that is not this one gets a
+  stand-in: `fetch` on it answers 503, and a call of a method
+  throws. To test code that uses the service, give the handler
+  an `env` object with your own value for that binding.
+- Only the test file can do I/O at its top level (`await
+  migrate('DB')`, a query, a `fetch`). A module that the test
+  file imports cannot: workerd does not permit I/O while a module
+  loads. Export a function from that module, and await it at the
+  top level of each test file.
+- Packages load as wrangler loads them: the `alias` key of the
+  wrangler config works, and a CommonJS package gives its named
+  exports.
 - `'ubqtest/workers'` has three functions:
   `executionContext()` makes the third argument of a handler,
   `scheduledController({ cron, scheduledTime })` makes the first
@@ -363,8 +387,7 @@ test('lists the notes', async () => {
   cannot run it. Use `ubq <test file>`.
 
 Not available in a Workers test file: `testdir`, `mockImport`,
-`assert.snapshot`, JSX files, and a named import from a CommonJS
-package. A test that goes over its time limit fails, but the
+`assert.snapshot`, and JSX files. A test that goes over its time limit fails, but the
 report does not list what the test left open. There is no `SELF`
 fetcher: call the handler of the Worker with a `Request`.
 

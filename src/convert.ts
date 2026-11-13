@@ -86,7 +86,9 @@ const MATCHERS: Record<string, Rule> = {
   toBeUndefined: 'assert.equal($0, undefined)',
   toBeDefined: 'assert.notEqual($0, undefined)',
   toBeNaN: 'assert(Number.isNaN($0))',
-  toContain: 'assert(<$0>.includes($1))',
+  // `?.`: the type of the value often has undefined in it, and
+  // expect() took all types. The result is the same.
+  toContain: 'assert(<$0>?.includes($1))',
   toHaveLength: 'assert.equal(<$0>.length, $1)',
   toMatchObject: 'assert.match($0, $1)',
   toBeInstanceOf: 'assert(<$0> instanceof $1)',
@@ -114,6 +116,7 @@ const MATCHER_HINTS: Record<string, string> = {
 /** With `.not`. A matcher that is not here and makes `assert(x)` becomes `assert(!(x))`. */
 const NOT_MATCHERS: Record<string, Rule> = {
   toBe: 'assert.notEqual($0, $1)',
+  toContain: 'assert(!<$0>.includes($1))',
   toBeNull: 'assert.notEqual($0, null)',
   toBeUndefined: 'assert.notEqual($0, undefined)',
   toBeDefined: 'assert.equal($0, undefined)',
@@ -165,6 +168,10 @@ const TODO = {
   hookFileEnd: 'ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.',
   hookGroup:
     'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+  matcher:
+    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)).",
+  throwsText:
+    'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
   restore: 'A spyOn spy goes back when its test ends. Remove this call. ubq has no call that puts the method back before that.',
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
@@ -672,6 +679,19 @@ export const convertSource = (
       changes++
       return args
     }
+    if (owner === 'expect') {
+      // expect.any(Number), expect.stringContaining('text')
+      const first = args[0]
+      if (method === 'stringContaining' && args.length === 1 && first?.type === 'Literal' && typeof first.value === 'string') {
+        replace(node.start, first.start, '')
+        messageRegExp(first)
+        replace(first.end, node.end, '')
+        changes++
+        return []
+      }
+      todo(path, TODO.matcher)
+      return undefined
+    }
     if (owner === 'vi' || owner === 'mock') {
       if (method === 'fn') {
         replace(callee.start, callee.end, 'spy')
@@ -722,9 +742,8 @@ export const convertSource = (
     }
     if (method === 'toMatch' && args[0]) {
       const regex = args[0].type === 'Literal' && (args[0] as { regex?: unknown }).regex
-      const found = rewrite(node, regex ? (not ? 'assert(!$1.test($0))' : 'assert.match($0, $1)') : `assert(${not ? '!' : ''}<$0>.includes($1))`, all)
-      if (regex && not) return fail()
-      return found
+      // The arguments of a rule keep their order, so not `re.test(a)`.
+      return rewrite(node, regex ? (not ? 'assert(!<$0>.match($1))' : 'assert.match($0, $1)') : `assert(${not ? '!' : ''}<$0>.includes($1))`, all)
     }
     if (/^toHaveBeen(Last)?CalledWith$/.test(method) && !not && !promise) {
       // The arguments of the last call.
@@ -757,7 +776,11 @@ export const convertSource = (
       rule = rule.replace(/<\$0>|\$0/, m => (m === '$0' ? 'await $0' : '(await $0)'))
       asyncFunction(path)
     }
-    if (/^toThrow(Error)?$/.test(method)) messageRegExp(args[0])
+    if (/^toThrow(Error)?$/.test(method)) {
+      messageRegExp(args[0])
+      // A name with a small first letter is a value, not a class.
+      if (args[0]?.type === 'Identifier' && /^[a-z]/.test(nameOf(args[0])!)) todo(path, TODO.throwsText)
+    }
     return rewrite(node, rule, all)
   }
 
@@ -893,7 +916,8 @@ export const convertSource = (
   let code = ''
   let at = 0
   for (const edit of edits) {
-    if (edit.start < at) throw new Error(`two changes at one place (offset ${edit.start})`)
+    if (edit.start < at)
+      throw new Error(`the command cannot change line ${source.slice(0, edit.start).split('\n').length}. Write that statement in a different form, or convert this file by hand.`)
     code += source.slice(at, edit.start) + edit.text
     at = edit.end
   }
@@ -939,6 +963,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   let changed = 0
   let todos = 0
   let unknown = 0
+  let failed = 0
   const unnamed: string[] = []
   let workers = 0
   for (const path of files.sort()) {
@@ -948,6 +973,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       result = convertSource(readFileSync(path, 'utf8'), path, parse, children)
     } catch (error) {
       out(`not converted ${file}: ${(error as Error).message}`)
+      failed++
       continue
     }
     if (!result) {
@@ -963,6 +989,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     for (const t of result.todos) out(`  ${file}:${t.line}  ${t.text}`)
   }
   const parts = [`${changed} files ${dry ? 'to change' : 'changed'}`, `${todos} TODO comments`]
+  if (failed) parts.push(`${failed} files not converted (see the lines above)`)
   if (unknown) parts.push(`${unknown} files with no known test tool`)
   out(`convert: ${parts.join(', ')}`)
   if (unnamed.length && !config().include) {

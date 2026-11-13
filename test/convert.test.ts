@@ -102,7 +102,7 @@ describe('g', () => {
     '    assert.deepEqual(f(), { a: 1 })',
     '    assert.notEqual(f().a, 2)',
     '    assert(!(a || b))',
-    '    assert(!([1].includes(2)))',
+    '    assert(![1].includes(2))',
     '    assert.throws(() => f(), /bad \\(x\\)/)',
     '    await assert.rejects(p, TypeError)',
     '    assert.equal(await p, 1)',
@@ -275,6 +275,33 @@ it('responds', async () => {
     '  await ctx.settled()',
     '  assert.equal(res.status, 200)',
     "  await worker.scheduled(scheduledController({ cron: '* * * * *' }), env, executionContext())",
+    '})',
+  ])
+})
+
+test('vitest: not.toMatch, expect.* matchers, toContain, and toThrow with a value', () => {
+  const r = convert(`import { expect, it } from 'vitest'
+it('a', () => {
+  expect(text).not.toMatch(/re/)
+  expect(row.tags).toContain('x')
+  expect(res.json()).toEqual({ count: expect.any(Number) })
+  expect(last).toMatchObject({ content: expect.stringContaining('a.b') })
+  expect(() => f()).toThrow(message)
+  expect(() => f()).toThrow(TypeError)
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, test } from 'ubqtest'",
+    "test('a', () => {",
+    '  assert(!text.match(/re/))',
+    "  assert(row.tags?.includes('x'))",
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)).',
+    '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
+    '  assert.match(last, { content: /a\\.b/ })',
+    '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
+    '  assert.throws(() => f(), message)',
+    '  assert.throws(() => f(), TypeError)',
     '})',
   ])
 })
