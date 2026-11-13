@@ -131,6 +131,8 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
     4,
     'ubq: "ubq.timeout" in package.json must be a number of milliseconds, such as 5000\n',
   ])
+  assert.match(err({ browser: 1 })[1] as string, /^ubq: "ubq\.browser" in package\.json must be an object with "url"/)
+  assert.match(err({ workers: [1] })[1] as string, /^ubq: "ubq\.workers" in package\.json must be a list of objects/)
   rmSync(p.dir, { recursive: true })
 })
 

@@ -162,6 +162,10 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   appendFileSync(join(p.dir, 'flip.ts'), '\nthrow new Error("at load")\n')
   assert.match(p.ubq('--repeat', '2', 'flip.ts').out, /^ERROR flip\.ts\n  failed 2 of 2 times\.\n  Error: at load\n/)
 
+  // A test that ends the process: the file error reports it.
+  writeFileSync(join(p.dir, 'dies.test.ts'), "import { assert, test } from 'ubqtest'\ntest('dies', () => { process.exit(3) })\ntest('ok', () => assert(true))\n")
+  assert.match(p.ubq('--repeat', '2', 'dies.test.ts').out, /^ERROR dies\.test\.ts\n  failed 2 of 2 times\.\n  process\.exit\(3\) was called before the tests ended, in test: dies\.test\.ts > dies\n/)
+
   const usage = "ubq: --repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'\n"
   assert.deepEqual([p.ubq('--repeat').err, p.ubq('--repeat', '1', 'flip.ts').err, p.ubq('--repeat', 'flip.ts').code], [usage, usage, 4])
   rmSync(p.dir, { recursive: true })
