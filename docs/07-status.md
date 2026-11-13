@@ -1287,3 +1287,21 @@ CI caches the npm downloads and the browser, and runs `npm run
 typecheck` in one job. Each job saves 5 to 20 s of setup. The test
 steps are most of the time (45 to 205 s; Windows is the slowest).
 
+Later in the same day, the merged list went to 247 ranges, and 5
+ranges have the comment of D56. More defects found and corrected:
+
+- `ubq uncovered` with no `--diff`, for a file that changed after
+  its run, printed the stored ranges at wrong places. It now names
+  the file and says to run `ubq --changed`.
+- A text difference at a hidden character (a space that is not
+  ASCII, a character with no width) showed the same text for the
+  two values. Such characters now show as their codes.
+
+Of the 247 ranges, about 106 are fallbacks in an expression
+(`?? ''`, `|| 0`, a branch of `? :`) for a value that is never
+absent in a test. Each one needs a decision of the user: a D56
+comment, or removal (for example `x!` in place of `x ?? ''`).
+Removal is a change to code that works, so it waits for the user.
+The rest are paths for a runtime or a system, catch blocks for
+errors of the file system, and paths of Workers configs.
+
