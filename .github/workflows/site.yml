@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: site
     steps:
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '26'
           package-manager-cache: false
@@ -46,7 +46,7 @@ jobs:
           echo "the site comes from $REF"
           echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.ref.outputs.ref }}
 
