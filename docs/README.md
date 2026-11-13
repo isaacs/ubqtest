@@ -15,6 +15,7 @@ Read this file first. Open only the documents that the task needs.
 | `08-config.md` | Which files ubq runs by default, and the `ubq` key of `package.json`. | You change test file selection, or you add a setting. |
 | `10-bun-coverage-api.md` | What ubq needs from Bun for per-test coverage, what Bun 1.4.3 has, and the change to Bun that closes the gap. | You work on coverage on Bun, or on the proposal to the Bun project. |
 | `11-server.md` | The background server: what it does, the rule of equal results, the protocol, measurements, why no MCP and no HTTP. | You change the server, or the way the runner starts a test process. |
+| `12-agent-feedback-0.0.3.md` | The report of an agent that tried to convert a Cloudflare Workers project to ubq 0.0.3, and went back to vitest. | You work on Workers tests or on `ubq convert`, or you want the reason for D48. |
 | `api.md` | Each export of the package with its type and doc comment. Made by `npm run docs` from the type declarations. | You need the exact type of an export. Do not change it by hand. |
 | `09-questions.md` | Points that wait for a decision from the user, with options. | You look for work that is not blocked, or the user is present. |
 

@@ -852,8 +852,10 @@ only its default export. No `SELF` fetcher, and no storage for
 each test. `fakeClock` does not replace the names of
 `node:timers`.
 
-**Reason.** Workers are a common place to run code, and the tests
-of a Worker are worth most in the real runtime: they find the
+**Reason.** The report in `12-agent-feedback-0.0.3.md`: a Workers
+project could not convert. Workers are a common place to run
+code, and the tests of a Worker are worth most in the real
+runtime: they find the
 differences from Node. A run on Node with stubs does not. The
 trial (`03-measurements.md`, section 14) showed that workerd can
 load the files and run the test API with little new code.

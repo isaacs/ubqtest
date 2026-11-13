@@ -962,8 +962,9 @@ Known limits:
 ## Report from a Cloudflare Workers project (2026-11-13)
 
 An agent tried to convert a project with two Workers from vitest
-(`@cloudflare/vitest-pool-workers`), and went back. ubq cannot run
-tests in the Workers runtime (workerd).
+(`@cloudflare/vitest-pool-workers`) to ubq 0.0.3, and went back:
+that version could not run tests in the Workers runtime
+(workerd). The report is `12-agent-feedback-0.0.3.md`.
 
 Done from the report:
 
