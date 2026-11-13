@@ -34,17 +34,24 @@ jobs:
     defaults:
       run:
         shell: ${{ matrix.shell }}
+    env:
+      # Outside the checkout, so that a cache can keep the browser.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/../ms-playwright
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
+          cache: npm
       - uses: oven-sh/setup-bun@v2
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
       - run: npm ci
+      # The result is the same on each system. Each run of the suite
+      # also checks the types of the project.
       - name: Type check
+        if: matrix.os == 'ubuntu-latest' && matrix.runtime == 'node' && matrix.node == 24
         run: npm run typecheck
       - name: Build
         run: npm run build
@@ -52,6 +59,11 @@ jobs:
           # The Deno job runs the built runner. With a source map,
           # its coverage is coverage of src/.
           UBQ_SOURCEMAP: 1
+      - uses: actions/cache@v6
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: browser-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: browser-${{ runner.os }}-
       - name: Browser for the front-end tests
         run: node src/cli.ts browser install
       - name: Test on Node
@@ -92,6 +104,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
       - run: npm ci
       - uses: actions/download-artifact@v8
         with:
