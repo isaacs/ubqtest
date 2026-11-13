@@ -245,6 +245,7 @@ interface FakeClock {
     /**
      * Moves the clock forward by `ms`. Each timer that is due runs, in
      * the order of its time. Promise callbacks run after each timer.
+     * `tick(0)` runs only the `setImmediate` callbacks.
      */
     tick(ms: number): Promise<void>;
     /** Moves the clock from timer to timer until no timer waits. */

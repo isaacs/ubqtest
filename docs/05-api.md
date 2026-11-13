@@ -349,6 +349,9 @@ clock.restore()           // the real clock comes back
   of their times. Promise callbacks run after each timer, so a
   chain of `await sleep(10)` calls ends in one `tick`.
 - `tick` and `runAll` return promises. There is no sync form.
+- As in Node, a timer time below 1 ms, above 2^31 - 1 ms, or not a
+  finite number, is 1 ms (D57). So `tick(0)` runs only the
+  `setImmediate` callbacks, and the promise callbacks.
 - `runAll` fails after 10000 timers: a `setInterval` never ends.
 - The time limit of the test, and the times in reports, use the
   real clock.

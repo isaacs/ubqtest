@@ -1,6 +1,6 @@
 // The background server: `ubq server`.
 import { spawnSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, env, test } from 'ubqtest'
 import { cli, project, remove } from './setup.ts'
@@ -52,6 +52,14 @@ test('a run with the server gives the same text, with test processes of the serv
   appendFileSync(join(p.dir, 'src/word.ts'), '// a change\n')
   for (let i = 0; i < 100 && !status().prepared; i++) await sleep(20)
   assert.equal(status().prepared, 1)
+  // An event for content that has an entry does not count. The
+  // watcher of macOS can give more than one event for one change.
+  const word = readFileSync(join(p.dir, 'src/word.ts'), 'utf8')
+  writeFileSync(join(p.dir, 'src/word.ts'), word)
+  appendFileSync(join(p.dir, 'src/greet.ts'), '// a change\n')
+  for (let i = 0; i < 100 && status().prepared < 2; i++) await sleep(20)
+  await sleep(200)
+  assert.equal(status().prepared, 2)
   // A test process uses the entry that the server made.
   assert.equal(run('fail.ts', 'mock.ts', 'pass.ts'), alone)
 

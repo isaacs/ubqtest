@@ -157,15 +157,36 @@ test('a timer of the fake clock has the methods of a Node timer', async () => {
   assert.equal(count(), 0)
   await clock.tick(5)
   assert.equal(count(), 1)
-  // A time that is not a number is 0.
+  // A time that is not a number is 1 ms.
   const now = setTimeout(done, 'soon' as unknown as number)
   const closed = setTimeout(done, 1) as unknown as NodeJS.Timeout
   assert.equal(closed.close(), closed)
   const disposed = setTimeout(done, 1) as unknown as NodeJS.Timeout
   disposed[Symbol.dispose]()
   assert.equal(clock.timers, 1)
-  await clock.tick(0)
+  await clock.tick(1)
   assert.deepEqual([count(), clock.timers, Number(now) > 0], [2, 0, true])
+})
+
+test('a time below 1 ms, or not a finite number, is 1 ms, as in Node', async () => {
+  const clock = fakeClock()
+  const log: string[] = []
+  for (const ms of [undefined, 0, -5, 0.5, NaN, Infinity, 2 ** 31, '5', null])
+    setTimeout(() => log.push(String(ms)), ms as number)
+  // setImmediate does not wait for the clock.
+  setImmediate(() => log.push('immediate'))
+  await clock.tick(0)
+  assert.deepEqual(log, ['immediate'])
+  await clock.tick(1)
+  assert.deepEqual(log, ['immediate', 'undefined', '0', '-5', '0.5', 'NaN', 'Infinity', '2147483648', '5', 'null'])
+  // An interval of 0 waits 1 ms, then each 1 ms.
+  const fast = spy()
+  const every = setInterval(fast, 0)
+  await clock.tick(0)
+  const first = fast.calls.length
+  await clock.tick(3)
+  clearInterval(every)
+  assert.deepEqual([first, fast.calls.length], [0, 3])
 })
 
 test('the promise timers, a signal, and process.hrtime', async () => {

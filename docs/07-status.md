@@ -161,11 +161,18 @@ All entries are from 2026-11-11 to 2026-11-13.
 - **Small fixes.** The `ubq skill` help names all 7 agents. A stack
   path can have a space. `--diff` reads names that git quotes.
   `ubq show` names the error of a file that did not load. `doctor`
-  reads the configs that a `tsconfig.json` extends. A fake
-  `setInterval` with no time, or a time that is not a finite
-  number, waits 1 ms (the user's decision). The raw output of a
-  child process stays out of the text: the user decided that the
-  runner prints only results.
+  reads the configs that a `tsconfig.json` extends. A fake timer
+  with a time below 1 ms, or not a finite number, waits 1 ms, as in
+  Node (D57). The raw output of a child process stays out of the
+  text: the user decided that the runner prints only results.
+- **Bench budgets** from a new baseline (2026-11-13). The machine
+  was slower than at the first measurements.
+- **Server count.** The background server counts a file as
+  prepared only when it makes a new cache entry. The watcher of
+  macOS can give two events for one change; the second one made
+  `test/server.test.ts` fail two times in CI.
+- **Load errors** in a folder whose name has a space have their
+  place, on each runtime.
 
 ## Open, waiting for a decision
 
@@ -178,8 +185,6 @@ All entries are from 2026-11-11 to 2026-11-13.
   gives "the test process ended before the file did ... in test:
   t", with a stack frame of `src/workers-entry.ts`. On Node the
   same file gives a plain load error.
-- Q12 in `09-questions.md`: should a fake timer with a time of 0
-  or less wait 1 ms, as in Node?
 - `ubq convert` for Playwright tests that use vitest, jest,
   `@playwright/test`, or no test tool (asked by the user).
 - A conversion of a real project by a different agent: the user
@@ -191,8 +196,6 @@ Each item is still open. Remove it when it is done.
 
 Core and runner:
 
-- The place of a load error (`loadFailure` in `src/runner.ts`) is
-  not found for a file in a project folder whose name has a space.
 - Bun gives different columns for some frames, and no place for an
   assertion in a timer callback.
 - A timer that a timed-out test leaves keeps the process alive
@@ -207,15 +210,21 @@ Core and runner:
   Deno, a plain program in a loop gets no stack.
 - A new schema version removes the old store. Two `ubq` processes
   that start at that time can fail one time.
-- Flaky in CI on macOS, one time each (2026-11-13). Not studied
-  yet:
-  - `test/server.test.ts:54`, Deno job: `prepared` was 2, not 1.
-    A guess: the folder watcher got late events for files that
-    the test copied before the server started.
-  - `test/mutate.test.ts:100`, Bun job: 0 of 4 changes survived,
-    not 1. The coverage rows of the test 'not below zero' stay in
-    the store after the test file loses that test, so `mutate` can
-    select it. Why the result changes from run to run is not known.
+- `test/mutate.test.ts:100` failed one time in CI (Bun job, macOS,
+  Bun 1.4.4): 0 of 4 changes survived, not 1. Cause not found.
+  Blocked: the permission check does not allow a download of Bun
+  1.4.4 here, and Bun 1.4.3 does not show it. Ruled out on this
+  machine:
+  - a pause of the test process: under heavy load, `test-start` to
+    `test-end` was 1 ms at most (the runner stops a test after
+    3000 ms in a mutation check);
+  - the counters cache: changed source is never in it;
+  - lost events: fd 3 blocks with each runtime as parent and child;
+  - the write of child coverage: it is in a `try`.
+  Six full Bun runs under load, and many runs of the test, passed.
+  A change counts as killed for any file error, a crash too. The
+  test also depends on the stored coverage of a test that its file
+  no longer has ('not below zero').
 - Many test files run `ubq` in `test/fixtures` and share its
   store. A test that reads a row from that store can see the rows
   of a different file. `test/bun.test.ts` has its own project now.

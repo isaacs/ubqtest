@@ -313,16 +313,24 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
  */
 export const loadFailure = (text: string): Failure | undefined => {
   const root = projectRoot()
-  // Deno writes colors. A URL of a project file becomes its path.
+  // Deno writes colors. A URL becomes its path, with no `%20` for a
+  // space. The path of a project file becomes relative.
   const plain = text
     .replace(/\x1b\[[0-9;]*m/g, '')
-    .replaceAll(pathToFileURL(root).href + '/', '')
+    .replace(/file:\/\/\S+/g, url => {
+      try {
+        return fileURLToPath(url)
+      } catch {
+        return url
+      }
+    })
     .replaceAll(root + sep, '')
     // A path of Windows in a message, as the paths of ubq.
-    .replace(/[\w.-]+(\\[\w.-]+)+/g, path => path.replaceAll('\\', '/'))
+    .replace(/[\w .-]+(\\[\w .-]+)+/g, path => path.replaceAll('\\', '/'))
   const error = /^(?:\w*Error\b[^\n]*?|error): (.+)$/m.exec(plain)
   if (!error) return undefined
-  const at = /^(?:\s+at )?([^\s:()'"]+\.[cm]?[jt]sx?):(\d+)(?::(\d+))?$/m.exec(plain)
+  // A name can have spaces, but does not start with one.
+  const at = /^(?:\s+at )?([^\s:()'"][^:()'"]*\.[cm]?[jt]sx?):(\d+)(?::(\d+))?$/m.exec(plain)
   const inProject = at && !at[1]!.startsWith('/') && !at[1]!.includes('node_modules') && !/^\w+:/.test(at[1]!)
   return {
     kind: 'error',

@@ -1,8 +1,11 @@
 // A test file that does not load: a syntax error, or an import of a
 // file that does not exist.
-import { rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
+import { projectRoot } from '../src/project.ts'
+import { loadFailure } from '../src/runner.ts'
 import { project } from './setup.ts'
 
 test('a test file that does not load is an error of the file, with the place', () => {
@@ -63,5 +66,38 @@ test('an import of ./a.js finds the file ./a.ts', () => {
     '  the test file did not load: TypeScript enum is not supported in strip-only mode. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq',
     '  at src/two.ts:1:1',
     '  > export enum Two {',
+  ])
+})
+
+test('the place of a load error in a folder whose name has a space', () => {
+  const path = join(projectRoot(), 'sub dir', 'a b.ts')
+  const url = pathToFileURL(path).href
+  const at = { file: 'sub dir/a b.ts', line: 4, column: 1 }
+  const texts = [
+    // Bun
+    `error: Expected ";"\n    at ${path}:4:1`,
+    // Deno: a URL, with %20 for a space
+    `error: Uncaught SyntaxError: Expected ";"\n    at ${url}:4:1`,
+    // Node: the URL and the line, then the source line
+    `${url}:4\n})\n^\n\nSyntaxError: Expected ";"`,
+    // A path of Windows in the project
+    `error: Expected ";"\n    at sub dir\\a b.ts:4:1`,
+  ]
+  for (const text of texts) assert.deepEqual(loadFailure(text)?.at, at, text)
+  // A URL that is not valid stays as it is.
+  assert.deepEqual(loadFailure('error: bad file://[x\n    at file://[x:4:1'), {
+    kind: 'error',
+    message: 'the test file did not load: bad file://[x',
+  })
+
+  // A run of such a file.
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'sub dir'))
+  writeFileSync(join(p.dir, 'sub dir/a b.ts'), "import { test } from 'ubqtest'\ntest('x', () => {\n  const a = (\n})\n")
+  assert.deepEqual(p.ubq('sub dir/a b.ts').out.split('\n').slice(0, 3), [
+    'ERROR sub dir/a b.ts',
+    '  the test file did not load: Expression expected',
+    '  at sub dir/a b.ts:4:1',
   ])
 })

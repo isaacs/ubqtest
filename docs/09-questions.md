@@ -8,34 +8,30 @@ the agent would do. Remove an entry when its decision is in
 The answers to Q1 to Q6 are D25 (step 3) and D26 to D31. The
 answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
+The answer to Q12 is D57.
 
-## Q12. A fake timer with a time of 0, or less than 0
+## Q13. A change that a crash or a stop "kills" in `ubq mutate`
 
-The user decided that `setInterval(fn)` with no time, or with a
-time that is not a finite number, runs as with 1 ms. That is done.
+`ubq mutate` counts a change as killed if a test fails, or if the
+test process has a file error. A file error can come from the
+change (a loop that does not end, a stack overflow), or from the
+machine or the runtime (a crash of Bun, a stop on a slow machine).
+In the second case the report is wrong: it misses a change that
+no test catches.
 
-Node does the same for each time below 1 ms, and for `setTimeout`
-too. `setTimeout(fn)`, `setTimeout(fn, 0)`, `setTimeout(fn, -5)`,
-and `setInterval(fn, 0)` all wait 1 ms in Node.
-
-The fake clock now does this:
-
-| Call | First call at | Then |
-| --- | --- | --- |
-| `setInterval(fn)`, `NaN`, `'5'`, `Infinity` | 1 ms | each 1 ms |
-| `setInterval(fn, 0)`, or a time below 0 | 0 ms | each 1 ms |
-| `setTimeout(fn)`, `setTimeout(fn, 0)`, a time below 0 | 0 ms | |
-| `setTimeout(fn, NaN)`, `'5'` | 0 ms, and 5 ms for `'5'` | |
+`test/mutate.test.ts` failed one time in CI on Bun 1.4.4 for a
+reason of this kind (see `07-status.md`). The cause is not known.
 
 Options:
 
-1. Keep this. `tick(0)` runs a `setTimeout(fn, 0)`, which a test
-   can find easy to read.
-2. Do as Node for all timers: a time below 1 ms, or not a finite
-   number, is 1 ms. A test that calls `tick(0)` for a
-   `setTimeout(fn, 0)` must then call `tick(1)`.
-3. Do as Node for `setInterval` only.
+1. Keep this. A real gap can stay out of the report, rarely.
+2. If only a file error or a timeout killed a change, run the
+   same tests with the same change one more time. The change is
+   killed only if it fails again. Cost: one more run for such a
+   change, and a change that makes a loop runs into the time
+   limit two times.
+3. As 2, and also run the tests with no change. If they fail with
+   no change, the report names the change as "not known".
 
-The agent would pick 2: a fake clock that does what Node does
-gives no surprise when the test runs with real timers. It can
-break tests of users that call `tick(0)` now.
+The agent would pick 2: it costs time only for the rare change
+that a file error kills, and a real loop or crash happens again.

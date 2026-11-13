@@ -2,7 +2,7 @@
 // Node preload. Keeps the changed source of each file in a cache in
 // `.ubq/counters/`, so that most processes do not load the parser.
 import { hash } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -183,11 +183,15 @@ export const cached = (
  * Makes the cache entry of a project file, so that the next test
  * process that loads the file does not need the parser. The
  * background server calls this when a file changes. Returns true if
- * the entry exists after the call.
+ * this call made the entry. The watcher can give more than one event
+ * for one change, and a file can change back to an earlier content.
  */
 export const prepareCounters = (path: string): boolean => {
   try {
-    return !!cached(rel(path), readFileSync(path, 'utf8'), true)
+    const file = rel(path)
+    const source = readFileSync(path, 'utf8')
+    const had = existsSync(cachePath(file, source))
+    return !!cached(file, source, true) && !had
     // ubq: not measured: this module loads before the counters start
   } catch {
     // The file went away.

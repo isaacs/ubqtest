@@ -14,6 +14,7 @@ export interface FakeClock {
   /**
    * Moves the clock forward by `ms`. Each timer that is due runs, in
    * the order of its time. Promise callbacks run after each timer.
+   * `tick(0)` runs only the `setImmediate` callbacks.
    */
   tick(ms: number): Promise<void>
   /** Moves the clock from timer to timer until no timer waits. */
@@ -74,11 +75,13 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   let ids = 0
   const timers = new Map<number, Timer>()
 
-  const add = (fn: unknown, ms: unknown, args: unknown[], every?: number): Any => {
+  // As in Node: a time below 1 ms, above the largest time, or not a
+  // finite number, is 1 ms.
+  const time = (ms: unknown): number => (Number.isFinite(ms) && (ms as number) >= 1 && (ms as number) <= 2 ** 31 - 1 ? (ms as number) : 1)
+  const add = (fn: unknown, delay: number, args: unknown[], every?: number): Any => {
     if (typeof fn !== 'function') throw new TypeError('The "callback" argument must be of type function')
-    const delay = Math.max(0, Number(ms) || 0)
     const timer: Timer = { id: ++ids, at: now + delay, fn: fn as Timer['fn'], args }
-    if (every !== undefined) timer.every = Math.max(1, every)
+    if (every !== undefined) timer.every = every
     timers.set(timer.id, timer)
     // The form of a Node timer object.
     const handle = {
@@ -103,12 +106,8 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   }
 
   const fakes = {
-    setTimeout: (fn: unknown, ms?: unknown, ...args: unknown[]) => add(fn, ms, args),
-    setInterval: (fn: unknown, ms?: unknown, ...args: unknown[]) => {
-      // No time, or a time that is not a finite number, is 1 ms.
-      const every = Number.isFinite(ms) ? (ms as number) : 1
-      return add(fn, every, args, every)
-    },
+    setTimeout: (fn: unknown, ms?: unknown, ...args: unknown[]) => add(fn, time(ms), args),
+    setInterval: (fn: unknown, ms?: unknown, ...args: unknown[]) => add(fn, time(ms), args, time(ms)),
     setImmediate: (fn: unknown, ...args: unknown[]) => add(fn, 0, args),
     clearTimeout: clear,
     clearInterval: clear,
@@ -116,11 +115,11 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   }
 
   /** A promise that a fake timer resolves, as in `node:timers/promises`. */
-  const wait = <T>(ms: unknown, value: T, options?: { signal?: AbortSignal }): Promise<T> =>
+  const wait = <T>(delay: number, value: T, options?: { signal?: AbortSignal }): Promise<T> =>
     new Promise((resolve, reject) => {
       const signal = options?.signal
       if (signal?.aborted) return reject(abortError(signal))
-      const handle = add(() => resolve(value), ms, [])
+      const handle = add(() => resolve(value), delay, [])
       signal?.addEventListener(
         'abort',
         () => {
@@ -132,10 +131,10 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
     })
   const promiseFakes = {
     setTimeout: (ms?: number, value?: unknown, options?: { signal?: AbortSignal }) =>
-      wait(ms ?? 1, value, options),
+      wait(time(ms), value, options),
     setImmediate: (value?: unknown, options?: { signal?: AbortSignal }) => wait(0, value, options),
     async *setInterval(ms?: number, value?: unknown, options?: { signal?: AbortSignal }) {
-      for (;;) yield await wait(ms ?? 1, value, options)
+      for (;;) yield await wait(time(ms), value, options)
     },
   }
 
@@ -184,7 +183,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   replace(process, 'hrtime', hrtime)
   replace(AbortSignal, 'timeout', (ms: number) => {
     const controller = new AbortController()
-    add(() => controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError')), ms, [])
+    add(() => controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError')), time(ms), [])
     return controller.signal
   })
   // `import { setTimeout } from 'node:timers'` has its own names.
@@ -194,7 +193,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   const promises = require('node:timers/promises')
   for (const [key, fn] of Object.entries(promiseFakes)) replace(promises, key, fn)
   if (promises.scheduler) {
-    replace(promises.scheduler, 'wait', (ms: number, options?: { signal?: AbortSignal }) => wait(ms, undefined, options))
+    replace(promises.scheduler, 'wait', (ms: number, options?: { signal?: AbortSignal }) => wait(time(ms), undefined, options))
     replace(promises.scheduler, 'yield', () => wait(0, undefined))
   }
   replace(timersModule, 'promises', promises)

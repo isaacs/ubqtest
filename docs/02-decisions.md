@@ -1245,9 +1245,12 @@ it. A count in the output keeps the marks visible.
 
 ## D57. Fake intervals with no time, and the output of the runner (user, 2026-11-13)
 
-- **Interval time.** A fake `setInterval(fn)` with no time, or with
-  a time that is not a finite number (`NaN`, `Infinity`, a string),
-  runs as if the time were 1 ms. Q12 asks about a time of 0 or less.
+- **Timer time.** As in Node, a fake `setTimeout` or `setInterval`
+  with no time, a time below 1 ms, a time above 2^31 - 1 ms, or a
+  time that is not a finite number (`NaN`, `Infinity`, a string),
+  waits 1 ms. Node makes a string such as `'5'` a number; the fake
+  clock does not. `tick(0)` stays: it runs the `setImmediate`
+  callbacks and lets promises settle, with no move of the clock.
 - **Raw output of a child process.** In a run of many files, the
   text does not show output of a test process that is not from a
   test. The runner prints results, and failures with the next
