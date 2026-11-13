@@ -527,12 +527,10 @@ table tr td:first-child code {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.75rem;
-  margin: 0 0 0.6rem;
   padding: 0;
   list-style: none;
-}
-.platforms + .platforms {
-  margin-bottom: 1rem;
+  max-width: 30rem;
+  margin: 0 auto 0.5rem;
 }
 .platforms li {
   padding: 0.2rem 1rem;
