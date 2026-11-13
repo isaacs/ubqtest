@@ -121,8 +121,14 @@ export const mutate = async (
         runFile(
           { file: tfile, lines: [], ids },
           event => {
-            if (event.type === 'test-end' ? event.status === 'fail' : event.type === 'late-failure' || event.type === 'file-error')
+            if (event.type === 'test-end' ? event.status === 'fail' : event.type === 'late-failure' || event.type === 'file-error') {
               failed = true
+              // TEMPORARY: the cause of a rare false kill in CI.
+              if (process.env.UBQ_MUTATE_LOG)
+                process
+                  .getBuiltinModule('node:fs')
+                  .appendFileSync(process.env.UBQ_MUTATE_LOG, JSON.stringify({ mutant, ids, event }) + '\n')
+            }
           },
           cacheDir,
           false,

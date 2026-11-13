@@ -1,5 +1,5 @@
 // `ubq mutate`: the mutation check.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -95,9 +95,14 @@ test('mutate lists each change that no test fails for, and does not change the f
     writeFileSync(join(p.dir, 'src/price.ts'), SOURCE)
     writeFileSync(join(p.dir, 'price.test.ts'), TEST)
     const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
-    const bun = (...args: string[]) => spawnSync('bun', [cli, ...args], { cwd: p.dir, encoding: 'utf8' }).stdout
+    const log = join(p.dir, 'mutate.log')
+    const bun = (...args: string[]) =>
+      spawnSync('bun', [cli, ...args], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, UBQ_MUTATE_LOG: log } }).stdout
     bun('price.test.ts', 'pass.ts')
-    assert.equal(bun('mutate', 'src/price.ts').split('\n').at(-2), 'mutate: 1 of 4 changes survived, 2 more are in code that no passing test runs (ubq uncovered)')
+    const result = bun('mutate', 'src/price.ts')
+    // TEMPORARY: the cause of a rare false kill in CI.
+    const kills = (existsSync(log) ? readFileSync(log, 'utf8') : '').split('\n').filter(line => line.includes('"text":"1"'))
+    assert.equal(result.split('\n').at(-2), 'mutate: 1 of 4 changes survived, 2 more are in code that no passing test runs (ubq uncovered)', kills.join('\n'))
   }
 })
 
