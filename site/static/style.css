@@ -134,6 +134,7 @@ blockquote {
   background: var(--panel);
   box-shadow: var(--shadow) 0 0 10px 0;
   font-family: var(--head);
+  row-gap: 0.4rem;
 }
 #top .brand {
   display: flex;
