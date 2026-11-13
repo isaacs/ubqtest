@@ -431,10 +431,16 @@ table tr td:first-child code {
   position: relative;
   z-index: 2;
   margin-top: -5rem;
-  padding: 2.5rem 2rem;
+  padding: 2rem 2rem;
   background: var(--panel);
   box-shadow: var(--shadow) 0 0 11px 2px;
   border-radius: 6px;
+}
+.features > p {
+  text-align:center;
+  font-size: 1.2rem;
+  max-width: 28rem;
+  margin: 1rem auto 0;
 }
 .grid {
   display: grid;

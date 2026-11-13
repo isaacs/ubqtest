@@ -17,7 +17,7 @@
     <div class="grid">
       <section>
         <h3>Short output</h3>
-        <p>A pass is one line. A failure is one block: the place, the source line, the difference, and the command that runs that one test again.</p>
+        <p>A pass is one line. A failure is one block: the source line, the difference, and the command that runs that one test again.</p>
       </section>
       <section>
         <h3>Tests that cannot pass for the wrong reason</h3>
@@ -29,21 +29,32 @@
       </section>
       <section>
         <h3>One small API</h3>
-        <p><code>test</code>, <code>describe</code>, <code>assert</code>, and a few helpers. No globals, no hooks, no <code>.only</code>. Less to remember, and less to get wrong.</p>
+        <p><code>test</code>, <code>describe</code>, <code>assert</code>. No
+        globals, no hooks, no <code>.only</code>. Less to remember means less to
+        get wrong.</p>
       </section>
       <section>
         <h3>Type errors are failures</h3>
-        <p>Each run also runs the type checker of the project. A test suite that passes with code that does not compile is not a pass.</p>
+        <p>Each run also type checks the project. A test suite that passes with
+        broken code is a failure.</p>
       </section>
       <section>
-        <h3>A real browser for front-end code</h3>
-        <p><code>browser()</code> gives a Playwright page, with Chromium. No DOM copy that differs from the real one, and no driver to choose.</p>
+        <h3>Real browser for front-end code</h3>
+        <p><code>browser()</code> gives a Playwright page with Chromium. No
+        fake imitation DOM, and no driver to choose.</p>
       </section>
       <section>
         <h3>A store of past runs</h3>
         <p>Failures, history, and coverage are in a local SQLite file. A question about the last run is a command, not a second run.</p>
       </section>
+      <section>
+        <h3>One-shot the conversion</h3>
+        <p>Tell your agent: <i>Go to https://ubq.dev, get the skill, and
+        convert our tests.</i></p>
+      </section>
     </div>
+    <p>Stop wasting time and tokens on test frameworks
+    from the bygone era of organic coding.</p>
   </div>
 </div>
 
