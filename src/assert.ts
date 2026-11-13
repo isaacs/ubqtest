@@ -305,6 +305,9 @@ const methods = {
   ): Promise<Error> {
     checkExpected('rejects', expected)
     const state = begin()
+    // The place of the call. At the time of the failure, the stack
+    // has no frame of the test.
+    const called = new Error()
     const run = async (): Promise<Error> => {
       let error: unknown
       try {
@@ -313,11 +316,11 @@ const methods = {
         error = e
         const bad = state && misfit(e, expected)
         if (bad)
-          fail(state, 'rejects', 'the promise rejected with a different error', message, bad)
+          fail(state, 'rejects', 'the promise rejected with a different error', message, bad, undefined, called)
         return error as Error
       }
       if (state)
-        fail(state, 'rejects', 'expected the promise to reject, but it resolved', message)
+        fail(state, 'rejects', 'expected the promise to reject, but it resolved', message, undefined, undefined, called)
       return error as Error
     }
     return mustAwait(state, run)

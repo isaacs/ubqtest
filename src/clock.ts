@@ -64,11 +64,12 @@ const abortError = (signal: AbortSignal): Error =>
 export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   if (active)
     throw new Error('a fake clock is active. Call restore() on it before the next fakeClock() call.')
-  // First, so that a call after the end of its test changes nothing.
-  cleanup(() => clock.restore())
   const RealDate = Date
   const start = options.now === undefined ? RealDate.now() : +options.now
   if (!Number.isFinite(start)) throw new TypeError('fakeClock: now must be a number or a Date')
+  // Before each change, so that a call after the end of its test
+  // changes nothing.
+  cleanup(() => clock.restore())
   let now = start
   let ids = 0
   const timers = new Map<number, Timer>()

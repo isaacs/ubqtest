@@ -121,3 +121,69 @@ test('the time limit of a test is real', { timeout: 100 }, async () => {
   await clock.tick(60_000)
   assert.equal(clock.now - t0, 60_000)
 })
+
+test('wrong arguments, and a clock that was restored', async () => {
+  assert.throws(() => fakeClock({ now: Number.NaN }), /fakeClock: now must be a number or a Date/)
+  const clock = fakeClock({ now: 0 })
+  assert.throws(() => setTimeout('not a function' as unknown as () => void, 1), /The "callback" argument must be of type function/)
+  await assert.rejects(clock.tick(-1), /tick\(\) needs a number of milliseconds, 0 or more/)
+  await assert.rejects(clock.tick('1' as unknown as number), /tick\(\) needs a number of milliseconds/)
+  clock.restore()
+  await assert.rejects(clock.tick(1), /the fake clock was restored/)
+  await assert.rejects(clock.runAll(), /the fake clock was restored/)
+})
+
+test('a timer of the fake clock has the methods of a Node timer', async () => {
+  const clock = fakeClock({ now: 0 })
+  const done = spy()
+  const count = (): number => done.calls.length
+  const timer = setTimeout(done, 10) as unknown as NodeJS.Timeout
+  assert.deepEqual([timer.ref(), timer.unref(), timer.hasRef()], [timer, timer, true])
+  await clock.tick(5)
+  // The time starts again.
+  assert.equal(timer.refresh(), timer)
+  await clock.tick(5)
+  assert.equal(count(), 0)
+  await clock.tick(5)
+  assert.equal(count(), 1)
+  // A time that is not a number is 0.
+  const now = setTimeout(done, 'soon' as unknown as number)
+  const closed = setTimeout(done, 1) as unknown as NodeJS.Timeout
+  assert.equal(closed.close(), closed)
+  const disposed = setTimeout(done, 1) as unknown as NodeJS.Timeout
+  disposed[Symbol.dispose]()
+  assert.equal(clock.timers, 1)
+  await clock.tick(0)
+  assert.deepEqual([count(), clock.timers, Number(now) > 0], [2, 0, true])
+})
+
+test('the promise timers, a signal, and process.hrtime', async () => {
+  const clock = fakeClock({ now: 0 })
+  const { sleep } = timersNow()
+  const promises: typeof timersPromises = late ? require('node:timers/promises') : timersPromises
+  // A signal that is aborted before the call, and one that aborts in the wait.
+  await assert.rejects(sleep(10, undefined, { signal: AbortSignal.abort() }), { name: 'AbortError' })
+  const controller = new AbortController()
+  const waiting = assert.rejects(sleep(10, undefined, { signal: controller.signal }), { name: 'AbortError' })
+  controller.abort()
+  await waiting
+  assert.equal(clock.timers, 0)
+  // With no time, the wait is 1 ms.
+  const short = sleep()
+  const soon = promises.setImmediate('now')
+  await clock.tick(1)
+  assert.deepEqual([await short, await soon], [undefined, 'now'])
+  const ticks = promises.setInterval(10, 'tick')[Symbol.asyncIterator]()
+  const first = ticks.next()
+  await clock.tick(10)
+  assert.deepEqual(await first, { value: 'tick', done: false })
+  const pause = promises.scheduler.yield()
+  await clock.tick(0)
+  assert.equal(await pause, undefined)
+  // The difference from an earlier time.
+  const before = process.hrtime()
+  await clock.tick(1500)
+  assert.deepEqual(process.hrtime(before), [1, 500_000_000])
+  await clock.tick(600)
+  assert.deepEqual(process.hrtime(before), [2, 100_000_000])
+})

@@ -157,3 +157,148 @@ test('each wrong use of the test API has a report with the cause', { timeout: 60
   assert(!r.out.includes('late 2'))
   assert.equal(r.last, 'fail: 12 errors, 7 failed, 6 passed')
 })
+
+const asserts = `import { assert, test } from 'ubqtest'
+const bad = (): never => {
+  throw new RangeError('out of range')
+}
+test('throws: a message that does not match', () => {
+  assert.throws(bad, /not this/)
+})
+test('throws: a different class', () => {
+  assert.throws(bad, TypeError)
+})
+test('throws: a pattern that does not match', () => {
+  assert.throws(bad, { name: 'TypeError' })
+})
+test('throws: a value that is not an error', () => {
+  assert.throws(() => {
+    throw 'text'
+  }, /other/)
+})
+test('throws: the function returns', () => {
+  assert.throws(() => 1, Error)
+})
+test('throws: text as the expected error', () => {
+  assert.throws(bad, 'out of range' as unknown as RegExp)
+})
+test('rejects: a different error', async () => {
+  await assert.rejects(Promise.reject(new RangeError('out of range')), TypeError)
+})
+test('rejects: the promise resolves', async () => {
+  await assert.rejects(async () => 1, Error)
+})
+test('fail', () => {
+  assert.fail('this must not happen')
+})
+test('deepEqual: a difference in a symbol key', () => {
+  assert.deepEqual({ [Symbol.for('k')]: 1 }, {})
+})
+test('assertions after the end of the test', () => {
+  setTimeout(() => {
+    assert.match('a', /a/)
+    assert.snapshot('a')
+    void assert.eventually(() => 1, 1)
+    assert.equal(1, 2)
+  }, 10)
+  assert(true)
+})
+test('waits', async () => {
+  await new Promise(done => setTimeout(done, 100))
+  assert(true)
+})
+`
+
+test('each kind of failed assertion has a report with the two values and the place', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'asserts.test.ts'), asserts)
+  writeFileSync(join(p.dir, 'outside.test.ts'), "import { assert, test } from 'ubqtest'\nassert.equal(1, 1)\ntest('a', () => assert(true))\n")
+  const r = p.ubq()
+  const blocks = new Set(r.out.split('\n\n'))
+  const has = (...lines: string[]): void => assert(blocks.has(lines.join('\n')), lines[0] + '\n' + r.out)
+  const fail = (name: string, line: number, ...lines: string[]): void =>
+    has(`FAIL asserts.test.ts > ${name}`, ...lines, `  rerun: ubq asserts.test.ts:${line}`)
+  has('ERROR outside.test.ts', '  Error: assert was called outside a test', '  at outside.test.ts:2:8', '  > assert.equal(1, 1)')
+  fail(
+    'throws: a message that does not match',
+    5,
+    '  the function threw a different error',
+    '  at asserts.test.ts:6:10',
+    '  > assert.throws(bad, /not this/)',
+    '  actual:   RangeError: out of range',
+    '  expected: an error with a message that matches /not this/',
+  )
+  fail(
+    'throws: a different class',
+    8,
+    '  the function threw a different error',
+    '  at asserts.test.ts:9:10',
+    '  > assert.throws(bad, TypeError)',
+    '  actual:   RangeError: out of range',
+    '  expected: an instance of TypeError',
+  )
+  fail(
+    'throws: a pattern that does not match',
+    11,
+    '  the function threw a different error',
+    '  at asserts.test.ts:12:10',
+    "  > assert.throws(bad, { name: 'TypeError' })",
+    '  .name',
+    "    actual:   'RangeError'",
+    "    expected: 'TypeError'",
+  )
+  fail(
+    'throws: a value that is not an error',
+    14,
+    '  the function threw a different error',
+    '  at asserts.test.ts:15:10',
+    '  > assert.throws(() => {',
+    "  actual:   'text'",
+    '  expected: an error with a message that matches /other/',
+  )
+  fail('throws: the function returns', 19, '  expected the function to throw, but it returned', '  at asserts.test.ts:20:10', '  > assert.throws(() => 1, Error)')
+  fail(
+    'throws: text as the expected error',
+    22,
+    '  TypeError: assert.throws needs the expected error as its second argument: a RegExp for the message, an error class, or an object pattern',
+    '  at asserts.test.ts:23:10',
+    "  > assert.throws(bad, 'out of range' as unknown as RegExp)",
+  )
+  // The check runs after an await. The place is that of the call.
+  fail(
+    'rejects: a different error',
+    25,
+    '  the promise rejected with a different error',
+    '  at asserts.test.ts:26:16',
+    "  > await assert.rejects(Promise.reject(new RangeError('out of range')), TypeError)",
+    '  actual:   RangeError: out of range',
+    '  expected: an instance of TypeError',
+  )
+  fail(
+    'rejects: the promise resolves',
+    28,
+    '  expected the promise to reject, but it resolved',
+    '  at asserts.test.ts:29:16',
+    '  > await assert.rejects(async () => 1, Error)',
+  )
+  fail('fail', 31, '  this must not happen', '  at asserts.test.ts:32:10', "  > assert.fail('this must not happen')")
+  fail(
+    'deepEqual: a difference in a symbol key',
+    34,
+    '  expected values to be deeply equal',
+    '  at asserts.test.ts:35:10',
+    "  > assert.deepEqual({ [Symbol.for('k')]: 1 }, {})",
+    '  actual:   { Symbol(k): 1 }',
+    '  expected: {}',
+  )
+  // One report for the first assertion after the end of the test.
+  fail(
+    'assertions after the end of the test',
+    37,
+    '  an assertion ran after the test ended. Await all async work in the test.',
+    '  at asserts.test.ts:39:12',
+    "  > assert.match('a', /a/)",
+  )
+  assert.equal(r.last, 'fail: 2 errors, 11 failed, 1 passed')
+})
