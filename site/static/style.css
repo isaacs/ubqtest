@@ -108,6 +108,9 @@ pre .good {
 pre .cmd {
   color: #fff;
 }
+pre a {
+  color: #93aaff !important;
+}
 .split pre.md {
   padding: 0.5rem;
   white-space: normal;
