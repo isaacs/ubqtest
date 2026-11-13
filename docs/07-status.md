@@ -1297,11 +1297,20 @@ ranges have the comment of D56. More defects found and corrected:
   ASCII, a character with no width) showed the same text for the
   two values. Such characters now show as their codes.
 
-Of the 247 ranges, about 106 are fallbacks in an expression
-(`?? ''`, `|| 0`, a branch of `? :`) for a value that is never
-absent in a test. Each one needs a decision of the user: a D56
-comment, or removal (for example `x!` in place of `x ?? ''`).
-Removal is a change to code that works, so it waits for the user.
-The rest are paths for a runtime or a system, catch blocks for
-errors of the file system, and paths of Workers configs.
+The user's decision on fallbacks in an expression (`?? ''`,
+`|| 0`) for a value that a test never leaves out: use `x!` if the
+value is always set, or a D56 comment if not. Each one has a short
+comment that gives the reason. The merged list is now 204 ranges,
+and 24 ranges have a D56 comment. New tests: the store commands
+with no runs, a write of bytes, `ubq skill` and `ubq convert` from
+the built package, intervals with no time, and a doctor report of
+few stray files.
+
+The fake clock runs `setInterval(fn)` with no time at once, then
+each 1 ms. Node waits 1 ms for the first call. The test keeps the
+behavior of the fake clock; a change waits for the user.
+
+The rest of the list: branches of `? :` for cases that tests do
+not make, paths for a runtime or a system, catch blocks for errors
+of the file system, and paths of Workers configs.
 
