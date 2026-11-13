@@ -2,7 +2,7 @@
 // for each problem.
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { type Config, config } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError } from './runner.ts'
@@ -16,6 +16,33 @@ const plainJson = (text: string): string =>
   text
     .replace(/("(?:\\.|[^"\\])*")|\/\/.*|\/\*[\s\S]*?\*\//g, (_, string) => string ?? '')
     .replace(/,(\s*[}\]])/g, '$1')
+
+/**
+ * The compilerOptions of a tsconfig file, with the options of each
+ * config that it extends. Throws if a file cannot be read.
+ */
+const tsOptions = (file: string): Record<string, unknown> => {
+  const json = JSON.parse(plainJson(readFileSync(file, 'utf8')))
+  const options: Record<string, unknown> = {}
+  for (const base of [json.extends ?? []].flat() as string[])
+    Object.assign(options, tsOptions(tsBase(base, dirname(file))))
+  return Object.assign(options, json.compilerOptions)
+}
+
+/** The file of a base config: a path, or a config in a package. */
+const tsBase = (base: string, dir: string): string => {
+  if (base.startsWith('.') || isAbsolute(base)) {
+    const path = resolve(dir, base)
+    return existsSync(path) || path.endsWith('.json') ? path : `${path}.json`
+  }
+  const require = createRequire(join(dir, 'tsconfig.json'))
+  if (base.endsWith('.json')) return require.resolve(base)
+  try {
+    return require.resolve(`${base}/tsconfig.json`)
+  } catch {
+    return require.resolve(`${base}.json`)
+  }
+}
 
 /** Prints one line for each check. Returns the count of problems. */
 export const doctor = (out: (text: string) => void): number => {
@@ -148,16 +175,12 @@ export const doctor = (out: (text: string) => void): number => {
   const tsconfig = join(root, 'tsconfig.json')
   if (existsSync(tsconfig)) {
     let options: Record<string, unknown> | undefined
-    let inherits = false
     try {
-      const json = JSON.parse(plainJson(readFileSync(tsconfig, 'utf8')))
-      options = json.compilerOptions ?? {}
-      inherits = 'extends' in json
+      options = tsOptions(tsconfig)
     } catch {
-      // Not a form that this check can read.
+      // Not a form that this check can read, or a base that is not there.
     }
-    // A config that extends a different config can get the options from it.
-    if (options && !inherits) {
+    if (options) {
       const reasons = {
         allowImportingTsExtensions: 'A test file imports a file with the .ts extension.',
         erasableSyntaxOnly: 'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',

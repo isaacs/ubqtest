@@ -122,8 +122,31 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
   // A tsconfig that the check cannot read, one that extends a second one, and one with no options.
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ not json')
   assert.equal(find(doctor(), 'FIX  tsconfig'), undefined)
+  // A base that is not there: the check cannot read the options.
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "./base.json" }')
   assert.deepEqual([find(doctor(), 'FIX  tsconfig'), find(doctor(), 'ok   tsconfig')], [undefined, undefined])
+  // The options come from the bases, in order, and the config's own
+  // options come last. A base can extend a different base.
+  const erasable = 'FIX  tsconfig.json: set "erasableSyntaxOnly": true in compilerOptions.'
+  writeFileSync(join(p.dir, 'base.json'), '{ "extends": "./base2", "compilerOptions": { "strict": true } }')
+  writeFileSync(join(p.dir, 'base2.json'), '{ "compilerOptions": { "erasableSyntaxOnly": true } }')
+  assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "./base.json", "compilerOptions": { "erasableSyntaxOnly": false } }')
+  assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
+  // A base from a package, and a list of bases.
+  mkdirSync(join(p.dir, 'node_modules/@cfg/strict'), { recursive: true })
+  writeFileSync(join(p.dir, 'node_modules/@cfg/strict/tsconfig.json'), '{ "compilerOptions": { "erasableSyntaxOnly": false } }')
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "@cfg/strict" }')
+  assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/strict", "./base2.json"] }')
+  assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
+  // A file of a package by its full name, and a package file with no
+  // folder.
+  writeFileSync(join(p.dir, 'node_modules/@cfg/erasable.json'), '{ "compilerOptions": { "erasableSyntaxOnly": true } }')
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/erasable", "@cfg/strict/tsconfig.json"] }')
+  assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/strict/tsconfig.json", "@cfg/erasable"] }')
+  assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
   // No test file imports with the .ts extension: one option is necessary.
   writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
   assert.equal(

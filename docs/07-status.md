@@ -158,6 +158,14 @@ All entries are from 2026-11-11 to 2026-11-13.
   the case yet ("no test ...", which a later test can close).
 - **EPIPE.** The command line ignores EPIPE on its stdout and
   stderr, so `ubq uncovered | head` has no error stack.
+- **Small fixes.** The `ubq skill` help names all 7 agents. A stack
+  path can have a space. `--diff` reads names that git quotes.
+  `ubq show` names the error of a file that did not load. `doctor`
+  reads the configs that a `tsconfig.json` extends. A fake
+  `setInterval` with no time, or a time that is not a finite
+  number, waits 1 ms (the user's decision). The raw output of a
+  child process stays out of the text: the user decided that the
+  runner prints only results.
 
 ## Open, waiting for a decision
 
@@ -170,14 +178,10 @@ All entries are from 2026-11-11 to 2026-11-13.
   gives "the test process ended before the file did ... in test:
   t", with a stack frame of `src/workers-entry.ts`. On Node the
   same file gives a plain load error.
-- The fake clock runs `setInterval(fn)` with no time at once, then
-  each 1 ms. Node waits 1 ms for the first call.
+- Q12 in `09-questions.md`: should a fake timer with a time of 0
+  or less wait 1 ms, as in Node?
 - `ubq convert` for Playwright tests that use vitest, jest,
   `@playwright/test`, or no test tool (asked by the user).
-- The `ubq skill` help names 5 agents. The code knows 7 names
-  (`antigravity` and `agents` too).
-- In a run of many files, the raw output of a child process (not
-  from a test) does not show in the text.
 - A conversion of a real project by a different agent: the user
   planned this check.
 
@@ -187,7 +191,8 @@ Each item is still open. Remove it when it is done.
 
 Core and runner:
 
-- The stack parser does not read a path that has a space.
+- The place of a load error (`loadFailure` in `src/runner.ts`) is
+  not found for a file in a project folder whose name has a space.
 - Bun gives different columns for some frames, and no place for an
   assertion in a timer callback.
 - A timer that a timed-out test leaves keeps the process alive
@@ -202,8 +207,9 @@ Core and runner:
   Deno, a plain program in a loop gets no stack.
 - A new schema version removes the old store. Two `ubq` processes
   that start at that time can fail one time.
-- `test/coverage.test.ts` and `test/bun.test.ts` share the store
-  of `test/fixtures/cov`, so they can fail for that reason.
+- Many test files run `ubq` in `test/fixtures` and share its
+  store. A test that reads a row from that store can see the rows
+  of a different file. `test/bun.test.ts` has its own project now.
 
 Selection and history:
 
@@ -213,7 +219,6 @@ Selection and history:
   compares runs on one runtime only.
 - The changed part of a file is one span. Two changes far apart
   select each test that ran code between them.
-- `--diff` does not find a file name that git puts in quotes.
 - With nothing to run, `--failed` and `--changed` exit with 2.
 - `--repeat` runs the repeats one after the other.
 - `--baseline` checks out only the files of the commit (no build
@@ -223,8 +228,6 @@ Selection and history:
   in the second run.
 - The store keeps the rows of a test file that is gone. `ubq
   covers` can name a test of such a file.
-- `ubq show` for a test whose file did not load says "no stored
-  result". It could name the error of the file.
 - The output of a test that passes shows only in `ubq show`.
 
 Coverage:
@@ -267,7 +270,9 @@ Mocks, fixtures, clock:
 
 Type check and doctor:
 
-- `doctor` does not read a `tsconfig.json` that has `extends`.
+- `doctor` does not read the `tsconfig` field of a package that a
+  config extends. It reads `<package>/tsconfig.json` and
+  `<package>.json`.
 - A run of one file that ends with `process.exit` before the type
   check ends reports no type errors.
 

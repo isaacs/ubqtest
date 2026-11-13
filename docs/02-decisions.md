@@ -1242,3 +1242,13 @@ modules, which load before the hooks that add counters. With no
 mark, the list never gets to 0, and a real gap is hard to see in
 it. A count in the output keeps the marks visible.
 
+
+## D57. Fake intervals with no time, and the output of the runner (user, 2026-11-13)
+
+- **Interval time.** A fake `setInterval(fn)` with no time, or with
+  a time that is not a finite number (`NaN`, `Infinity`, a string),
+  runs as if the time were 1 ms. Q12 asks about a time of 0 or less.
+- **Raw output of a child process.** In a run of many files, the
+  text does not show output of a test process that is not from a
+  test. The runner prints results, and failures with the next
+  command to run, and nothing else.

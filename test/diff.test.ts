@@ -105,3 +105,33 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
     "ubq: --diff: fatal: bad revision 'nope'",
   ])
 })
+
+test('--diff finds a file whose name git puts in quotes', () => {
+  const p = setup()
+  const git = (...args: string[]) => {
+    const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], {
+      cwd: p.dir,
+      encoding: 'utf8',
+    })
+    assert.equal(r.status, 0, r.stderr)
+  }
+  // Windows does not allow these characters in a file name. Git
+  // writes a tab as `\t`, and the other control characters in octal.
+  const names = ['a b.ts', 'é.ts', ...(process.platform === 'win32' ? [] : ['q"t.ts', 'b\\s.ts', 'c\td.ts', 'd\x01e.ts'])]
+  writeFileSync(join(p.dir, '.gitignore'), 'node_modules\n.ubq\n')
+  for (const name of names) writeFileSync(join(p.dir, 'src', name), 'export const x = 1\n')
+  git('init', '-q')
+  git('add', '.')
+  git('commit', '-q', '-m', 'first')
+  assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
+  // A changed file, and a new file, for each name.
+  for (const name of names) {
+    writeFileSync(join(p.dir, 'src', name), 'export const x = 2\n')
+    writeFileSync(join(p.dir, 'src', `new ${name}`), 'export const y = 1\n')
+  }
+  const listed = p.lines('uncovered', '--diff').filter(line => line.endsWith('  no test loads this file'))
+  assert.deepEqual(
+    listed.sort(),
+    names.flatMap(name => [`src/${name}  no test loads this file`, `src/new ${name}  no test loads this file`]).sort(),
+  )
+})

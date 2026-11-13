@@ -22,6 +22,7 @@ import {
   hasCoverage,
   history,
   incomplete,
+  lastFileError,
   lastResult,
   lastRun,
   outputOf,
@@ -86,7 +87,7 @@ const USAGE = `usage:
   ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
-  ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (claude, cursor, gemini, copilot, codex)
+  ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (${SKILL_DIRS.flatMap(([names]) => names).join(', ')})
 `
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
@@ -214,7 +215,15 @@ const main = async (args: string[]): Promise<number> => {
       const id = rest.join(' ')
       if (!id) throw new UsageError('ubq show needs a test id')
       const t = lastResult(db, id)
-      if (!t) throw new UsageError(`no stored result for test: ${id}`)
+      if (!t) {
+        // A file that did not load has no result for its tests.
+        const file = id.split(' > ')[0]!
+        const e = lastFileError(db, file)
+        const at = e?.failure.at && `\n  at ${e.failure.at.file}:${e.failure.at.line}:${e.failure.at.column}`
+        throw new UsageError(
+          `no stored result for test: ${id}` + (e ? `\n  ${file} had an error in run ${e.run}: ${e.failure.message}${at ?? ''}` : ''),
+        )
+      }
       out(`${t.status} ${t.id}`)
       out(`  run ${t.run}, ${t.asserts} assertions, ${t.ms.toFixed(1)} ms`)
       if (t.repeats) out(`  failed ${t.fails} of ${t.repeats} times`)

@@ -13,3 +13,12 @@ test('a frame with no column is at column 1', () => {
     { file: 'a.ts', line: 6, column: 7 },
   ])
 })
+
+test('a path that has a space', () => {
+  const path = fileURLToPath(new URL('../a b/c d.ts', import.meta.url))
+  assert.deepEqual(userFrames(`Error: x\n    at fn (${path}:5:2)\n    at ${path}:6:7\n    at async ${path}:8:9`), [
+    { file: 'a b/c d.ts', line: 5, column: 2 },
+    { file: 'a b/c d.ts', line: 6, column: 7 },
+    { file: 'a b/c d.ts', line: 8, column: 9 },
+  ])
+})

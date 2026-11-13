@@ -16,6 +16,8 @@ test('help, and the error of each command with a wrong or absent argument', { ti
     const r = p.ubq(flag)
     assert.deepEqual([r.code, r.out.split('\n')[0], r.out.includes('\n  ubq uncovered [file]')], [0, 'usage:', true])
   }
+  // The help names each agent that `ubq skill <agent>` knows.
+  assert.match(p.ubq('help').out, /named agent \(claude, cursor, gemini, copilot, codex, antigravity, agents\)\n/)
   // A command that reads the store, with no store.
   assert.deepEqual(error('failures'), [4, 'ubq: no runs are stored. Run a test file first: node <test file>'])
   assert.deepEqual(error('guide', 'nope'), [4, 'ubq: the guides are: ubq guide, ubq guide convert'])
@@ -79,6 +81,13 @@ test('later', { skip: 'not now' }, () => assert(true))
     'run 4 to run 5: 1 new failures, 0 fixed, 1 other changes, 0 the same, 1 only in run 5',
     'details: ubq failures 5',
   ])
+  // A test of a file that did not load: the message names the error
+  // of the file.
+  writeFileSync(join(p.dir, 'bad.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nconst = 1\n")
+  p.ubq('bad.test.ts')
+  const bad = error('show', 'bad.test.ts > t')
+  assert.equal(bad[0], 4)
+  assert.match(bad[1], /^ubq: no stored result for test: bad\.test\.ts > t\n  bad\.test\.ts had an error in run 6: the test file did not load: .+\n  at bad\.test\.ts:3:\d+$/)
   assert.match(error('skill', 'nope')[1], /^ubq: unknown agent "nope"\. The agents are: claude, .* A folder also works: ubq skill \.myagent\/skills$/)
 })
 
@@ -92,6 +101,11 @@ test('a file that ends the process, cut output, and a run of only skipped tests'
     1,
     ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 3)'],
   ])
+  // An error with no place.
+  assert.equal(
+    p.ubq('show', 'exits.test.ts > t').err,
+    'ubq: no stored result for test: exits.test.ts > t\n  exits.test.ts had an error in run 1: the test process ended before the file did (exit code 3)\n',
+  )
   // No import of ubqtest, and no exit: the runner reports it too.
   writeFileSync(join(p.dir, 'exits.test.ts'), 'void 0\n')
   const plain = p.ubq('exits.test.ts')

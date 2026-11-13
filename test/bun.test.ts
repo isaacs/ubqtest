@@ -146,12 +146,17 @@ describe('bun', () => {
   })
 
   test('the runner on bun runs one file and many files with full coverage', { skip }, () => {
-    assert.deepEqual(sh('bun', [cli, 'pass.ts'], fixtures), [
+    // A project of its own: other test files use the store of the
+    // fixtures at the same time.
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    cpSync(`${fixtures}cov/`, join(p.dir, 'cov'), { recursive: true, filter: path => !path.endsWith('.ubq') })
+    assert.deepEqual(sh('bun', [cli, 'pass.ts'], p.dir), [
       'skip pass.ts > not on this platform: needs a GPU',
       'pass: 0 failed, 5 passed, 1 skipped',
     ])
-    assert.equal(sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], fixtures).at(-1), 'pass: 0 failed, 10 passed, 1 skipped')
-    assert.deepEqual(sh('node', [cli, 'sql', "select coverage from test_file where tfile = 'pass.ts'"], fixtures), [
+    assert.equal(sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], p.dir).at(-1), 'pass: 0 failed, 10 passed, 1 skipped')
+    assert.deepEqual(sh('node', [cli, 'sql', "select coverage from test_file where tfile = 'pass.ts'"], p.dir), [
       '{"coverage":"full"}',
     ])
   })

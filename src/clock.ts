@@ -104,8 +104,11 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
 
   const fakes = {
     setTimeout: (fn: unknown, ms?: unknown, ...args: unknown[]) => add(fn, ms, args),
-    setInterval: (fn: unknown, ms?: unknown, ...args: unknown[]) =>
-      add(fn, ms, args, Number(ms) || 0),
+    setInterval: (fn: unknown, ms?: unknown, ...args: unknown[]) => {
+      // No time, or a time that is not a finite number, is 1 ms.
+      const every = Number.isFinite(ms) ? (ms as number) : 1
+      return add(fn, every, args, every)
+    },
     setImmediate: (fn: unknown, ...args: unknown[]) => add(fn, 0, args),
     clearTimeout: clear,
     clearInterval: clear,

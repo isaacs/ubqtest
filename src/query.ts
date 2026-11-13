@@ -283,6 +283,14 @@ export const fileErrors = (db: DatabaseSync, run: number): { file: string; failu
     }[]
   ).map(r => ({ file: r.file, failure: JSON.parse(r.failure) }))
 
+/** The last error of a test file, and its run. Undefined if the file has none. */
+export const lastFileError = (db: DatabaseSync, file: string): { run: number; failure: Failure } | undefined => {
+  const row = db.prepare('select run, failure from file_error where file = ? order by run desc limit 1').get(file) as
+    | { run: number; failure: string }
+    | undefined
+  return row && { run: row.run, failure: JSON.parse(row.failure) }
+}
+
 /** The type errors of a run. */
 export const typeErrors = (db: DatabaseSync, run: number): TypeCheckError[] =>
   (db.prepare('select error from type_error where run = ? order by rowid').all(run) as { error: string }[]).map(
