@@ -845,7 +845,7 @@ workerd. A timeout has no list of open things and no hang rerun.
 A stuck test has no stack. No JSX files. A CommonJS package gives
 only its default export. No `SELF` fetcher, and no storage for
 each test. `fakeClock` does not replace the names of
-`node:timers`. Not tried on Windows.
+`node:timers`.
 
 **Reason.** Workers are a common place to run code, and the tests
 of a Worker are worth most in the real runtime: they find the

@@ -1003,8 +1003,12 @@ Durable Object, `waitUntil`, a scheduled handler).
   workerd.
 - `ubq doctor` checks the `workers` key and the `wrangler`
   package. `ubq convert` changes the names of `cloudflare:test`.
-- Checked by hand with the built package: the runner on Node, on
-  Bun, and on Deno. The host process is Node each time.
+- `test/package.test.ts` runs the fixture with the built package
+  and the runner on Node, on Bun, and on Deno. The host process
+  is Node each time.
+- Checked by hand on the fixture: `ubq --changed` selects the one
+  test that ran a changed line, `ubq --repeat 3` works, and `ubq
+  mutate src/text.ts` works (0.6 s).
 
 Known gaps, for future work:
 
@@ -1021,9 +1025,5 @@ Known gaps, for future work:
 - Other helpers of `cloudflare:test`: queues, Durable Object
   internals, Workflows.
 - `fakeClock` for names imported from `node:timers`.
-- Windows: not tried. The module names of workerd have a
-  different form there.
-- `ubq mutate` and `ubq --repeat` for a Workers test file: not
-  tried.
 - The background server does not keep workerd processes ready.
 

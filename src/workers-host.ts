@@ -211,7 +211,9 @@ const moduleOf = (path: string): Record<string, unknown> => {
     // A module that workerd gets this way has no `import.meta.url`.
     code = (ts ? strip(source) : source)
       .replaceAll('import.meta.url', JSON.stringify(pathToFileURL(path).href))
-      .replaceAll('import.meta.dirname', JSON.stringify(dirname(path)))
+      // The path module of workerd has the rules of POSIX, also on
+      // Windows.
+      .replaceAll('import.meta.dirname', JSON.stringify(dirname(path).split(sep).join('/')))
   } else if (counters.wants(path)) {
     const changed = counters.change(path, source)
     code = changed?.source ?? source
@@ -352,7 +354,7 @@ const handle = async (event: UbqEvent | { type: 'load-error'; text: string }): P
 
 const job: Job = {
   path: '/' + toName(file),
-  root,
+  root: root.split(sep).join('/'),
   config: config(),
   env: Object.fromEntries(
     ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_LIMIT'].flatMap(name =>
