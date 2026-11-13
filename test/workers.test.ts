@@ -1,6 +1,6 @@
 // Tests of a Cloudflare Worker, in workerd (D48).
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -131,6 +131,15 @@ test('a test that blocks the thread of workerd, and a source file with an error'
 
 test('test values for vars, a service that is absent, an alias, and a CommonJS package', slow, () => {
   const p = project()
+  // A config with a container. No container starts in a test run.
+  writeFileSync(join(p.dir, 'Dockerfile'), 'FROM scratch\n')
+  writeFileSync(
+    join(p.dir, 'wrangler.jsonc'),
+    readFileSync(join(p.dir, 'wrangler.jsonc'), 'utf8').replace(
+      '"migrations": [',
+      '"containers": [{ "class_name": "Counter", "image": "./Dockerfile", "max_instances": 1 }],\n  "migrations": [',
+    ),
+  )
   // The file of `wrangler dev` for secrets. A test must not get them.
   writeFileSync(join(p.dir, '.dev.vars'), 'GREETING=secret\nAPI_KEY=real-key\n')
   // An ES module package that imports a name from a CommonJS package.
@@ -166,6 +175,8 @@ import { assert, test } from 'ubqtest'
 const e = env as unknown as Record<string, unknown> & { OTHER: { fetch(url: string): Promise<Response> } }
 test('vars', () => {
   assert.deepEqual([e.GREETING, e.MODE, e.EXTRA, e.API_KEY], ['hello', 'test', { a: 1 }, undefined])
+  // No binding of ubq.
+  assert.deepEqual(Object.keys(env).sort(), ['COUNTER', 'DB', 'EXTRA', 'GREETING', 'MODE', 'OTHER'])
 })
 test('a service that is not part of the run', async () => {
   const response = await e.OTHER.fetch('http://x/')

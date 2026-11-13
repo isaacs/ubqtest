@@ -1,5 +1,5 @@
 // `ubq convert`: test files of a different test tool, as ubq tests.
-import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
@@ -216,8 +216,7 @@ describe('group', () => {
   assert.deepEqual(r.code, [
     "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
     '',
-    todo('ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.'),
-    'beforeAll(async () => { await migrate() })',
+    '{ await migrate() }',
     todo('ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.'),
     'afterAll(() => close())',
     '',
@@ -233,13 +232,11 @@ describe('group', () => {
     '    assert.equal(f.calls.length, 2)',
     "    assert.deepEqual(f.calls[0].args, ['u'])",
     '    assert(Math.abs(1.234 - 1.23) < 0.005)',
-    "    assert(!(Reflect.has(o, 'k')))",
+    "    assert(!(Reflect.has(Object(o), 'k')))",
     '    ' + todo('ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.'),
     "    expect(o).toHaveProperty('a.b')",
     '    ' + restore,
     '    f.mockRestore()',
-    '    ' + restore,
-    '    vi.restoreAllMocks()',
     '  })',
     '})',
   ])
@@ -304,4 +301,115 @@ it('a', () => {
     '  assert.throws(() => f(), TypeError)',
     '})',
   ])
+})
+
+test('vitest: a hook at the top level that uses a later name, a restore hook, and resolves', () => {
+  const r = convert(`import { afterEach, beforeAll, expect, it } from 'vitest'
+
+let restore = () => {}
+afterEach(() => restore())
+beforeAll(async () => {
+  await insert(repo)
+})
+beforeAll(() => {
+  const local = [1].map(n => { return n })
+  use(local)
+})
+const repo = 'a/b'
+
+it('a', async () => {
+  await expect(load()).resolves.toBeDefined()
+  expect(value).toBeDefined()
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, test } from 'ubqtest'",
+    '',
+    'let restore = () => {}',
+    '// TODO(ubq): If this only puts spies back, delete it, and delete each assignment to restore. A spyOn spy goes back when its test ends. If it does other work: ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
+    'afterEach(() => restore())',
+    '// TODO(ubq): ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
+    'beforeAll(async () => {',
+    '  await insert(repo)',
+    '})',
+    '{',
+    '  const local = [1].map(n => { return n })',
+    '  use(local)',
+    '}',
+    "const repo = 'a/b'",
+    '',
+    "test('a', async () => {",
+    '  assert((await load()) !== undefined)',
+    '  assert(value !== undefined)',
+    '})',
+  ])
+})
+
+test('a project of the vitest plugin for Workers: the workers key and the migrations', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'worker/test'), { recursive: true })
+  mkdirSync(join(p.dir, 'second/test'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'vitest.config.ts'),
+    `import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        plugins: [
+          cloudflareTest({
+            wrangler: { configPath: './worker/wrangler.jsonc' },
+            miniflare: {
+              bindings: { APP_ID: '12345', LIMIT: 3, FLAGS: { a: true }, TEST_MIGRATIONS: await readD1Migrations('migrations'), SECRET: process.env.X },
+            },
+          }),
+        ],
+        test: { include: ['worker/test/**/*.test.ts'], setupFiles: ['./worker/test/setup.ts'] },
+      },
+      {
+        plugins: [cloudflareTest({ wrangler: { configPath: './second/wrangler.jsonc' } })],
+        test: { include: ['second/test/**/*.test.ts'], setupFiles: './second/test/setup.ts' },
+      },
+    ],
+  },
+})
+`,
+  )
+  writeFileSync(
+    join(p.dir, 'worker/test/setup.ts'),
+    "import { applyD1Migrations, env } from 'cloudflare:test'\n\n// Before each test file.\nawait applyD1Migrations(env.DB, env.TEST_MIGRATIONS)\n",
+  )
+  writeFileSync(join(p.dir, 'second/test/setup.ts'), "globalThis.x = 1\n")
+  const old = "import { expect, it } from 'vitest'\n\nit('a', () => {\n  expect(1).toBe(1)\n})\n"
+  writeFileSync(join(p.dir, 'worker/test/a.test.ts'), old)
+  writeFileSync(join(p.dir, 'second/test/b.test.ts'), old)
+  const workers = [
+    { config: 'worker/wrangler.jsonc', include: ['worker/test/**/*.test.ts'], vars: { APP_ID: '12345', LIMIT: 3, FLAGS: { a: true } } },
+    { config: 'second/wrangler.jsonc', include: ['second/test/**/*.test.ts'] },
+  ]
+  // doctor gives the same entries, before the conversion.
+  writeFileSync(join(p.dir, 'worker/test/a.test.ts'), "import { env } from 'cloudflare:test'\n" + old)
+  assert(p.ubq('doctor').out.includes(`Add to package.json: "ubq": { "workers": ${JSON.stringify(workers)} }. This is from vitest.config.ts.`))
+  writeFileSync(join(p.dir, 'worker/test/a.test.ts'), old)
+
+  assert.deepEqual(p.ubq('convert', 'worker', 'second').out.split('\n').slice(2, -2), [
+    'convert: 2 files changed, 0 TODO comments, 2 files with no known test tool',
+    'note: second/test/setup.ts is a setup file of vitest.config.ts. ubq has no setup files. Export its work as a function, and await that function at the top level of each test file. See "A Cloudflare Worker" in: ubq guide convert',
+    'note: each test file now applies the D1 migrations (await migrate(...)). The setup file is not necessary: remove worker/test/setup.ts.',
+    `wrote "ubq.workers" to package.json, from vitest.config.ts: "workers": ${JSON.stringify(workers)}`,
+    'note: the binding SECRET of miniflare.bindings in vitest.config.ts is not a plain value. Add it to "vars" by hand.',
+  ])
+  assert.deepEqual(JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')).ubq, { workers })
+  assert.deepEqual(readFileSync(join(p.dir, 'worker/test/a.test.ts'), 'utf8').split('\n').slice(0, 4), [
+    "import { assert, test } from 'ubqtest'",
+    "import { migrate } from 'ubqtest/workers'",
+    '',
+    "await migrate('DB')",
+  ])
+  assert.equal(readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').split('\n')[0], "import { assert, test } from 'ubqtest'")
+  assert(!readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').includes('migrate'))
 })

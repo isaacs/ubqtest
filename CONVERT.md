@@ -30,8 +30,9 @@ has the API and the rules of ubq.
 7. **Clean up.** Set `"test": "ubq"` in the `scripts` of
    `package.json`. Remove the old test tool, its plugins, and its
    configuration (`.taprc`, `vitest.config.*`, `jest.config.*`,
-   `.mocharc.*`, `c8` and `nyc` settings). Change the test command
-   of CI. The folder `.ubq/` has the run store, and git ignores it
+   `.mocharc.*`, `c8` and `nyc` settings), and the entries for
+   the old tool in `types` of `tsconfig.json`. Change the test
+   command of CI. The folder `.ubq/` has the run store, and git ignores it
    with no setup. Commit `ubq-snapshots/`.
 
 Do not change the source of the project to make a test pass,
@@ -250,7 +251,10 @@ Things to check by hand:
   `fn.mock.results[0].value` is `fn.calls[0]?.result`.
 - **`vi.restoreAllMocks()`, `mockRestore()`.** A `spyOn` spy goes
   back when its test ends. The command removes a hook that only
-  restores. Remove the other calls. ubq has no call that puts
+  restores, and a call at the end of a test. If a helper of the
+  project gives a restore function (`restore = m.restore`, with
+  `afterEach(() => restore())`), delete the hook and each
+  assignment. Remove the other calls. ubq has no call that puts
   the method back before the test ends.
 - **`vi.useFakeTimers()`, `vi.advanceTimersByTime(ms)`.**
   `const clock = fakeClock({ now: 0 })`, then `await
@@ -264,8 +268,16 @@ Things to check by hand:
 - **A Cloudflare Worker (`cloudflare:test`,
   `@cloudflare/vitest-pool-workers`).** These tests run in the
   Workers runtime with ubq too. Read "Tests of a Cloudflare
-  Worker" in `ubq guide`, and set the `workers` key. The command
-  changes these names of `cloudflare:test`:
+  Worker" in `ubq guide`. The command reads `vitest.config.*` of
+  the project and writes the `workers` key to `package.json`: one
+  entry for each project of the config, with its wrangler config,
+  its test files, and the plain values of `miniflare.bindings` as
+  `vars`. Read the notes that it prints: a value that is not plain
+  must go into `vars` by hand. If a setup file of the config only
+  applied D1 migrations, the command adds `await migrate('DB')`
+  to each test file of that project, and says that the setup file
+  can go. The command also changes these names of
+  `cloudflare:test`:
 
   | vitest plugin | ubq |
   | --- | --- |
@@ -331,7 +343,12 @@ ubq has no `beforeEach`, `afterEach`, `beforeAll`, or `afterAll`.
   `await` works.
   A `beforeAll` callback runs after the whole file loaded. Code at
   the top level runs at its place, so put it after the
-  declarations that it uses.
+  declarations that it uses. The command changes a `beforeAll` at
+  the top level to a block (`{ ... }`) at the same place, if the
+  callback uses no name that the file declares below it. A block
+  keeps the local names of the callback out of the file. In a
+  Workers test file, the block must come after `await
+  migrate(...)`.
 - **Setup one time for a group.** A `describe` function cannot
   `await`. Make a function that does the work one time, and await
   it at the start of each test of the group:
@@ -366,7 +383,7 @@ Find the kind of the failure before you change a line.
 | `the test file did not load` | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source". |
 | `the file registered no tests` | The file is a helper, not a test file. | Put it in `"exclude"`. |
 | a `TYPE` block | The type checker runs with each run. | Correct the type. A mock must have the types of the real export. |
-| a `TYPE` block at a converted assertion | `expect()` took a value of each type. `assert` is strict: the actual value cannot be `undefined` where a method is called on it, and the expected value must have the type of the actual value. | Add `!` or `?.` to the actual value, or narrow it first with `assert(value)`. If the two types differ on purpose, write `assert.deepEqual<unknown>(a, b)`. |
+| a `TYPE` block at a converted assertion, such as `Argument of type 'string \| undefined' is not assignable to parameter of type 'string'` | `expect()` took a value of each type. `assert` is strict: the actual value cannot be `undefined` where a method is called on it, and the expected value must have the type of the actual value (the parameter is `NoInfer<T>`). | Add `!` or `?.` to the actual value, or narrow it first with `assert(value)`. If the two types differ on purpose, write `assert.deepEqual<unknown>(a, b)`. |
 
 A test that fails in ubq for one of the first six causes was not
 correct before: it passed for the wrong reason. Correct the test.

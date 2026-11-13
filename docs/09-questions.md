@@ -36,3 +36,21 @@ decide.
      paths.
    The agent would do (a).
 
+Point 2 has more weight after `14-agent-feedback-0.0.5.md`, item
+6: the last line of `ubq` said 12 type errors when the project
+had 17. An agent that trusts that line reports a clean result
+with 5 errors in it.
+
+3. A function for "these two values are deeply equal", as a
+   boolean. Three reports ask for it. `toContainEqual` has no
+   good form without it: `assert(list.some(x => isDeepEqual(x,
+   expected)))`. The converter could then change `toContainEqual`
+   and `expect.arrayContaining` with objects. Options:
+   - (a) No change: the API stays as small as it is.
+   - (b) Export `isDeepEqual(a, b)` from `ubqtest`, with the
+     rules of `assert.deepEqual`.
+   - (c) A form of `assert.match` for "an element of the array
+     matches".
+   The agent would do (b): it is one name, and it has more uses
+   than (c).
+

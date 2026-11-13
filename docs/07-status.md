@@ -1067,3 +1067,43 @@ Not done:
 - A call of a method (RPC) on the stand-in of a service throws
   "internal error", with no name of the service.
 
+## Third report from the Workers project (2026-11-13)
+
+`14-agent-feedback-0.0.5.md`: both Workers run under ubq 0.0.5
+(225 tests, 3.0 s, the same as vitest). The report lists the hand
+work that a less able model can get wrong. Done from it:
+
+- `ubq convert` reads `vitest.config.*` of a project with the
+  vitest plugin for Workers (`src/vitest-config.ts`). It reads the
+  text and does not run it. It writes the `workers` key to
+  `package.json`: one entry for each project, with `config`,
+  `include`, and the plain values of `miniflare.bindings` as
+  `vars`. A value that is not plain gets a note.
+- If a setup file of the config only applied D1 migrations, each
+  test file of that project gets `await migrate('<binding>')`
+  after its imports. A setup file with other work gets a note.
+- `ubq doctor` prints the same entries from the vitest config.
+  With no such config, it prints one entry for each wrangler
+  config that it finds.
+- A `beforeAll` at the top level of a file becomes a block at the
+  same place, if the callback uses no name that the file declares
+  below it.
+- `vi.restoreAllMocks()` at the end of a test is removed. A hook
+  that only calls a restore function gets a hint that says to
+  delete it.
+- Rules with no type error: `toBeDefined` is `assert(x !==
+  undefined)`, `toHaveProperty` uses `Object(x)`, and a rule for
+  `resolves` removes the `await` that has no purpose.
+- The binding that workerd uses to send events is not in `env`.
+- A wrangler config with `containers` loads. No container starts.
+- An error of wrangler in the config shows in full.
+- The guide has the rule for the type of an expected value, with
+  `assert.deepEqual<unknown>(a, b)`.
+
+Not done:
+
+- The type check of a second `tsconfig.json`, and a function for
+  deep equality as a boolean: Q11.
+- `beforeAll` in a `describe`, `expect.any`, and
+  `expect.arrayContaining` stay hand work.
+

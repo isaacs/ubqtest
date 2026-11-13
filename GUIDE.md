@@ -135,6 +135,11 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   message, an error class, or a partial object.
 - An object pattern of `match` permits extra keys in the value. An
   array pattern must have the same length.
+- The expected value of `equal` and `deepEqual` must have the type
+  of the actual value. If the type checker refuses a comparison,
+  make the value exact (`value!`, or narrow it with
+  `assert(value)`). To compare two different types on purpose:
+  `assert.deepEqual<unknown>(a, b)`.
 - The test function gets `{ signal }`. The signal aborts at the
   time limit. Pass it to `fetch` and to child processes.
 - `skip` is the reason, as text: `{ skip: 'needs a GPU' }`. A
@@ -369,6 +374,8 @@ test('lists the notes', async () => {
 - Packages load as wrangler loads them: the `alias` key of the
   wrangler config works, and a CommonJS package gives its named
   exports.
+- A wrangler config with `containers` works, but no container
+  starts in a test run.
 - `'ubqtest/workers'` has three functions:
   `executionContext()` makes the third argument of a handler,
   `scheduledController({ cron, scheduledTime })` makes the first

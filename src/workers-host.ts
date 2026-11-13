@@ -13,7 +13,7 @@ import { startCounters } from './counter-collector.ts'
 import { COLUMN, COUNTERS } from './counters.ts'
 import type { Collector } from './coverage.ts'
 import type { Coverage, UbqEvent } from './events.ts'
-import { projectRoot } from './project.ts'
+import { projectRoot, rel } from './project.ts'
 import { RUN } from './workerd.ts'
 import type { Job, RawCoverage } from './workers-entry.ts'
 
@@ -33,7 +33,11 @@ interface MiniflareModule {
 }
 /** The parts of the `wrangler` package that this file uses. */
 interface Wrangler {
-  unstable_getMiniflareWorkerOptions(config: string): {
+  unstable_getMiniflareWorkerOptions(
+    config: string,
+    env?: string,
+    options?: { overrides?: { enableContainers?: boolean } },
+  ): {
     workerOptions: { name?: string; compatibilityFlags?: string[] } & Record<string, unknown>
     main?: string
     externalWorkers?: { name?: string }[]
@@ -298,9 +302,18 @@ try {
 // the tests.
 const log = console.log
 console.log = () => {}
-const { workerOptions, main, externalWorkers = [] } = wrangler.unstable_getMiniflareWorkerOptions(configPath)
-const wranglerConfig = wrangler.unstable_readConfig({ config: configPath })
+let fromWrangler!: ReturnType<Wrangler['unstable_getMiniflareWorkerOptions']>
+let wranglerConfig!: ReturnType<Wrangler['unstable_readConfig']>
+try {
+  // A container needs an image that is built. A test run has none.
+  fromWrangler = wrangler.unstable_getMiniflareWorkerOptions(configPath, undefined, { overrides: { enableContainers: false } })
+  wranglerConfig = wrangler.unstable_readConfig({ config: configPath })
+} catch (error) {
+  // An error of wrangler in the config has more than one line.
+  stop(`wrangler cannot read ${rel(configPath)}. ${String((error as Error).message).replace(/\s*\n\s*/g, ' ')}`)
+}
 console.log = log
+const { workerOptions, main, externalWorkers = [] } = fromWrangler
 const name = workerOptions.name ?? 'ubq'
 
 // wrangler adds the values of `.dev.vars` and `.env`, for `wrangler

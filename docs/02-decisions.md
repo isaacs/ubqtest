@@ -839,6 +839,11 @@ no `preload` key, and a first version with known limits.
 - **A service binding to a Worker that is not in the run** gets a
   function that answers 503. With no such function, workerd does
   not start.
+- **Containers** are off (`enableContainers: false`): a container
+  needs an image, and a test run builds none.
+- **The binding for events** (`__UBQ_HOST`) is removed from `env`
+  before the test file loads, so the tests see only the bindings
+  of the Worker.
 - **The main module of the Worker** is an export of the module
   that workerd starts, so the classes that the config names
   (Durable Objects, Workflows) exist.

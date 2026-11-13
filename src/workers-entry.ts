@@ -2,6 +2,7 @@
 // host process (`workers-host.ts`) sends one request with the job.
 // The response is the events of the file, as JSON lines.
 // See docs/02-decisions.md, D48.
+import { env as runtimeEnv } from 'cloudflare:workers'
 import { subscribe } from 'node:diagnostics_channel'
 import { format } from 'node:util'
 import type { Config } from './config.ts'
@@ -61,10 +62,15 @@ export default {
     // host answers is the only way to know that the host has them.
     const queue: string[] = []
     const send = (event: unknown): void => void queue.push(JSON.stringify(event))
+    // The binding to the host is not a binding of the Worker. The
+    // tests must not see it in `env`.
+    const toHost = env[HOST] as { fetch(url: string, init: object): Promise<Response> }
+    delete env[HOST]
+    delete runtimeEnv[HOST]
     const flush = async (): Promise<void> => {
       if (!queue.length) return
       const body = queue.splice(0).join('\n')
-      await (env[HOST] as { fetch(url: string, init: object): Promise<Response> }).fetch('http://ubq/', { method: 'POST', body })
+      await toHost.fetch('http://ubq/', { method: 'POST', body })
     }
     const host: Workerd = { root: job.root, config: job.config, env, migrations: job.migrations, flush }
     shared[WORKERD] = host

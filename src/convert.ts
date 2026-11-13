@@ -6,12 +6,13 @@
 // The changes are text edits at positions of the syntax tree. An
 // argument of a call keeps its text, so a rule for a call and a
 // rule for a call in its arguments do not touch the same text.
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { globSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { config, UsageError } from './config.ts'
 import type { Node } from './instrument.ts'
-import { rel } from './project.ts'
+import { projectRoot, rel } from './project.ts'
+import { setupMigrations, vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -84,7 +85,9 @@ const MATCHERS: Record<string, Rule> = {
   toBeFalsy: 'assert(!<$0>)',
   toBeNull: 'assert.equal($0, null)',
   toBeUndefined: 'assert.equal($0, undefined)',
-  toBeDefined: 'assert.notEqual($0, undefined)',
+  // Not `assert.notEqual`: it is a type error if the type of the
+  // value has no undefined in it.
+  toBeDefined: 'assert(<$0> !== undefined)',
   toBeNaN: 'assert(Number.isNaN($0))',
   // `?.`: the type of the value often has undefined in it, and
   // expect() took all types. The result is the same.
@@ -105,7 +108,8 @@ const MATCHERS: Record<string, Rule> = {
   // The default of jest and vitest: 2 digits.
   toBeCloseTo: { 2: 'assert(Math.abs(<$0> - <$1>) < 0.005)' },
   // The same as `key in object`. The arguments keep their order.
-  toHaveProperty: { 2: 'assert(Reflect.has($0, $1))' },
+  // `Object()`: the value can be undefined, and expect() took that.
+  toHaveProperty: { 2: 'assert(Reflect.has(Object($0), $1))' },
 }
 
 /** More help for a matcher that has no rule. */
@@ -211,6 +215,8 @@ export const convertSource = (
   file: string,
   parse: Parse,
   children: Children,
+  /** D1 bindings: the file gets `await migrate(binding)` after its imports. */
+  migrate: string[] = [],
 ): Converted | undefined => {
   const program = parse(source, file)
   const text = (n: Node): string => source.slice(n.start, n.end)
@@ -457,6 +463,55 @@ export const convertSource = (
     const statements = body.body as unknown as Node[]
     return statements.length === 1 && statements[0]!.type === 'ExpressionStatement' && restoresAll(statements[0]!.expression as Node)
   }
+  /** `() => restore()`: gives the name `restore`. */
+  const restoreCall = (fn: Node | undefined): string | undefined => {
+    if (!fn || !FUNCTION.has(fn.type)) return undefined
+    let body = fn.body as Node
+    if (body.type === 'BlockStatement') {
+      const statements = body.body as unknown as Node[]
+      if (statements.length !== 1 || statements[0]!.type !== 'ExpressionStatement') return undefined
+      body = statements[0]!.expression as Node
+    }
+    const name = body.type === 'CallExpression' && !(body.arguments as Node[]).length ? nameOf(body.callee as Node) : undefined
+    return name && /restore/i.test(name) ? name : undefined
+  }
+  /** True if the statement of a call is the last one of a function. */
+  const lastInFunction = (path: Node[]): boolean => {
+    const [fn, block, statement] = path.slice(-4)
+    return !!fn && FUNCTION.has(fn.type) && block?.type === 'BlockStatement' && (block.body as unknown as Node[]).at(-1) === statement
+  }
+  /**
+   * `beforeAll(async () => { ... })` at the top level of a file
+   * becomes the block `{ ... }` at the same place: code at the top
+   * level runs one time, before the tests. Returns the block, or
+   * undefined if the change is not certain: the code can use a name
+   * that the file declares below it, and that name has no value yet
+   * at this place.
+   */
+  const topLevelBlock = (node: Node, path: Node[]): Node | undefined => {
+    const statement = path.at(-2)
+    const args = node.arguments as Node[]
+    const fn = args[0]
+    if (statement?.type !== 'ExpressionStatement' || path.at(-3)?.type !== 'Program' || args.length !== 1) return undefined
+    if (!fn || !FUNCTION.has(fn.type) || (fn.params as Node[]).length) return undefined
+    const body = fn.body as Node
+    if (body.type !== 'BlockStatement') return undefined
+    // A `return` of the function has no meaning in a block.
+    const returns = (n: Node): boolean =>
+      n.type === 'ReturnStatement' || (!FUNCTION.has(n.type) && n.type !== 'FunctionDeclaration' && children(n).some(returns))
+    if (children(body).some(returns)) return undefined
+    for (const later of program.body as Node[]) {
+      if (later.start < statement.end) continue
+      const declared = /^Export/.test(later.type) ? ((later.declaration as Node | undefined) ?? later) : later
+      if (declared.type !== 'VariableDeclaration' && declared.type !== 'ClassDeclaration') continue
+      const head = declared.type === 'ClassDeclaration' ? text(declared.id as Node) : (declared.declarations as Node[]).map(d => text(d.id as Node)).join(' ')
+      for (const name of head.match(/[A-Za-z_$][\w$]*/g) ?? []) if (mentions(body, name)) return undefined
+    }
+    replace(node.start, body.start, '')
+    replace(body.end, node.end, '')
+    changes++
+    return body
+  }
   const inHook = (path: Node[]): boolean =>
     path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
 
@@ -611,10 +666,17 @@ export const convertSource = (
     if (role === 'hook') {
       if (restoresOnly(args[0]) && removeStatement(path)) return []
       const once = /^(before|after)(All)?$/.exec(nameOf(callee) ?? '')
+      const inner = path.some(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration')
+      if (once?.[1] === 'before' && !inner) {
+        const body = topLevelBlock(node, path)
+        if (body) return [body]
+      }
+      const restore = restoreCall(args[0])
       todo(
         path,
-        !once ? TODO.hook
-        : path.some(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') ? TODO.hookGroup
+        restore ? `If this only puts spies back, delete it, and delete each assignment to ${restore}. A spyOn spy goes back when its test ends. If it does other work: ${TODO.hook}`
+        : !once ? TODO.hook
+        : inner ? TODO.hookGroup
         : once[1] === 'before' ? TODO.hookFile
         : TODO.hookFileEnd,
       )
@@ -703,7 +765,7 @@ export const convertSource = (
         changes++
       } else if (restoresAll(node)) {
         // ubq does this when each test ends.
-        if (!inHook(path) || !removeStatement(path)) todo(path, TODO.restore)
+        if (!(inHook(path) || lastInFunction(path)) || !removeStatement(path)) todo(path, TODO.restore)
         return []
       } else
         todo(
@@ -775,6 +837,9 @@ export const convertSource = (
     if (promise) {
       rule = rule.replace(/<\$0>|\$0/, m => (m === '$0' ? 'await $0' : '(await $0)'))
       asyncFunction(path)
+      // `await expect(p).resolves.toBe(1)`: the new call gives no promise.
+      const outer = path.at(-2)
+      if (outer?.type === 'AwaitExpression') replace(outer.start, node.start, '')
     }
     if (/^toThrow(Error)?$/.test(method)) {
       messageRegExp(args[0])
@@ -922,6 +987,20 @@ export const convertSource = (
     at = edit.end
   }
   code += source.slice(at)
+  // The setup file of the vitest config applied the migrations of
+  // D1 for each test file. In ubq, the test file does that.
+  const lines = migrate.filter(binding => !code.includes(`migrate('${binding}')`)).map(binding => `await migrate('${binding}')`)
+  if (lines.length) {
+    const imports = (parse(code, file).body as Node[]).filter(n => n.type === 'ImportDeclaration')
+    const helpers = imports.find(n => (n.source as { value?: unknown }).value === 'ubqtest/workers')
+    const at = imports.at(-1)?.end ?? 0
+    let added = `${helpers ? '' : "\nimport { migrate } from 'ubqtest/workers'"}\n\n${lines.join('\n')}`
+    if (!at) added = added.trimStart() + '\n'
+    code = code.slice(0, at) + added + code.slice(at)
+    if (helpers && !/\bmigrate\b/.test(code.slice(helpers.start, helpers.end)))
+      code = code.slice(0, helpers.start) + code.slice(helpers.start, helpers.end).replace('{ ', '{ migrate, ') + code.slice(helpers.end)
+    changes++
+  }
   // The new text must be code.
   parse(code, file)
   const found: Converted['todos'] = []
@@ -960,6 +1039,37 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       for (const name of readdirSync(full, { recursive: true }) as string[])
         if (CODE.test(name) && !/(^|[\\/])(node_modules|\.[^\\/]+)[\\/]/.test(name)) files.push(join(full, name))
   }
+  // A project of the vitest plugin for Workers: its vitest config
+  // has what the `workers` key of the ubq configuration needs.
+  const root = projectRoot()
+  const vitest = vitestWorkers(root, parse, children)
+  /** For each test file of a Workers project: the D1 bindings that its setup file migrated. */
+  const migrations = new Map<string, string[]>()
+  /** Setup files that only applied migrations. */
+  const spent: string[] = []
+  const setupNotes: string[] = []
+  for (const project of vitest?.projects ?? []) {
+    const bindings: string[] = []
+    for (const setup of project.setupFiles) {
+      let found: ReturnType<typeof setupMigrations>
+      try {
+        found = setupMigrations(readFileSync(join(root, setup), 'utf8'))
+      } catch {
+        continue
+      }
+      bindings.push(...found.bindings)
+      if (found.only) spent.push(setup)
+      else
+        setupNotes.push(
+          `note: ${setup} is a setup file of ${vitest!.file}. ubq has no setup files. Export its work as a function, and await that function at the top level of each test file. See "A Cloudflare Worker" in: ubq guide convert`,
+        )
+    }
+    if (bindings.length)
+      for (const found of globSync(project.entry.include, { cwd: root })) {
+        const path = join(root, found)
+        if (!migrations.has(path)) migrations.set(path, bindings)
+      }
+  }
   let changed = 0
   let todos = 0
   let unknown = 0
@@ -970,7 +1080,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     const file = rel(path)
     let result: Converted | undefined
     try {
-      result = convertSource(readFileSync(path, 'utf8'), path, parse, children)
+      result = convertSource(readFileSync(path, 'utf8'), path, parse, children, migrations.get(path))
     } catch (error) {
       out(`not converted ${file}: ${(error as Error).message}`)
       failed++
@@ -999,7 +1109,31 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       `note: ${unnamed.length} of these files do not have a name that ubq runs (*.test.ts). A file with no tests (a helper) needs no change. Rename a file that has tests, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
   }
-  if (workers && !config().workers)
+  for (const note of setupNotes) out(note)
+  if (spent.length && changed)
+    out(
+      `note: each test file now applies the D1 migrations (await migrate(...)). The setup file is not necessary: remove ${spent.join(', ')}.`,
+    )
+  if (vitest && !config().workers) {
+    // The complete key, so that the first run loads each file.
+    const key = vitest.projects.map(project => project.entry)
+    const pkgPath = join(root, 'package.json')
+    let wrote = false
+    if (!dry)
+      try {
+        const text = readFileSync(pkgPath, 'utf8')
+        const pkg = JSON.parse(text) as { ubq?: Record<string, unknown> }
+        pkg.ubq = { ...pkg.ubq, workers: key }
+        writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
+        wrote = true
+      } catch {
+        // No package.json that is JSON. The text below has the key.
+      }
+    out(
+      `${wrote ? 'wrote "ubq.workers" to package.json' : 'add to "ubq" in package.json'}, from ${vitest.file}: "workers": ${JSON.stringify(key)}`,
+    )
+    for (const project of vitest.projects) for (const note of project.notes) out(`note: ${note}`)
+  } else if (workers && !config().workers)
     out(
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )

@@ -6,6 +6,10 @@ import { join } from 'node:path'
 import { type Config, config } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError } from './runner.ts'
+import { vitestWorkers } from './vitest-config.ts'
+
+// The source is `.ts`, and the bundle is `.js`.
+const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
 
 /** `// ...` and `/* ... *\/` comments, and commas before `}` or `]`. */
 const plainJson = (text: string): string =>
@@ -60,10 +64,15 @@ export const doctor = (out: (text: string) => void): number => {
   let workersPool = false
   try {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-    workersPool = '@cloudflare/vitest-pool-workers' in { ...pkg.dependencies, ...pkg.devDependencies }
+    const all = { ...pkg.dependencies, ...pkg.devDependencies }
+    workersPool = '@cloudflare/vitest-pool-workers' in all || '@cloudflare/vitest-plugin' in all
   } catch {
     // The check of package.json above reports this.
   }
+  /** Folders that are not part of the project: packages, hidden folders, and other projects. */
+  const skip = (path: string): boolean =>
+    /(^|[\\/])(node_modules$|\.)/.test(path) || existsSync(join(root, path, 'package.json'))
+
   let workers: Config['workers']
   try {
     workers = config().workers
@@ -82,10 +91,25 @@ export const doctor = (out: (text: string) => void): number => {
     else if (!wrangler)
       fix('"ubq.workers" is set, and the project does not have wrangler. Tests in the Workers runtime need it. Run: npm install --save-dev wrangler')
     else ok('wrangler, for tests in the Workers runtime')
-  } else if (workersPool || sources.some(source => /from\s+['"](cloudflare:|ubqtest\/workers)/.test(source)))
+  } else if (workersPool || sources.some(source => /from\s+['"](cloudflare:|ubqtest\/workers)/.test(source))) {
+    // One entry for each Worker: from the vitest config of the
+    // project, or from the wrangler configs that the project has.
+    const { parse, children } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
+    const vitest = vitestWorkers(root, parse, children)
+    const configs = globSync('**/wrangler.{jsonc,json,toml}', { cwd: root, exclude: skip })
+      .map(file => file.split('\\').join('/'))
+      // The first entry that has a file wins: a folder goes before the root.
+      .sort((a, b) => b.split('/').length - a.split('/').length || a.localeCompare(b))
+    const entries =
+      vitest?.projects.map(project => project.entry) ??
+      (configs.length ? configs : ['wrangler.jsonc']).map(config => ({
+        config,
+        include: [config.includes('/') ? `${config.slice(0, config.lastIndexOf('/'))}/**/*.test.ts` : '**/*.test.ts'],
+      }))
     fix(
-      `this project has tests of a Cloudflare Worker (a test file imports from 'cloudflare:', or the project has @cloudflare/vitest-pool-workers). They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of those test files.`,
+      `this project has tests of a Cloudflare Worker (a test file imports from 'cloudflare:', or the project has the vitest plugin for Workers). They must run in the Workers runtime. Add to package.json: "ubq": { "workers": ${JSON.stringify(entries)} }. ${vitest ? `This is from ${vitest.file}. "ubq convert" writes it.` : 'Check the path of each wrangler config and the globs of its test files.'}`,
     )
+  }
 
   if (sources.some(source => source.includes('ubqtest/browser'))) {
     try {
@@ -97,8 +121,6 @@ export const doctor = (out: (text: string) => void): number => {
   }
 
   // Files that look like test files, and that `ubq` does not run.
-  const skip = (path: string): boolean =>
-    /(^|[\\/])(node_modules$|\.)/.test(path) || existsSync(join(root, path, 'package.json'))
   const stray = globSync('**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx}', { cwd: root, exclude: skip })
     .map(file => file.split('\\').join('/'))
     .filter(file => {

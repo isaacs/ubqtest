@@ -19,7 +19,8 @@ await build({
   entryPoints: entries.map(name => `src/${name}.ts`),
   bundle: true,
   // The project that uses `ubqtest/browser` installs this package.
-  external: ['playwright-core'],
+  // workerd has `cloudflare:workers`.
+  external: ['playwright-core', 'cloudflare:workers'],
   minify: true,
   platform: 'node',
   format: 'esm',
