@@ -1,8 +1,8 @@
 // Wrong uses of the test API, and tests that leave the process in a
 // different state. Each one must give a report that says what to do.
-import { rmSync, writeFileSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, cleanup, test } from 'ubqtest'
+import { assert, cleanup, env, spy, test } from 'ubqtest'
 import { project } from './setup.ts'
 
 const files: Record<string, string> = {
@@ -20,7 +20,7 @@ test('a group in a test', () => {
 })
 test('ok', () => assert(true))
 `,
-  'late.test.ts': `import { assert, cleanup, test } from 'ubqtest'
+  'late.test.ts': `import { assert, cleanup, env, spy, test } from 'ubqtest'
 cleanup(() => {})
 test('first', () => assert(true))
 await new Promise(done => setTimeout(done, 100))
@@ -50,7 +50,7 @@ test('the signal of the test', async ({ signal }) => {
   assert(signal instanceof AbortSignal)
 })
 `,
-  'file-cleanup.test.ts': `import { assert, cleanup, test } from 'ubqtest'
+  'file-cleanup.test.ts': `import { assert, cleanup, env, spy, test } from 'ubqtest'
 cleanup(() => {
   throw new Error('the cleanup of the file')
 })
@@ -328,4 +328,35 @@ test('changes a variable', () => {
   const open = p.ubq('open.test.ts', 'pass.ts').out
   assert.match(open, /^  the test changed the environment variable HOME and did not put it back\./m)
   assert.match(open, /^  still open: Timeout x2$/m)
+})
+
+// Outside a test.
+const outside = import('ubqtest/browser').then(m => m.browser()).catch((error: Error) => error.message)
+
+test('wrong arguments to spy and cleanup, and browser() outside a test', async () => {
+  assert.throws(() => spy(1 as never), { name: 'TypeError', message: 'spy() needs a function, or no argument' })
+  assert.throws(() => cleanup(1 as never), { name: 'TypeError', message: 'cleanup() needs a function' })
+  assert.equal(await outside, 'browser() must run in a test, before the test ends. Await the call.')
+})
+
+test('a "ubq" key that is not an object, and snapshots of many lines', { timeout: 60_000 }, () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  p.configure(1)
+  assert.deepEqual([p.ubq().code, p.ubq().err], [4, 'ubq: "ubq" in package.json must be an object\n'])
+  p.configure()
+  writeFileSync(join(p.dir, 'snaps.test.ts'), "import { assert, test } from 'ubqtest'\ntest('lines', () => assert.snapshot(process.env.SNAP_LINES ?? 'a\\nb\\nc\\nd\\ne\\nf'))\n")
+  assert.equal(p.ubq('--update', 'snaps.test.ts').code, 0)
+  // Four differences, and a count of the others.
+  env({ SNAP_LINES: '1\n2\n3\n4\n5\n6\n7' })
+  assert.match(p.ubq('snaps.test.ts').out, /\n  line 4\n    actual:   "4"\n    expected: "d"\n  … and 3 more differences\n/)
+  // A line that only one of the two values has.
+  env({ SNAP_LINES: 'a\nb\nc' })
+  assert.match(p.ubq('snaps.test.ts').out, /\n  line 4\n    actual:   \(no line\)\n    expected: "d"\n/)
+  env({ SNAP_LINES: 'a\nb\nc\nd\ne\nf\ng' })
+  assert.match(p.ubq('snaps.test.ts').out, /\n  line 7\n    actual:   "g"\n    expected: \(no line\)\n/)
+  // A file with no snapshots left loses its snapshot file.
+  writeFileSync(join(p.dir, 'snaps.test.ts'), "import { assert, test } from 'ubqtest'\ntest('lines', () => assert(true))\n")
+  assert.equal(p.ubq('--update', 'snaps.test.ts').code, 0)
+  assert.equal(existsSync(join(p.dir, 'ubq-snapshots/snaps.test.ts.snap')), false)
 })

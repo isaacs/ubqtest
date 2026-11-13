@@ -40,4 +40,11 @@ test('scheduled', async () => {
   await worker.scheduled(scheduledController({ cron: '0 * * * *' }), bindings)
   const row = await bindings.DB.prepare("SELECT text FROM notes WHERE text LIKE 'cron%'").first()
   assert.deepEqual(row, { text: 'cron 0 * * * *' })
+  // The parts that do nothing in a test, and a second migrate call,
+  // which applies nothing.
+  const controller = scheduledController() as unknown as { cron: string; noRetry(): void }
+  controller.noRetry()
+  ;(executionContext() as unknown as { passThroughOnException(): void }).passThroughOnException()
+  await migrate('DB')
+  assert.equal(controller.cron, '')
 })
