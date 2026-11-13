@@ -19,7 +19,10 @@ has the API and the rules of ubq.
    status` is clean before it, so that `git diff` shows the
    changes. It is safe to run the command again on one file.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
-   each statement that it cannot change. `grep -rn 'TODO(ubq)'
+   each statement that it cannot change. It makes only the changes
+   that are correct in each case, so a TODO can be easy to do by
+   hand: you can see what the code around it does, and the command
+   cannot. `grep -rn 'TODO(ubq)'
    test` lists them. The sections below tell how to do each kind.
    Remove the comment when its statement is done.
 5. **Run.** `npx ubq`. Do one failure at a time: `npx ubq

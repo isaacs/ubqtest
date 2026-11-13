@@ -1168,6 +1168,11 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     out(
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
+  // A TODO can look easy. The reader must know why it is there.
+  if (todos)
+    out(
+      'note: this command makes only the changes that are correct in each case. A TODO can be easy to do by hand: the command leaves it if the change is not safe for each program that has that form.',
+    )
   if (changed) out('next: read `ubq guide convert`, do each TODO(ubq), then run: ubq')
   return 0
 }

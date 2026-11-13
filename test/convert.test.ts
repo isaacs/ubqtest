@@ -459,6 +459,7 @@ beforeEach(() => again())
     '  [1] ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
     "  [2] Give the reason: { skip: 'the reason' }.",
     'convert: 2 files to change, 3 TODO comments',
+    'note: this command makes only the changes that are correct in each case. A TODO can be easy to do by hand: the command leaves it if the change is not safe for each program that has that form.',
     'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
     '',
   ])
