@@ -412,8 +412,10 @@ test('the command prints its version', () => {
 })
 ```
 
-- It works for a child on Node or Bun, and for the processes that
-  the child starts. A child on Deno has no coverage.
+- It works for a child on Node, Bun, or Deno, and for the
+  processes that the child starts. For Deno, the test process
+  must be Node, and the test must start `deno run`, `deno test`,
+  or `deno serve` itself, not through a shell.
 - Stop a server with `child.kill()` in `cleanup`, and wait for its
   `close` event. The child writes its counts when it gets the
   signal. A child that ends with SIGKILL, and each child that is

@@ -1197,3 +1197,25 @@ a runtime or a system. The note names the section of the guide,
 which has the commands for one machine and a workflow for CI. The
 skill says not to fake the platform in a test.
 
+**Later changes to D53 (2026-11-13).**
+
+- **Deno children have coverage.** On Node, the spawn functions
+  add `--preload=<module>` after the subcommand, if the program is
+  `deno` and the subcommand is `run`, `test`, or `serve`. The
+  module uses the load hook of Node, which Deno has
+  (`src/load-hook.ts`). Not covered: a Deno that starts through a
+  shell or a script, and a child of a test process that is Bun or
+  Deno. From the source of ubq, Deno cannot load the parser, so a
+  file gets counters there only if a Node process made its cache
+  entry. The built package has no such limit.
+- **A child writes its counts after the `exit` listeners of the
+  program,** and before them. A listener can run code of the
+  project.
+- **The files of ubq that workerd runs have counters** in the
+  repository of ubq, for the test process and for the test that
+  started it.
+- **The package tests build the package in the repository,** with
+  source maps (`.ubq/package-test-<pid>`), and run its command
+  from the real path. So the runner on Bun, on Deno, and from the
+  built files is coverage of `src/`.
+

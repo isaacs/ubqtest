@@ -163,10 +163,18 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     return `${NAME}[${regions.length - 1}]++`
   }
 
-  /** The position after the directives (`'use strict'`) of a body. */
-  const afterDirectives = (body: Node[], fallback: number): number => {
+  /**
+   * The position after the directives (`'use strict'`) of a body,
+   * and the text that must be before a counter at that position. A
+   * body with only a directive can end with no `;`.
+   */
+  const afterDirectives = (body: Node[], fallback: number): [at: number, before: string] => {
     const first = body.find(s => typeof s.directive !== 'string')
-    return first ? first.start : (body.at(-1)?.end ?? fallback)
+    return (
+      first ? [first.start, '']
+      : body.length ? [body.at(-1)!.end, ';']
+      : [fallback, '']
+    )
   }
   /** A counter at the start of a statement that is a branch or a loop body. */
   // `from` is the start of the region, if the region has text in
@@ -210,7 +218,8 @@ export const instrument = (source: string, file: string): Instrumented | undefin
       inner = regions.length - 1
       if (body.type === 'BlockStatement') {
         const stmts = body.body as Node[]
-        edit(afterDirectives(stmts, body.start + 1), `${count};`)
+        const [at, before] = afterDirectives(stmts, body.start + 1)
+        edit(at, `${before}${count};`)
       } else {
         edit(body.start, `(${count},`)
         edit(body.end, ')', true)
@@ -261,12 +270,12 @@ export const instrument = (source: string, file: string): Instrumented | undefin
   }
   walk(program, 0)
 
-  const start = afterDirectives(program.body as Node[], source.length)
+  const [start, before] = afterDirectives(program.body as Node[], source.length)
   edit(
     start,
     // `get` of a Map does not use the count. In workerd, the count
     // is the size of an array that does not exist yet.
-    `const ${NAME}=globalThis[Symbol.for(${JSON.stringify(COUNTERS)})].get(${JSON.stringify(file)},${regions.length});${NAME}[0]++;`,
+    `${before}const ${NAME}=globalThis[Symbol.for(${JSON.stringify(COUNTERS)})].get(${JSON.stringify(file)},${regions.length});${NAME}[0]++;`,
   )
   // The prelude must come first at its position.
   edits.at(-1)!.seq = -1

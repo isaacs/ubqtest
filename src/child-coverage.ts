@@ -13,6 +13,7 @@ import { isMainThread, threadId } from 'node:worker_threads'
 import { type ChildCounts, type Children, CHILDREN } from './child-read.ts'
 import { builtMap, cached, cachePath } from './counter-collector.ts'
 import { COUNTERS, SOURCE } from './counters.ts'
+import { type Counting, withCounters } from './load-hook.ts'
 import { projectRoot } from './project.ts'
 
 /**
@@ -50,6 +51,17 @@ const withPreload = (env: Env): void => {
 /** The preload module of some copy of ubq, in the options of a runtime. */
 const MODULE = /[\\/]child-preload\.[jt]s\b/
 
+/**
+ * Deno has no variable that loads a module before the program. It
+ * has an argument for that. This puts the argument after the
+ * subcommand, if the program is Deno and the subcommand runs code.
+ * A Deno that starts through a shell or a script does not get it.
+ */
+const forDeno = (program: string, args: string[]): string[] =>
+  /(^|[\\/])deno(\.exe)?$/i.test(program) && /^(run|test|serve)$/.test(args[0] ?? '') && !args.some(arg => arg.includes('child-preload.')) ?
+    [args[0]!, `--preload=${PRELOAD.href}`, ...args.slice(1)]
+  : args
+
 const PATCHED = Symbol.for('ubqtest.spawn')
 /** The key of the function that adds the counters of this module to the text of a file. */
 export const CHILD_SOURCE = Symbol.for('ubqtest.child.source')
@@ -68,10 +80,12 @@ export const patchSpawn = (): void => {
   if (shared[PATCHED] || process.versions.bun || process.versions.deno) return
   shared[PATCHED] = true
   // spawn, exec, execFile, and fork end in this method.
-  const proto = ChildProcess.prototype as unknown as { spawn(options: { envPairs?: string[] }): unknown }
+  const proto = ChildProcess.prototype as unknown as { spawn(options: { envPairs?: string[]; file?: string; args?: string[] }): unknown }
   const spawn = proto.spawn
-  proto.spawn = function (options) {
+  proto.spawn = function (options: { envPairs?: string[]; file?: string; args?: string[] }) {
     const list = process.env[ENV]
+    // `args` has the name of the program first.
+    if (list && options?.file && Array.isArray(options.args)) options.args = [options.args[0]!, ...forDeno(options.file, options.args.slice(1))]
     if (list && Array.isArray(options?.envPairs)) {
       const env: Env = {}
       for (const name of [ENV, 'NODE_OPTIONS', 'BUN_OPTIONS']) {
@@ -89,6 +103,8 @@ export const patchSpawn = (): void => {
     const real = sync[name]!
     sync[name] = (...args: unknown[]) => {
       const list = process.env[ENV]
+      // spawnSync and execFileSync have the arguments of the program as a list.
+      if (list && typeof args[0] === 'string' && Array.isArray(args[1])) args[1] = forDeno(args[0], args[1] as string[])
       const at = args.findIndex(arg => !!arg && typeof arg === 'object' && !Array.isArray(arg))
       const options = args[at] as { env?: Env } | undefined
       if (list && options?.env) {
@@ -124,10 +140,6 @@ const WRITE_MS = 200
 /** The write function of each project that this process counts for. */
 const writers: (() => void)[] = []
 
-interface Counting {
-  wants(path: string): boolean
-  change(path: string, source: string | undefined): { source: string; js: boolean } | undefined
-}
 
 /** Counts for the files of one project, and writes the counts to `dir`. */
 const count = ([root, dir]: Scope): Counting => {
@@ -188,8 +200,6 @@ declare const Bun: {
     }): void
   }): void
 }
-
-const FORMATS = new Set(['module', 'commonjs', 'module-typescript', 'commonjs-typescript'])
 
 /**
  * True for a file that the collector of a test process has. A
@@ -270,16 +280,7 @@ export const startChild = (): void => {
   }
   // A Node that is too old for this function has no coverage.
   nodeModule.registerHooks?.({
-    load(url, context, next) {
-      const result = next(url, context)
-      if (!url.startsWith('file:') || !FORMATS.has(result.format as string)) return result
-      const path = fileURLToPath(url.replace(/\?.*$/, ''))
-      if (taken(path)) return result
-      const changed = list.find(counting => counting.wants(path))?.change(path, result.source?.toString())
-      if (!changed) return result
-      // The cache can have the source with no types.
-      const format = result.format === 'commonjs-typescript' ? 'commonjs' : 'module'
-      return { ...result, source: changed.source, ...(changed.js && { format }) }
-    },
+    load: (url, context, next) =>
+      withCounters(url, next(url, context), path => (taken(path) ? undefined : list.find(counting => counting.wants(path)))),
   })
 }

@@ -129,7 +129,10 @@ export const coveredFiles = (db: DatabaseSync): string[] =>
          where file not in (select tfile from coverage union select tfile from other_coverage) order by file`,
       )
       .all() as { file: string }[]
-  ).map(r => r.file)
+  )
+    .map(r => r.file)
+    // The store keeps the coverage of a file that is gone.
+    .filter(file => existsSync(join(projectRoot(), file)))
 
 /** The test files of the store. */
 export const testFiles = (db: DatabaseSync): string[] =>

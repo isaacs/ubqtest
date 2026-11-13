@@ -1169,8 +1169,8 @@ To do next, in this order:
 2. **Tests for the 533 uncovered ranges** that are real gaps.
 3. **A comment that marks code as not measured, with a reason.**
    The user agreed to it, for what stays after 1 and 2.
-4. **Deno children.** D53 has the path: add `--preload` to the
-   arguments of a `deno run` child.
+4. **Deno children: done.** The spawn functions add `--preload`
+   to the arguments of a `deno run` child (D53).
 
 ## Fourth report from the Workers project (2026-11-13)
 

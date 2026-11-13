@@ -14,7 +14,7 @@ import { projectRoot, rel } from './project.ts'
 import { builtSources, mapOf, type SourceRegions, sourceRegions } from './source-map.ts'
 
 /** Changes when the form of the changed source or the regions changes. */
-const CACHE_VERSION = 4
+const CACHE_VERSION = 5
 
 const KEY = Symbol.for('ubqtest.collector')
 const shared = globalThis as { [KEY]?: Collector; [key: symbol]: unknown }
@@ -25,10 +25,15 @@ let instrument: typeof import('./instrument.ts').instrument | undefined
 
 /** Loads the parser. Most processes find their files in the cache and do not need it. */
 const parse = (): typeof import('./instrument.ts').instrument | undefined => {
-  if (!instrument) {
+  if (!instrument && !noParser) {
     loadingParser = true
     try {
       instrument = (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')).instrument
+    } catch {
+      // From the source of ubq, Deno 2.9 cannot load the parser in
+      // a load hook. A file with no cache entry then runs with no
+      // counters. The program must run in each case.
+      noParser = true
     } finally {
       loadingParser = false
     }
@@ -44,6 +49,8 @@ const parse = (): typeof import('./instrument.ts').instrument | undefined => {
   }
   return instrument
 }
+/** True if the runtime cannot load the parser. */
+let noParser = false
 /** The file of the parser. In the repository of ubq it is a project file. */
 const PARSER = fileURLToPath(new URL(INSTRUMENT, import.meta.url))
 /** The key and the project root of each collector that wanted counters for the parser file. */

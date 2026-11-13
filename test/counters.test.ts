@@ -95,3 +95,15 @@ test('the cache holds the changed source, and a second run reads it', () => {
   assert.deepEqual(readdirSync(dir), files)
   resetStore(cwd)
 })
+
+test('a body with only a directive, and no `;` after it', async () => {
+  const { instrument, parse } = await import('../src/instrument.ts')
+  // The form of a minified bundle.
+  for (const source of ['var f=()=>{"use strict"};f()', '"use strict"', 'function g(){"use strict";"second"}g()']) {
+    const changed = instrument(source, 'a.js')
+    assert(changed)
+    // The text with counters is code, and the directive is first.
+    parse(changed.code, 'a.js')
+    assert.match(changed.code, /"use strict";/)
+  }
+})

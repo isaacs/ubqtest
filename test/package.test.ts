@@ -2,7 +2,7 @@
 // installs it: as a plain program on each runtime, through the
 // `ubq` command, and for the type checker.
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -12,8 +12,18 @@ import { addJsx, project, remove } from './setup.ts'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-')))
 cleanup(() => rmSync(dir, { recursive: true }))
+// The package is in the repository, with source maps, and the
+// project has a link to it. So the code of the package that these
+// tests run is coverage of `src/` (D55): the tests run the runner
+// on each runtime, which no other test does.
+const built = join(root, '.ubq', `package-test-${process.pid}`)
+cleanup(() => remove(built))
+const build = spawnSync('node', ['scripts/build.ts', built], { cwd: root, encoding: 'utf8', env: { ...process.env, UBQ_SOURCEMAP: '1' } })
+mkdirSync(join(dir, 'node_modules'))
+symlinkSync(built, join(dir, 'node_modules/ubqtest'), 'junction')
 const pkg = join(dir, 'node_modules/ubqtest')
-const build = spawnSync('node', ['scripts/build.ts', pkg], { cwd: root, encoding: 'utf8' })
+// The command runs from its real path. Deno keeps the path of a
+// link, and then the file is not a file of this repository.
 
 const files: Record<string, string> = {
   'package.json': '{ "type": "module" }',
@@ -86,11 +96,14 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
   test(`the ubq command on ${cmd}, with coverage`, { skip: has(cmd) }, () => {
-    const ubq = join(pkg, 'cli.js')
+    const ubq = join(built, 'cli.js')
     // The store keeps the coverage of each runtime (D54). This test
     // is about one runtime.
     remove(join(dir, '.ubq'))
     assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 0 failed, 2 passed'])
+    // With a repeat, the runner starts a process for the file. That is
+    // the code of the runner for this runtime.
+    assert.deepEqual(sh(cmd, ...args, ubq, '--repeat', '2').lines, ['repeat 2: 0 failed some times, 0 failed each time, 2 failed no times', 'pass: 0 failed, 2 passed'])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
       'src/add.ts:4:22  (): number => 0',
       '1 uncovered ranges in 1 of the 1 files that tests ran',
@@ -110,7 +123,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     symlinkSync(pkg, join(worker, 'node_modules/ubqtest'), 'junction')
     symlinkSync(join(root, 'node_modules/wrangler'), join(worker, 'node_modules/wrangler'), 'junction')
     const run = (...more: string[]) => {
-      const r = spawnSync(cmd, [...args, join(pkg, 'cli.js'), ...more], { cwd: worker, encoding: 'utf8', env: { ...process.env, CI: '' } })
+      const r = spawnSync(cmd, [...args, join(built, 'cli.js'), ...more], { cwd: worker, encoding: 'utf8', env: { ...process.env, CI: '' } })
       return [r.stdout.replace(/ \(run \d+\)\n$/, '').trimEnd().split('\n'), r.stderr]
     }
     assert.deepEqual(run(), [['pass: 0 failed, 6 passed'], ''])
@@ -123,7 +136,7 @@ test('docs/api.md is current', () => {
 })
 
 test('the guide and the doctor of the package', () => {
-  const ubq = join(pkg, 'cli.js')
+  const ubq = join(built, 'cli.js')
   assert.equal(sh('node', ubq, 'guide').lines[0], '# ubq guide')
   assert.equal(sh('node', ubq, 'doctor').lines.at(-1), 'doctor: 0 problems')
 })
@@ -138,7 +151,11 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   if (process.platform === 'win32') rmdirSync(join(p.dir, 'node_modules/ubqtest'))
   else rmSync(join(p.dir, 'node_modules/ubqtest'))
   cpSync(pkg, join(p.dir, 'node_modules/ubqtest'), { recursive: true })
-  const ubq = join(pkg, 'cli.js')
+  // As the published package: with no source maps. With a map, Deno
+  // gives the places of a stack in the source of ubq, and the report
+  // of a failure has frames of the library.
+  for (const name of readdirSync(join(p.dir, 'node_modules/ubqtest'))) if (name.endsWith('.map')) rmSync(join(p.dir, 'node_modules/ubqtest', name))
+  const ubq = join(built, 'cli.js')
   const run = (cmd: string[], ...args: string[]): Promise<string[]> =>
     new Promise(done => {
       const child = spawn(cmd[0]!, [...cmd.slice(1), ubq, ...args], { cwd: p.dir, env: { ...process.env, CI: '' } })
