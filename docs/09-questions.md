@@ -13,23 +13,35 @@ The answer to Q12 is D57. The answer to Q13 is D58.
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
 
-## Q14. A coverage limit, with its own exit code (2, 6)
+## Q14. A run does not tell about code that no test ran (2, 6)
 
-`01` asks for an exit code for "coverage failure". ubq has no
-coverage limit. Coverage is a tool for questions (`uncovered`,
-`covers`), and exit code 3 does not exist.
+`01` asks for an exit code for "coverage failure". The check
+exists: `ubq uncovered` exits with 1 if it lists code (D51), and
+`ubq uncovered --diff` does the same for the changed lines. A CI
+job can use it.
+
+The gap is in the run of the tests. Its text and its exit code
+say nothing of coverage. An agent sees the code that its change
+did not test only if it remembers to run `ubq uncovered`.
 
 Options:
 
-1. No limit. Coverage stays a tool, not a gate. Remove the want.
-2. A minimum percent in the `ubq` key, with exit code 3.
-3. `ubq uncovered --diff` exits with 3 if a changed line has no
-   coverage. A CI job or an agent can use it as a gate for new
-   code only.
+1. No change. The guide and the skill tell agents to run `ubq
+   uncovered --diff` after a change.
+2. A run of tests ends with a line such as `uncovered: 3 ranges
+   in changed lines. List: ubq uncovered --diff`, if there are
+   some. The exit code does not change.
+3. 2, and the exit code is 1 if there are some.
 
-The agent would pick 3: a percent for the full project invites
-weak tests that only raise the number, and a limit on changed
-lines is the question that an agent asks after an edit.
+The agent would pick 2. The line puts the fact in front of the
+agent at the time it reads the result, with the command for the
+details. With 3, a pass of all tests would exit with 1, and the
+last line would not tell the full truth.
+
+Points for 2 and 3: the run starts `git` (today it does not,
+D41). A run of part of the tests gives part of the coverage, so
+the line is only for a run of all tests, or it names the files
+that the run loaded.
 
 ## Q15. A seeded random source, and a free port (9)
 
