@@ -46,7 +46,7 @@ test file ──imports──> core library
 | **Sinks** | Consumers of events: compact text, CI text, database, JSON lines pipe, JSON lines dump. |
 | **Store** | The SQLite schema, the writer, and the queries. |
 | **Runner** | Finds test files, selects tests, starts a process for each file, reads events from each child, feeds the sinks, handles timeouts. |
-| **CLI** | `ubq` runs tests. Subcommands query the store. |
+| **CLI** | `ubq` and `ubq run` run tests. Other subcommands query the store (`failures`, `uncovered`, `sql`, and more), change it (`merge`), run a mutation check (`mutate`), change a project (`convert`, `skill`), download the browser (`browser install`), check its setup (`doctor`), print the guides (`guide`), and start a process that stays (`server`, `lsp`). |
 | **Language server** | `ubq lsp` (`src/lsp.ts`, D63): reads the store, and shows uncovered code and failures in an editor. |
 | **Module hooks** | Typed module mocks through `module.registerHooks`. |
 
