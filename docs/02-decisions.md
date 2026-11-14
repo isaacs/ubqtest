@@ -1284,3 +1284,25 @@ person or an agent who types `--update` names the tests.
 **Reason.** tap writes snapshots for the npm scripts `snap` and
 `snapshot`. A project that moves from tap keeps the same habit,
 with a name that says what the script does.
+
+## D60. Wants of `01` that wait for a real project (user, 2026-11-14)
+
+Answers to Q15, Q16, Q18, and Q20.
+
+- **No free port fixture.** A server listens on port 0 and reads
+  its port. That is a usual form in JavaScript, so the guide does
+  not show it.
+- **No seeded random source now.** It can come later.
+- **No capture of network requests, child processes, or files.**
+  `spyOn(globalThis, 'fetch')`, `mockImport`, and `testdir` do
+  this work.
+- **`ubq weak` comes later.** It lists the tests that run no code
+  that other tests do not run. It is a hint, not a failure.
+- **D29 stays: no check of globals.** A copy of `globalThis`
+  before each test, and a comparison after it, costs time in each
+  test, and rarely finds a problem. A project can also want such a
+  check for a full test file, not for each test. ubq adds it only
+  when a real project needs it.
+
+**Reason.** Each of these adds API or cost. ubq adds it when a
+real project shows the need.

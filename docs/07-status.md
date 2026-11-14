@@ -222,6 +222,15 @@ All entries are from 2026-11-11 to 2026-11-14.
 - A conversion of a real project by a different agent: the user
   planned this check.
 
+## Ideas for later
+
+Each idea waits for a real project that needs it (D60).
+
+- `ubq weak`: the tests that run no code that other tests do not
+  run.
+- A seeded random source, with the seed in the failure report.
+- A check of globals, for each test or for each test file.
+
 ## Not done, and known limits
 
 Each item is still open. Remove it when it is done.
@@ -230,7 +239,6 @@ Core and runner:
 
 - Bun gives different columns for some frames, and no place for an
   assertion in a timer callback.
-- No leak check for changed globals after each test.
 - The watchdog uses inspector port 9229. If a different process
   has it, the failure has no stack.
 - When the watchdog stops a process with no runner, the store gets
