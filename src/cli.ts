@@ -177,7 +177,7 @@ const main = async (args: string[]): Promise<number> => {
       const run = rest[0] ? +rest[0] : lastRun(db)
       const row = run === undefined ? undefined : runRow(db, run)
       if (!row) throw new UsageError(`run ${rest[0] ?? '(last)'} is not in the store`)
-      const sink = textSink(text => void process.stdout.write(text))
+      const sink = textSink(text => void process.stdout.write(text), true)
       for (const e of fileErrors(db, row.id)) sink({ type: 'file-error', ...e })
       for (const t of failures(db, row.id)) {
         sink({

@@ -99,6 +99,10 @@ FAIL test/parse.test.ts > parse > circle
   rerun: ubq test/parse.test.ts:6
 ```
 
+A run prints 20 failure blocks at most. Then one line gives the
+count of the others: `and 3 more failures. For all of them: ubq
+failures 8`. In CI (`CI` is set), each block prints.
+
 ## Rules that fail a test
 
 - A test with zero assertions fails. There is no opt-out.

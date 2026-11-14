@@ -149,3 +149,20 @@ test('--changed after a source file went away', () => {
   const r = p.ubq('--changed')
   assert.deepEqual([r.code, r.out.split('\n').slice(0, 2)], [1, ['changed: src/gone.ts', 'ERROR a.test.ts']])
 })
+
+test('after 20 failure blocks, a run names the count of the others', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  const body = Array.from({ length: 23 }, (_, i) => `test('t${i}', () => assert.equal(${i}, -1))`).join('\n')
+  writeFileSync(join(p.dir, 'many.test.ts'), `import { assert, test } from 'ubqtest'\n${body}\n`)
+  const r = p.ubq('many.test.ts')
+  const blocks = r.out.match(/^FAIL /gm) ?? []
+  assert.deepEqual([r.code, blocks.length], [1, 20])
+  // The project is new, so this is run 1.
+  assert.match(r.out, /^and 3 more failures\. For all of them: ubq failures 1$/m)
+  // `ubq failures` shows all of them.
+  assert.equal(p.ubq('failures').out.match(/^FAIL /gm)?.length, 23)
+  // In CI, nothing is cut.
+  const ci = spawnSync('node', [cli, 'many.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '1' } })
+  assert.equal(ci.stdout.match(/^FAIL /gm)?.length, 23)
+})

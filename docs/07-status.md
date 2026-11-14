@@ -184,6 +184,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   only if CI passed.
 - **API reference links.** On the site, a name in the code of the
   API reference that is an item of the page links to its heading.
+- **Failure limit.** A run prints 20 failure blocks at most, then
+  the count of the others and `ubq failures <run>`. CI and `ubq
+  failures` print all.
 
 ## Open, waiting for a decision
 
@@ -207,10 +210,6 @@ Each item is still open. Remove it when it is done.
 
 Tasks from `01-agent-ideation.md` (the section is in brackets):
 
-- A limit on the text of a run (2). After 20 failure blocks, one
-  line gives the count of the others and the command that shows
-  them: `ubq failures`. In CI, nothing is cut, as for the output
-  of a test. The number 20 is a guess of the agent.
 - `--max-time <ms>` for a full run (8). At that time the runner
   stops each test process and its process tree. Each file that
   was still running gets a file error that names the limit and

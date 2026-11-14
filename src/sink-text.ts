@@ -21,12 +21,18 @@ const TYPE_ERRORS = 20
 /** Lines of console output in a failure block, outside CI. */
 const OUTPUT_LINES = 20
 
+/** Blocks of failed tests and file errors in a run, outside CI. */
+const FAILURES = 20
+
 const loc = (at: Location): string => `${at.file}:${at.line}:${at.column}`
 
 const indent = (text: string): string => '  ' + text.replaceAll('\n', '\n  ')
 
-/** A sink that writes compact text with `write`. */
-export const textSink = (write: (text: string) => void): Sink => {
+/**
+ * A sink that writes compact text with `write`. With `all`, it
+ * writes each failure block, also outside CI.
+ */
+export const textSink = (write: (text: string) => void, all = false): Sink => {
   const starts = new Map<TestId, Location | undefined>()
   const skips: string[] = []
   const output = new Map<TestId, string>()
@@ -34,6 +40,9 @@ export const textSink = (write: (text: string) => void): Sink => {
   let run: number | undefined
 
   let typeErrors = 0
+  let failures = 0
+  /** False if the failure gets no block, because of the limit. */
+  const shown = (): boolean => ++failures <= FAILURES || ci || all
   const repeats = new Map<TestId, Repeat>()
   const rate = (r: Repeat, what: string): string =>
     `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
@@ -94,17 +103,18 @@ export const textSink = (write: (text: string) => void): Sink => {
         break
       case 'test-end':
         if (event.repeat) repeats.set(event.id, event.repeat)
-        if (event.status === 'fail' && event.failure)
-          block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
-        else if (event.status === 'skip')
+        if (event.status === 'fail' && event.failure) {
+          if (shown())
+            block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
+        } else if (event.status === 'skip')
           skips.push(`skip ${event.id}: ${event.reason}`)
         output.delete(event.id)
         break
       case 'late-failure':
-        block(`FAIL ${event.id}`, event.failure, event.id, repeats.get(event.id))
+        if (shown()) block(`FAIL ${event.id}`, event.failure, event.id, repeats.get(event.id))
         break
       case 'file-error':
-        block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
+        if (shown()) block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
         break
       case 'file-end':
         if (event.updated)
@@ -130,6 +140,10 @@ export const textSink = (write: (text: string) => void): Sink => {
           })
         break
       case 'run-end': {
+        if (failures > FAILURES && !ci && !all)
+          write(
+            `and ${failures - FAILURES} more failures.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
+          )
         if (typeErrors > TYPE_ERRORS)
           write(`and ${typeErrors - TYPE_ERRORS} more type errors. For all of them: npx tsc --noEmit\n`)
         if (event.otherTypes)
