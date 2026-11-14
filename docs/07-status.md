@@ -205,6 +205,28 @@ All entries are from 2026-11-11 to 2026-11-14.
 
 Each item is still open. Remove it when it is done.
 
+Tasks from `01-agent-ideation.md` (the section is in brackets):
+
+- A limit on the text of a run (2). After 20 failure blocks, one
+  line gives the count of the others and the command that shows
+  them: `ubq failures`. In CI, nothing is cut, as for the output
+  of a test. The number 20 is a guess of the agent.
+- `--max-time <ms>` for a full run (8). At that time the runner
+  stops each test process and its process tree. Each file that
+  was still running gets a file error that names the limit and
+  the test that was running. The exit code is 1, as for a
+  failure.
+- A check of the globals after each test (9). A test that adds,
+  removes, or replaces a property of `globalThis`, or adds a
+  `process` listener, and does not put it back, fails, as for
+  `process.env` (D29). The check runs after the `cleanup`
+  functions and the end of a fake clock. The "no leak check"
+  item below is this task.
+- The run record stores the environment variables that can change
+  a result (3): `NODE_OPTIONS`, `TZ`, `LANG`, and each `UBQ_`
+  variable. `ubq show` and `ubq failures` name them when they
+  differ from the run before.
+
 Core and runner:
 
 - Bun gives different columns for some frames, and no place for an
