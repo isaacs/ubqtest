@@ -7,7 +7,9 @@ covers` read it. For a question that these commands do not
 answer, `ubq sql` runs a SQL query on the store:
 
 ```
-ubq sql "select id, ms from test where run = (select max(id) from run) order by ms desc limit 5"
+ubq sql "select id, ms from test \
+  where run = (select max(id) from run) \
+  order by ms desc limit 5"
 ```
 
 - The query cannot change the store (`pragma query_only`).
@@ -154,53 +156,83 @@ The `failure` columns hold JSON with these fields:
 The failures of the last run, with their messages:
 
 ```
-ubq sql "select id, json_extract(failure, '$.message') as message from test where run = (select max(id) from run) and status = 'fail'"
+ubq sql " \
+  select id, json_extract(failure, '$.message') as message \
+  from test \
+  where run = (select max(id) from run) and status = 'fail'"
 ```
 
 The tests that passed in some runs and failed in others:
 
 ```
-ubq sql "select id from test group by id having sum(status = 'fail') > 0 and sum(status = 'pass') > 0"
+ubq sql "select id \
+  from test \
+  group by id \
+  having sum(status = 'fail') > 0 and sum(status = 'pass') > 0"
 ```
 
 The slowest tests, from the mean of each stored run:
 
 ```
-ubq sql "select id, round(avg(ms), 1) as ms from test where status = 'pass' group by id order by avg(ms) desc limit 10"
+ubq sql "select id, round(avg(ms), 1) as ms \
+  from test where status = 'pass' \
+  group by id \
+  order by avg(ms) desc \
+  limit 10"
 ```
 
 The tests with a status that changed since the run before:
 
 ```
-ubq sql "select a.id, a.status as before, b.status as now from test a join test b on b.id = a.id and b.run = a.run + 1 where b.run = (select max(id) from run) and a.status != b.status"
+ubq sql "select a.id, a.status as before, b.status as now \
+  from test a join test b on b.id = a.id and b.run = a.run + 1 \
+  where b.run = (select max(id) from run) and a.status != b.status"
 ```
 
 The count of each kind of failure:
 
 ```
-ubq sql "select json_extract(failure, '$.kind') as kind, count(*) as n from test where failure is not null group by kind order by n desc"
+ubq sql "select json_extract(failure, '$.kind') as kind, \
+  count(*) as n \
+  from test \
+  where failure is not null \
+  group by kind \
+  order by n desc"
 ```
 
 The test files that ran code of a file:
 
 ```
-ubq sql "select distinct tfile from coverage where file = 'src/parse.ts'"
+ubq sql "select distinct tfile \
+  from coverage \
+  where file = 'src/parse.ts'"
 ```
 
 The tests of the last run with the fewest assertions:
 
 ```
-ubq sql "select id, asserts from test where run = (select max(id) from run) order by asserts limit 10"
+ubq sql "select id, asserts \
+  from test \
+  where run = (select max(id) from run) \
+  order by asserts \
+  limit 10"
 ```
 
 The type errors of the last run:
 
 ```
-ubq sql "select json_extract(error, '$.code') as code, json_extract(error, '$.at.file') as file, json_extract(error, '$.message') as message from type_error where run = (select max(id) from run)"
+ubq sql " \
+  select \
+    json_extract(error, '$.code') as code, \
+    json_extract(error, '$.at.file') as file, \
+    json_extract(error, '$.message') as message \
+  from type_error \
+  where run = (select max(id) from run)"
 ```
 
 The exit code and the environment of the last runs:
 
 ```
-ubq sql "select id, code, pass, fail, env from run order by id desc limit 5"
+ubq sql "select id, code, pass, fail, env \
+  from run order by id desc limit 5"
 ```
