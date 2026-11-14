@@ -1,7 +1,8 @@
 // Less common paths of the runner: an early end of a file, a store
 // that does not open, many changed files, and a signal.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { assert, cleanup, test } from 'ubqtest'
@@ -165,4 +166,45 @@ test('after 20 failure blocks, a run names the count of the others', () => {
   // In CI, nothing is cut.
   const ci = spawnSync('node', [cli, 'many.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '1' } })
   assert.equal(ci.stdout.match(/^FAIL /gm)?.length, 23)
+})
+
+test('--max-time stops the run, and names each file that did not end', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  assert.deepEqual(
+    [p.ubq('--max-time', 'soon').code, p.ubq('--max-time').err],
+    [4, 'ubq: --max-time needs a time in milliseconds, such as: ubq --max-time 60000\n'],
+  )
+  // More slow files than processes at one time, so that some
+  // files do not start. Each slow test starts a child process.
+  const slow = `import { spawn } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
+import { assert, test } from 'ubqtest'
+test('waits', { timeout: 60_000 }, async () => {
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60_000)'], { stdio: 'ignore' })
+  appendFileSync('pids.txt', child.pid + '\\n')
+  await new Promise(r => setTimeout(r, 30_000))
+  assert(true)
+})
+`
+  const count = availableParallelism() + 1
+  for (let i = 0; i < count; i++) writeFileSync(join(p.dir, `s${i}.test.ts`), slow)
+  const t0 = Date.now()
+  const r = p.ubq('--max-time', '2000', ...Array.from({ length: count }, (_, i) => `s${i}.test.ts`))
+  assert.equal(r.code, 1)
+  assert(Date.now() - t0 < 20_000, 'the run ended soon after the limit')
+  assert.match(r.out, /^ERROR s\d+\.test\.ts\n  the run reached its time limit \(--max-time 2000 ms\), and stopped this file, in test: s\d+\.test\.ts > waits$/m)
+  assert.match(r.out, /^ERROR s\d+\.test\.ts\n  the run reached its time limit \(--max-time 2000 ms\) before this file started$/m)
+  assert.match(r.last!, new RegExp(`^fail: ${count} errors, 0 failed, 0 passed`))
+  // The processes that the tests started are gone.
+  const pids = readFileSync(join(p.dir, 'pids.txt'), 'utf8').trim().split('\n').map(Number)
+  const alive = pids.filter(pid => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  })
+  assert.deepEqual(alive, [])
 })

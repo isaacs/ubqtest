@@ -187,6 +187,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **Failure limit.** A run prints 20 failure blocks at most, then
   the count of the others and `ubq failures <run>`. CI and `ubq
   failures` print all.
+- **`--max-time <ms>`.** The run stops each file that runs at that
+  time, with its process tree, and starts no more files. Each such
+  file is a file error. No hang reruns after the limit.
 
 ## Open, waiting for a decision
 
@@ -208,13 +211,8 @@ All entries are from 2026-11-11 to 2026-11-14.
 
 Each item is still open. Remove it when it is done.
 
-Tasks from `01-agent-ideation.md` (the section is in brackets):
+Tasks (the section of `01-agent-ideation.md` is in brackets):
 
-- `--max-time <ms>` for a full run (8). At that time the runner
-  stops each test process and its process tree. Each file that
-  was still running gets a file error that names the limit and
-  the test that was running. The exit code is 1, as for a
-  failure.
 - A check of the globals after each test (9). A test that adds,
   removes, or replaces a property of `globalThis`, or adds a
   `process` listener, and does not put it back, fails, as for
@@ -225,6 +223,10 @@ Tasks from `01-agent-ideation.md` (the section is in brackets):
   a result (3): `NODE_OPTIONS`, `TZ`, `LANG`, and each `UBQ_`
   variable. `ubq show` and `ubq failures` name them when they
   differ from the run before.
+- After the tasks above, in a commit of its own: set up oxlint and
+  oxfmt for the code of ubq. `npm run lint` fixes what it can, and
+  does not only report it. Then lint and format all files at one
+  time.
 
 Core and runner:
 

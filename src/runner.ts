@@ -363,13 +363,18 @@ const workersConfig = (file: string): string | undefined => {
 /** The count of event files that this process made. */
 let eventFiles = 0
 
-/** Runs one test file in a new process. Sends its events to `send`. */
+/**
+ * Runs one test file in a new process. Sends its events to `send`.
+ * When `limit` aborts, the file stops with a file error that
+ * names the reason of the signal.
+ */
 export const runFile = async (
   { file, lines, ids }: Selected,
   send: Sink,
   cacheDir: string,
   update = false,
   env: Record<string, string> = {},
+  limit?: AbortSignal,
 ): Promise<void> => {
   const base = { ...process.env, NODE_COMPILE_CACHE: cacheDir }
   const job = {
@@ -457,6 +462,16 @@ export const runFile = async (
       send({ type: 'file-end', file, unselected: 0 })
       killGroup(child.pid!)
     }
+    const abort = (): void => {
+      if (stopped) return
+      ended = stopped = true
+      clearTimeout(watchdog)
+      const message = `${limit!.reason as string}, and stopped this file` + (open ? `, in test: ${open}` : '')
+      send({ type: 'file-error', file, failure: { kind: 'error', message } })
+      send({ type: 'file-end', file, unselected: 0 })
+      killGroup(child.pid!)
+    }
+    limit?.addEventListener('abort', abort, { once: true })
     let buffer = ''
     const feed = (data: string): void => {
       buffer += data
@@ -521,11 +536,12 @@ export const runFile = async (
     groups.add(child.pid!)
     child.on('close', (code, signal) => {
       clearTimeout(watchdog)
+      limit?.removeEventListener('abort', abort)
       // Processes that the tests started and did not stop. On
       // Windows, they stay: the process that started them is gone.
       if (process.platform === 'win32') groups.delete(child.pid!)
       killGroup(child.pid!)
-      const load = started ? undefined : loadFailure(stderr)
+      const load = started || stopped ? undefined : loadFailure(stderr)
       if (load) send({ type: 'file-error', file, failure: load })
       else if (!ended)
         send({
@@ -619,6 +635,15 @@ export const run = async (args: string[]): Promise<number> => {
       throw new UsageError('--seed needs the number from a run, such as: ubq --seed 1234')
     seed = +text
     selection = selection.toSpliced(seedAt, 2)
+  }
+  let maxTime: number | undefined
+  const maxAt = selection.indexOf('--max-time')
+  if (maxAt >= 0) {
+    const text = selection[maxAt + 1] ?? ''
+    if (!/^\d+$/.test(text) || +text < 1)
+      throw new UsageError('--max-time needs a time in milliseconds, such as: ubq --max-time 60000')
+    maxTime = +text
+    selection = selection.toSpliced(maxAt, 2)
   }
   // `npm run test:update`: the script of the project that writes
   // snapshots. It can update all of them: the person chose it (D59).
@@ -824,13 +849,23 @@ export const run = async (args: string[]): Promise<number> => {
   send(start)
 
   const ordered = shuffle(files, seed)
+  // With --max-time, the files that run at that time stop, and the
+  // files that wait do not start.
+  const limit = new AbortController()
+  const reason = `the run reached its time limit (--max-time ${maxTime} ms)`
+  const deadline = maxTime === undefined ? undefined : setTimeout(() => limit.abort(reason), maxTime)
   const runAll = async (to: Sink): Promise<void> => {
     const queue = [...ordered]
     const jobs = Math.min(availableParallelism(), queue.length)
     await Promise.all(
       Array.from({ length: jobs }, async () => {
-        for (let next = queue.shift(); next; next = queue.shift())
-          await runFile(next, to, cacheDir, update)
+        for (let next = queue.shift(); next; next = queue.shift()) {
+          if (limit.signal.aborted) {
+            to({ type: 'file-error', file: next.file, failure: { kind: 'error', message: `${reason} before this file started` } })
+            continue
+          }
+          await runFile(next, to, cacheDir, update, {}, limit.signal)
+        }
       }),
     )
   }
@@ -843,8 +878,10 @@ export const run = async (args: string[]): Promise<number> => {
     write(all.summary() + '\n')
   } else {
     await runAll(send)
-    for (const hang of hangReruns(hung)) send(hang)
+    // A hang rerun waits for the time limit of each test again.
+    if (!limit.signal.aborted) for (const hang of hangReruns(hung)) send(hang)
   }
+  clearTimeout(deadline)
   const allTypes = (await checking?.errors) ?? []
   const { own: typeErrors, other: otherTypes } = checking?.partial ? ownTypeErrors(allTypes, used) : { own: allTypes, other: 0 }
   for (const error of typeErrors) send(error)

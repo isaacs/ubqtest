@@ -273,7 +273,14 @@ More run commands:
 ```
 ubq --repeat <n> <selection>        run the tests n times, count the failures of each
 ubq --baseline <commit> <selection> show only the failures that the git commit does not have
+ubq --max-time <ms> <selection>     stop the run after that time
 ```
+
+With `--max-time`, each file that runs at that time stops, with
+the processes that its tests started. Files that did not start
+do not start. Each of these files is an error of the run, and the
+exit code is 1. The type check still runs to its end. Use it for
+a run in the background that must not run for a long time.
 
 Console output of a test is captured. It shows only in the
 failure block of its test, and in `ubq show`.

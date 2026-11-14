@@ -103,6 +103,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq --failed` | Runs the tests that failed in their last run. |
 | `ubq --repeat <n> ...` | Runs tests n times and counts the failures of each, to find a flaky test. |
 | `ubq --baseline <commit> ...` | Shows only the failures that the commit does not have. |
+| `ubq --max-time <ms> ...` | Stops the run after that time. Each file that did not end is an error. |
 | `ubq failures`, `ubq show`, `ubq history`, `ubq diff`, `ubq slow` | Questions about stored runs. |
 | `ubq uncovered`, `ubq covers <file>:<line>` | Code of the program that no test ran (exit code 1 if there is some). The tests that ran a line. |
 | `ubq uncovered --diff` | Code that you changed and that no test runs. |
