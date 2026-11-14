@@ -62,10 +62,7 @@ export const doctor = (out: (text: string) => void): number => {
   else fix(`Node ${v.node} is too old. ubq needs Node 24 or later. Install it, and put it first on the path.`)
 
   if (existsSync(join(root, 'package.json'))) ok(`project: ${root}`)
-  else
-    fix(
-      `no package.json at or above ${root}. The folder of package.json is the project. Run: npm init -y`,
-    )
+  else fix(`no package.json at or above ${root}. The folder of package.json is the project. Run: npm init -y`)
 
   try {
     createRequire(join(root, 'package.json')).resolve('ubqtest')
@@ -116,9 +113,12 @@ export const doctor = (out: (text: string) => void): number => {
     } catch {
       wrangler = false
     }
-    if (absent.length) fix(`"ubq.workers" in package.json names a wrangler config that does not exist: ${absent.join(', ')}`)
+    if (absent.length)
+      fix(`"ubq.workers" in package.json names a wrangler config that does not exist: ${absent.join(', ')}`)
     else if (!wrangler)
-      fix('"ubq.workers" is set, and the project does not have wrangler. Tests in the Workers runtime need it. Run: npm install --save-dev wrangler')
+      fix(
+        '"ubq.workers" is set, and the project does not have wrangler. Tests in the Workers runtime need it. Run: npm install --save-dev wrangler',
+      )
     else ok('wrangler, for tests in the Workers runtime')
   } else if (workersPool || sources.some(source => /from\s+['"](cloudflare:|ubqtest\/workers)/.test(source))) {
     // One entry for each Worker: from the vitest config of the
@@ -137,7 +137,7 @@ export const doctor = (out: (text: string) => void): number => {
         include: [config.includes('/') ? `${config.slice(0, config.lastIndexOf('/'))}/**/*.test.ts` : '**/*.test.ts'],
       }))
     const about =
-      "this project has tests of a Cloudflare Worker (a test file imports from 'cloudflare:', or the project has the vitest plugin for Workers). They must run in the Workers runtime, which needs the \"workers\" key of the ubq configuration."
+      'this project has tests of a Cloudflare Worker (a test file imports from \'cloudflare:\', or the project has the vitest plugin for Workers). They must run in the Workers runtime, which needs the "workers" key of the ubq configuration.'
     // `ubq convert` writes the key. A person who adds it by hand
     // first does the work two times.
     if (vitest) fix(`${about} Do not add it by hand: "ubq convert" writes it to package.json, from ${vitest.file}.`)
@@ -150,9 +150,13 @@ export const doctor = (out: (text: string) => void): number => {
   if (sources.some(source => source.includes('ubqtest/browser'))) {
     try {
       createRequire(join(root, 'package.json')).resolve('playwright-core')
-      ok("playwright-core, for 'ubqtest/browser'. If a test says that the browser is not installed: npx ubq browser install")
+      ok(
+        "playwright-core, for 'ubqtest/browser'. If a test says that the browser is not installed: npx ubq browser install",
+      )
     } catch {
-      fix("a test file imports 'ubqtest/browser', and the project does not have playwright-core. Run: npm install --save-dev playwright-core, then: npx ubq browser install")
+      fix(
+        "a test file imports 'ubqtest/browser', and the project does not have playwright-core. Run: npm install --save-dev playwright-core, then: npx ubq browser install",
+      )
     }
   }
 
@@ -183,7 +187,8 @@ export const doctor = (out: (text: string) => void): number => {
     if (options) {
       const reasons = {
         allowImportingTsExtensions: 'A test file imports a file with the .ts extension.',
-        erasableSyntaxOnly: 'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+        erasableSyntaxOnly:
+          'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
       }
       const tsImport = sources.some(source => /from\s+['"]\.{1,2}\/[^'"]*\.[cm]?tsx?['"]/.test(source))
       const missing = (['allowImportingTsExtensions', 'erasableSyntaxOnly'] as const).filter(

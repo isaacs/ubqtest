@@ -2,7 +2,18 @@
 // installs it: as a plain program on each runtime, through the
 // `ubq` command, and for the type checker.
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -18,7 +29,11 @@ cleanup(() => rmSync(dir, { recursive: true }))
 // on each runtime, which no other test does.
 const built = join(root, '.ubq', `package-test-${process.pid}`)
 cleanup(() => remove(built))
-const build = spawnSync('node', ['scripts/build.ts', built], { cwd: root, encoding: 'utf8', env: { ...process.env, UBQ_SOURCEMAP: '1' } })
+const build = spawnSync('node', ['scripts/build.ts', built], {
+  cwd: root,
+  encoding: 'utf8',
+  env: { ...process.env, UBQ_SOURCEMAP: '1' },
+})
 mkdirSync(join(dir, 'node_modules'))
 symlinkSync(built, join(dir, 'node_modules/ubqtest'), 'junction')
 const pkg = join(dir, 'node_modules/ubqtest')
@@ -70,10 +85,16 @@ symlinkSync(join(root, 'node_modules/@types'), join(dir, 'node_modules/@types'),
 
 const sh = (cmd: string, ...args: string[]) => {
   const r = spawnSync(cmd, args, { cwd: dir, encoding: 'utf8' })
-  return { code: r.status, err: r.stderr, lines: r.stdout.replace(/ \(run \d+\)\n$/, '').trimEnd().split('\n') }
+  return {
+    code: r.status,
+    err: r.stderr,
+    lines: r.stdout
+      .replace(/ \(run \d+\)\n$/, '')
+      .trimEnd()
+      .split('\n'),
+  }
 }
-const has = (cmd: string): string | false =>
-  spawnSync(cmd, ['--version']).status !== 0 && `${cmd} is not installed`
+const has = (cmd: string): string | false => spawnSync(cmd, ['--version']).status !== 0 && `${cmd} is not installed`
 
 test('the build has no errors, and the package has no dependencies', async () => {
   assert.equal(build.stderr, '')
@@ -81,11 +102,17 @@ test('the build has no errors, and the package has no dependencies', async () =>
   const { default: manifest } = await import(pathToFileURL(join(pkg, 'package.json')).href, { with: { type: 'json' } })
   // The packages that a project can add: the driver of
   // `ubqtest/browser`, and the tool of `ubqtest/workers`.
-  assert.deepEqual(Object.keys(manifest).filter(key => /dependencies/i.test(key)), ['peerDependencies', 'peerDependenciesMeta'])
-  assert.deepEqual([manifest.peerDependencies, manifest.peerDependenciesMeta], [
-    { 'playwright-core': '>=1.49', wrangler: '>=4' },
-    { 'playwright-core': { optional: true }, wrangler: { optional: true } },
-  ])
+  assert.deepEqual(
+    Object.keys(manifest).filter(key => /dependencies/i.test(key)),
+    ['peerDependencies', 'peerDependenciesMeta'],
+  )
+  assert.deepEqual(
+    [manifest.peerDependencies, manifest.peerDependenciesMeta],
+    [
+      { 'playwright-core': '>=1.49', wrangler: '>=4' },
+      { 'playwright-core': { optional: true }, wrangler: { optional: true } },
+    ],
+  )
 })
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
@@ -103,7 +130,10 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 0 failed, 2 passed'])
     // With a repeat, the runner starts a process for the file. That is
     // the code of the runner for this runtime.
-    assert.deepEqual(sh(cmd, ...args, ubq, '--repeat', '2').lines, ['repeat 2: 0 failed some times, 0 failed each time, 2 failed no times', 'pass: 0 failed, 2 passed'])
+    assert.deepEqual(sh(cmd, ...args, ubq, '--repeat', '2').lines, [
+      'repeat 2: 0 failed some times, 0 failed each time, 2 failed no times',
+      'pass: 0 failed, 2 passed',
+    ])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
       'src/add.ts:4:22  (): number => 0',
       '1 uncovered ranges in 1 of the 1 files that tests ran',
@@ -113,10 +143,16 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
 test('ubq skill and ubq convert from the package', () => {
   const ubq = join(built, 'cli.js')
   assert.deepEqual(sh('node', ubq, 'skill', '.agent/skills').lines, ['wrote .agent/skills/use-ubq/SKILL.md'])
-  assert.equal(readFileSync(join(dir, '.agent/skills/use-ubq/SKILL.md'), 'utf8'), readFileSync(join(root, 'skills/use-ubq/SKILL.md'), 'utf8'))
+  assert.equal(
+    readFileSync(join(dir, '.agent/skills/use-ubq/SKILL.md'), 'utf8'),
+    readFileSync(join(root, 'skills/use-ubq/SKILL.md'), 'utf8'),
+  )
   writeFileSync(join(dir, 'v.test.ts'), "import { expect, test } from 'vitest'\ntest('x', () => expect(1).toBe(1))\n")
   cleanup(() => remove(join(dir, 'v.test.ts')))
-  assert.equal(sh('node', ubq, 'convert', '--dry', 'v.test.ts').lines[0], 'converted v.test.ts (vitest): 2 changes, 0 TODO')
+  assert.equal(
+    sh('node', ubq, 'convert', '--dry', 'v.test.ts').lines[0],
+    'converted v.test.ts (vitest): 2 changes, 0 TODO',
+  )
 })
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
@@ -126,17 +162,36 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     cpSync(join(root, 'test/fixtures/workers'), worker, { recursive: true })
     writeFileSync(
       join(worker, 'package.json'),
-      JSON.stringify({ type: 'module', ubq: { workers: [{ config: 'wrangler.jsonc', include: ['test/**/*.test.ts'] }] } }),
+      JSON.stringify({
+        type: 'module',
+        ubq: { workers: [{ config: 'wrangler.jsonc', include: ['test/**/*.test.ts'] }] },
+      }),
     )
     mkdirSync(join(worker, 'node_modules'))
     symlinkSync(pkg, join(worker, 'node_modules/ubqtest'), 'junction')
     symlinkSync(join(root, 'node_modules/wrangler'), join(worker, 'node_modules/wrangler'), 'junction')
     const run = (...more: string[]) => {
-      const r = spawnSync(cmd, [...args, join(built, 'cli.js'), ...more], { cwd: worker, encoding: 'utf8', env: { ...process.env, CI: '' } })
-      return [r.stdout.replace(/ \(run \d+\)\n$/, '').trimEnd().split('\n'), r.stderr]
+      const r = spawnSync(cmd, [...args, join(built, 'cli.js'), ...more], {
+        cwd: worker,
+        encoding: 'utf8',
+        env: { ...process.env, CI: '' },
+      })
+      return [
+        r.stdout
+          .replace(/ \(run \d+\)\n$/, '')
+          .trimEnd()
+          .split('\n'),
+        r.stderr,
+      ]
     }
     assert.deepEqual(run(), [['pass: 0 failed, 6 passed'], ''])
-    assert.deepEqual(run('uncovered'), [["src/index.ts:28:32  return new Response('this line has no test')", '1 uncovered ranges in 1 of the 2 files that tests ran'], ''])
+    assert.deepEqual(run('uncovered'), [
+      [
+        "src/index.ts:28:32  return new Response('this line has no test')",
+        '1 uncovered ranges in 1 of the 2 files that tests ran',
+      ],
+      '',
+    ])
   })
 
 test('docs/api.md is current', () => {
@@ -163,7 +218,8 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   // As the published package: with no source maps. With a map, Deno
   // gives the places of a stack in the source of ubq, and the report
   // of a failure has frames of the library.
-  for (const name of readdirSync(join(p.dir, 'node_modules/ubqtest'))) if (name.endsWith('.map')) rmSync(join(p.dir, 'node_modules/ubqtest', name))
+  for (const name of readdirSync(join(p.dir, 'node_modules/ubqtest')))
+    if (name.endsWith('.map')) rmSync(join(p.dir, 'node_modules/ubqtest', name))
   const ubq = join(built, 'cli.js')
   const run = (cmd: string[], ...args: string[]): Promise<string[]> =>
     new Promise(done => {
@@ -173,7 +229,10 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
       child.stderr.on('data', data => (text += data))
       // The run number and the seed change with each run.
       child.on('close', () => {
-        const lines = text.split('\n').filter(l => !l.startsWith('file order:')).map(l => l.replace(/ \(run \d+\)$/, ''))
+        const lines = text
+          .split('\n')
+          .filter(l => !l.startsWith('file order:'))
+          .map(l => l.replace(/ \(run \d+\)$/, ''))
         // Deno has no async tracking for a server, so its hang rerun
         // does not name the line that opened one.
         const server = lines.indexOf('HANG hang.ts > times out with a server open')
@@ -185,12 +244,14 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   // The runs are at the same time: some of them wait for a time limit.
   await Promise.all(
     // On Windows, Node gives no stack for a loop that does not return.
-    ['fail.ts', 'mock.ts', 'output.ts', 'hang.ts', ...(process.platform === 'win32' ? [] : ['busy.ts'])].flatMap(file => [
-      (async () => assert.deepEqual(await run(deno, file, 'pass.ts'), await run(['node'], file, 'pass.ts'), file))(),
-      // One file runs in the process of the runner.
-      file !== 'busy.ts' &&
-        (async () => assert.deepEqual(await run(deno, file), await run(['node'], file), `${file} alone`))(),
-    ]),
+    ['fail.ts', 'mock.ts', 'output.ts', 'hang.ts', ...(process.platform === 'win32' ? [] : ['busy.ts'])].flatMap(
+      file => [
+        (async () => assert.deepEqual(await run(deno, file, 'pass.ts'), await run(['node'], file, 'pass.ts'), file))(),
+        // One file runs in the process of the runner.
+        file !== 'busy.ts' &&
+          (async () => assert.deepEqual(await run(deno, file), await run(['node'], file), `${file} alone`))(),
+      ],
+    ),
   )
   // The hang rerun on Deno names the line that started a timer.
   assert((await run(deno, 'hang.ts')).includes('  Timeout opened at hang.ts:18:32'))
@@ -205,7 +266,10 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   ])
   assert.deepEqual(await run(['node'], 'uncovered', 'src/shape.ts'), await run(deno, 'uncovered', 'src/shape.ts'))
   // An import of `./two.js` finds `./two.ts`, as on Node.
-  writeFileSync(join(p.dir, 'src/one.ts'), "import { two } from './two.js'\nexport const one = (): number => two() - 1\n")
+  writeFileSync(
+    join(p.dir, 'src/one.ts'),
+    "import { two } from './two.js'\nexport const one = (): number => two() - 1\n",
+  )
   writeFileSync(join(p.dir, 'src/two.ts'), 'export const two = (): number => 2\n')
   writeFileSync(
     join(p.dir, 'one.ts'),

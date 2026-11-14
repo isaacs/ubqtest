@@ -51,13 +51,19 @@ test('later', async () => {
   assert.equal(r.last, 'fail: 2 failed, 1 passed')
 })
 
-test('an error in the page fails the test, and a missing element names the element', { ...skip, timeout: 30_000 }, () => {
-  const p = project()
-  cleanup(() => remove(p.dir))
-  writeFileSync(join(p.dir, 'page.html'), '<button onclick="setTimeout(() => { throw new Error(\'bad click\') })">go</button>')
-  writeFileSync(
-    join(p.dir, 'page.test.ts'),
-    `import { assert, test } from 'ubqtest'
+test(
+  'an error in the page fails the test, and a missing element names the element',
+  { ...skip, timeout: 30_000 },
+  () => {
+    const p = project()
+    cleanup(() => remove(p.dir))
+    writeFileSync(
+      join(p.dir, 'page.html'),
+      '<button onclick="setTimeout(() => { throw new Error(\'bad click\') })">go</button>',
+    )
+    writeFileSync(
+      join(p.dir, 'page.test.ts'),
+      `import { assert, test } from 'ubqtest'
 import { browser } from 'ubqtest/browser'
 test('page error', { timeout: 30_000 }, async () => {
   const page = await browser()
@@ -71,13 +77,14 @@ test('no element', { timeout: 30_000 }, async () => {
   await page.click('#absent')
 })
 `,
-  )
-  const r = p.ubq('page.test.ts')
-  assert.match(r.out, /FAIL page\.test\.ts > page error\n  an error in the page: bad click\n/)
-  assert.match(r.out, /FAIL page\.test\.ts > no element\n  .*Timeout 2000ms exceeded/)
-  assert.match(r.out, /waiting for locator\('#absent'\)/)
-  assert.equal(r.code, 1)
-})
+    )
+    const r = p.ubq('page.test.ts')
+    assert.match(r.out, /FAIL page\.test\.ts > page error\n  an error in the page: bad click\n/)
+    assert.match(r.out, /FAIL page\.test\.ts > no element\n  .*Timeout 2000ms exceeded/)
+    assert.match(r.out, /waiting for locator\('#absent'\)/)
+    assert.equal(r.code, 1)
+  },
+)
 
 // Many runs of `ubq`, each with a browser: slow on a machine with much work.
 test('the runner starts the server of the configuration, and stops it', { ...skip, timeout: 120_000 }, () => {
@@ -130,15 +137,24 @@ check()`,
   p.configure({ browser: { url: `http://localhost:${port}`, command: 'node app/absent.js' } })
   const bad = p.ubq('served.test.ts')
   assert.equal(bad.code, 4)
-  assert.match(bad.err, /"ubq\.browser\.command" in package\.json \(node app\/absent\.js\) ended with exit code 1\. Its output is in \.ubq[\\/]browser-server\.log/)
+  assert.match(
+    bad.err,
+    /"ubq\.browser\.command" in package\.json \(node app\/absent\.js\) ended with exit code 1\. Its output is in \.ubq[\\/]browser-server\.log/,
+  )
   // A command that ends with no output.
   writeFileSync(join(p.dir, 'app/quiet.js'), '')
   p.configure({ browser: { url: `http://localhost:${port}`, command: 'node app/quiet.js' } })
-  assert.match(p.ubq('served.test.ts').err, /\(node app\/quiet\.js\) ended with exit code 0\. Its output is in \.ubq[\\/]browser-server\.log\n$/)
+  assert.match(
+    p.ubq('served.test.ts').err,
+    /\(node app\/quiet\.js\) ended with exit code 0\. Its output is in \.ubq[\\/]browser-server\.log\n$/,
+  )
   // A server that answers before the run: the runner does not start one.
   const server = spawn('node', ['app/server.js'], { cwd: p.dir, stdio: 'ignore' })
   cleanup(() => void server.kill())
-  spawnSync('node', ['-e', `const check = () => fetch('http://localhost:${port}').then(() => process.exit(0), () => setTimeout(check, 50))\ncheck()`])
+  spawnSync('node', [
+    '-e',
+    `const check = () => fetch('http://localhost:${port}').then(() => process.exit(0), () => setTimeout(check, 50))\ncheck()`,
+  ])
   assert.equal(p.ubq('served.test.ts').last, 'pass: 0 failed, 1 passed')
   p.configure({ browser: { command: 'x' } })
   assert.match(p.ubq('pass.ts').err, /"ubq\.browser" in package\.json must be an object with "url"/)
@@ -182,33 +198,48 @@ test('minus', async () => {
   ])
   const both = p.ubq('app.test.ts')
   assert.equal(both.last, 'pass: 0 failed, 2 passed', both.out + both.err)
-  assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), ["src/app.js:2:22  () => 'never'", '1 uncovered ranges in src/app.js', ''])
-  assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), ['app.test.ts > minus', 'app.test.ts > title', '2 tests run src/app.js:3', ''])
+  assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), [
+    "src/app.js:2:22  () => 'never'",
+    '1 uncovered ranges in src/app.js',
+    '',
+  ])
+  assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), [
+    'app.test.ts > minus',
+    'app.test.ts > title',
+    '2 tests run src/app.js:3',
+    '',
+  ])
   // A change to code that the pages ran selects the tests. A change
   // to code that no page ran selects none.
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a'))
-  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 2), ['changed: src/app.js', 'pass: 0 failed, 2 passed (run 3)'])
+  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 2), [
+    'changed: src/app.js',
+    'pass: 0 failed, 2 passed (run 3)',
+  ])
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a').replace("'never'", "'not one time'"))
   assert.equal(p.ubq('--changed').err, 'ubq: no test ran the code that changed in src/app.js\n')
 })
 
-test('a script that a server made from a file has coverage through its source map', { ...skip, timeout: 30_000 }, () => {
-  const p = project()
-  cleanup(() => remove(p.dir))
-  const port = 20000 + ((process.pid + 1) % 20000)
-  const esbuild = pathToFileURL(createRequire(import.meta.url).resolve('esbuild')).href
-  writeFileSync(
-    join(p.dir, 'src/app.ts'),
-    `export const add = (a: number, b: number): number => a + b
+test(
+  'a script that a server made from a file has coverage through its source map',
+  { ...skip, timeout: 30_000 },
+  () => {
+    const p = project()
+    cleanup(() => remove(p.dir))
+    const port = 20000 + ((process.pid + 1) % 20000)
+    const esbuild = pathToFileURL(createRequire(import.meta.url).resolve('esbuild')).href
+    writeFileSync(
+      join(p.dir, 'src/app.ts'),
+      `export const add = (a: number, b: number): number => a + b
 export const never = (): string => 'never'
 // A comment, so that the lines of the script are not the lines of the file.
 export const sign = (n: number): string => (n < 0 ? 'minus' : 'plus')
 document.title = String(add(1, 2)) + sign(1)
 `,
-  )
-  writeFileSync(
-    join(p.dir, 'server.js'),
-    `import { createServer } from 'node:http'
+    )
+    writeFileSync(
+      join(p.dir, 'server.js'),
+      `import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
 import { transformSync } from ${JSON.stringify(esbuild)}
 createServer((req, res) => {
@@ -217,10 +248,10 @@ createServer((req, res) => {
   else res.setHeader('content-type', 'text/html').end('<script type="module" src="/src/app.ts"></script>')
 }).listen(${port})
 `,
-  )
-  writeFileSync(
-    join(p.dir, 'app.test.ts'),
-    `import { assert, test } from 'ubqtest'
+    )
+    writeFileSync(
+      join(p.dir, 'app.test.ts'),
+      `import { assert, test } from 'ubqtest'
 import { browser } from 'ubqtest/browser'
 test('title', { timeout: 30_000 }, async () => {
   const page = await browser()
@@ -228,24 +259,32 @@ test('title', { timeout: 30_000 }, async () => {
   await assert.eventually(() => page.title(), '3plus')
 })
 `,
-  )
-  p.configure({ browser: { url: `http://localhost:${port}`, command: 'node server.js' } })
-  const run = p.ubq('app.test.ts')
-  assert.equal(run.last, 'pass: 0 failed, 1 passed', run.out + run.err)
-  assert.deepEqual(p.ubq('uncovered', 'src/app.ts').out.split('\n'), [
-    "src/app.ts:2:22  (): string => 'never'",
-    "src/app.ts:4:53  'minus'",
-    '2 uncovered ranges in src/app.ts',
-    '',
-  ])
-})
+    )
+    p.configure({ browser: { url: `http://localhost:${port}`, command: 'node server.js' } })
+    const run = p.ubq('app.test.ts')
+    assert.equal(run.last, 'pass: 0 failed, 1 passed', run.out + run.err)
+    assert.deepEqual(p.ubq('uncovered', 'src/app.ts').out.split('\n'), [
+      "src/app.ts:2:22  (): string => 'never'",
+      "src/app.ts:4:53  'minus'",
+      '2 uncovered ranges in src/app.ts',
+      '',
+    ])
+  },
+)
 
 test('a browser that is not there: in UBQ_BROWSER, or not installed', { timeout: 30_000 }, () => {
   const p = project()
   cleanup(() => remove(p.dir))
-  writeFileSync(join(p.dir, 'page.test.ts'), "import { test } from 'ubqtest'\nimport { browser } from 'ubqtest/browser'\ntest('page', async () => {\n  await browser()\n})\n")
+  writeFileSync(
+    join(p.dir, 'page.test.ts'),
+    "import { test } from 'ubqtest'\nimport { browser } from 'ubqtest/browser'\ntest('page', async () => {\n  await browser()\n})\n",
+  )
   const run = (vars: Record<string, string>) =>
-    spawnSync('node', [createRequire(import.meta.url).resolve('../src/cli.ts'), 'page.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '', ...vars } })
+    spawnSync('node', [createRequire(import.meta.url).resolve('../src/cli.ts'), 'page.test.ts'], {
+      cwd: p.dir,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '', ...vars },
+    })
   const path = run({ UBQ_BROWSER: join(p.dir, 'no-such-browser') })
   assert.deepEqual([path.status, path.stdout.split('\n')[0]], [1, 'FAIL page.test.ts > page'])
   assert.match(path.stdout, /no-such-browser/)

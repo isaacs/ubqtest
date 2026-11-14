@@ -2,7 +2,18 @@
 // of each one, and feeds the sinks.
 // See docs/04-architecture.md, section 2.
 import { spawn, spawnSync } from 'node:child_process'
-import { closeSync, existsSync, globSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  closeSync,
+  existsSync,
+  globSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
 import { join, resolve, sep } from 'node:path'
@@ -51,12 +62,14 @@ const NODE_PRELOAD = new URL(`./${V8 ? 'preload' : 'counters-preload'}${EXT}`, i
 
 /** The arguments that make a test process collect full coverage. */
 export const coverageArgs = (): string[] =>
-  process.versions.bun ? ['--preload', fileURLToPath(BUN_PRELOAD)]
-    // Deno has no signal that starts the inspector, and the
-    // inspector adds no time to the start of a process.
-  : process.versions.deno ? ['run', '-A', '--inspect=127.0.0.1:0', '--preload', NODE_PRELOAD.href]
-    // With port 0, SIGUSR1 starts the inspector on a free port.
-  : ['--inspect-port=0', '--import', NODE_PRELOAD.href]
+  process.versions.bun
+    ? ['--preload', fileURLToPath(BUN_PRELOAD)]
+    : // Deno has no signal that starts the inspector, and the
+      // inspector adds no time to the start of a process.
+      process.versions.deno
+      ? ['run', '-A', '--inspect=127.0.0.1:0', '--preload', NODE_PRELOAD.href]
+      : // With port 0, SIGUSR1 starts the inspector on a free port.
+        ['--inspect-port=0', '--import', NODE_PRELOAD.href]
 
 /** The lines that a runtime prints when its inspector starts. */
 const INSPECTOR = /Debugger listening on (ws:\/\/\S+)\r?\n(?:(?:For help, see:|Visit chrome:)[^\n]*\n)?/
@@ -163,11 +176,11 @@ export const selectFailed = (store: Store): Selected[] => {
 
 const runtime = (): RunStart['runtime'] => {
   const v = process.versions
-  return (
-    v.bun ? { name: 'bun', version: v.bun }
-    : v.deno ? { name: 'deno', version: v.deno }
-    : { name: 'node', version: v.node }
-  )
+  return v.bun
+    ? { name: 'bun', version: v.bun }
+    : v.deno
+      ? { name: 'deno', version: v.deno }
+      : { name: 'node', version: v.node }
 }
 
 /** Process groups of the test processes that run now. */
@@ -206,11 +219,14 @@ const changeOf = (old: string, now: string): Change => {
 /** The ranges of the old content as ranges of the new content. For ranges that did not run the change. */
 const moved = (ranges: number[], [from, oldTo, newTo]: Change): number[] => {
   const at = (offset: number, end: boolean): number =>
-    offset <= from ? offset
-    : offset >= oldTo ? offset + newTo - oldTo
-    // ubq: not measured: the code after a range that did not run, ran
-    : end ? newTo
-    : from
+    offset <= from
+      ? offset
+      : offset >= oldTo
+        ? offset + newTo - oldTo
+        : // ubq: not measured: the code after a range that did not run, ran
+          end
+          ? newTo
+          : from
   const out: number[] = []
   for (let i = 0; i < ranges.length; i += 3) {
     const start = Math.max(at(ranges[i]!, false), out.at(-2) ?? 0)
@@ -337,9 +353,9 @@ export const loadFailure = (text: string): Failure | undefined => {
     message:
       `the test file did not load: ${error[1]}` +
       // Node removes types and makes no other change.
-      (/strip-only mode/.test(error[1]!) ?
-        '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq'
-      : ''),
+      (/strip-only mode/.test(error[1]!)
+        ? '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq'
+        : ''),
     ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
   }
 }
@@ -400,24 +416,23 @@ export const runFile = async (
   // started. With no server, the process starts here.
   const workers = workersConfig(file)
   if (workers) Object.assign(job, { UBQ_WORKERS_CONFIG: workers })
-  const child: TestProcess =
-    workers ?
-      // wrangler needs Node. The host process starts workerd.
+  const child: TestProcess = workers
+    ? // wrangler needs Node. The host process starts workerd.
       spawn(process.versions.bun || process.versions.deno ? 'node' : process.execPath, [WORKERS_HOST, path], {
         cwd: projectRoot(),
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
         env: { ...base, ...job },
       })
-    : (await warmProcess({ file: path, base, job })) ??
-    spawn(process.execPath, [...coverageArgs(), path], {
-      cwd: projectRoot(),
-      // The child leads its own process group, so that one signal
-      // stops it and all processes that its tests started.
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
-      env: { ...base, ...job },
-    })
+    : ((await warmProcess({ file: path, base, job })) ??
+      spawn(process.execPath, [...coverageArgs(), path], {
+        cwd: projectRoot(),
+        // The child leads its own process group, so that one signal
+        // stops it and all processes that its tests started.
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+        env: { ...base, ...job },
+      }))
   return new Promise(done => {
     let ended = false
     /** True after the first event of the file. */
@@ -444,8 +459,7 @@ export const runFile = async (
       }
       const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
       // With source counters, the columns are those of the changed source.
-      const stack =
-        V8 ? frames : frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) }))
+      const stack = V8 ? frames : frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) }))
       send({
         type: 'test-end',
         id: start.id,
@@ -599,15 +613,11 @@ const runWorkspaces = (folders: string[], args: string[]): number => {
     if (r.status !== 0 && r.status !== 2) failed.push(folder)
   }
   process.stdout.write(
-    failed.length ?
-      `workspaces: ${failed.length} of ${ran} failed: ${failed.join(', ')}. Run ubq in the folder of a workspace for its tests.\n`
-    : `workspaces: ${ran} passed\n`,
+    failed.length
+      ? `workspaces: ${failed.length} of ${ran} failed: ${failed.join(', ')}. Run ubq in the folder of a workspace for its tests.\n`
+      : `workspaces: ${ran} passed\n`,
   )
-  return (
-    failed.length ? 1
-    : ran ? 0
-    : 2
-  )
+  return failed.length ? 1 : ran ? 0 : 2
 }
 
 /** Runs test files. Returns the exit code of the run. */
@@ -621,9 +631,7 @@ export const run = async (args: string[]): Promise<number> => {
   if (at >= 0) {
     const count = args[at + 1] ?? ''
     if (!/^\d+$/.test(count) || +count < 2)
-      throw new UsageError(
-        "--repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'",
-      )
+      throw new UsageError("--repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'")
     repeat = +count
     selection = args.toSpliced(at, 2)
   }
@@ -631,8 +639,7 @@ export const run = async (args: string[]): Promise<number> => {
   const seedAt = selection.indexOf('--seed')
   if (seedAt >= 0) {
     const text = selection[seedAt + 1] ?? ''
-    if (!/^\d+$/.test(text))
-      throw new UsageError('--seed needs the number from a run, such as: ubq --seed 1234')
+    if (!/^\d+$/.test(text)) throw new UsageError('--seed needs the number from a run, such as: ubq --seed 1234')
     seed = +text
     selection = selection.toSpliced(seedAt, 2)
   }
@@ -670,8 +677,7 @@ export const run = async (args: string[]): Promise<number> => {
   const flags = selection.filter(a => a.startsWith('--'))
   const rest = selection.filter(a => !a.startsWith('--'))
   for (const flag of flags)
-    if (flag !== '--failed' && flag !== '--changed')
-      throw new UsageError(`unknown option: ${flag}`)
+    if (flag !== '--failed' && flag !== '--changed') throw new UsageError(`unknown option: ${flag}`)
   // The root of a monorepo with no tests of its own: each workspace
   // is a project, and gets its own run of the command.
   if (!rest.length) {
@@ -696,9 +702,9 @@ export const run = async (args: string[]): Promise<number> => {
       files = affected
       if (!files.length) {
         process.stderr.write(
-          changed.length ?
-            `ubq: no test ran the code that changed in ${changed.join(', ')}\n`
-          : 'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new\n',
+          changed.length
+            ? `ubq: no test ran the code that changed in ${changed.join(', ')}\n`
+            : 'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new\n',
         )
         return 2
       }
@@ -725,7 +731,10 @@ export const run = async (args: string[]): Promise<number> => {
   // Each run of a TypeScript project also checks the types (D38).
   // A Workers test file cannot load in this process.
   const lone = files.length === 1 && !repeat && !baselineRef && !workersConfig(files[0]!.file)
-  const checking = typeCheck(lone, files.map(f => f.file))
+  const checking = typeCheck(
+    lone,
+    files.map(f => f.file),
+  )
   // The user named what to run. The type errors of files that the
   // run does not use are counted, and do not fail it (D49).
   if (checking) checking.partial = rest.length > 0 || flags.length > 0
@@ -777,8 +786,7 @@ export const run = async (args: string[]): Promise<number> => {
   // The baseline runs first, so that the text of this run can leave
   // out the failures that the baseline has too.
   let baseline: Baseline | undefined
-  if (baselineRef)
-    baseline = await runBaseline(baselineRef, rest.length ? files.map(f => f.file) : undefined)
+  if (baselineRef) baseline = await runBaseline(baselineRef, rest.length ? files.map(f => f.file) : undefined)
 
   const t0 = performance.now()
   const start: RunStart = {
@@ -801,19 +809,18 @@ export const run = async (args: string[]): Promise<number> => {
   const write = (text: string): void => void process.stdout.write(text)
   const text = textSink(write)
   const sinks: Sink[] = [
-    !baseline ? text : (
-      event => {
-        // The store has these failures. The text shows the new ones.
-        if (event.type === 'test-end' && event.status === 'fail') {
-          if (baseline.tests.get(event.id) === 'fail')
-            return text({ ...event, status: 'pass', failure: undefined })
-          // ubq: not measured: no test has a late failure in its baseline
-        } else if (event.type === 'late-failure') {
-          if (baseline.tests.get(event.id) === 'fail') return
-        } else if (event.type === 'file-error' && baseline.errors.has(event.file)) return
-        text(event)
-      }
-    ),
+    !baseline
+      ? text
+      : event => {
+          // The store has these failures. The text shows the new ones.
+          if (event.type === 'test-end' && event.status === 'fail') {
+            if (baseline.tests.get(event.id) === 'fail') return text({ ...event, status: 'pass', failure: undefined })
+            // ubq: not measured: no test has a late failure in its baseline
+          } else if (event.type === 'late-failure') {
+            if (baseline.tests.get(event.id) === 'fail') return
+          } else if (event.type === 'file-error' && baseline.errors.has(event.file)) return
+          text(event)
+        },
   ]
   let store: Store | undefined
   try {
@@ -836,13 +843,11 @@ export const run = async (args: string[]): Promise<number> => {
     if (event.type === 'test-end') {
       status.set(event.id, event.status)
       if (event.failure?.kind === 'timeout' && event.failure.pending) hung.push(event.id)
-    }
-    else if (event.type === 'late-failure') status.set(event.id, 'fail')
+    } else if (event.type === 'late-failure') status.set(event.id, 'fail')
     else if (event.type === 'file-error') {
       errors++
       errorFiles.add(event.file)
-    }
-    else if (event.type === 'file-end') unselected += event.unselected
+    } else if (event.type === 'file-end') unselected += event.unselected
     else if (event.type === 'coverage') for (const { file } of event.files) used.add(file)
     for (const sink of sinks) sink(event)
   }
@@ -861,7 +866,11 @@ export const run = async (args: string[]): Promise<number> => {
       Array.from({ length: jobs }, async () => {
         for (let next = queue.shift(); next; next = queue.shift()) {
           if (limit.signal.aborted) {
-            to({ type: 'file-error', file: next.file, failure: { kind: 'error', message: `${reason} before this file started` } })
+            to({
+              type: 'file-error',
+              file: next.file,
+              failure: { kind: 'error', message: `${reason} before this file started` },
+            })
             continue
           }
           await runFile(next, to, cacheDir, update, {}, limit.signal)
@@ -883,7 +892,9 @@ export const run = async (args: string[]): Promise<number> => {
   }
   clearTimeout(deadline)
   const allTypes = (await checking?.errors) ?? []
-  const { own: typeErrors, other: otherTypes } = checking?.partial ? ownTypeErrors(allTypes, used) : { own: allTypes, other: 0 }
+  const { own: typeErrors, other: otherTypes } = checking?.partial
+    ? ownTypeErrors(allTypes, used)
+    : { own: allTypes, other: 0 }
   for (const error of typeErrors) send(error)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
   // The order of the files can be the cause of a failure.
@@ -892,10 +903,7 @@ export const run = async (args: string[]): Promise<number> => {
 
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')
-  const code =
-    fail || errors || typeErrors.length ? 1
-    : count('pass') === 0 ? 2
-    : 0
+  const code = fail || errors || typeErrors.length ? 1 : count('pass') === 0 ? 2 : 0
   send({
     type: 'run-end',
     ms: performance.now() - t0,

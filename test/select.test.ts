@@ -14,7 +14,10 @@ test('a test ID selects one test, and a group ID selects its tests', () => {
   assert.equal(p.ubq('flip.ts > c', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped, 2 not selected')
   const none = p.ubq('flip.ts > nope')
   assert.equal(none.code, 2)
-  assert.match(none.out, /no test of this file has an ID in the selection\. The IDs in this file are:\n  flip\.ts > group > a\n/)
+  assert.match(
+    none.out,
+    /no test of this file has an ID in the selection\. The IDs in this file are:\n  flip\.ts > group > a\n/,
+  )
   assert.deepEqual([p.ubq('gone.ts > x').code, p.ubq('gone.ts > x').err], [4, 'ubq: no such file: gone.ts\n'])
   rmSync(p.dir, { recursive: true })
 })
@@ -44,12 +47,15 @@ test('--changed runs the test files that loaded a changed file', () => {
 
   // Only pass.ts loads src/shape.ts.
   appendFileSync(join(p.dir, 'src/shape.ts'), '\n// a change\n')
-  assert.equal(p.ubq('--changed').out.replace(/ \(run \d+\)/, ''), [
-    'changed: src/shape.ts',
-    'skip pass.ts > not on this platform: needs a GPU',
-    'pass: 0 failed, 5 passed, 1 skipped',
-    '',
-  ].join('\n'))
+  assert.equal(
+    p.ubq('--changed').out.replace(/ \(run \d+\)/, ''),
+    [
+      'changed: src/shape.ts',
+      'skip pass.ts > not on this platform: needs a GPU',
+      'pass: 0 failed, 5 passed, 1 skipped',
+      '',
+    ].join('\n'),
+  )
   assert.equal(p.ubq('--changed').code, 2)
 
   // A change to a test file, and a new test file.
@@ -75,10 +81,13 @@ test('ubq does not go into a folder that has its own package.json', () => {
   writeFileSync(join(p.dir, 'other/package.json'), '{}')
   assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
   const r = p.ubq('other')
-  assert.deepEqual([r.code, r.err], [
-    4,
-    'ubq: other is a different project: it has its own package.json. Run ubq in that folder, or name its test files.\n',
-  ])
+  assert.deepEqual(
+    [r.code, r.err],
+    [
+      4,
+      'ubq: other is a different project: it has its own package.json. Run ubq in that folder, or name its test files.\n',
+    ],
+  )
   // A file that is an argument always runs.
   assert.equal(p.ubq('other/test/b.test.ts').last, 'pass: 0 failed, 3 passed')
   rmSync(p.dir, { recursive: true })
@@ -102,10 +111,13 @@ test('the ubq key of package.json sets include, exclude, and timeout', () => {
   assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
   assert.equal(p.ubq('test').last, 'pass: 0 failed, 3 passed')
 
-  writeFileSync(join(p.dir, 'wait.ts'), [
-    "import { assert, test } from 'ubqtest'",
-    "test('waits', async () => { assert.equal(1, 1); await new Promise(r => setTimeout(r, 300)) })",
-  ].join('\n'))
+  writeFileSync(
+    join(p.dir, 'wait.ts'),
+    [
+      "import { assert, test } from 'ubqtest'",
+      "test('waits', async () => { assert.equal(1, 1); await new Promise(r => setTimeout(r, 300)) })",
+    ].join('\n'),
+  )
   p.configure({ timeout: 50 })
   assert.match(p.ubq('wait.ts').out, /the test did not end in 50 ms/)
   rmSync(p.dir, { recursive: true })
@@ -139,7 +151,11 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
 test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
   const p = project()
   writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', workspaces: ['packages/*'] }))
-  for (const [name, value] of [['a', 1], ['b', 2], ['empty', 0]] as const) {
+  for (const [name, value] of [
+    ['a', 1],
+    ['b', 2],
+    ['empty', 0],
+  ] as const) {
     mkdirSync(join(p.dir, 'packages', name), { recursive: true })
     writeFileSync(join(p.dir, 'packages', name, 'package.json'), JSON.stringify({ name, type: 'module' }))
     if (value)
@@ -150,22 +166,38 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
   }
   const r = p.ubq()
   assert.equal(r.code, 1)
-  assert.deepEqual(r.out.replace(/ \(run \d+\)/g, '').split('\n').filter(l => /^(workspace|pass|fail|FAIL)/.test(l)), [
-    'workspace packages/a:',
-    'pass: 0 failed, 1 passed',
-    'workspace packages/b:',
-    'FAIL one.test.ts > one',
-    'fail: 1 failed, 0 passed',
-    'workspace packages/empty:',
-    'workspaces: 1 of 2 failed: packages/b. Run ubq in the folder of a workspace for its tests.',
-  ])
+  assert.deepEqual(
+    r.out
+      .replace(/ \(run \d+\)/g, '')
+      .split('\n')
+      .filter(l => /^(workspace|pass|fail|FAIL)/.test(l)),
+    [
+      'workspace packages/a:',
+      'pass: 0 failed, 1 passed',
+      'workspace packages/b:',
+      'FAIL one.test.ts > one',
+      'fail: 1 failed, 0 passed',
+      'workspace packages/empty:',
+      'workspaces: 1 of 2 failed: packages/b. Run ubq in the folder of a workspace for its tests.',
+    ],
+  )
   // A command for all workspaces.
-  assert.equal(p.ubq('--failed').out.replace(/ \(run \d+\)/g, '').split('\n').filter(l => /^(pass|fail|workspaces)/.test(l)).join('|'), 'fail: 1 failed, 0 passed|workspaces: 1 of 1 failed: packages/b. Run ubq in the folder of a workspace for its tests.')
-  writeFileSync(join(p.dir, 'packages/b/one.test.ts'), `import { assert, test } from 'ubqtest'\ntest('one', () => assert(true))\n`)
+  assert.equal(
+    p
+      .ubq('--failed')
+      .out.replace(/ \(run \d+\)/g, '')
+      .split('\n')
+      .filter(l => /^(pass|fail|workspaces)/.test(l))
+      .join('|'),
+    'fail: 1 failed, 0 passed|workspaces: 1 of 1 failed: packages/b. Run ubq in the folder of a workspace for its tests.',
+  )
+  writeFileSync(
+    join(p.dir, 'packages/b/one.test.ts'),
+    `import { assert, test } from 'ubqtest'\ntest('one', () => assert(true))\n`,
+  )
   assert.equal(p.ubq().out.split('\n').at(-2), 'workspaces: 2 passed')
   // No workspace has tests.
   for (const name of ['a', 'b']) rmSync(join(p.dir, 'packages', name, 'one.test.ts'))
   assert.equal(p.ubq().code, 2)
   rmSync(p.dir, { recursive: true })
 })
-

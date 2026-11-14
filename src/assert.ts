@@ -37,23 +37,16 @@ class MustAwait<T> extends Promise<T> {
   }
 }
 
-type ErrorMatch =
-  | RegExp
-  | (abstract new (...args: any[]) => Error)
-  | Record<string, unknown>
+type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>
 
 type Keys<T> = T extends unknown ? keyof T : never
-type Val<T, K> =
-  T extends unknown ?
-    K extends keyof T ?
-      T[K]
-    : never
-  : never
+type Val<T, K> = T extends unknown ? (K extends keyof T ? T[K] : never) : never
 type Prim<T> = T extends string ? T | RegExp : T
-type Obj<O> =
-  [O] extends [never] ? never
-  : [O] extends [readonly unknown[]] ? { [K in keyof O]: Pattern<O[K]> }
-  : { [K in Keys<O>]?: Pattern<Val<O, K>> }
+type Obj<O> = [O] extends [never]
+  ? never
+  : [O] extends [readonly unknown[]]
+    ? { [K in keyof O]: Pattern<O[K]> }
+    : { [K in Keys<O>]?: Pattern<Val<O, K>> }
 /** A partial shape: listed keys must match, and a RegExp tests a string. */
 export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>>
 
@@ -61,11 +54,7 @@ export interface Assert {
   /** Passes if `value` is truthy. Narrows the type of `value`. */
   (value: unknown, message?: string): asserts value
   /** Passes if `Object.is(actual, expected)`. Narrows the type of `actual`. */
-  equal<T, const E extends T>(
-    actual: T,
-    expected: E,
-    message?: string,
-  ): asserts actual is E
+  equal<T, const E extends T>(actual: T, expected: E, message?: string): asserts actual is E
   /** Passes if not `Object.is(actual, expected)`. */
   notEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void
   /** Passes if both have the same structure, values, and prototypes. */
@@ -75,11 +64,7 @@ export interface Assert {
    * pattern must match. Extra keys in `actual` are fine. A RegExp
    * tests a string.
    */
-  match<T, const P extends Pattern<T>>(
-    actual: T,
-    pattern: P,
-    message?: string,
-  ): void
+  match<T, const P extends Pattern<T>>(actual: T, pattern: P, message?: string): void
   /**
    * Passes if `fn` throws an error that fits `expected`: a RegExp
    * tests the message, a class tests `instanceof`, an object is a
@@ -87,22 +72,14 @@ export interface Assert {
    */
   throws(fn: () => unknown, expected: ErrorMatch, message?: string): Error
   /** As `throws`, for a promise. The result must be awaited. */
-  rejects(
-    promise: Promise<unknown> | (() => Promise<unknown>),
-    expected: ErrorMatch,
-    message?: string,
-  ): Promise<Error>
+  rejects(promise: Promise<unknown> | (() => Promise<unknown>), expected: ErrorMatch, message?: string): Promise<Error>
   /**
    * As `match`, for a value that changes with time, such as the text
    * of a page. Calls `fn` again and again until its value matches
    * `pattern`. Fails after 2000 ms with the last value. The result
    * must be awaited.
    */
-  eventually<T, const P extends Pattern<Awaited<T>>>(
-    fn: () => T,
-    pattern: P,
-    message?: string,
-  ): Promise<void>
+  eventually<T, const P extends Pattern<Awaited<T>>>(fn: () => T, pattern: P, message?: string): Promise<void>
   /**
    * Passes if the text of `value` is the text in the snapshot file
    * of the test file. `ubq --update <test>` writes the file.
@@ -133,8 +110,7 @@ const begin = (): TestState | undefined => {
         id: state.id,
         failure: {
           kind: 'late',
-          message:
-            'an assertion ran after the test ended. Await all async work in the test.',
+          message: 'an assertion ran after the test ended. Await all async work in the test.',
           ...(stack[0] && { at: stack[0] }),
         },
       })
@@ -174,36 +150,24 @@ const fail = (
 }
 
 /** Why `error` does not fit `expected`, or undefined if it fits. */
-const misfit = (
-  error: unknown,
-  expected: ErrorMatch,
-): { diffs: Diff[]; more: number } | undefined => {
+const misfit = (error: unknown, expected: ErrorMatch): { diffs: Diff[]; more: number } | undefined => {
   const one = (e: string): { diffs: Diff[]; more: number } => ({
     diffs: [{ path: '', actual: show(error), expected: e }],
     more: 0,
   })
   if (expected instanceof RegExp) {
-    const text =
-      error instanceof Error ? error.message : String(error)
-    return expected.test(text) ? undefined : (
-        one(`an error with a message that matches ${expected}`)
-      )
+    const text = error instanceof Error ? error.message : String(error)
+    return expected.test(text) ? undefined : one(`an error with a message that matches ${expected}`)
   }
   if (typeof expected === 'function') {
-    return error instanceof expected ? undefined : (
-        one(`an instance of ${expected.name}`)
-      )
+    return error instanceof expected ? undefined : one(`an instance of ${expected.name}`)
   }
   const d = diffDeep(error, expected, true)
   return d.diffs.length ? d : undefined
 }
 
 const checkExpected = (name: string, expected: unknown): void => {
-  if (
-    expected === undefined ||
-    expected === null ||
-    typeof expected === 'string'
-  )
+  if (expected === undefined || expected === null || typeof expected === 'string')
     throw new TypeError(
       `assert.${name} needs the expected error as its second argument: a RegExp for the message, an error class, or an object pattern`,
     )
@@ -232,8 +196,7 @@ const mustAwait = <T>(state: TestState | undefined, run: () => Promise<T>): Prom
 
 const assertFn = (value: unknown, message?: string): void => {
   const state = begin()
-  if (state && !value)
-    fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message)
+  if (state && !value) fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message)
 }
 
 const methods = {
@@ -252,19 +215,13 @@ const methods = {
   notEqual(actual: unknown, expected: unknown, message?: string): void {
     const state = begin()
     if (state && Object.is(actual, expected))
-      fail(
-        state,
-        'notEqual',
-        `expected values to differ, both are ${show(actual)}`,
-        message,
-      )
+      fail(state, 'notEqual', `expected values to differ, both are ${show(actual)}`, message)
   },
   deepEqual(actual: unknown, expected: unknown, message?: string): void {
     const state = begin()
     if (state && !isDeepStrictEqual(actual, expected)) {
       let diff = diffDeep(actual, expected)
-      if (!diff.diffs.length)
-        diff = { diffs: [diffEqual(actual, expected)], more: 0 }
+      if (!diff.diffs.length) diff = { diffs: [diffEqual(actual, expected)], more: 0 }
       fail(state, 'deepEqual', 'expected values to be deeply equal', message, diff, {
         actual,
         expected,
@@ -290,12 +247,10 @@ const methods = {
     } catch (e) {
       error = e
       const bad = state && misfit(e, expected)
-      if (bad)
-        fail(state, 'throws', 'the function threw a different error', message, bad)
+      if (bad) fail(state, 'throws', 'the function threw a different error', message, bad)
       return error as Error
     }
-    if (state)
-      fail(state, 'throws', 'expected the function to throw, but it returned', message)
+    if (state) fail(state, 'throws', 'expected the function to throw, but it returned', message)
     return error as Error
   },
   rejects(
@@ -315,8 +270,7 @@ const methods = {
       } catch (e) {
         error = e
         const bad = state && misfit(e, expected)
-        if (bad)
-          fail(state, 'rejects', 'the promise rejected with a different error', message, bad, undefined, called)
+        if (bad) fail(state, 'rejects', 'the promise rejected with a different error', message, bad, undefined, called)
         return error as Error
       }
       if (state)
@@ -336,10 +290,18 @@ const methods = {
         const diff = diffDeep(actual, pattern, true)
         if (!diff.diffs.length) return
         if (now() >= end)
-          fail(state, 'eventually', `the value did not match the pattern in ${EVENTUALLY_MS} ms`, message, diff, {
-            actual,
-            expected: pattern,
-          }, called)
+          fail(
+            state,
+            'eventually',
+            `the value did not match the pattern in ${EVENTUALLY_MS} ms`,
+            message,
+            diff,
+            {
+              actual,
+              expected: pattern,
+            },
+            called,
+          )
         await new Promise(resolve => setTimeout(resolve, POLL_MS))
       }
     })

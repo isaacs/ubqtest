@@ -13,5 +13,8 @@ test('frames in parts, and two frames in one chunk', () => {
   socket.emit('data', one.subarray(0, 3))
   socket.emit('data', one.subarray(3, 7))
   socket.emit('data', Buffer.concat([one.subarray(7), frame('x', '{}')]))
-  assert.deepEqual(got, [['o', 'hello'], ['x', '{}']])
+  assert.deepEqual(got, [
+    ['o', 'hello'],
+    ['x', '{}'],
+  ])
 })

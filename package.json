@@ -22,6 +22,7 @@
     "prepare": "node test/setup.ts",
     "test": "node src/cli.ts",
     "typecheck": "tsc",
+    "lint": "oxlint --fix --deny-warnings src test scripts && oxfmt src test scripts",
     "bench": "npm run build && node experiments/suite/bench.mjs",
     "build": "node scripts/build.ts",
     "docs": "npm run build && node scripts/api-docs.ts",
@@ -38,6 +39,8 @@
     "cjs-module-lexer": "^2.3.0",
     "esbuild": "^0.28.2",
     "marked": "^18.2.0",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
     "playwright-core": "^1.65.0",
     "typescript": "^7.0.2",
     "wrangler": "^4.161.0"

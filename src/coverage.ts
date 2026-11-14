@@ -30,7 +30,11 @@ interface V8Script {
  * counts of the built file. `seen` has the sources that had their
  * first snapshot.
  */
-export const sourceCoverage = (sources: SourceRegions[], counts: ArrayLike<number>, seen: Set<string>): Coverage['files'] => {
+export const sourceCoverage = (
+  sources: SourceRegions[],
+  counts: ArrayLike<number>,
+  seen: Set<string>,
+): Coverage['files'] => {
   const files: Coverage['files'] = []
   for (const source of sources) {
     // Each index is a counter of the built file.
@@ -141,9 +145,10 @@ export const startCoverage = (early = false): Collector | undefined => {
   // A Bun process with no counters is a plain program. A project can
   // turn on inspector coverage for it (D39).
   if (process.versions.bun)
-    return config().bunInspectorCoverage ?
-        (shared[KEY] = (createRequire(import.meta.url)(BUN_INSPECTOR) as typeof import('./bun-coverage.ts'))
-          .startBunInspector())
+    return config().bunInspectorCoverage
+      ? (shared[KEY] = (
+          createRequire(import.meta.url)(BUN_INSPECTOR) as typeof import('./bun-coverage.ts')
+        ).startBunInspector())
       : undefined
   const session = new Session()
   session.connect()
@@ -170,8 +175,7 @@ export const startCoverage = (early = false): Collector | undefined => {
         if (!script.url.startsWith('file:')) continue
         // A mocked module instance has a query on its URL.
         const path = fileURLToPath(script.url.replace(/\?.*$/, ''))
-        if (!path.startsWith(root) || path.includes(modules))
-          continue
+        if (!path.startsWith(root) || path.includes(modules)) continue
         const ranges = flatten(script.functions)
         if (ranges.length) files.push({ file: rel(path), ranges })
       }

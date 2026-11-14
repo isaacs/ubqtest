@@ -32,7 +32,12 @@ export const startBrowserServer = async (files: string[]): Promise<number | unde
   if (await answers(url)) return undefined
   const log = join(stateDir(), 'browser-server.log')
   const fd = openSync(log, 'w')
-  const child = spawn(command, { cwd: root, shell: true, detached: process.platform !== 'win32', stdio: ['ignore', fd, fd] })
+  const child = spawn(command, {
+    cwd: root,
+    shell: true,
+    detached: process.platform !== 'win32',
+    stdio: ['ignore', fd, fd],
+  })
   closeSync(fd)
   // The server must not keep the runner open.
   child.unref()
@@ -42,10 +47,11 @@ export const startBrowserServer = async (files: string[]): Promise<number | unde
   const end = Date.now() + START_MS
   while (!(await answers(url))) {
     const why =
-      exit !== undefined ? `ended with exit code ${exit}`
-      // ubq: not measured: no test waits the full start time
-      : Date.now() > end ? `did not answer at ${url} in ${START_MS / 1000} seconds`
-      : undefined
+      exit !== undefined
+        ? `ended with exit code ${exit}`
+        : Date.now() > end
+          ? `did not answer at ${url} in ${START_MS / 1000} seconds` // ubq: not measured: no test waits the full start time
+          : undefined
     if (why) {
       const output = readFileSync(log, 'utf8').trim().split('\n').slice(-5).join('\n  ')
       throw new UsageError(

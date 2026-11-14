@@ -60,7 +60,10 @@ export const readChildren = (): Coverage['files'] => {
       if (!regions.has(cache)) {
         try {
           // The child made this cache entry when it loaded the file.
-          const entry = JSON.parse(readFileSync(join(mine.root, '.ubq', 'counters', cache), 'utf8')) as { regions: Region[]; sources?: SourceRegions[] }
+          const entry = JSON.parse(readFileSync(join(mine.root, '.ubq', 'counters', cache), 'utf8')) as {
+            regions: Region[]
+            sources?: SourceRegions[]
+          }
           // For a built file: the sources that have the content that its map is of.
           const sources = entry.sources?.filter(source => {
             try {
@@ -76,8 +79,8 @@ export const readChildren = (): Coverage['files'] => {
       }
       const known = regions.get(cache)
       if (known?.regions.length !== counts.length) continue
-      const found =
-        known.sources ? sourceCoverage(known.sources, more, seen)
+      const found = known.sources
+        ? sourceCoverage(known.sources, more, seen)
         : [{ file, ranges: flatten([{ ranges: snapshot(known.regions, Uint32Array.from(more), !seen.has(file)) }]) }]
       if (!known.sources) seen.add(file)
       for (const { file: name, ranges } of found) {

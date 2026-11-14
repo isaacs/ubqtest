@@ -17,7 +17,10 @@ const setup = () => {
   }
   const lines = (...args: string[]) => {
     const r = p.ubq(...args)
-    return (r.out + r.err).replace(/ \(run \d+\)/, '').trimEnd().split('\n')
+    return (r.out + r.err)
+      .replace(/ \(run \d+\)/, '')
+      .trimEnd()
+      .split('\n')
   }
   return { ...p, edit, lines }
 }
@@ -57,10 +60,14 @@ test('--changed runs only the tests that ran the code that changed', () => {
 test('--diff of uncovered and mutate: only the lines that differ from a git commit', () => {
   const p = setup()
   const git = (...args: string[]) => {
-    const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], {
-      cwd: p.dir,
-      encoding: 'utf8',
-    })
+    const r = spawnSync(
+      'git',
+      ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args],
+      {
+        cwd: p.dir,
+        encoding: 'utf8',
+      },
+    )
     assert.equal(r.status, 0, r.stderr)
   }
   writeFileSync(join(p.dir, '.gitignore'), 'node_modules\n.ubq\n')
@@ -68,29 +75,28 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   git('add', '.')
   git('commit', '-q', '-m', 'first')
   assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
-  assert.deepEqual(p.lines('uncovered', '--diff'), [
-    "0 uncovered ranges in the changed lines of 0 files",
-  ])
+  assert.deepEqual(p.lines('uncovered', '--diff'), ['0 uncovered ranges in the changed lines of 0 files'])
 
-  p.edit("return { kind: 'square', side: 2 }", "return s.length > 1 ? { kind: 'square', side: 3 } : { kind: 'square', side: 2 }")
+  p.edit(
+    "return { kind: 'square', side: 2 }",
+    "return s.length > 1 ? { kind: 'square', side: 3 } : { kind: 'square', side: 2 }",
+  )
   writeFileSync(join(p.dir, 'src/new.ts'), 'export const fresh = 1\n')
   assert.deepEqual(p.lines('uncovered', '--diff'), [
-    "ubq: src/shape.ts changed after the last run of its tests. Run them first: ubq --changed",
+    'ubq: src/shape.ts changed after the last run of its tests. Run them first: ubq --changed',
   ])
   p.ubq('--changed')
   assert.deepEqual(p.lines('uncovered', '--diff'), [
     "src/shape.ts:7:38  ? { kind: 'square', side: 3 }",
-    "src/new.ts  no test loads this file",
-    "1 uncovered ranges in the changed lines of 1 files, 1 changed files that no test loads",
+    'src/new.ts  no test loads this file',
+    '1 uncovered ranges in the changed lines of 1 files, 1 changed files that no test loads',
   ])
   assert.deepEqual(p.lines('mutate', '--diff'), [
-    "mutate: 0 of 4 changes survived, 1 more are in code that no passing test runs (ubq uncovered)",
+    'mutate: 0 of 4 changes survived, 1 more are in code that no passing test runs (ubq uncovered)',
   ])
   git('add', '.')
   git('commit', '-q', '-m', 'second')
-  assert.deepEqual(p.lines('uncovered', '--diff'), [
-    "0 uncovered ranges in the changed lines of 0 files",
-  ])
+  assert.deepEqual(p.lines('uncovered', '--diff'), ['0 uncovered ranges in the changed lines of 0 files'])
   // A file with no change since the commit.
   assert.deepEqual(p.lines('mutate', '--diff', 'src/shape.ts'), ['mutate: 0 of 0 changes survived'])
   // A file that went away has no lines in the diff.
@@ -99,25 +105,31 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   writeFileSync(join(p.dir, 'src/new.ts'), 'export const fresh = 1\n')
   assert.deepEqual(p.lines('uncovered', '--diff=HEAD~1', 'src/shape.ts'), [
     "src/shape.ts:7:38  ? { kind: 'square', side: 3 }",
-    "1 uncovered ranges in the changed lines of 1 files",
+    '1 uncovered ranges in the changed lines of 1 files',
   ])
-  assert.deepEqual(p.lines('uncovered', '--diff=nope'), [
-    "ubq: --diff: fatal: bad revision 'nope'",
-  ])
+  assert.deepEqual(p.lines('uncovered', '--diff=nope'), ["ubq: --diff: fatal: bad revision 'nope'"])
 })
 
 test('--diff finds a file whose name git puts in quotes', () => {
   const p = setup()
   const git = (...args: string[]) => {
-    const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], {
-      cwd: p.dir,
-      encoding: 'utf8',
-    })
+    const r = spawnSync(
+      'git',
+      ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args],
+      {
+        cwd: p.dir,
+        encoding: 'utf8',
+      },
+    )
     assert.equal(r.status, 0, r.stderr)
   }
   // Windows does not allow these characters in a file name. Git
   // writes a tab as `\t`, and the other control characters in octal.
-  const names = ['a b.ts', 'é.ts', ...(process.platform === 'win32' ? [] : ['q"t.ts', 'b\\s.ts', 'c\td.ts', 'd\x01e.ts'])]
+  const names = [
+    'a b.ts',
+    'é.ts',
+    ...(process.platform === 'win32' ? [] : ['q"t.ts', 'b\\s.ts', 'c\td.ts', 'd\x01e.ts']),
+  ]
   writeFileSync(join(p.dir, '.gitignore'), 'node_modules\n.ubq\n')
   for (const name of names) writeFileSync(join(p.dir, 'src', name), 'export const x = 1\n')
   git('init', '-q')

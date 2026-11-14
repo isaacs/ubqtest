@@ -30,18 +30,27 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
       if (/^[a-z]+:/.test(href) || href === '/') continue
       // A path from the root of the host.
       const to = href.startsWith('/') ? join(dir, href) : resolve(dir, dirname(file), href)
-      if (!existsSync(to) || (href.endsWith('/') && !existsSync(join(to, 'index.html')))) missing.push(`${file}: ${href}`)
+      if (!existsSync(to) || (href.endsWith('/') && !existsSync(join(to, 'index.html'))))
+        missing.push(`${file}: ${href}`)
     }
   }
   assert.deepEqual(missing, [])
   assert.match(readFileSync(join(dir, '404.html'), 'utf8'), /<base href="\/">[^]*href="guide\/"/)
   // The number of a decision is a link to the heading of the decision.
-  const to = /href="\.\.\/docs\/decisions\/#(d24-[^"]+)">D24<\/a>/.exec(readFileSync(join(dir, 'config/index.html'), 'utf8'))
+  const to = /href="\.\.\/docs\/decisions\/#(d24-[^"]+)">D24<\/a>/.exec(
+    readFileSync(join(dir, 'config/index.html'), 'utf8'),
+  )
   assert(to, 'a link for D24')
   assert(readFileSync(join(dir, 'docs/decisions/index.html'), 'utf8').includes(`<h2 id="${to[1]}">D24. `))
   // Code text with `<` stays text.
-  assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<code>ubq &lt;file&gt;:&lt;line&gt;<\/code>|&lt;test id&gt;/)
-  assert.match(readFileSync(join(dir, 'guide/index.html'), 'utf8'), /<link rel="alternate" type="text\/markdown" href="\.\.\/guide\.md"/)
+  assert.match(
+    readFileSync(join(dir, 'guide/index.html'), 'utf8'),
+    /<code>ubq &lt;file&gt;:&lt;line&gt;<\/code>|&lt;test id&gt;/,
+  )
+  assert.match(
+    readFileSync(join(dir, 'guide/index.html'), 'utf8'),
+    /<link rel="alternate" type="text\/markdown" href="\.\.\/guide\.md"/,
+  )
   // A link preview needs the full URL of the page and of an image.
   const guide = readFileSync(join(dir, 'guide/index.html'), 'utf8')
   assert(guide.includes('<meta property="og:url" content="https://ubq.dev/guide/">'))
@@ -50,7 +59,8 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   // In the API reference, the name of an item of the page, in code,
   // is a link to its heading. A name and its type differ only in case.
   const api = readFileSync(join(dir, 'api/index.html'), 'utf8')
-  const section = (id: string): string => api.slice(api.indexOf(`<h3 id="${id}">`), api.indexOf('<h3', api.indexOf(`<h3 id="${id}">`) + 1))
+  const section = (id: string): string =>
+    api.slice(api.indexOf(`<h3 id="${id}">`), api.indexOf('<h3', api.indexOf(`<h3 id="${id}">`) + 1))
   assert.match(section('fakeclock'), /=&gt; <a href="#fakeclock-1">FakeClock<\/a>;/)
   assert.match(section('fakeclock'), /options\?: <a href="#fakeclockoptions">FakeClockOptions<\/a>/)
   assert.match(section('fakeclock'), /<a href="#spy">spy<\/a>\(\)/)

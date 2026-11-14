@@ -92,33 +92,26 @@ const cover = async (id?: string): Promise<void> => {
 }
 
 const checkName = (kind: string, name: unknown): void => {
-  if (typeof name !== 'string' || !name)
-    throw new TypeError(`${kind} name must be a string that is not empty`)
+  if (typeof name !== 'string' || !name) throw new TypeError(`${kind} name must be a string that is not empty`)
   if (name.includes(SEPARATOR))
-    throw new TypeError(
-      `${kind} name must not contain "${SEPARATOR}": ${JSON.stringify(name)}`,
-    )
+    throw new TypeError(`${kind} name must not contain "${SEPARATOR}": ${JSON.stringify(name)}`)
 }
 
 const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   const [options, fn] = typeof a === 'function' ? [{}, a] : [a, b]
   if (current.getStore())
-    throw new Error(
-      'test() was called inside a running test. Put each test at the top level or in describe().',
-    )
+    throw new Error('test() was called inside a running test. Put each test at the top level or in describe().')
   if (fileState.ran)
     throw new Error(
       'test() was called after the cleanup functions of the file ran. Call test() with no await between the first call and the last call.',
     )
   checkName('test', name)
-  if (typeof fn !== 'function')
-    throw new TypeError(`test ${JSON.stringify(name)} has no function`)
+  if (typeof fn !== 'function') throw new TypeError(`test ${JSON.stringify(name)} has no function`)
   const at = callSite()
   // ubq: not measured: a call of test() from a file has a call site
   file ??= FILE || at?.file || rel(process.argv[1] ?? '')
   const id = [file, ...groups.map(g => g.name), name].join(SEPARATOR)
-  if (ids.has(id))
-    throw new Error(`duplicate test name: ${id}. Each name must be unique in its group.`)
+  if (ids.has(id)) throw new Error(`duplicate test name: ${id}. Each name must be unique in its group.`)
   ids.add(id)
   const all = [...groups.map(g => g.options), options]
   if (at) starts.push(at.line)
@@ -145,17 +138,11 @@ export const test: Test = Object.assign(testFn, {
   each: hint('Use a for loop around test()'),
 })
 
-export const describe: Describe = (
-  name: string,
-  a: TestOptions | (() => void),
-  b?: () => void,
-): void => {
+export const describe: Describe = (name: string, a: TestOptions | (() => void), b?: () => void): void => {
   const [options, fn] = typeof a === 'function' ? [{}, a] : [a, b]
-  if (current.getStore())
-    throw new Error('describe() was called inside a running test.')
+  if (current.getStore()) throw new Error('describe() was called inside a running test.')
   checkName('describe', name)
-  if (typeof fn !== 'function')
-    throw new TypeError(`describe ${JSON.stringify(name)} has no function`)
+  if (typeof fn !== 'function') throw new TypeError(`describe ${JSON.stringify(name)} has no function`)
   groups.push({ name, options })
   try {
     const result: unknown = fn()
@@ -169,10 +156,7 @@ export const describe: Describe = (
 }
 
 // The source is `.ts`, and the bundle is `.js`.
-const WATCHDOG = new URL(
-  import.meta.url.endsWith('.ts') ? './watchdog.ts' : './watchdog.js',
-  import.meta.url,
-)
+const WATCHDOG = new URL(import.meta.url.endsWith('.ts') ? './watchdog.ts' : './watchdog.js', import.meta.url)
 let watchdog: Worker | undefined
 const watch = (message: WatchMessage): void => watchdog?.postMessage(message)
 
@@ -233,8 +217,7 @@ const openNow = (): Map<string, number> => {
   const counts = new Map<string, number>()
   // workerd cannot list what is open.
   if (workerd()) return counts
-  for (const type of process.getActiveResourcesInfo())
-    counts.set(type, (counts.get(type) ?? 0) + 1)
+  for (const type of process.getActiveResourcesInfo()) counts.set(type, (counts.get(type) ?? 0) + 1)
   return counts
 }
 
@@ -246,11 +229,7 @@ let openAtStart = new Map<string, number>()
 const stillOpen = (before = openAtStart): string[] =>
   [...openNow()].flatMap(([type, n]) => {
     const more = n - (before.get(type) ?? 0)
-    return (
-      more > 1 ? [`${type} x${more}`]
-      : more === 1 ? [type]
-      : []
-    )
+    return more > 1 ? [`${type} x${more}`] : more === 1 ? [type] : []
   })
 
 /**
@@ -279,8 +258,8 @@ const runCleanups = async (
       const cause = error === TIMEOUT ? undefined : errorFailure(error)
       failure ??= {
         kind: 'cleanup',
-        message:
-          cause ? `a cleanup function failed: ${cause.message}`
+        message: cause
+          ? `a cleanup function failed: ${cause.message}`
           : `a cleanup function did not end in ${fn.limit ?? timeout} ms`,
         ...(cause?.at && { at: cause.at, stack: cause.stack }),
       }
@@ -584,11 +563,11 @@ const noMoreWork = (): void => {
       file: file!,
       failure: {
         kind: 'no-tests',
-        message:
-          !ids.size ? 'the file registered no tests'
-          : wanted.length ?
-            `no test of this file has an ID in the selection. The IDs in this file are:\n${[...ids].join('\n')}`
-          : `no test starts at or before line ${lines.join(', ')} of this file`,
+        message: !ids.size
+          ? 'the file registered no tests'
+          : wanted.length
+            ? `no test of this file has an ID in the selection. The IDs in this file are:\n${[...ids].join('\n')}`
+            : `no test starts at or before line ${lines.join(', ')} of this file`,
       },
     })
   fileEnd()

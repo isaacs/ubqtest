@@ -10,8 +10,9 @@ import { project } from './setup.ts'
 // while this file loads. A static import of the same module from
 // this file is an error in Node (a cycle of `require` and `import`).
 // Deno cannot load this module with `require`.
-const { parse, children }: typeof import('../src/instrument.ts') =
-  process.versions.deno ? await import('../src/instrument.ts') : createRequire(import.meta.url)('../src/instrument.ts')
+const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
+  ? await import('../src/instrument.ts')
+  : createRequire(import.meta.url)('../src/instrument.ts')
 
 const convert = (source: string, file = 'a.ts') => {
   const r = convertSource(source, file, parse, children)
@@ -139,9 +140,15 @@ it('a', (t) => {
     '})',
   ])
   const jest = convert("describe('g', () => {\n  it('a', () => {\n    expect(1).toBe(1)\n  })\n})\n")
-  assert.deepEqual([jest?.framework, jest?.code[0], jest?.code[3]], ['jest', "import { assert, describe, test } from 'ubqtest'", '    assert.equal(1, 1)'])
+  assert.deepEqual(
+    [jest?.framework, jest?.code[0], jest?.code[3]],
+    ['jest', "import { assert, describe, test } from 'ubqtest'", '    assert.equal(1, 1)'],
+  )
   assert.equal(convert("import { x } from './x.ts'\nx()\n"), undefined)
-  assert.equal(convert("import { expect } from 'chai'\ndescribe('g', () => { it('a', () => { expect(1).to.equal(1) }) })\n"), undefined)
+  assert.equal(
+    convert("import { expect } from 'chai'\ndescribe('g', () => { it('a', () => { expect(1).to.equal(1) }) })\n"),
+    undefined,
+  )
 })
 
 test('the command changes the files, and the converted tests pass', () => {
@@ -166,7 +173,10 @@ t.test('load', async t => {
 `,
   )
   const dry = p.ubq('convert', '--dry', 'old.ts')
-  assert.deepEqual(dry.out.split('\n').slice(0, 2), ['converted old.ts (tap): 9 changes, 0 TODO', 'convert: 1 files to change, 0 TODO comments'])
+  assert.deepEqual(dry.out.split('\n').slice(0, 2), [
+    'converted old.ts (tap): 9 changes, 0 TODO',
+    'convert: 1 files to change, 0 TODO comments',
+  ])
   assert.match(readFileSync(file, 'utf8'), /from 'tap'/)
   assert.deepEqual(p.ubq('convert', 'old.ts').out.split('\n'), [
     'converted old.ts (tap): 9 changes, 0 TODO',
@@ -177,7 +187,10 @@ t.test('load', async t => {
   ])
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 2 passed')
   // A second conversion finds nothing to do.
-  assert.equal(p.ubq('convert', 'old.ts').out, 'convert: 0 files changed, 0 TODO comments, 1 files with no known test tool (old.ts)\n')
+  assert.equal(
+    p.ubq('convert', 'old.ts').out,
+    'convert: 0 files changed, 0 TODO comments, 1 files with no known test tool (old.ts)\n',
+  )
   assert.deepEqual([p.ubq('convert').code, p.ubq('convert', 'nope').code], [4, 4])
   assert.match(p.ubq('guide', 'convert').out, /^# ubq guide: convert\n/)
   // A TypeScript file in a folder.
@@ -216,7 +229,9 @@ describe('group', () => {
 `)
   assert(r)
   const todo = (text: string): string => `// TODO(ubq): ${text}`
-  const restore = todo('A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.')
+  const restore = todo(
+    'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
+  )
   assert.deepEqual(r.code, [
     "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
     '',
@@ -225,7 +240,10 @@ describe('group', () => {
     'afterAll(() => close())',
     '',
     "describe('group', () => {",
-    '  ' + todo('ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).'),
+    '  ' +
+      todo(
+        'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+      ),
     '  beforeAll(async () => { await row() })',
     "  test('a', () => {",
     "    const f = spyOn(globalThis, 'fetch', impl)",
@@ -237,7 +255,10 @@ describe('group', () => {
     "    assert.deepEqual(f.calls[0].args, ['u'])",
     '    assert(Math.abs(1.234 - 1.23) < 0.005)',
     "    assert(!(Reflect.has(Object(o), 'k')))",
-    '    ' + todo('ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.'),
+    '    ' +
+      todo(
+        'ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+      ),
     "    expect(o).toHaveProperty('a.b')",
     '    ' + restore,
     '    f.mockRestore()',
@@ -247,7 +268,8 @@ describe('group', () => {
 })
 
 test('vitest for Workers: the names of cloudflare:test', () => {
-  const r = convert(`import { env, createExecutionContext, waitOnExecutionContext, createScheduledController, applyD1Migrations, SELF } from 'cloudflare:test'
+  const r =
+    convert(`import { env, createExecutionContext, waitOnExecutionContext, createScheduledController, applyD1Migrations, SELF } from 'cloudflare:test'
 import { expect, it } from 'vitest'
 import worker from '../src/index'
 
@@ -391,17 +413,25 @@ export default defineConfig({
     join(p.dir, 'worker/test/setup.ts'),
     "import { applyD1Migrations, env } from 'cloudflare:test'\n\n// Before each test file.\nawait applyD1Migrations(env.DB, env.TEST_MIGRATIONS)\n",
   )
-  writeFileSync(join(p.dir, 'second/test/setup.ts'), "globalThis.x = 1\n")
+  writeFileSync(join(p.dir, 'second/test/setup.ts'), 'globalThis.x = 1\n')
   const old = "import { expect, it } from 'vitest'\n\nit('a', () => {\n  expect(1).toBe(1)\n})\n"
   writeFileSync(join(p.dir, 'worker/test/a.test.ts'), old)
   writeFileSync(join(p.dir, 'second/test/b.test.ts'), old)
   const workers = [
-    { config: 'worker/wrangler.jsonc', include: ['worker/test/**/*.test.ts'], vars: { APP_ID: '12345', LIMIT: 3, FLAGS: { a: true } } },
+    {
+      config: 'worker/wrangler.jsonc',
+      include: ['worker/test/**/*.test.ts'],
+      vars: { APP_ID: '12345', LIMIT: 3, FLAGS: { a: true } },
+    },
     { config: 'second/wrangler.test.jsonc', include: ['second/test/**/*.test.ts'] },
   ]
   // doctor says that the conversion writes the key.
   writeFileSync(join(p.dir, 'worker/test/a.test.ts'), "import { env } from 'cloudflare:test'\n" + old)
-  assert(p.ubq('doctor').out.includes('Do not add it by hand: "ubq convert" writes it to package.json, from vitest.config.ts.\n'))
+  assert(
+    p
+      .ubq('doctor')
+      .out.includes('Do not add it by hand: "ubq convert" writes it to package.json, from vitest.config.ts.\n'),
+  )
   writeFileSync(join(p.dir, 'worker/test/a.test.ts'), old)
 
   assert.deepEqual(p.ubq('convert', 'worker', 'second').out.split('\n').slice(2, -2), [
@@ -419,7 +449,10 @@ export default defineConfig({
     '',
     "await migrate('DB')",
   ])
-  assert.equal(readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').split('\n')[0], "import { assert, test } from 'ubqtest'")
+  assert.equal(
+    readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').split('\n')[0],
+    "import { assert, test } from 'ubqtest'",
+  )
   assert(!readFileSync(join(p.dir, 'second/test/b.test.ts'), 'utf8').includes('migrate'))
 })
 
@@ -470,19 +503,25 @@ beforeEach(() => again())
   ])
 })
 
-test('the parser reads type syntax that it does not know, with the types removed', { skip: !!process.versions.bun && 'Bun has no function that removes types' }, () => {
-  // A `const` type parameter in an interface is an error for the parser.
-  const source = "interface A {\n  m<const T>(a: T): void\n}\nexport const f = (a: number): number => a + 1\n"
-  const tree = parse(source, 'a.ts')
-  // The positions are those of the source.
-  const last = (tree.body as { start: number; end: number }[]).at(-1)!
-  assert.equal(source.slice(last.start, last.end), 'export const f = (a: number): number => a + 1')
-  assert.throws(() => parse('const = 1', 'a.ts'), SyntaxError)
-})
+test(
+  'the parser reads type syntax that it does not know, with the types removed',
+  { skip: !!process.versions.bun && 'Bun has no function that removes types' },
+  () => {
+    // A `const` type parameter in an interface is an error for the parser.
+    const source = 'interface A {\n  m<const T>(a: T): void\n}\nexport const f = (a: number): number => a + 1\n'
+    const tree = parse(source, 'a.ts')
+    // The positions are those of the source.
+    const last = (tree.body as { start: number; end: number }[]).at(-1)!
+    assert.equal(source.slice(last.start, last.end), 'export const f = (a: number): number => a + 1')
+    assert.throws(() => parse('const = 1', 'a.ts'), SyntaxError)
+  },
+)
 
 test('a file with no line end at its end, and a file of one line', () => {
   assert.deepEqual(
-    convert("import assert from 'node:assert'\nimport { test } from 'node:test'\ntest('a', () => {\n  assert.ok(1)\n})\nassert.ok(2, 'last')")?.code,
+    convert(
+      "import assert from 'node:assert'\nimport { test } from 'node:test'\ntest('a', () => {\n  assert.ok(1)\n})\nassert.ok(2, 'last')",
+    )?.code,
     [
       "import { assert, test } from 'ubqtest'",
       "test('a', () => {",
@@ -511,9 +550,13 @@ test('the report of the command for files that it cannot change, and for many fi
   writeFileSync(join(p.dir, 'old/bad.test.js'), "import { it } from 'vitest'\nit('a', () => {\n")
   // Tests in files with a name that ubq does not run.
   for (const n of [1, 2, 3, 4, 5, 6])
-    writeFileSync(join(p.dir, `old/deep/spec${n}.js`), "import { it, expect } from 'vitest'\nit('a', () => {\n  expect(1).toBe(1)\n})\n")
+    writeFileSync(
+      join(p.dir, `old/deep/spec${n}.js`),
+      "import { it, expect } from 'vitest'\nit('a', () => {\n  expect(1).toBe(1)\n})\n",
+    )
   // Files with no test tool.
-  for (let n = 0; n < 11; n++) writeFileSync(join(p.dir, `plain/file${String(n).padStart(2, '0')}.js`), 'export const x = 1\n')
+  for (let n = 0; n < 11; n++)
+    writeFileSync(join(p.dir, `plain/file${String(n).padStart(2, '0')}.js`), 'export const x = 1\n')
   const lines = p.ubq('convert', '--dry', 'old', 'plain').out.split('\n')
   assert.match(lines[0]!, /^not converted old\/bad\.test\.js: /)
   assert.deepEqual(lines.slice(-4), [
@@ -527,7 +570,8 @@ test('the report of the command for files that it cannot change, and for many fi
 test('a Workers project with no vitest config, and one whose package.json is not JSON', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
-  const old = "import { env } from 'cloudflare:test'\nimport { expect, it } from 'vitest'\nit('a', () => {\n  expect(env).toBeTruthy()\n})\n"
+  const old =
+    "import { env } from 'cloudflare:test'\nimport { expect, it } from 'vitest'\nit('a', () => {\n  expect(env).toBeTruthy()\n})\n"
   writeFileSync(join(p.dir, 'w.test.ts'), old)
   assert.match(
     p.ubq('convert', '--dry', 'w.test.ts').out,
@@ -550,16 +594,25 @@ test('tap: the scripts test and snap of package.json become test and test:update
   writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
   const pkg = (scripts: Record<string, string>) =>
     writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', scripts }, null, 2) + '\n')
-  const scripts = () => (JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts
+  const scripts = () =>
+    (JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts
   const line = 'changed the scripts of package.json: "test": "ubq", "test:update": "ubq"'
 
   // --dry changes no file.
   pkg({ lint: 'eslint', test: 'tap', snap: 'tap' })
-  assert(p.ubq('convert', '--dry', 'test').out.includes(`\nto change the scripts of package.json: "test": "ubq", "test:update": "ubq"\n`))
+  assert(
+    p
+      .ubq('convert', '--dry', 'test')
+      .out.includes(`\nto change the scripts of package.json: "test": "ubq", "test:update": "ubq"\n`),
+  )
   assert.deepEqual(scripts(), { lint: 'eslint', test: 'tap', snap: 'tap' })
   // The new script takes the place of the old one.
   assert(p.ubq('convert', 'test').out.includes(`\n${line}\n`))
-  assert.deepEqual(Object.entries(scripts()), [['lint', 'eslint'], ['test', 'ubq'], ['test:update', 'ubq']])
+  assert.deepEqual(Object.entries(scripts()), [
+    ['lint', 'eslint'],
+    ['test', 'ubq'],
+    ['test:update', 'ubq'],
+  ])
   // The name snapshot, and both names.
   writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
   pkg({ test: 'tap', snapshot: 'tap', snap: 'tap' })

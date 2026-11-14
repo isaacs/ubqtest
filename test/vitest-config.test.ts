@@ -8,8 +8,9 @@ import { assert, cleanup, test } from 'ubqtest'
 import { setupMigrations, vitestWorkers } from '../src/vitest-config.ts'
 
 // See test/convert.test.ts for the reason of this form.
-const { parse, children }: typeof import('../src/instrument.ts') =
-  process.versions.deno ? await import('../src/instrument.ts') : createRequire(import.meta.url)('../src/instrument.ts')
+const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
+  ? await import('../src/instrument.ts')
+  : createRequire(import.meta.url)('../src/instrument.ts')
 
 /** The projects of a config text. */
 const read = (text: string | undefined, name = 'vitest.config.ts') => {
@@ -88,15 +89,21 @@ test('a project with no config path and no test files, and values that are not p
     },
   ])
   // With a config in a folder and no test files in the config: the tests of that folder.
-  assert.deepEqual(read("export default { plugins: [cloudflareTest({ wrangler: { configPath: 'api/wrangler.jsonc' } })] }")?.projects[0]?.entry, {
-    config: 'api/wrangler.jsonc',
-    include: ['api/**/*.test.ts'],
-  })
+  assert.deepEqual(
+    read("export default { plugins: [cloudflareTest({ wrangler: { configPath: 'api/wrangler.jsonc' } })] }")
+      ?.projects[0]?.entry,
+    {
+      config: 'api/wrangler.jsonc',
+      include: ['api/**/*.test.ts'],
+    },
+  )
 })
 
 test('a setup file: the D1 bindings that it migrates, and if that is all its work', () => {
   assert.deepEqual(
-    setupMigrations("import { applyD1Migrations, env } from 'cloudflare:test'\n// Each file.\nawait applyD1Migrations(env.DB, env.TEST_MIGRATIONS)\n"),
+    setupMigrations(
+      "import { applyD1Migrations, env } from 'cloudflare:test'\n// Each file.\nawait applyD1Migrations(env.DB, env.TEST_MIGRATIONS)\n",
+    ),
     { bindings: ['DB'], only: true },
   )
   assert.deepEqual(
@@ -105,6 +112,12 @@ test('a setup file: the D1 bindings that it migrates, and if that is all its wor
     ),
     { bindings: ['A', 'B'], only: true },
   )
-  assert.deepEqual(setupMigrations("import { vi } from 'vitest'\nvi.stubGlobal('x', 1)\n"), { bindings: [], only: false })
-  assert.deepEqual(setupMigrations("await applyD1Migrations(env.DB, m)\nglobalThis.ready = true\n"), { bindings: ['DB'], only: false })
+  assert.deepEqual(setupMigrations("import { vi } from 'vitest'\nvi.stubGlobal('x', 1)\n"), {
+    bindings: [],
+    only: false,
+  })
+  assert.deepEqual(setupMigrations('await applyD1Migrations(env.DB, m)\nglobalThis.ready = true\n'), {
+    bindings: ['DB'],
+    only: false,
+  })
 })

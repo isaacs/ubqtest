@@ -55,8 +55,7 @@ export const snapshot = (
   regions.forEach((r, i) => {
     const ran = r.fn && counts[i]! > 0
     const parentRan = r.parent >= 0 && counts[r.parent]! > 0
-    if (all || ran || parentRan)
-      out.push({ startOffset: r.start, endOffset: r.end, count: counts[i]! })
+    if (all || ran || parentRan) out.push({ startOffset: r.start, endOffset: r.end, count: counts[i]! })
   })
   counts.fill(0)
   return out
@@ -82,4 +81,3 @@ export const originalColumn = (shifts: number[] | undefined, column: number): nu
   }
   return column - added
 }
-

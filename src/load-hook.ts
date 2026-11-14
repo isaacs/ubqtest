@@ -39,12 +39,16 @@ interface Loaded {
  * The result of the load of `url` with counters, if `find` gives a
  * collector for the path. `result` is what the runtime loaded.
  */
-export const withCounters = <T extends Loaded>(url: string, result: T, find: (path: string) => Counting | undefined): T => {
+export const withCounters = <T extends Loaded>(
+  url: string,
+  result: T,
+  find: (path: string) => Counting | undefined,
+): T => {
   if (!url.startsWith('file:')) return result
   // With a load hook, Deno 2.9 gives no format for a JSON file
   // that `require` loads, and then reads the file as JavaScript.
   // ubq: not measured: this module loads before the counters start
-  if (deno && !result.format && /\.json$/.test(url)) return { ...result, format: 'json' }
+  if (deno && !result.format && url.endsWith('.json')) return { ...result, format: 'json' }
   // A mocked module instance has a query on its URL.
   const path = fileURLToPath(url.replace(/\?.*$/, ''))
   const counters = find(path)

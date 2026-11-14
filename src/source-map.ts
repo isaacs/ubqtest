@@ -224,7 +224,13 @@ export const builtSources = (
     const file = relative(root, path).split(sep).join('/')
     const own = regionsOf(text, file)
     if (!own) return undefined
-    return { file, hash: hash('sha1', text), regions: own, counters: own.map((): number[] => []), lines: lineStarts(text) }
+    return {
+      file,
+      hash: hash('sha1', text),
+      regions: own,
+      counters: own.map((): number[] => []),
+      lines: lineStarts(text),
+    }
   })
   if (!sources.some(Boolean)) return undefined
   let all: [number, number, number][]

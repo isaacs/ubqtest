@@ -15,8 +15,9 @@ import { addJsx, fixtures, project, resetStore } from './setup.ts'
 // while this file loads. A static import of the same module from
 // this file is an error in Node (a cycle of `require` and `import`).
 // Deno cannot load this module with `require`.
-const { instrument }: typeof import('../src/instrument.ts') =
-  process.versions.deno ? await import('../src/instrument.ts') : createRequire(import.meta.url)('../src/instrument.ts')
+const { instrument }: typeof import('../src/instrument.ts') = process.versions.deno
+  ? await import('../src/instrument.ts')
+  : createRequire(import.meta.url)('../src/instrument.ts')
 
 // Plain JavaScript with each construct that gets a counter. The
 // value of `out` shows which paths ran.
@@ -74,8 +75,7 @@ describe('instrument', () => {
     // (`a` is 1 there). Nothing else.
     const zero: string[] = []
     const flat = flatten([{ ranges: snapshot(result.regions, counts, true) }])
-    for (let i = 0; i < flat.length; i += 3)
-      if (!flat[i + 2]) zero.push(SAMPLE.slice(flat[i], flat[i + 1]))
+    for (let i = 0; i < flat.length; i += 3) if (!flat[i + 2]) zero.push(SAMPLE.slice(flat[i], flat[i + 1]))
     assert.deepEqual(zero, ["function never() { return 'never' }", ' || 2'])
   })
 
@@ -84,8 +84,7 @@ describe('instrument', () => {
     const result = instrument(src, 'f.js')
     assert(result)
     const counts = new Uint32Array(result.regions.length)
-    const names = (all: boolean): number[] =>
-      snapshot(result.regions, counts, all).map(r => r.startOffset)
+    const names = (all: boolean): number[] => snapshot(result.regions, counts, all).map(r => r.startOffset)
     counts[0] = 1
     assert.equal(names(true).length, result.regions.length)
     // Only `b` ran: its region, and its two branches.
@@ -115,7 +114,10 @@ const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 const cov = `${fixtures}.tmp-cov-bun/`
 const sh = (cmd: string, args: string[], cwd: string) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' })
-  return r.stdout.replace(/ \(run \d+\)\n$/, '\n').trimEnd().split('\n')
+  return r.stdout
+    .replace(/ \(run \d+\)\n$/, '\n')
+    .trimEnd()
+    .split('\n')
 }
 
 describe('bun', () => {
@@ -155,7 +157,10 @@ describe('bun', () => {
       'skip pass.ts > not on this platform: needs a GPU',
       'pass: 0 failed, 5 passed, 1 skipped',
     ])
-    assert.equal(sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], p.dir).at(-1), 'pass: 0 failed, 10 passed, 1 skipped')
+    assert.equal(
+      sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], p.dir).at(-1),
+      'pass: 0 failed, 10 passed, 1 skipped',
+    )
     assert.deepEqual(sh('node', [cli, 'sql', "select coverage from test_file where tfile = 'pass.ts'"], p.dir), [
       '{"coverage":"full"}',
     ])
@@ -193,16 +198,20 @@ describe('bun', () => {
 
   test('the inspector of a plain program gives places in the source, from a guess', { skip }, () => {
     // Offsets in JavaScript with no types, to offsets in the source.
-    const source = "// if (a) return\nexport function f(a: number): string {\n  if (a > 1) return 'big'\n  return 'small'\n}\n"
+    const source =
+      "// if (a) return\nexport function f(a: number): string {\n  if (a > 1) return 'big'\n  return 'small'\n}\n"
     const made = 'export function f(a) {\n  if (a > 1)\n    return "big";\n  return "small";\n}\n'
     const toSource = mapper(source, made)
-    const place = (text: string) => [toSource(made.indexOf(text), false), toSource(made.indexOf(text) + text.length, true)]
+    const place = (text: string) => [
+      toSource(made.indexOf(text), false),
+      toSource(made.indexOf(text) + text.length, true),
+    ]
     assert.deepEqual(place('return "big"'), [source.indexOf("return 'big'"), source.indexOf("return 'big'") + 12])
     assert.deepEqual(place('(a) {'), [source.indexOf('(a:'), source.indexOf('{') + 1])
 
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
-    writeFileSync(join(p.dir, 'src/size.ts'), source + "export function never(): number {\n  return 1\n}\n")
+    writeFileSync(join(p.dir, 'src/size.ts'), source + 'export function never(): number {\n  return 1\n}\n')
     writeFileSync(
       join(p.dir, 'size.ts'),
       "import { assert, test } from 'ubqtest'\nimport { f } from './src/size.ts'\ntest('small', () => {\n  assert.equal(f(1), 'small')\n})\n",
@@ -268,8 +277,13 @@ describe('bun', () => {
     p.configure({ bunInspectorCoverage: true })
     const env = { ...process.env, NODE_COMPILE_CACHE: '' }
     assert.equal(spawnSync('bun', ['view.tsx'], { cwd: p.dir, encoding: 'utf8', env }).status, 0)
-    assert.deepEqual(sh('node', [cli, 'sql', "select distinct file from coverage where test like 'view.tsx%' and file = 'src/view.tsx'"], p.dir), [
-      '{"file":"src/view.tsx"}',
-    ])
+    assert.deepEqual(
+      sh(
+        'node',
+        [cli, 'sql', "select distinct file from coverage where test like 'view.tsx%' and file = 'src/view.tsx'"],
+        p.dir,
+      ),
+      ['{"file":"src/view.tsx"}'],
+    )
   })
 })

@@ -12,7 +12,9 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
 test('a run with the server gives the same text, with test processes of the server', { timeout: 120_000 }, async () => {
   const p = project()
   const status = (): { pid: number; used: number; prepared: number } => {
-    const m = /^server: pid (\d+), 8 test processes wait, (\d+) used, (\d+) changed files prepared\n/.exec(p.ubq('server').out)
+    const m = /^server: pid (\d+), 8 test processes wait, (\d+) used, (\d+) changed files prepared\n/.exec(
+      p.ubq('server').out,
+    )
     assert(m, 'the status line')
     return { pid: +m[1]!, used: +m[2]!, prepared: +m[3]! }
   }
@@ -65,7 +67,7 @@ test('a run with the server gives the same text, with test processes of the serv
 
   // A second server cannot listen, and ends.
   const second = p.ubq('server', '--foreground')
-  assert.deepEqual([second.code, /^ubq server: listen EADDRINUSE/.test(second.err)], [4, true])
+  assert.deepEqual([second.code, second.err.startsWith('ubq server: listen EADDRINUSE')], [4, true])
 
   assert.equal(p.ubq('server', 'stop').out, 'server: stopped\n')
   for (let i = 0; i < 100 && existsSync(join(p.dir, '.ubq/server.sock')); i++) await sleep(20)
@@ -105,7 +107,11 @@ test('the output of a test comes through the server, and a different runtime sto
   // runtime. The server stops, and the run starts its own processes.
   // The release job has no Bun.
   if (spawnSync('bun', ['--version']).status === 0) {
-    const bun = spawnSync('bun', [cli, 'out.test.ts', 'pass.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
+    const bun = spawnSync('bun', [cli, 'out.test.ts', 'pass.ts'], {
+      cwd: p.dir,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '' },
+    })
     assert.match(bun.stdout, /^fail: 1 failed, 5 passed, 1 skipped/m)
     assert.equal(p.ubq('server', 'stop').out, 'server: not running\n')
   }
@@ -118,5 +124,8 @@ test('a socket path that is too long', { skip: process.platform === 'win32' && '
   const deep = join(p.dir, ...Array(35).fill('a'))
   mkdirSync(deep, { recursive: true })
   const r = spawnSync('node', [cli, 'server'], { cwd: deep, encoding: 'utf8' })
-  assert.deepEqual([r.status, r.stderr], [4, `ubq: the path of the project is too long for a socket: ${join(p.dir, '.ubq/server.sock')}\n`])
+  assert.deepEqual(
+    [r.status, r.stderr],
+    [4, `ubq: the path of the project is too long for a socket: ${join(p.dir, '.ubq/server.sock')}\n`],
+  )
 })

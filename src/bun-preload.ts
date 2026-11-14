@@ -41,7 +41,7 @@ if (counters) {
         contents: read(path),
         // Bun reads JSX in a `.js` file.
         // ubq: not measured: this module loads before the counters start
-        loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
+        loader: /[jt]sx$/.exec(path)?.[0] ?? (path.endsWith('ts') ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
       }))
     },
   })

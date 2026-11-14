@@ -6,7 +6,8 @@ import { assert, cleanup, test } from 'ubqtest'
 import type { Region } from '../src/counters.ts'
 import { builtSources, inlineMap, mapOf, sourceRegions } from '../src/source-map.ts'
 
-const url = (map: unknown): string => `//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(map)).toString('base64')}`
+const url = (map: unknown): string =>
+  `//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(map)).toString('base64')}`
 const fn = (start: number, end: number, parent = -1): Region => ({ start, end, fn: true, parent })
 
 test('the map of a built file: at its end, in a file next to it, or none', () => {
@@ -55,7 +56,10 @@ test('the sources of a built file: only files of the project that the parser rea
   assert.equal(sources({ mappings: 'AAAE', sources: ['node_modules/dep/a.ts'], sourcesContent: ['  x  y'] }), undefined)
   assert.equal(sources({ mappings: 'AAAE', sources: ['gone.ts'] }), undefined)
   // A source that the parser cannot read.
-  assert.equal(sources({ mappings: 'AAAE', sources: ['a.ts'], sourcesContent: ['  x  y'] }, () => undefined), undefined)
+  assert.equal(
+    sources({ mappings: 'AAAE', sources: ['a.ts'], sourcesContent: ['  x  y'] }, () => undefined),
+    undefined,
+  )
   // The text of the source comes from the file, with no content in the map.
   writeFileSync(join(dir, 'a.ts'), '  x  y')
   const found = sources({ mappings: 'AAAE,EAAG', sources: ['a.ts'], sourceRoot: '' })
@@ -66,7 +70,9 @@ test('the sources of a built file: only files of the project that the parser rea
   )
   // Two sources: the second one has no code in the built file, so it is not in the list.
   assert.deepEqual(
-    sources({ mappings: 'AAAE,EAAG', sources: ['a.ts', 'b.ts'], sourcesContent: ['  x  y', 'z'] })?.map(source => source.file),
+    sources({ mappings: 'AAAE,EAAG', sources: ['a.ts', 'b.ts'], sourcesContent: ['  x  y', 'z'] })?.map(
+      source => source.file,
+    ),
     ['a.ts'],
   )
 })

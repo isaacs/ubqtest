@@ -50,7 +50,10 @@ test('fixtures end with their test, and a failed test keeps its testdir', () => 
 
 test('testdir makes a folder that has the name of the test', () => {
   const dir = testdir({ 'a.txt': 'a', sub: { 'b.txt': 'b' } })
-  assert.match(dir.replaceAll('\\', '/'), /\.ubq\/testdir\/test\/fixtures\.test\.ts\/testdir-makes-a-folder-that-has-the-name-of-the-test$/)
+  assert.match(
+    dir.replaceAll('\\', '/'),
+    /\.ubq\/testdir\/test\/fixtures\.test\.ts\/testdir-makes-a-folder-that-has-the-name-of-the-test$/,
+  )
   assert.equal(readFileSync(join(dir, 'sub/b.txt'), 'utf8'), 'b')
   assert.equal(existsSync(join(dir, '../../../../.gitignore')), true)
 })
@@ -59,12 +62,22 @@ test('a spy records its calls', () => {
   const add = spy((a: number, b: number) => a + b)
   assert.equal(add(1, 2), 3)
   assert.deepEqual(add.calls, [{ args: [1, 2], result: 3 }])
-  const object = { name: 'x', greet(greeting: string) { return `${greeting} ${this.name}` } }
+  const object = {
+    name: 'x',
+    greet(greeting: string) {
+      return `${greeting} ${this.name}`
+    },
+  }
   const greet = spyOn(object, 'greet')
   assert.equal(object.greet('hello'), 'hello x')
   assert.deepEqual(greet.calls[0]?.args, ['hello'])
   // A method of a class is on the prototype.
-  class Counter { n = 0; add() { return ++this.n } }
+  class Counter {
+    n = 0
+    add() {
+      return ++this.n
+    }
+  }
   const counter = new Counter()
   const count = spyOn(counter, 'add', () => 7)
   assert.equal(counter.add(), 7)
@@ -104,9 +117,10 @@ test('mockImport gives a new module instance with mocked dependencies', async ()
 })
 
 test('mockImport works in this file', async () => {
-  const { join } = await mockImport(() => import('./fixtures/src/joiner.ts'), [
-    [() => import('node:path'), { join: (...parts) => parts.join('+') }],
-  ])
+  const { join } = await mockImport(
+    () => import('./fixtures/src/joiner.ts'),
+    [[() => import('node:path'), { join: (...parts) => parts.join('+') }]],
+  )
   assert.equal(join('a', 'b'), 'a+b')
 })
 
@@ -115,21 +129,27 @@ test('a test that changes the environment or the working directory fails', () =>
   cleanup(() => rmSync(p.dir, { recursive: true }))
   env({ LEAK_B: 'b' })
   const r = p.ubq('leak.ts')
-  assert.deepEqual(r.out.replace(/ \(run \d+\)\n$/, '').split('\n').map(l => l.replace(/to (\/|[A-Z]:\\).* and/, 'to DIR and')), [
-    'FAIL leak.ts > sets a variable',
-    '  the test changed the environment variable LEAK_A, LEAK_B and did not put it back. Use env({ LEAK_A: value }): it puts the old value back when the test ends.',
-    '  at leak.ts:6:1',
-    "  > test('sets a variable', () => {",
-    '  rerun: ubq leak.ts:6',
-    '',
-    'FAIL leak.ts > changes the working directory',
-    '  the test changed the working directory to DIR and did not put it back. Put it back with cleanup(): const old = process.cwd(); cleanup(() => process.chdir(old))',
-    '  at leak.ts:17:1',
-    "  > test('changes the working directory', () => {",
-    '  rerun: ubq leak.ts:17',
-    '',
-    'fail: 2 failed, 2 passed',
-  ])
+  assert.deepEqual(
+    r.out
+      .replace(/ \(run \d+\)\n$/, '')
+      .split('\n')
+      .map(l => l.replace(/to (\/|[A-Z]:\\).* and/, 'to DIR and')),
+    [
+      'FAIL leak.ts > sets a variable',
+      '  the test changed the environment variable LEAK_A, LEAK_B and did not put it back. Use env({ LEAK_A: value }): it puts the old value back when the test ends.',
+      '  at leak.ts:6:1',
+      "  > test('sets a variable', () => {",
+      '  rerun: ubq leak.ts:6',
+      '',
+      'FAIL leak.ts > changes the working directory',
+      '  the test changed the working directory to DIR and did not put it back. Put it back with cleanup(): const old = process.cwd(); cleanup(() => process.chdir(old))',
+      '  at leak.ts:17:1',
+      "  > test('changes the working directory', () => {",
+      '  rerun: ubq leak.ts:17',
+      '',
+      'fail: 2 failed, 2 passed',
+    ],
+  )
 })
 
 test('isDeepEqual gives true or false, by the rules of deepEqual', () => {

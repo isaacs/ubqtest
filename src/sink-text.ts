@@ -7,9 +7,7 @@ import { projectRoot } from './project.ts'
 
 const sourceLine = (at: Location): string | undefined => {
   try {
-    return readFileSync(join(projectRoot(), at.file), 'utf8')
-      .split('\n')
-      [at.line - 1]?.trim()
+    return readFileSync(join(projectRoot(), at.file), 'utf8').split('\n')[at.line - 1]?.trim()
   } catch {
     return undefined
   }
@@ -47,22 +45,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   const rate = (r: Repeat, what: string): string =>
     `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
 
-  const block = (
-    head: string,
-    failure: Failure,
-    id?: TestId,
-    repeat?: Repeat,
-    kept: string[] = [],
-  ): void => {
+  const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat, kept: string[] = []): void => {
     const lines = [head, indent(failure.message)]
     if (repeat) lines.splice(1, 0, rate(repeat, id === undefined ? 'error' : 'failure'))
     if (failure.at) {
       lines.push(`  at ${loc(failure.at)}`)
       const source = sourceLine(failure.at)
-      if (source)
-        lines.push(
-          `  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`,
-        )
+      if (source) lines.push(`  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`)
     }
     if (failure.diff) lines.push(indent(failure.diff))
     if (failure.pending) lines.push(`  still open: ${failure.pending.join(', ')}`)
@@ -76,8 +65,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
       lines.push(`  output${cut ? ` (last ${shown.length} of ${all.length} lines)` : ''}:`)
       lines.push(indent(shown.map(l => `| ${l}`).join('\n')))
     }
-    for (const frame of failure.stack?.slice(1) ?? [])
-      lines.push(`  at ${loc(frame)}`)
+    for (const frame of failure.stack?.slice(1) ?? []) lines.push(`  at ${loc(frame)}`)
     for (const dir of kept) lines.push(`  testdir: ${dir}`)
     const at = id === undefined ? undefined : starts.get(id)
     if (at) lines.push(`  rerun: ubq ${at.file}:${at.line}`)
@@ -104,10 +92,8 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
       case 'test-end':
         if (event.repeat) repeats.set(event.id, event.repeat)
         if (event.status === 'fail' && event.failure) {
-          if (shown())
-            block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
-        } else if (event.status === 'skip')
-          skips.push(`skip ${event.id}: ${event.reason}`)
+          if (shown()) block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
+        } else if (event.status === 'skip') skips.push(`skip ${event.id}: ${event.reason}`)
         output.delete(event.id)
         break
       case 'late-failure':
@@ -117,8 +103,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (shown()) block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
         break
       case 'file-end':
-        if (event.updated)
-          write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
+        if (event.updated) write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
         break
       case 'hang': {
         const lines = [`HANG ${event.id}`]

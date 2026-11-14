@@ -8,7 +8,9 @@ import type { Children } from '../src/child-read.ts'
 
 // The library loaded its copy before coverage started. This copy
 // has coverage.
-const { CHILDREN, readChildren }: typeof import('../src/child-read.ts') = await import('../src/child-read.ts?copy' as string)
+const { CHILDREN, readChildren }: typeof import('../src/child-read.ts') = await import(
+  '../src/child-read.ts?copy' as string
+)
 
 test('a child file that is not JSON, a cache entry that is not there, and counts of a different file', () => {
   const root = mkdtempSync(join(tmpdir(), 'ubq-child-read-'))

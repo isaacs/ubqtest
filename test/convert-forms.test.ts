@@ -6,8 +6,9 @@ import { assert, test } from 'ubqtest'
 import { convertSource } from '../src/convert.ts'
 
 // See test/convert.test.ts for the reason of this form.
-const { parse, children }: typeof import('../src/instrument.ts') =
-  process.versions.deno ? await import('../src/instrument.ts') : createRequire(import.meta.url)('../src/instrument.ts')
+const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
+  ? await import('../src/instrument.ts')
+  : createRequire(import.meta.url)('../src/instrument.ts')
 
 const cases: [name: string, file: string, source: string[], result: string[] | undefined, migrate?: string[]][] = [
   [
@@ -355,20 +356,10 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
   [
     'not converted',
     'a.js',
-    [
-      "import { expect } from 'chai'",
-      "describe('g', () => { it('a', () => { expect(1).to.equal(1) }) })",
-    ],
+    ["import { expect } from 'chai'", "describe('g', () => { it('a', () => { expect(1).to.equal(1) }) })"],
     undefined,
   ],
-  [
-    'no tool',
-    'a.ts',
-    [
-      'export const x = 1',
-    ],
-    undefined,
-  ],
+  ['no tool', 'a.ts', ['export const x = 1'], undefined],
   [
     'cloudflare forms',
     'a.ts',
@@ -424,22 +415,13 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
   [
     'a string as an import name, and a tool that is not converted with require',
     'a.ts',
-    [
-      "import { 'it' as spec, expect } from 'vitest'",
-      "spec('a', () => { expect(1).toBe(1) })",
-    ],
-    [
-      "import { assert, test } from 'ubqtest'",
-      "test('a', () => { assert.equal(1, 1) })",
-    ],
+    ["import { 'it' as spec, expect } from 'vitest'", "spec('a', () => { expect(1).toBe(1) })"],
+    ["import { assert, test } from 'ubqtest'", "test('a', () => { assert.equal(1, 1) })"],
   ],
   [
     'chai with require',
     'a.js',
-    [
-      "const chai = require('chai')",
-      "describe('g', () => { it('a', () => { chai.expect(1).to.equal(1) }) })",
-    ],
+    ["const chai = require('chai')", "describe('g', () => { it('a', () => { chai.expect(1).to.equal(1) }) })"],
     undefined,
   ],
   [
@@ -629,10 +611,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
   [
     'a file that uses no name of ubqtest',
     'a.ts',
-    [
-      "import { vi } from 'vitest'",
-      'export const fake = () => vi.useFakeTimers()',
-    ],
+    ["import { vi } from 'vitest'", 'export const fake = () => vi.useFakeTimers()'],
     [
       '// TODO(ubq): Use fakeClock: const clock = fakeClock({ now: 0 }), then await clock.tick(ms).',
       'export const fake = () => vi.useFakeTimers()',
@@ -641,20 +620,13 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
   [
     'one line',
     'a.ts',
-    [
-      "import { it, expect } from 'vitest'; it('a', () => { expect(1).toBe(1) })",
-    ],
-    [
-      "import { assert, test } from 'ubqtest'; test('a', () => { assert.equal(1, 1) })",
-    ],
+    ["import { it, expect } from 'vitest'; it('a', () => { expect(1).toBe(1) })"],
+    ["import { assert, test } from 'ubqtest'; test('a', () => { assert.equal(1, 1) })"],
   ],
   [
     'globals after a #! line',
     'a.js',
-    [
-      '#!/usr/bin/env node',
-      "describe('g', () => { it('a', () => { expect(1).toBe(1) }) })",
-    ],
+    ['#!/usr/bin/env node', "describe('g', () => { it('a', () => { expect(1).toBe(1) }) })"],
     [
       '#!/usr/bin/env node',
       "import { assert, describe, test } from 'ubqtest'",
@@ -683,10 +655,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
       "const assert = require('node:assert')",
       "test('a', () => { assert.ok(1) })",
     ],
-    [
-      "const { assert, test } = require('ubqtest')",
-      "test('a', () => { assert(1) })",
-    ],
+    ["const { assert, test } = require('ubqtest')", "test('a', () => { assert(1) })"],
     ['DB'],
   ],
   [
@@ -705,7 +674,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
       "await migrate('LOGS')",
       "test('a', () => { assert(executionContext()) })",
     ],
-    ['DB','LOGS'],
+    ['DB', 'LOGS'],
   ],
 ]
 
@@ -733,16 +702,40 @@ test('imports on the last line, with no line end', () => {
 })
 
 test('mock.method of node:test, and a hook at the top level with declarations below it', () => {
-  const convert = (source: string[]) => convertSource(source.join('\n') + '\n', 'a.ts', parse, children, [])?.code.trimEnd().split('\n')
-  assert.deepEqual(convert(["import { mock, test } from 'node:test'", "test('a', () => {", "  const s = mock.method(o, 'f').mockReturnValue(2)", '})']), [
-    "import { spyOn, test } from 'ubqtest'",
-    "test('a', () => {",
-    "  const s = spyOn(o, 'f', () => 2)",
-    '})',
-  ])
+  const convert = (source: string[]) =>
+    convertSource(source.join('\n') + '\n', 'a.ts', parse, children, [])
+      ?.code.trimEnd()
+      .split('\n')
+  assert.deepEqual(
+    convert([
+      "import { mock, test } from 'node:test'",
+      "test('a', () => {",
+      "  const s = mock.method(o, 'f').mockReturnValue(2)",
+      '})',
+    ]),
+    ["import { spyOn, test } from 'ubqtest'", "test('a', () => {", "  const s = spyOn(o, 'f', () => 2)", '})'],
+  )
   // A declaration with no names, and an export with no declaration.
   assert.deepEqual(
-    convert(["import { beforeAll, it } from 'vitest'", 'let n = 0', 'beforeAll(() => {', '  n = 1', '})', "it('a', () => {})", 'const {} = {}', 'export { n }']),
-    ["import { test } from 'ubqtest'", 'let n = 0', '{', '  n = 1', '}', "test('a', () => {})", 'const {} = {}', 'export { n }'],
+    convert([
+      "import { beforeAll, it } from 'vitest'",
+      'let n = 0',
+      'beforeAll(() => {',
+      '  n = 1',
+      '})',
+      "it('a', () => {})",
+      'const {} = {}',
+      'export { n }',
+    ]),
+    [
+      "import { test } from 'ubqtest'",
+      'let n = 0',
+      '{',
+      '  n = 1',
+      '}',
+      "test('a', () => {})",
+      'const {} = {}',
+      'export { n }',
+    ],
   )
 })

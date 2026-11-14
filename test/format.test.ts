@@ -4,7 +4,12 @@ import { assert, test } from 'ubqtest'
 import { diffDeep, diffEqual, show, showDiffs } from '../src/format.ts'
 
 test('show cuts a long text, and gives an error with no stack', () => {
-  const long = show('x'.repeat(5).split('').map(() => 'y'.repeat(900)))
+  const long = show(
+    'x'
+      .repeat(5)
+      .split('')
+      .map(() => 'y'.repeat(900)),
+  )
   assert.match(long, /… \(\d+ more characters\)$/)
   assert.equal(long.indexOf('…'), 4000)
   assert.equal(show(new TypeError('bad')), 'TypeError: bad')
@@ -33,10 +38,16 @@ test('diffEqual says why two values are not the same', () => {
   })
   assert.equal(diffEqual(null, {}).note, 'types differ: null and Object')
   assert.equal(diffEqual(Object.create(null), {}).note, 'types differ: null-prototype object and Object')
-  assert.equal(diffEqual({ a: 1 }, { a: 1 }).note, 'same content, but not the same object. Use assert.deepEqual to compare content.')
+  assert.equal(
+    diffEqual({ a: 1 }, { a: 1 }).note,
+    'same content, but not the same object. Use assert.deepEqual to compare content.',
+  )
   assert.equal(diffEqual(0, -0).note, undefined)
   // Two symbols with the same description.
-  assert.equal(diffEqual(Symbol('s'), Symbol('s')).note, 'the values print the same, but Object.is finds them different')
+  assert.equal(
+    diffEqual(Symbol('s'), Symbol('s')).note,
+    'the values print the same, but Object.is finds them different',
+  )
 })
 
 test('diffDeep gives the path to each difference', () => {
@@ -52,11 +63,19 @@ test('diffDeep gives the path to each difference', () => {
   ])
   assert.deepEqual(diffs([1], [1, 2]), ['.length: 1 / 2', '[1]: (missing) / 2'])
   // A Map, by key.
-  assert.deepEqual(diffs(new Map([['a', 1], ['b', 2]]), new Map([['a', 9], ['c', 3]])), [
-    ".get('a'): 1 / 9",
-    ".get('b'): 2 / (missing)",
-    ".get('c'): (missing) / 3",
-  ])
+  assert.deepEqual(
+    diffs(
+      new Map([
+        ['a', 1],
+        ['b', 2],
+      ]),
+      new Map([
+        ['a', 9],
+        ['c', 3],
+      ]),
+    ),
+    [".get('a'): 1 / 9", ".get('b'): 2 / (missing)", ".get('c'): (missing) / 3"],
+  )
   // Objects of two classes, and two dates.
   class A {}
   class B {}
@@ -80,7 +99,10 @@ test('the report has 8 differences at most, and the count of the others', () => 
   const { diffs, more } = diffDeep(a, e)
   assert.deepEqual([diffs.length, more], [8, 4])
   const text = showDiffs(diffs, more).split('\n')
-  assert.deepEqual([text.slice(0, 3), text.at(-1)], [['[0]', '  actual:   0', '  expected: 100'], '… and 4 more differences'])
+  assert.deepEqual(
+    [text.slice(0, 3), text.at(-1)],
+    [['[0]', '  actual:   0', '  expected: 100'], '… and 4 more differences'],
+  )
   // A value of more than one line keeps its indent, and a note has its own line.
   assert.equal(
     showDiffs([{ path: '', actual: 'a\nb', expected: 'c', note: 'n' }]),
@@ -93,5 +115,8 @@ test('diffDeep goes into an object one time, also in a cycle', () => {
   a.self = a
   const e: Record<string, unknown> = { n: 2 }
   e.self = e
-  assert.deepEqual(diffDeep(a, e).diffs.map(d => d.path), ['.n'])
+  assert.deepEqual(
+    diffDeep(a, e).diffs.map(d => d.path),
+    ['.n'],
+  )
 })

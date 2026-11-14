@@ -173,7 +173,7 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
+    'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
   throwsText:
     'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
   workers:
@@ -183,12 +183,14 @@ const TODO = {
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
-  passed: 'ubq has no test object to pass to a function. Remove this argument, and the parameter of the function. The function imports assert from ubqtest.',
+  passed:
+    'ubq has no test object to pass to a function. Remove this argument, and the parameter of the function. The function imports assert from ubqtest.',
   skip: "Give the reason: { skip: 'the reason' }.",
   context: 'ubq has no test object. Use the functions of ubqtest in place of the parameter of this test function.',
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
   mock: "Use mockImport: await mockImport(() => import('../src/a.ts'), [[() => import('../src/dep.ts'), { fn }]]). It gives a new instance of a.ts.",
-  spyImpl: 'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). A call is spy.calls[i]: { args, result, error }.',
+  spyImpl:
+    'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). A call is spy.calls[i]: { args, result, error }.',
   timers: 'Use fakeClock: const clock = fakeClock({ now: 0 }), then await clock.tick(ms).',
   each: 'Use a for loop around test().',
   only: 'ubq has no .only. Run one test with: ubq <file>:<line>.',
@@ -243,12 +245,18 @@ export const convertSource = (
   const tapTests = new Set<string>()
   const bind = (module: string, imported: string, local: string): void => {
     if (ASSERT_MODULES.has(module)) {
-      roles.set(local, imported === 'default' || imported === '*' || imported === 'strict' ? 'assert' : `assert.${imported}`)
+      roles.set(
+        local,
+        imported === 'default' || imported === '*' || imported === 'strict' ? 'assert' : `assert.${imported}`,
+      )
       return
     }
     if (module === 'tap') {
       if (imported === 'test') tapTests.add(local)
-      roles.set(local, imported === 'test' ? 'test' : imported === 'default' || imported === '*' || imported === 't' ? 'tap' : 'hook')
+      roles.set(
+        local,
+        imported === 'test' ? 'test' : imported === 'default' || imported === '*' || imported === 't' ? 'tap' : 'hook',
+      )
       // The test object has the name `t` in almost all tap tests,
       // also in a helper function that gets it as an argument.
       roles.set('t', 'tap')
@@ -300,9 +308,11 @@ export const convertSource = (
       for (const s of node.specifiers as Node[]) {
         const local = (s.local as { name: string }).name
         const imported =
-          s.type === 'ImportDefaultSpecifier' ? 'default'
-          : s.type === 'ImportNamespaceSpecifier' ? '*'
-          : ((s.imported as { name?: string; value?: string }).name ?? (s.imported as { value: string }).value)
+          s.type === 'ImportDefaultSpecifier'
+            ? 'default'
+            : s.type === 'ImportNamespaceSpecifier'
+              ? '*'
+              : ((s.imported as { name?: string; value?: string }).name ?? (s.imported as { value: string }).value)
         bind(module, imported, local)
       }
     } else if (node.type === 'VariableDeclaration') {
@@ -370,10 +380,17 @@ export const convertSource = (
     // A name for the parameter of a callback that the arguments do not use.
     if (rule.includes('INCLUDES')) {
       const subject = args[0]!
-      const optional = (subject.type === 'MemberExpression' && subject.computed) || subject.type === 'ChainExpression' || text(subject).includes('?.')
+      const optional =
+        (subject.type === 'MemberExpression' && subject.computed) ||
+        subject.type === 'ChainExpression' ||
+        text(subject).includes('?.')
       rule = rule.replace('INCLUDES', optional ? '?.includes' : '.includes')
     }
-    if (rule.includes('ITEM')) rule = rule.replaceAll('ITEM', ['item', 'element', 'entry', 'one'].find(name => !args.some(arg => mentions(arg, name))) ?? '_item')
+    if (rule.includes('ITEM'))
+      rule = rule.replaceAll(
+        'ITEM',
+        ['item', 'element', 'entry', 'one'].find(name => !args.some(arg => mentions(arg, name))) ?? '_item',
+      )
     const pieces: string[] = ['']
     const parts: Node[] = []
     let last = 0
@@ -388,7 +405,8 @@ export const convertSource = (
     pieces[pieces.length - 1] += rule.slice(last)
     changes++
     // ubq: not measured: each rule names a function of ubqtest
-    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual)\b/g) ?? []) used.add(name)
+    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual)\b/g) ?? [])
+      used.add(name)
     if (!parts.length) {
       replace(node.start, node.end, pieces[0]!)
       return []
@@ -399,9 +417,18 @@ export const convertSource = (
     return parts
   }
   const pick = (rule: Rule, argc: number): string | undefined =>
-    // ubq: not measured: each rule of string form has a $ place
-    typeof rule === 'string' ? (argc >= (rule.match(/\$\d/g)?.length ?? 0) ? rule : undefined)
-    : (rule[argc] ?? rule[Math.max(...Object.keys(rule).map(Number).filter(n => n <= argc))])
+    typeof rule === 'string'
+      ? argc >= (rule.match(/\$\d/g)?.length ?? 0) // ubq: not measured: each rule of string form has a $ place
+        ? rule
+        : undefined
+      : (rule[argc] ??
+        rule[
+          Math.max(
+            ...Object.keys(rule)
+              .map(Number)
+              .filter(n => n <= argc),
+          )
+        ])
 
   /** Makes the function of a node async. */
   const madeAsync = new Set<Node>()
@@ -444,7 +471,8 @@ export const convertSource = (
     if (stmt?.type !== 'ExpressionStatement') return false
     const from = lineStart(stmt.start)
     const end = source.indexOf('\n', stmt.end)
-    const alone = !source.slice(from, stmt.start).trim() && /^\s*;?\s*$/.test(source.slice(stmt.end, end < 0 ? source.length : end))
+    const alone =
+      !source.slice(from, stmt.start).trim() && /^\s*;?\s*$/.test(source.slice(stmt.end, end < 0 ? source.length : end))
     if (alone) replace(from, end < 0 ? source.length : end + 1, '')
     else replace(stmt.start, stmt.end, '')
     changes++
@@ -461,13 +489,17 @@ export const convertSource = (
     // `t => {}` has no parentheses.
     const head = source.slice(fn.start, params[0]!.start)
     if (open < fn.start || !head.includes('(')) return [params[0]!.start, params.at(-1)!.end]
-    const close = source.lastIndexOf(')', source.lastIndexOf(fn.type === 'ArrowFunctionExpression' ? '=>' : '{', body.start))
+    const close = source.lastIndexOf(
+      ')',
+      source.lastIndexOf(fn.type === 'ArrowFunctionExpression' ? '=>' : '{', body.start),
+    )
     // ubq: not measured: the parameters in parentheses have a close
     return close > open ? [open, close + 1] : undefined
   }
 
   /** True if `name` is in the text of a node, as a word. */
-  const mentions = (node: Node, name: string): boolean => new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`).test(text(node))
+  const mentions = (node: Node, name: string): boolean =>
+    new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`).test(text(node))
 
   /** `vi.restoreAllMocks()`, `mock.restoreAll()`. */
   const restoresAll = (node: Node | undefined): boolean => {
@@ -483,7 +515,11 @@ export const convertSource = (
     const body = fn.body as Node
     if (body.type !== 'BlockStatement') return restoresAll(body)
     const statements = body.body as unknown as Node[]
-    return statements.length === 1 && statements[0]!.type === 'ExpressionStatement' && restoresAll(statements[0]!.expression as Node)
+    return (
+      statements.length === 1 &&
+      statements[0]!.type === 'ExpressionStatement' &&
+      restoresAll(statements[0]!.expression as Node)
+    )
   }
   /** `() => restore()`: gives the name `restore`. */
   const restoreCall = (fn: Node | undefined): string | undefined => {
@@ -494,13 +530,19 @@ export const convertSource = (
       if (statements.length !== 1 || statements[0]!.type !== 'ExpressionStatement') return undefined
       body = statements[0]!.expression as Node
     }
-    const name = body.type === 'CallExpression' && !(body.arguments as Node[]).length ? nameOf(body.callee as Node) : undefined
+    const name =
+      body.type === 'CallExpression' && !(body.arguments as Node[]).length ? nameOf(body.callee as Node) : undefined
     return name && /restore/i.test(name) ? name : undefined
   }
   /** True if the statement of a call is the last one of a function. */
   const lastInFunction = (path: Node[]): boolean => {
     const [fn, block, statement] = path.slice(-4)
-    return !!fn && FUNCTION.has(fn.type) && block?.type === 'BlockStatement' && (block.body as unknown as Node[]).at(-1) === statement
+    return (
+      !!fn &&
+      FUNCTION.has(fn.type) &&
+      block?.type === 'BlockStatement' &&
+      (block.body as unknown as Node[]).at(-1) === statement
+    )
   }
   /**
    * `beforeAll(async () => { ... })` at the top level of a file
@@ -514,19 +556,24 @@ export const convertSource = (
     const statement = path.at(-2)
     const args = node.arguments as Node[]
     const fn = args[0]
-    if (statement?.type !== 'ExpressionStatement' || path.at(-3)?.type !== 'Program' || args.length !== 1) return undefined
+    if (statement?.type !== 'ExpressionStatement' || path.at(-3)?.type !== 'Program' || args.length !== 1)
+      return undefined
     if (!fn || !FUNCTION.has(fn.type) || (fn.params as Node[]).length) return undefined
     const body = fn.body as Node
     if (body.type !== 'BlockStatement') return undefined
     // A `return` of the function has no meaning in a block.
     const returns = (n: Node): boolean =>
-      n.type === 'ReturnStatement' || (!FUNCTION.has(n.type) && n.type !== 'FunctionDeclaration' && children(n).some(returns))
+      n.type === 'ReturnStatement' ||
+      (!FUNCTION.has(n.type) && n.type !== 'FunctionDeclaration' && children(n).some(returns))
     if (children(body).some(returns)) return undefined
     for (const later of program.body as Node[]) {
       if (later.start < statement.end) continue
-      const declared = /^Export/.test(later.type) ? ((later.declaration as Node | undefined) ?? later) : later
+      const declared = later.type.startsWith('Export') ? ((later.declaration as Node | undefined) ?? later) : later
       if (declared.type !== 'VariableDeclaration' && declared.type !== 'ClassDeclaration') continue
-      const head = declared.type === 'ClassDeclaration' ? text(declared.id as Node) : (declared.declarations as Node[]).map(d => text(d.id as Node)).join(' ')
+      const head =
+        declared.type === 'ClassDeclaration'
+          ? text(declared.id as Node)
+          : (declared.declarations as Node[]).map(d => text(d.id as Node)).join(' ')
       for (const name of head.match(/[A-Za-z_$][\w$]*/g) ?? []) if (mentions(body, name)) return undefined
     }
     replace(node.start, body.start, '')
@@ -559,13 +606,17 @@ export const convertSource = (
     const owner = roleOf(callee.object as Node)
     const maker = nameOf(callee.property as Node)
     const name =
-      owner !== 'vi' && owner !== 'mock' ? undefined
-      : maker === 'fn' && !inner.length ? 'spy'
-      : (maker === 'spyOn' || (owner === 'mock' && maker === 'method')) && inner.length === 2 ? 'spyOn'
-      : undefined
+      owner !== 'vi' && owner !== 'mock'
+        ? undefined
+        : maker === 'fn' && !inner.length
+          ? 'spy'
+          : (maker === 'spyOn' || (owner === 'mock' && maker === 'method')) && inner.length === 2
+            ? 'spyOn'
+            : undefined
     if (!name) return undefined
     // `() => {}` with an object in it is a block.
-    const [before, after] = method !== 'mockImplementation' && value.type === 'ObjectExpression' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
+    const [before, after] =
+      method !== 'mockImplementation' && value.type === 'ObjectExpression' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
     replace(callee.start, callee.end, name)
     replace(inner.at(-1)?.end ?? callee.end, value.start, (inner.length ? ', ' : '(') + before)
     replace(value.end, node.end, after + ')')
@@ -582,7 +633,8 @@ export const convertSource = (
   const spyCalls = (node: Node, path: Node[]): boolean => {
     const calls = path.at(-2)!
     const use = path.at(-3)
-    if (nameOf(calls.property as Node) !== 'calls' || use?.type !== 'MemberExpression' || use.object !== calls) return false
+    if (nameOf(calls.property as Node) !== 'calls' || use?.type !== 'MemberExpression' || use.object !== calls)
+      return false
     if (!use.computed) {
       if (nameOf(use.property as Node) !== 'length') return false
     } else {
@@ -614,7 +666,11 @@ export const convertSource = (
           let e = s.type === 'ExpressionStatement' ? (s.expression as Node) : undefined
           if (e?.type === 'AwaitExpression') e = e.argument as Node
           const c = e?.type === 'CallExpression' ? (e.callee as Node) : undefined
-          return c?.type === 'MemberExpression' && nameOf(c.object as Node) === param && nameOf(c.property as Node) === 'test'
+          return (
+            c?.type === 'MemberExpression' &&
+            nameOf(c.object as Node) === param &&
+            nameOf(c.property as Node) === 'test'
+          )
         }
         if (direct.some(isSub)) {
           name = 'describe'
@@ -624,13 +680,15 @@ export const convertSource = (
           if (own.length || waits) todo(path, TODO.subtests)
           // The function of a describe is not async. With an await
           // in it, the function stays as it is until the TODO is done.
-          if (fn.async && !waits) replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
+          if (fn.async && !waits)
+            replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
         }
         const span = paramSpan(fn)
         if (span) replace(span[0], span[1], '()')
       } else if (param && kind === 'test') {
         // The test object of node:test, or the done callback of jest.
-        if (mentions(body, param)) todo(path, framework === 'node:test' || framework === 'bun:test' ? TODO.context : TODO.done)
+        if (mentions(body, param))
+          todo(path, framework === 'node:test' || framework === 'bun:test' ? TODO.context : TODO.done)
         else {
           const span = paramSpan(fn)
           if (span) replace(span[0], span[1], '()')
@@ -647,7 +705,11 @@ export const convertSource = (
       for (const prop of option.properties as Node[]) {
         const key = nameOf(prop.key as Node)
         const value = prop.value as Node | undefined
-        if (key === 'skip' && !(value?.type === 'Literal' && typeof value.value === 'string') && value?.type !== 'TemplateLiteral')
+        if (
+          key === 'skip' &&
+          !(value?.type === 'Literal' && typeof value.value === 'string') &&
+          value?.type !== 'TemplateLiteral'
+        )
           todo(path, TODO.skip)
         if (key === 'only') todo(path, TODO.only)
         if (key === 'todo') todo(path, TODO.skip)
@@ -664,13 +726,17 @@ export const convertSource = (
     else if (node.type === 'MemberExpression') {
       // spy.mock.calls of jest and vitest
       const parent = path.at(-2)
-      if (nameOf(node.property as Node) === 'mock' && parent?.type === 'MemberExpression' && /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? '')) {
+      if (
+        nameOf(node.property as Node) === 'mock' &&
+        parent?.type === 'MemberExpression' &&
+        /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? '')
+      ) {
         if (!spyCalls(node, path)) todo(path, TODO.spyImpl)
       }
       // mock.timers.enable() of node:test
-      else if (roleOf(node.object as Node) === 'mock' && nameOf(node.property as Node) === 'timers') todo(path, TODO.timers)
-    }
-    else if (node.type === 'Identifier' && roleOf(node) === 'tap') {
+      else if (roleOf(node.object as Node) === 'mock' && nameOf(node.property as Node) === 'timers')
+        todo(path, TODO.timers)
+    } else if (node.type === 'Identifier' && roleOf(node) === 'tap') {
       // helper(t, value)
       const parent = path.at(-2)
       if (parent?.type === 'CallExpression' && (parent.arguments as Node[]).includes(node)) todo(path, TODO.passed)
@@ -699,11 +765,15 @@ export const convertSource = (
       const restore = restoreCall(args[0])
       todo(
         path,
-        restore ? `If this only puts spies back, delete it, each assignment to ${restore}, and each call of ${restore}() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first. If it does other work: ${TODO.hook}`
-        : !once ? TODO.hook
-        : inner ? TODO.hookGroup
-        : once[1] === 'before' ? TODO.hookFile
-        : TODO.hookFileEnd,
+        restore
+          ? `If this only puts spies back, delete it, each assignment to ${restore}, and each call of ${restore}() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first. If it does other work: ${TODO.hook}`
+          : !once
+            ? TODO.hook
+            : inner
+              ? TODO.hookGroup
+              : once[1] === 'before'
+                ? TODO.hookFile
+                : TODO.hookFileEnd,
       )
       return undefined
     }
@@ -726,9 +796,13 @@ export const convertSource = (
         replace(first.end, node.end, `${wrap ? ')' : ''}.settled()`)
       } else if (name === 'applyD1Migrations') {
         // applyD1Migrations(env.DB, env.TEST_MIGRATIONS) becomes migrate('DB')
-        const binding = first?.type === 'MemberExpression' && !first.computed ? nameOf(first.property as Node) : undefined
+        const binding =
+          first?.type === 'MemberExpression' && !first.computed ? nameOf(first.property as Node) : undefined
         if (!binding) {
-          todo(path, "Use migrate('DB') of 'ubqtest/workers', with the name of the D1 binding. It applies the files of migrations_dir in the wrangler config.")
+          todo(
+            path,
+            "Use migrate('DB') of 'ubqtest/workers', with the name of the D1 binding. It applies the files of migrations_dir in the wrangler config.",
+          )
           return undefined
         }
         replace(node.start, node.end, `migrate('${binding}')`)
@@ -775,7 +849,12 @@ export const convertSource = (
     if (owner === 'expect') {
       // expect.any(Number), expect.stringContaining('text')
       const first = args[0]
-      if (method === 'stringContaining' && args.length === 1 && first?.type === 'Literal' && typeof first.value === 'string') {
+      if (
+        method === 'stringContaining' &&
+        args.length === 1 &&
+        first?.type === 'Literal' &&
+        typeof first.value === 'string'
+      ) {
         replace(node.start, first.start, '')
         messageRegExp(first)
         replace(first.end, node.end, '')
@@ -801,9 +880,11 @@ export const convertSource = (
       } else
         todo(
           path,
-          /mock|Mock|module/.test(method) ? TODO.mock
-          : /[Tt]imer|Time/.test(method) ? TODO.timers
-          : `ubq has no ${nameOf(object)}.${method}.`,
+          /mock|Mock|module/.test(method)
+            ? TODO.mock
+            : /[Tt]imer|Time/.test(method)
+              ? TODO.timers
+              : `ubq has no ${nameOf(object)}.${method}.`,
         )
       return undefined
     }
@@ -833,18 +914,32 @@ export const convertSource = (
     }
     const all = [subject, ...args]
     const fail = (): undefined => {
-      todo(path, `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`)
+      todo(
+        path,
+        `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`,
+      )
       return undefined
     }
     if (method === 'toMatch' && args[0]) {
       // A value can be text or a RegExp, and the two have different forms.
       if (args[0].type !== 'Literal' && args[0].type !== 'TemplateLiteral') {
-        todo(path, 'toMatch takes text or a RegExp. For a RegExp: assert.match(value, pattern). For text: assert(value.includes(text)).')
+        todo(
+          path,
+          'toMatch takes text or a RegExp. For a RegExp: assert.match(value, pattern). For text: assert(value.includes(text)).',
+        )
         return undefined
       }
       const regex = args[0].type === 'Literal' && (args[0] as { regex?: unknown }).regex
       // The arguments of a rule keep their order, so not `re.test(a)`.
-      return rewrite(node, regex ? (not ? 'assert(!<$0>.match($1))' : 'assert.match($0, $1)') : `assert(${not ? '!' : ''}<$0>.includes($1))`, all)
+      return rewrite(
+        node,
+        regex
+          ? not
+            ? 'assert(!<$0>.match($1))'
+            : 'assert.match($0, $1)'
+          : `assert(${not ? '!' : ''}<$0>.includes($1))`,
+        all,
+      )
     }
     if (/^toHaveBeen(Last)?CalledWith$/.test(method) && !not && !promise) {
       // The arguments of the last call.
@@ -892,7 +987,10 @@ export const convertSource = (
     const args = node.arguments as Node[]
     const rule = ASSERT[method] && pick(ASSERT[method], args.length)
     if (!rule) {
-      todo(path, `ubq has no assert.${method}. Write an assertion with assert, assert.equal, assert.deepEqual, assert.match, or assert.throws.`)
+      todo(
+        path,
+        `ubq has no assert.${method}. Write an assertion with assert, assert.equal, assert.deepEqual, assert.match, or assert.throws.`,
+      )
       return undefined
     }
     if (method === 'rejects') awaited(node, path)
@@ -928,7 +1026,9 @@ export const convertSource = (
     if (method === 'mockImport' || method === 'mockRequire' || method === 'mock') {
       const [spec, mocks] = args
       const entries = mocks?.type === 'ObjectExpression' ? (mocks.properties as Node[]) : undefined
-      const plain = entries?.every(p => p.type === 'Property' && !p.computed && !p.shorthand && (p.key as Node).type === 'Literal')
+      const plain = entries?.every(
+        p => p.type === 'Property' && !p.computed && !p.shorthand && (p.key as Node).type === 'Literal',
+      )
       if (method !== 'mockImport' || spec?.type !== 'Literal' || (mocks && !plain)) {
         todo(path, TODO.mock)
         return undefined
@@ -983,7 +1083,11 @@ export const convertSource = (
 
   // --- The import of ubqtest, in place of the old imports ---
   const names = [...used].sort().join(', ')
-  const line = names ? (commonJs ? `const { ${names} } = require('ubqtest')` : `import { ${names} } from 'ubqtest'`) : ''
+  const line = names
+    ? commonJs
+      ? `const { ${names} } = require('ubqtest')`
+      : `import { ${names} } from 'ubqtest'`
+    : ''
   /** `;` if code is after a statement on its line: the new text must not join that code. */
   const before = (node: Node): string => {
     const end = source.indexOf('\n', node.end)
@@ -1008,10 +1112,7 @@ export const convertSource = (
     if (workersUsed.size) lines.push(`import { ${[...workersUsed].sort().join(', ')} } from 'ubqtest/workers'`)
     if (workersLeft.length) {
       lines.push(`import { ${workersLeft.join(', ')} } from 'cloudflare:test'`)
-      todos.set(
-        workersImport.start,
-        (todos.get(workersImport.start) ?? new Set()).add(TODO.workers),
-      )
+      todos.set(workersImport.start, (todos.get(workersImport.start) ?? new Set()).add(TODO.workers))
     }
     replace(workersImport.start, workersImport.end, lines.join('\n') + before(workersImport))
     changes++
@@ -1029,7 +1130,9 @@ export const convertSource = (
   for (const edit of edits) {
     if (edit.start < at)
       // ubq: not measured: no known input makes two changes overlap
-      throw new Error(`the command cannot change line ${source.slice(0, edit.start).split('\n').length}. Write that statement in a different form, or convert this file by hand.`)
+      throw new Error(
+        `the command cannot change line ${source.slice(0, edit.start).split('\n').length}. Write that statement in a different form, or convert this file by hand.`,
+      )
     code += source.slice(at, edit.start) + edit.text
     at = edit.end
   }
@@ -1037,8 +1140,9 @@ export const convertSource = (
   // The setup file of the vitest config applied the migrations of
   // D1 for each test file. In ubq, the test file does that.
   // Not in a CommonJS file: it has no `await` at its top level.
-  const lines =
-    commonJs ? [] : migrate.filter(binding => !code.includes(`migrate('${binding}')`)).map(binding => `await migrate('${binding}')`)
+  const lines = commonJs
+    ? []
+    : migrate.filter(binding => !code.includes(`migrate('${binding}')`)).map(binding => `await migrate('${binding}')`)
   if (lines.length) {
     const imports = (parse(code, file).body as Node[]).filter(n => n.type === 'ImportDeclaration')
     const helpers = imports.find(n => (n.source as { value?: unknown }).value === 'ubqtest/workers')
@@ -1051,9 +1155,19 @@ export const convertSource = (
     if (helpers && !/\bmigrate\b/.test(code.slice(helpers.start, helpers.end)))
       code =
         code.slice(0, helpers.start) +
-        code
-          .slice(helpers.start, helpers.end)
-          .replace(/\{([^}]*)\}/, (_, names: string) => `{ ${[...names.split(',').map(name => name.trim()).filter(Boolean), 'migrate'].sort().join(', ')} }`) +
+        code.slice(helpers.start, helpers.end).replace(
+          /\{([^}]*)\}/,
+          (_, names: string) =>
+            `{ ${[
+              ...names
+                .split(',')
+                .map(name => name.trim())
+                .filter(Boolean),
+              'migrate',
+            ]
+              .sort()
+              .join(', ')} }`,
+        ) +
         code.slice(helpers.end)
     changes++
   }
@@ -1176,7 +1290,9 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   out(`convert: ${parts.join(', ')}`)
   if (unnamed.length && !config().include) {
     const folders = [...new Set(unnamed.map(f => f.split('/')[0]!))]
-    const globs = folders.map(f => (unnamed.includes(f) ? f : `${f}/**/*.${/\.[cm]?tsx?$/.test(unnamed[0]!) ? 'ts' : 'js'}`))
+    const globs = folders.map(f =>
+      unnamed.includes(f) ? f : `${f}/**/*.${/\.[cm]?tsx?$/.test(unnamed[0]!) ? 'ts' : 'js'}`,
+    )
     out(
       `note: ${unnamed.length} of these files have tests, and do not have a name that ubq runs (*.test.ts): ${unnamed.slice(0, 5).join(', ')}${unnamed.length > 5 ? ', ...' : ''}. Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
@@ -1227,10 +1343,13 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     if (scripts.test === 'tap' && snap.length) {
       pkg.scripts = Object.fromEntries(
         Object.entries(scripts).flatMap(([key, value]) =>
-          key === 'test' ? [[key, 'ubq']]
-          : key === snap[0] ? [['test:update', 'ubq']]
-          : snap.includes(key) ? []
-          : [[key, value]],
+          key === 'test'
+            ? [[key, 'ubq']]
+            : key === snap[0]
+              ? [['test:update', 'ubq']]
+              : snap.includes(key)
+                ? []
+                : [[key, value]],
         ),
       )
       if (!dry) writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
@@ -1247,4 +1366,3 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   if (changed) out('next: read `ubq guide convert`, do each TODO(ubq), then run: ubq')
   return 0
 }
-

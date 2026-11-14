@@ -63,25 +63,21 @@ const rerun = (file: string, id: TestId): Opened[] => {
   // Not an import: each test process loads this file, and few need
   // `node:child_process`, which takes time to load.
   const { spawnSync } = process.getBuiltinModule('node:child_process')
-  spawnSync(
-    process.execPath,
-    [...(process.versions.deno ? ['run', '-A'] : []), join(projectRoot(), file)],
-    {
-      cwd: projectRoot(),
-      stdio: ['ignore', 'ignore', 'ignore', 'ignore'],
-      timeout: 60_000,
-      killSignal: 'SIGKILL',
-      env: {
-        ...process.env,
-        UBQ_CHILD: '1',
-        UBQ_CAPTURE: '1',
-        UBQ_HANG: result,
-        UBQ_FILE: file,
-        UBQ_LINES: '',
-        UBQ_IDS: JSON.stringify([id]),
-      },
+  spawnSync(process.execPath, [...(process.versions.deno ? ['run', '-A'] : []), join(projectRoot(), file)], {
+    cwd: projectRoot(),
+    stdio: ['ignore', 'ignore', 'ignore', 'ignore'],
+    timeout: 60_000,
+    killSignal: 'SIGKILL',
+    env: {
+      ...process.env,
+      UBQ_CHILD: '1',
+      UBQ_CAPTURE: '1',
+      UBQ_HANG: result,
+      UBQ_FILE: file,
+      UBQ_LINES: '',
+      UBQ_IDS: JSON.stringify([id]),
     },
-  )
+  })
   try {
     return JSON.parse(readFileSync(result, 'utf8')) as Opened[]
     // ubq: not measured: each rerun in the tests times out again

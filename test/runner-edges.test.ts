@@ -14,7 +14,10 @@ const PASS = "import { assert, test } from 'ubqtest'\ntest('p', () => assert(tru
 test('a lone file that loads ubqtest, then throws or exits', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
-  writeFileSync(join(p.dir, 'throws.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow new Error('at load')\n")
+  writeFileSync(
+    join(p.dir, 'throws.test.ts'),
+    "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow new Error('at load')\n",
+  )
   const throws = p.ubq('throws.test.ts')
   assert.deepEqual([throws.code, throws.out.split('\n').slice(0, 2)], [1, ['ERROR throws.test.ts', '  Error: at load']])
   writeFileSync(join(p.dir, 'exits.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nprocess.exit(5)\n")
@@ -22,7 +25,10 @@ test('a lone file that loads ubqtest, then throws or exits', () => {
   writeFileSync(join(p.dir, 'plain.test.ts'), 'process.exit()\n')
   assert.match(p.ubq('plain.test.ts').out, /^  the test process ended before the file did \(exit code 0\)$/m)
   const exits = p.ubq('exits.test.ts')
-  assert.deepEqual([exits.code, exits.out.split('\n').slice(0, 2)], [1, ['ERROR exits.test.ts', '  process.exit(5) was called before the tests ended']])
+  assert.deepEqual(
+    [exits.code, exits.out.split('\n').slice(0, 2)],
+    [1, ['ERROR exits.test.ts', '  process.exit(5) was called before the tests ended']],
+  )
 })
 
 test('a run of files with only skipped tests, and an early end with stderr', () => {
@@ -34,7 +40,10 @@ test('a run of files with only skipped tests, and an early end with stderr', () 
   assert.deepEqual([skipped.code, skipped.last], [2, 'fail: 0 failed, 0 passed, 2 skipped'])
   writeFileSync(join(p.dir, 'b.test.ts'), "console.error('a message')\nprocess.exit(3)\n")
   const early = p.ubq('a.test.ts', 'b.test.ts')
-  assert.match(early.out, /^ERROR b\.test\.ts\n  the test process ended before the file did \(exit code 3\)\n  a message\n/m)
+  assert.match(
+    early.out,
+    /^ERROR b\.test\.ts\n  the test process ended before the file did \(exit code 3\)\n  a message\n/m,
+  )
   // --failed runs all of a file with an error.
   writeFileSync(join(p.dir, 'b.test.ts'), PASS)
   assert.equal(p.ubq('--failed').last, 'pass: 0 failed, 1 passed')
@@ -43,7 +52,10 @@ test('a run of files with only skipped tests, and an early end with stderr', () 
 test('--seed with no number, and many changed files', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
-  assert.deepEqual([p.ubq('--seed').code, p.ubq('--seed').err], [4, 'ubq: --seed needs the number from a run, such as: ubq --seed 1234\n'])
+  assert.deepEqual(
+    [p.ubq('--seed').code, p.ubq('--seed').err],
+    [4, 'ubq: --seed needs the number from a run, such as: ubq --seed 1234\n'],
+  )
   assert.equal(p.ubq('pass.ts').code, 0)
   for (let i = 0; i < 12; i++) writeFileSync(join(p.dir, `n${String(i).padStart(2, '0')}.test.ts`), SKIP)
   assert.equal(
@@ -74,7 +86,8 @@ test('the commands that read a run, with a store that has no runs', () => {
   p.ubq('a.test.ts')
   const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'))
   db.exec('pragma foreign_keys = off')
-  for (const { name } of db.prepare("select name from sqlite_master where type = 'table'").all() as { name: string }[]) db.exec(`delete from ${name}`)
+  for (const { name } of db.prepare("select name from sqlite_master where type = 'table'").all() as { name: string }[])
+    db.exec(`delete from ${name}`)
   db.close()
   const errors = ['failures', 'slow', 'diff', 'diff 5'].map(c => p.ubq(...c.split(' '))).map(r => [r.code, r.err])
   assert.deepEqual(errors, [
@@ -108,7 +121,10 @@ test('a store of a different version starts again', () => {
   assert.match(p.ubq('a.test.ts').out, / \(run 1\)\n$/)
 })
 
-for (const [signal, exit] of [['SIGTERM', 143], ['SIGINT', 130]] as const)
+for (const [signal, exit] of [
+  ['SIGTERM', 143],
+  ['SIGINT', 130],
+] as const)
   test(`${signal} ends the run`, { skip: process.platform === 'win32' && 'no signals on Windows' }, async () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
@@ -144,7 +160,10 @@ test('--changed after a source file went away', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   writeFileSync(join(p.dir, 'src/gone.ts'), 'export const gone = 1\n')
-  writeFileSync(join(p.dir, 'a.test.ts'), "import { assert, test } from 'ubqtest'\nimport { gone } from './src/gone.ts'\ntest('p', () => assert(gone))\n")
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { gone } from './src/gone.ts'\ntest('p', () => assert(gone))\n",
+  )
   assert.equal(p.ubq('a.test.ts').code, 0)
   rmSync(join(p.dir, 'src/gone.ts'))
   const r = p.ubq('--changed')
@@ -164,7 +183,11 @@ test('after 20 failure blocks, a run names the count of the others', () => {
   // `ubq failures` shows all of them.
   assert.equal(p.ubq('failures').out.match(/^FAIL /gm)?.length, 23)
   // In CI, nothing is cut.
-  const ci = spawnSync('node', [cli, 'many.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '1' } })
+  const ci = spawnSync('node', [cli, 'many.test.ts'], {
+    cwd: p.dir,
+    encoding: 'utf8',
+    env: { ...process.env, CI: '1' },
+  })
   assert.equal(ci.stdout.match(/^FAIL /gm)?.length, 23)
 })
 
@@ -193,8 +216,14 @@ test('waits', { timeout: 60_000 }, async () => {
   const r = p.ubq('--max-time', '2000', ...Array.from({ length: count }, (_, i) => `s${i}.test.ts`))
   assert.equal(r.code, 1)
   assert(Date.now() - t0 < 20_000, 'the run ended soon after the limit')
-  assert.match(r.out, /^ERROR s\d+\.test\.ts\n  the run reached its time limit \(--max-time 2000 ms\), and stopped this file, in test: s\d+\.test\.ts > waits$/m)
-  assert.match(r.out, /^ERROR s\d+\.test\.ts\n  the run reached its time limit \(--max-time 2000 ms\) before this file started$/m)
+  assert.match(
+    r.out,
+    /^ERROR s\d+\.test\.ts\n  the run reached its time limit \(--max-time 2000 ms\), and stopped this file, in test: s\d+\.test\.ts > waits$/m,
+  )
+  assert.match(
+    r.out,
+    /^ERROR s\d+\.test\.ts\n  the run reached its time limit \(--max-time 2000 ms\) before this file started$/m,
+  )
   assert.match(r.last!, new RegExp(`^fail: ${count} errors, 0 failed, 0 passed`))
   // The processes that the tests started are gone.
   const pids = readFileSync(join(p.dir, 'pids.txt'), 'utf8').trim().split('\n').map(Number)

@@ -44,13 +44,17 @@ const withPreload = (env: Env): void => {
   // One copy of the module is enough. A second copy of ubq can be
   // above this process: the built package runs the tests of the
   // source.
-  // ubq: not measured: a test process has the preload in NODE_OPTIONS
-  if (!MODULE.test(env.NODE_OPTIONS ?? '')) env.NODE_OPTIONS = `${env.NODE_OPTIONS ? env.NODE_OPTIONS + ' ' : ''}--import ${PRELOAD.href}`
+  // ubq: not measured: a test process has NODE_OPTIONS
+  if (!MODULE.test(env.NODE_OPTIONS ?? ''))
+    // ubq: not measured: a test process has the preload in NODE_OPTIONS
+    env.NODE_OPTIONS = `${env.NODE_OPTIONS ? env.NODE_OPTIONS + ' ' : ''}--import ${PRELOAD.href}`
   // The options of Bun have no form for a path with a space, and
   // they read `\` as the start of an escape.
   const path = fileURLToPath(PRELOAD).split(sep).join('/')
-  // ubq: not measured: a test process has the preload in BUN_OPTIONS
-  if (!/\s/.test(path) && !MODULE.test(env.BUN_OPTIONS ?? '')) env.BUN_OPTIONS = `${env.BUN_OPTIONS ? env.BUN_OPTIONS + ' ' : ''}--preload ${path}`
+  // ubq: not measured: a test process has BUN_OPTIONS
+  if (!/\s/.test(path) && !MODULE.test(env.BUN_OPTIONS ?? ''))
+    // ubq: not measured: a test process has the preload in BUN_OPTIONS
+    env.BUN_OPTIONS = `${env.BUN_OPTIONS ? env.BUN_OPTIONS + ' ' : ''}--preload ${path}`
 }
 /** The preload module of some copy of ubq, in the options of a runtime. */
 const MODULE = /[\\/]child-preload\.[jt]s\b/
@@ -63,9 +67,11 @@ const MODULE = /[\\/]child-preload\.[jt]s\b/
  */
 // ubq: not measured: child-preload.ts runs it before counters start
 const forDeno = (program: string, args: string[]): string[] =>
-  /(^|[\\/])deno(\.exe)?$/i.test(program) && /^(run|test|serve)$/.test(args[0] ?? '') && !args.some(arg => arg.includes('child-preload.')) ?
-    [args[0]!, `--preload=${PRELOAD.href}`, ...args.slice(1)]
-  : args
+  /(^|[\\/])deno(\.exe)?$/i.test(program) &&
+  /^(run|test|serve)$/.test(args[0] ?? '') &&
+  !args.some(arg => arg.includes('child-preload.'))
+    ? [args[0]!, `--preload=${PRELOAD.href}`, ...args.slice(1)]
+    : args
 
 const PATCHED = Symbol.for('ubqtest.spawn')
 /** The key of the function that adds the counters of this module to the text of a file. */
@@ -86,12 +92,15 @@ export const patchSpawn = (): void => {
   // ubq: not measured: child-preload.ts runs it before counters start
   shared[PATCHED] = true
   // spawn, exec, execFile, and fork end in this method.
-  const proto = ChildProcess.prototype as unknown as { spawn(options: { envPairs?: string[]; file?: string; args?: string[] }): unknown }
+  const proto = ChildProcess.prototype as unknown as {
+    spawn(options: { envPairs?: string[]; file?: string; args?: string[] }): unknown
+  }
   const spawn = proto.spawn
   proto.spawn = function (options: { envPairs?: string[]; file?: string; args?: string[] }) {
     const list = process.env[ENV]
     // `args` has the name of the program first.
-    if (list && options?.file && Array.isArray(options.args)) options.args = [options.args[0]!, ...forDeno(options.file, options.args.slice(1))]
+    if (list && options?.file && Array.isArray(options.args))
+      options.args = [options.args[0]!, ...forDeno(options.file, options.args.slice(1))]
     if (list && Array.isArray(options?.envPairs)) {
       const env: Env = {}
       for (const name of [ENV, 'NODE_OPTIONS', 'BUN_OPTIONS']) {
@@ -145,7 +154,6 @@ const WRITE_MS = 200
 
 /** The write function of each project that this process counts for. */
 const writers: (() => void)[] = []
-
 
 /** Counts for the files of one project, and writes the counts to `dir`. */
 // ubq: not measured: child-preload.ts runs it before counters start
@@ -203,7 +211,10 @@ declare const Bun: {
   plugin(options: {
     name: string
     setup(build: {
-      onLoad(options: { filter: RegExp }, callback: (args: { path: string }) => { contents: string; loader: string }): void
+      onLoad(
+        options: { filter: RegExp },
+        callback: (args: { path: string }) => { contents: string; loader: string },
+      ): void
     }): void
   }): void
 }
@@ -272,17 +283,27 @@ export const startChild = (): void => {
         name: `ubqtest child coverage ${i}`,
         setup(build) {
           const escaped = scopes()[i]![0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          build.onLoad({ filter: new RegExp(`^${escaped}[\\\\/](?!.*node_modules).*\\.([cm]?[jt]s|[jt]sx)$`) }, ({ path }) => {
-            const source = readFileSync(path, 'utf8')
-            // Bun gives a file to one plugin. The plugin of a test
-            // process has a function that adds its counters.
-            const mine = (globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] as ((path: string) => string) | undefined
-            if (taken(path) && mine) return { contents: mine(path), loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js') }
-            return {
-              contents: (taken(path) ? undefined : counting.change(path, source)?.source) ?? source,
-              loader: /[jt]sx$/.exec(path)?.[0] ?? (/ts$/.test(path) ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
-            }
-          })
+          build.onLoad(
+            { filter: new RegExp(`^${escaped}[\\\\/](?!.*node_modules).*\\.([cm]?[jt]s|[jt]sx)$`) },
+            ({ path }) => {
+              const source = readFileSync(path, 'utf8')
+              // Bun gives a file to one plugin. The plugin of a test
+              // process has a function that adds its counters.
+              const mine = (globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] as
+                | ((path: string) => string)
+                | undefined
+              if (taken(path) && mine)
+                return {
+                  contents: mine(path),
+                  loader:
+                    /[jt]sx$/.exec(path)?.[0] ?? (path.endsWith('ts') ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
+                }
+              return {
+                contents: (taken(path) ? undefined : counting.change(path, source)?.source) ?? source,
+                loader: /[jt]sx$/.exec(path)?.[0] ?? (path.endsWith('ts') ? 'ts' : path.endsWith('.js') ? 'jsx' : 'js'),
+              }
+            },
+          )
         },
       })
     return
@@ -290,6 +311,8 @@ export const startChild = (): void => {
   // A Node that is too old for this function has no coverage.
   nodeModule.registerHooks?.({
     load: (url, context, next) =>
-      withCounters(url, next(url, context), path => (taken(path) ? undefined : list.find(counting => counting.wants(path)))),
+      withCounters(url, next(url, context), path =>
+        taken(path) ? undefined : list.find(counting => counting.wants(path)),
+      ),
   })
 }

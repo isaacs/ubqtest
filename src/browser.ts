@@ -31,7 +31,8 @@ const start = async (): Promise<Browser> => {
     playwright = await import('playwright-core')
     // ubq: not measured: ubq's own playwright-core loads in each test
   } catch (error) {
-    if (!/playwright-core/.test(String(error)) || !/not found|cannot find|cannot resolve/i.test(String(error))) throw error
+    if (!/playwright-core/.test(String(error)) || !/not found|cannot find|cannot resolve/i.test(String(error)))
+      throw error
     throw new Error(
       "'ubqtest/browser' needs the playwright-core package. Run: npm install --save-dev playwright-core, then: npx ubq browser install",
     )
@@ -82,8 +83,7 @@ const start = async (): Promise<Browser> => {
  */
 export const browser = async (options: BrowserContextOptions = {}): Promise<Page> => {
   const state = current.getStore()
-  if (!state || state.ended)
-    throw new Error('browser() must run in a test, before the test ends. Await the call.')
+  if (!state || state.ended) throw new Error('browser() must run in a test, before the test ends. Await the call.')
   // The cleanup functions of the file close the browser. A test that
   // starts after that gets a new one.
   if (!started || !(await started).isConnected()) started = start()
@@ -98,8 +98,8 @@ export const browser = async (options: BrowserContextOptions = {}): Promise<Page
     const root = projectRoot()
     await context.route(STATIC + '**', route => {
       const path = join(root, decodeURIComponent(new URL(route.request().url()).pathname))
-      return path.startsWith(root + sep) && existsSync(path) && statSync(path).isFile() ?
-          route.fulfill({ path })
+      return path.startsWith(root + sep) && existsSync(path) && statSync(path).isFile()
+        ? route.fulfill({ path })
         : route.fulfill({ status: 404, body: 'no such file in the project' })
     })
   }

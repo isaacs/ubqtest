@@ -12,7 +12,11 @@ const realSetTimeout = setTimeout
 // test reads the module again.
 const late = !!(process.versions.bun || process.versions.deno)
 const require = createRequire(import.meta.url)
-const timersNow = (): { timersSetTimeout: typeof timers.setTimeout; sleep: typeof timersPromises.setTimeout; scheduler: typeof timersPromises.scheduler } => {
+const timersNow = (): {
+  timersSetTimeout: typeof timers.setTimeout
+  sleep: typeof timersPromises.setTimeout
+  scheduler: typeof timersPromises.scheduler
+} => {
   const t: typeof timers = late ? require('node:timers') : timers
   const p: typeof timersPromises = late ? require('node:timers/promises') : timersPromises
   return { timersSetTimeout: t.setTimeout, sleep: p.setTimeout, scheduler: p.scheduler }
@@ -112,7 +116,10 @@ test('restore puts the real clock back, and the end of a test does it too', asyn
   const clock = fakeClock({ now: 5 })
   assert.throws(() => fakeClock(), /a fake clock is active/)
   clock.restore()
-  assert.deepEqual([Date, setTimeout, timersNow().timersSetTimeout === realSetTimeout || true], [realDate, realSetTimeout, true])
+  assert.deepEqual(
+    [Date, setTimeout, timersNow().timersSetTimeout === realSetTimeout || true],
+    [realDate, realSetTimeout, true],
+  )
   assert.equal(Date.now() > 1e12, true)
   await assert.rejects(clock.tick(1), /the fake clock was restored/)
   {
@@ -136,7 +143,10 @@ test('the time limit of a test is real', { timeout: 100 }, async () => {
 test('wrong arguments, and a clock that was restored', async () => {
   assert.throws(() => fakeClock({ now: Number.NaN }), /fakeClock: now must be a number or a Date/)
   const clock = fakeClock({ now: 0 })
-  assert.throws(() => setTimeout('not a function' as unknown as () => void, 1), /The "callback" argument must be of type function/)
+  assert.throws(
+    () => setTimeout('not a function' as unknown as () => void, 1),
+    /The "callback" argument must be of type function/,
+  )
   await assert.rejects(clock.tick(-1), /tick\(\) needs a number of milliseconds, 0 or more/)
   await assert.rejects(clock.tick('1' as unknown as number), /tick\(\) needs a number of milliseconds/)
   clock.restore()

@@ -65,7 +65,8 @@ const stop = (message: string): never => {
 
 // workerd names a module by its path with no first `/`. On Windows
 // the path has a drive: `C:/a/b.ts`.
-const toPath = (name: string): string => resolve(process.platform === 'win32' ? name.replace(/^\/+/, '') : '/' + name.replace(/^\/+/, ''))
+const toPath = (name: string): string =>
+  resolve(process.platform === 'win32' ? name.replace(/^\/+/, '') : '/' + name.replace(/^\/+/, ''))
 const toName = (path: string): string => path.split(sep).join('/').replace(/^\/+/, '')
 
 const isFile = (path: string): boolean => {
@@ -79,7 +80,12 @@ const isFile = (path: string): boolean => {
 // The names that a bundler accepts for a file: wrangler makes a
 // bundle of a Worker, so its source can import `./a` or `./a.js`
 // for the file `a.ts`.
-const SOURCE: Record<string, string[]> = { '.js': ['.ts', '.tsx'], '.mjs': ['.mts'], '.cjs': ['.cts'], '.jsx': ['.tsx'] }
+const SOURCE: Record<string, string[]> = {
+  '.js': ['.ts', '.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts'],
+  '.jsx': ['.tsx'],
+}
 const ENDS = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.jsx', '.cjs', '.json']
 const findFile = (path: string): string | undefined => {
   if (isFile(path)) return path
@@ -88,8 +94,7 @@ const findFile = (path: string): string | undefined => {
     const found = path.slice(0, -ext!.length) + source
     if (isFile(found)) return found
   }
-  for (const base of [path, join(path, 'index')])
-    for (const end of ENDS) if (isFile(base + end)) return base + end
+  for (const base of [path, join(path, 'index')]) for (const end of ENDS) if (isFile(base + end)) return base + end
   return undefined
 }
 
@@ -131,9 +136,9 @@ const findPackage = (specifier: string, from: string, require: boolean): string 
   if (pkg.exports !== undefined && pkg.exports !== null) {
     const exports = pkg.exports as Record<string, unknown>
     const map =
-      typeof exports === 'string' || Array.isArray(exports) || !Object.keys(exports).some(key => key.startsWith('.')) ?
-        { '.': exports }
-      : exports
+      typeof exports === 'string' || Array.isArray(exports) || !Object.keys(exports).some(key => key.startsWith('.'))
+        ? { '.': exports }
+        : exports
     const subpath = '.' + rest
     let target = subpath in map ? pick(map[subpath], conditions) : undefined
     if (!target) {
@@ -167,7 +172,7 @@ const findPackage = (specifier: string, from: string, require: boolean): string 
  */
 const commonJs = (path: string): boolean => {
   if (/\.c[jt]s$/.test(path)) return true
-  if (!/\.js$/.test(path) || !path.includes(`${sep}node_modules${sep}`)) return false
+  if (!path.endsWith('.js') || !path.includes(`${sep}node_modules${sep}`)) return false
   if (/^\s*(import|export)\b\s*["'{*\w]/m.test(readFileSync(path, 'utf8'))) return false
   for (let at = dirname(path); at !== dirname(at); at = dirname(at)) {
     try {
@@ -201,7 +206,9 @@ const namesOf = (path: string): Set<string> => {
     for (const name of exports) names.add(name)
     // module.exports = require('./other')
     for (const specifier of reexports) {
-      const other = /^\.\.?\//.test(specifier) ? findFile(resolve(dirname(path), specifier)) : findPackage(specifier, dirname(path), true)
+      const other = /^\.\.?\//.test(specifier)
+        ? findFile(resolve(dirname(path), specifier))
+        : findPackage(specifier, dirname(path), true)
       if (other && commonJs(other)) for (const name of namesOf(other)) names.add(name)
     }
     // ubq: not measured: workerd cannot load what the lexer cannot read
@@ -213,7 +220,9 @@ const namesOf = (path: string): Set<string> => {
 
 /** The ES module for `import` of a CommonJS file. */
 const facade = (path: string): string => {
-  const names = [...namesOf(path)].filter(name => name !== 'default' && /^[A-Za-z_$][\w$]*$/.test(name) && !RESERVED.has(name))
+  const names = [...namesOf(path)].filter(
+    name => name !== 'default' && /^[A-Za-z_$][\w$]*$/.test(name) && !RESERVED.has(name),
+  )
   return (
     `import cjs from ${JSON.stringify('/' + toName(path) + CJS)}\nexport default cjs\n` +
     (names.length ? `export const { ${names.join(', ')} } = cjs\n` : '')
@@ -266,10 +275,13 @@ const inFunction = (code: string, imports: number): string => {
 const moduleOf = (path: string): Record<string, unknown> => {
   const name = toName(path)
   const source = readFileSync(path, 'utf8')
-  if (/\.json$/.test(path)) return { name, json: source }
+  if (path.endsWith('.json')) return { name, json: source }
   if (/\.(txt|html|sql)$/.test(path)) return { name, text: source }
   if (/\.[jt]sx$/.test(path))
-    return { name, esModule: `throw new Error(${JSON.stringify(`ubq cannot run a JSX file in the Workers runtime: ${path}`)})` }
+    return {
+      name,
+      esModule: `throw new Error(${JSON.stringify(`ubq cannot run a JSX file in the Workers runtime: ${path}`)})`,
+    }
   const ts = /\.[cm]?ts$/.test(path)
   let code = source
   if (path.startsWith(OWN)) {
@@ -277,7 +289,9 @@ const moduleOf = (path: string): Record<string, unknown> => {
     // and have counters.
     // If a test of ubq started this process, the counters are those
     // of that test (`child-coverage.ts`).
-    const forTest = shared[Symbol.for('ubqtest.child.source')] as ((path: string, source: string) => { source: string; js: boolean } | undefined) | undefined
+    const forTest = shared[Symbol.for('ubqtest.child.source')] as
+      | ((path: string, source: string) => { source: string; js: boolean } | undefined)
+      | undefined
     // ubq: not measured: the test that started this process counts ubq
     const changed = counters.wants(path) ? counters.change(path, source) : forTest?.(path, source)
     // ubq: not measured: the test that started this process counts ubq
@@ -311,7 +325,9 @@ try {
 } catch (error) {
   // ubq: not measured: only a damaged wrangler package gives this
   if ((error as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') throw error
-  stop('this test file runs in the Workers runtime, and the project does not have wrangler. Run: npm install --save-dev wrangler')
+  stop(
+    'this test file runs in the Workers runtime, and the project does not have wrangler. Run: npm install --save-dev wrangler',
+  )
 }
 
 // wrangler prints which files it read. That text is not output of
@@ -322,7 +338,9 @@ let fromWrangler!: ReturnType<Wrangler['unstable_getMiniflareWorkerOptions']>
 let wranglerConfig!: ReturnType<Wrangler['unstable_readConfig']>
 try {
   // A container needs an image that is built. A test run has none.
-  fromWrangler = wrangler.unstable_getMiniflareWorkerOptions(configPath, undefined, { overrides: { enableContainers: false } })
+  fromWrangler = wrangler.unstable_getMiniflareWorkerOptions(configPath, undefined, {
+    overrides: { enableContainers: false },
+  })
   wranglerConfig = wrangler.unstable_readConfig({ config: configPath })
 } catch (error) {
   // An error of wrangler in the config has more than one line.
@@ -351,7 +369,9 @@ const services = Object.fromEntries(
     return [
       binding,
       () =>
-        new miniflare.Response(`ubq: the service "${service}" of the binding ${binding} is not part of this test run`, { status: 503 }),
+        new miniflare.Response(`ubq: the service "${service}" of the binding ${binding} is not part of this test run`, {
+          status: 503,
+        }),
     ]
   }),
 )
@@ -392,8 +412,8 @@ const migrations: Job['migrations'] = {}
 // ubq: not measured: wrangler always gives d1_databases
 for (const db of wranglerConfig.d1_databases ?? []) {
   const dir = resolve(dirname(configPath), db.migrations_dir ?? 'migrations')
-  migrations[db.binding] =
-    !existsSync(dir) ? []
+  migrations[db.binding] = !existsSync(dir)
+    ? []
     : readdirSync(dir)
         .filter(name => name.endsWith('.sql'))
         .sort()
@@ -416,24 +436,32 @@ const options = {
       const file = path.endsWith(CJS) ? path.slice(0, -CJS.length) : undefined
       if (file && isFile(file)) {
         const source = readFileSync(file, 'utf8')
-        return new miniflare.Response(JSON.stringify({ name: toName(path), commonJsModule: /\.cts$/.test(file) ? strip(source) : source }), {
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return new miniflare.Response(
+          JSON.stringify({ name: toName(path), commonJsModule: file.endsWith('.cts') ? strip(source) : source }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
       const alias = wranglerConfig.alias?.[raw]
       if (alias)
-        found =
-          /^\.\.?\//.test(alias) ? findFile(resolve(dirname(configPath), alias)) : findPackage(alias, dirname(configPath), require)
+        found = /^\.\.?\//.test(alias)
+          ? findFile(resolve(dirname(configPath), alias))
+          : findPackage(alias, dirname(configPath), require)
       else if (raw === 'ubqtest') found = join(OWN, `index${EXT}`)
       else if (raw === 'ubqtest/workers') found = join(OWN, `workers${EXT}`)
       else if (/^(\.|\/|[A-Za-z]:[\\/])/.test(raw)) found = findFile(path)
-      // ubq: not measured: workerd always sends the referrer
-      else if (!/^[a-z-]+:/.test(raw)) found = findPackage(raw, dirname(toPath(url.searchParams.get('referrer') ?? '')), require)
+      else if (!/^[a-z-]+:/.test(raw))
+        // ubq: not measured: workerd always sends the referrer
+        found = findPackage(raw, dirname(toPath(url.searchParams.get('referrer') ?? '')), require)
       if (!found) return new miniflare.Response(null, { status: 404 })
       // `require` gets the file itself, not the ES module for `import`.
       if (require && commonJs(found)) found += CJS
-      if (found !== path) return new miniflare.Response(null, { status: 301, headers: { Location: '/' + toName(found) } })
-      return new miniflare.Response(JSON.stringify(moduleOf(found)), { headers: { 'Content-Type': 'application/json' } })
+      if (found !== path)
+        return new miniflare.Response(null, { status: 301, headers: { Location: '/' + toName(found) } })
+      return new miniflare.Response(JSON.stringify(moduleOf(found)), {
+        headers: { 'Content-Type': 'application/json' },
+      })
     } catch (error) {
       process.stderr.write(`${(error as Error).stack}\n`)
       return new miniflare.Response(null, { status: 404 })
@@ -504,14 +532,14 @@ const handle = async (event: UbqEvent | { type: 'load-error'; text: string }): P
     // A path in the text has the form of a module name of workerd.
     const text = event.text.replaceAll(toName(root) + '/', '')
     process.stderr.write(
-      (/Disallowed operation called within global scope/.test(text) ?
-        // The first line of workerd names a "global scope" and a
-        // "handler", which a test file does not have.
-        text.replace(
-          /^.*$/m,
-          'Error: a module did I/O while it loaded (a query, a fetch, a timer, or a random value). workerd permits that only in the test file itself, not in a module that it imports. Put the work in a function that the module exports, and await that function at the top level of the test file.',
-        )
-      : text) + '\n',
+      (/Disallowed operation called within global scope/.test(text)
+        ? // The first line of workerd names a "global scope" and a
+          // "handler", which a test file does not have.
+          text.replace(
+            /^.*$/m,
+            'Error: a module did I/O while it loaded (a query, a fetch, a timer, or a random value). workerd permits that only in the test file itself, not in a module that it imports. Put the work in a function that the module exports, and await that function at the top level of the test file.',
+          )
+        : text) + '\n',
     )
     code = 1
     return
@@ -556,13 +584,16 @@ try {
   // ubq: not measured: start errors of workerd in tests have a message
   const [, message, at] = /Uncaught ([^\n\\"]+)(?:\\n\s+at ([^\s\\"]+))?/.exec(text) ?? []
   // With no such error, the reasons are the messages of workerd.
-  const reasons = [...new Set([...text.matchAll(/"message":("(?:[^"\\]|\\.)*")/g)].map(m => JSON.parse(m[1]!) as string))]
+  const reasons = [
+    ...new Set([...text.matchAll(/"message":("(?:[^"\\]|\\.)*")/g)].map(m => JSON.parse(m[1]!) as string)),
+  ]
   process.stderr.write(
-    // ubq: not measured: each message has an error type and no stack
-    message ? `${/Error\b/.test(message) ? message : `Error: ${message}`}\n${at ? `    at ${at.replace(toName(root) + '/', '')}\n` : ''}`
-    // ubq: not measured: start errors of workerd in tests have a message
-    : reasons.length ? `Error: workerd did not start. ${reasons.join(' ')}\n`
-    : `${text}\n`,
+    message
+      ? `${/Error\b/.test(message) ? message : `Error: ${message}`}\n${at ? `    at ${at.replace(toName(root) + '/', '')}\n` : ''}` // ubq: not measured: each message has an error type and no stack
+      : // ubq: not measured: start errors of workerd in tests have a message
+        reasons.length
+        ? `Error: workerd did not start. ${reasons.join(' ')}\n`
+        : `${text}\n`,
   )
   code = 1
 }

@@ -63,8 +63,7 @@ const abortError = (signal: AbortSignal): Error =>
  * ```
  */
 export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
-  if (active)
-    throw new Error('a fake clock is active. Call restore() on it before the next fakeClock() call.')
+  if (active) throw new Error('a fake clock is active. Call restore() on it before the next fakeClock() call.')
   const RealDate = Date
   const start = options.now === undefined ? RealDate.now() : +options.now
   if (!Number.isFinite(start)) throw new TypeError('fakeClock: now must be a number or a Date')
@@ -77,7 +76,8 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
 
   // As in Node: a time below 1 ms, above the largest time, or not a
   // finite number, is 1 ms.
-  const time = (ms: unknown): number => (Number.isFinite(ms) && (ms as number) >= 1 && (ms as number) <= 2 ** 31 - 1 ? (ms as number) : 1)
+  const time = (ms: unknown): number =>
+    Number.isFinite(ms) && (ms as number) >= 1 && (ms as number) <= 2 ** 31 - 1 ? (ms as number) : 1
   const add = (fn: unknown, delay: number, args: unknown[], every?: number): Any => {
     if (typeof fn !== 'function') throw new TypeError('The "callback" argument must be of type function')
     const timer: Timer = { id: ++ids, at: now + delay, fn: fn as Timer['fn'], args }
@@ -130,8 +130,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
       )
     })
   const promiseFakes = {
-    setTimeout: (ms?: number, value?: unknown, options?: { signal?: AbortSignal }) =>
-      wait(time(ms), value, options),
+    setTimeout: (ms?: number, value?: unknown, options?: { signal?: AbortSignal }) => wait(time(ms), value, options),
     setImmediate: (value?: unknown, options?: { signal?: AbortSignal }) => wait(0, value, options),
     async *setInterval(ms?: number, value?: unknown, options?: { signal?: AbortSignal }) {
       for (;;) yield await wait(time(ms), value, options)
@@ -165,7 +164,12 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   const replace = (object: Any, key: string, value: unknown): void => {
     const old = Object.getOwnPropertyDescriptor(object, key)
     try {
-      Object.defineProperty(object, key, { value, configurable: true, writable: true, enumerable: old?.enumerable ?? true })
+      Object.defineProperty(object, key, {
+        value,
+        configurable: true,
+        writable: true,
+        enumerable: old?.enumerable ?? true,
+      })
       // ubq: not measured: the runtimes of the tests permit each change
     } catch {
       // The runtime does not permit a change of this one.
@@ -183,7 +187,11 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   replace(process, 'hrtime', hrtime)
   replace(AbortSignal, 'timeout', (ms: number) => {
     const controller = new AbortController()
-    add(() => controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError')), time(ms), [])
+    add(
+      () => controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError')),
+      time(ms),
+      [],
+    )
     return controller.signal
   })
   // `import { setTimeout } from 'node:timers'` has its own names.
@@ -193,7 +201,9 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   const promises = require('node:timers/promises')
   for (const [key, fn] of Object.entries(promiseFakes)) replace(promises, key, fn)
   if (promises.scheduler) {
-    replace(promises.scheduler, 'wait', (ms: number, options?: { signal?: AbortSignal }) => wait(time(ms), undefined, options))
+    replace(promises.scheduler, 'wait', (ms: number, options?: { signal?: AbortSignal }) =>
+      wait(time(ms), undefined, options),
+    )
     replace(promises.scheduler, 'yield', () => wait(0, undefined))
   }
   replace(timersModule, 'promises', promises)
@@ -205,8 +215,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   /** The timer that is due first at or before `limit`. */
   const next = (limit: number): Timer | undefined => {
     let first: Timer | undefined
-    for (const timer of timers.values())
-      if (timer.at <= limit && (!first || timer.at < first.at)) first = timer
+    for (const timer of timers.values()) if (timer.at <= limit && (!first || timer.at < first.at)) first = timer
     return first
   }
   const run = async (timer: Timer): Promise<void> => {

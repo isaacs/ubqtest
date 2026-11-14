@@ -53,8 +53,7 @@ export const remove = (dir: string): void => {
 }
 
 /** Removes the run store of a fixture project. */
-export const resetStore = (project: string): void =>
-  rmSync(`${project}.ubq`, { recursive: true, force: true })
+export const resetStore = (project: string): void => rmSync(`${project}.ubq`, { recursive: true, force: true })
 
 export const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 
@@ -64,16 +63,40 @@ export const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
  */
 export const project = () => {
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-project-')))
-  const configure = (ubq?: unknown) =>
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module', ubq }))
+  const configure = (ubq?: unknown) => writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module', ubq }))
   configure()
-  for (const f of ['empty.ts', 'fail.ts', 'fix.ts', 'flip.ts', 'load-error.ts', 'leak.ts', 'mock.ts', 'pass.ts', 'snap.ts', 'sometimes.ts', 'src']) cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
+  for (const f of [
+    'empty.ts',
+    'fail.ts',
+    'fix.ts',
+    'flip.ts',
+    'load-error.ts',
+    'leak.ts',
+    'mock.ts',
+    'pass.ts',
+    'snap.ts',
+    'sometimes.ts',
+    'src',
+  ])
+    cpSync(`${fixtures}${f}`, join(dir, f), { recursive: true })
   mkdirSync(join(dir, 'node_modules'))
   symlinkSync(fileURLToPath(new URL('..', import.meta.url)), join(dir, 'node_modules/ubqtest'), 'junction')
   const flip = join(dir, 'flip.txt')
   const ubq = (...args: string[]) => {
-    const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', FLIP_FILE: flip } })
-    return { code: r.status, last: r.stdout.replace(/ \(run \d+\)\n$/, '').split('\n').at(-1), err: r.stderr, out: r.stdout }
+    const r = spawnSync('node', [cli, ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '', FLIP_FILE: flip },
+    })
+    return {
+      code: r.status,
+      last: r.stdout
+        .replace(/ \(run \d+\)\n$/, '')
+        .split('\n')
+        .at(-1),
+      err: r.stderr,
+      out: r.stdout,
+    }
   }
   return { dir, ubq, configure, set: (v: string) => writeFileSync(flip, v) }
 }
@@ -126,10 +149,12 @@ test('a view of two items', () => {
   writeFileSync(join(dir, 'src/plain.js'), 'export const Plain = on => (on ? <b>on</b> : <i>off</i>)\n')
   const react = join(dir, 'node_modules/react')
   mkdirSync(react)
-  writeFileSync(join(react, 'package.json'), '{"type":"module","exports":{"./jsx-dev-runtime":"./jsx.js","./jsx-runtime":"./jsx.js"}}')
+  writeFileSync(
+    join(react, 'package.json'),
+    '{"type":"module","exports":{"./jsx-dev-runtime":"./jsx.js","./jsx-runtime":"./jsx.js"}}',
+  )
   writeFileSync(
     join(react, 'jsx.js'),
     'export const jsxDEV = (type, props) => ({ type, props })\nexport const jsx = jsxDEV\nexport const jsxs = jsxDEV\nexport const Fragment = "f"\n',
   )
 }
-

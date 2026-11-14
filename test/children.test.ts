@@ -77,27 +77,35 @@ test('a server that the test stops', async () => {
     "lib/server.ts:5:25  return res.end(greet('x'))",
     '3 uncovered ranges in 2 of the 3 files that tests ran',
   ])
-  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:4').out), ['test/cli.test.ts > a child with a new environment', '1 tests run lib/cli.ts:4'])
+  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:4').out), [
+    'test/cli.test.ts > a child with a new environment',
+    '1 tests run lib/cli.ts:4',
+  ])
   assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), [
     'test/cli.test.ts > a child with a new environment',
     'test/cli.test.ts > the command greets',
     '2 tests run lib/cli.ts:7',
   ])
-  assert.deepEqual(lines(p.ubq('covers', 'lib/server.ts:6').out), ['test/cli.test.ts > a server that the test stops', '1 tests run lib/server.ts:6'])
+  assert.deepEqual(lines(p.ubq('covers', 'lib/server.ts:6').out), [
+    'test/cli.test.ts > a server that the test stops',
+    '1 tests run lib/server.ts:6',
+  ])
   // A change to code that only a child runs selects the test of that child.
-  writeFileSync(join(p.dir, 'lib/cli.ts'), `import { greet } from './greet.ts'
+  writeFileSync(
+    join(p.dir, 'lib/cli.ts'),
+    `import { greet } from './greet.ts'
 const [name] = process.argv.slice(2)
 if (!name) {
   console.error('usage: cli <name>')
   process.exit(2)
 }
 console.log(greet(name) + '!')
-`)
-  assert.deepEqual(lines(p.ubq('--changed').out.replace(/ \(run \d+\)\n$/, '')).filter(line => /^(changed|FAIL|fail)/.test(line)), [
-    'changed: lib/cli.ts',
-    'FAIL test/cli.test.ts > the command greets',
-    'fail: 1 failed, 1 passed, 1 not selected',
-  ])
+`,
+  )
+  assert.deepEqual(
+    lines(p.ubq('--changed').out.replace(/ \(run \d+\)\n$/, '')).filter(line => /^(changed|FAIL|fail)/.test(line)),
+    ['changed: lib/cli.ts', 'FAIL test/cli.test.ts > the command greets', 'fail: 1 failed, 1 passed, 1 not selected'],
+  )
 })
 
 test('a child process on Bun has coverage too', { skip: !bun && 'bun is not installed', timeout: 60_000 }, () => {
@@ -113,5 +121,8 @@ test('the command on bun', () => {
 `,
   )
   assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
-  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), ['test/bun.test.ts > the command on bun', '1 tests run lib/cli.ts:7'])
+  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), [
+    'test/bun.test.ts > the command on bun',
+    '1 tests run lib/cli.ts:7',
+  ])
 })

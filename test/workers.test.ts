@@ -1,6 +1,16 @@
 // Tests of a Cloudflare Worker, in workerd (D48).
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,7 +29,11 @@ const project = () => {
     join(dir, 'package.json'),
     JSON.stringify({
       type: 'module',
-      ubq: { workers: [{ config: 'wrangler.jsonc', include: ['test/**/*.test.ts'], vars: { MODE: 'test', EXTRA: { a: 1 } } }] },
+      ubq: {
+        workers: [
+          { config: 'wrangler.jsonc', include: ['test/**/*.test.ts'], vars: { MODE: 'test', EXTRA: { a: 1 } } },
+        ],
+      },
     }),
   )
   mkdirSync(join(dir, 'node_modules'))
@@ -111,7 +125,10 @@ test('a test that blocks the thread of workerd, and a source file with an error'
     '  the test did not end in 200 ms, and the process does not respond. The code is in a loop that does not return.',
   ])
   // A module that the test file imports cannot do I/O when it loads.
-  writeFileSync(join(p.dir, 'test/setup.ts'), "import { migrate } from 'ubqtest/workers'\nawait migrate('DB')\nexport const ready = true\n")
+  writeFileSync(
+    join(p.dir, 'test/setup.ts'),
+    "import { migrate } from 'ubqtest/workers'\nawait migrate('DB')\nexport const ready = true\n",
+  )
   writeFileSync(
     join(p.dir, 'test/setup.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { ready } from './setup.ts'\ntest('ready', () => assert(ready))\n",
@@ -123,13 +140,25 @@ test('a test that blocks the thread of workerd, and a source file with an error'
     "  > await migrate('DB')",
   ])
   // The test file throws after its first test.
-  writeFileSync(join(p.dir, 'test/throws.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow new Error('at load')\n")
+  writeFileSync(
+    join(p.dir, 'test/throws.test.ts'),
+    "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow new Error('at load')\n",
+  )
   const throws = p.ubq('test/throws.test.ts')
-  assert.deepEqual([throws.code, throws.out[0], throws.out.includes('  Error: at load')], [1, 'ERROR test/throws.test.ts', true])
+  assert.deepEqual(
+    [throws.code, throws.out[0], throws.out.includes('  Error: at load')],
+    [1, 'ERROR test/throws.test.ts', true],
+  )
   // A value that is not an error, with no stack.
-  writeFileSync(join(p.dir, 'test/throws.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow 'a string'\n")
+  writeFileSync(
+    join(p.dir, 'test/throws.test.ts'),
+    "import { test } from 'ubqtest'\ntest('t', () => {})\nthrow 'a string'\n",
+  )
   const text = p.ubq('test/throws.test.ts')
-  assert.deepEqual([text.code, text.out[0], text.out.some(line => line.includes('a string'))], [1, 'ERROR test/throws.test.ts', true])
+  assert.deepEqual(
+    [text.code, text.out[0], text.out.some(line => line.includes('a string'))],
+    [1, 'ERROR test/throws.test.ts', true],
+  )
   writeFileSync(join(p.dir, 'src/text.ts'), 'export const shout = (\n')
   assert.deepEqual(p.ubq('test/worker.test.ts').out.slice(0, 2), [
     'ERROR test/worker.test.ts',
@@ -170,7 +199,8 @@ exports.version = '1';
   })
   dep('esm-dep', {
     'package.json': '{ "name": "esm-dep", "type": "module", "exports": "./index.mjs" }',
-    'index.mjs': "import { Webhook } from 'cjs-dep'\nimport whole from 'cjs-dep'\nexport const sign = text => new Webhook().sign(text) + whole.version\n",
+    'index.mjs':
+      "import { Webhook } from 'cjs-dep'\nimport whole from 'cjs-dep'\nexport const sign = text => new Webhook().sign(text) + whole.version\n",
   })
   writeFileSync(
     join(p.dir, 'test/env.test.ts'),
@@ -229,7 +259,10 @@ test('modules in workerd: each form of a package, and files that are not code', 
     'deep/two.mjs': "export const deep = 'two'\n",
   })
   // `exports` as one path, to a TypeScript file.
-  dep('typed', { 'package.json': '{ "type": "module", "exports": "./index.ts" }', 'index.ts': "export const typed = (n: number): number => n + 1\n" })
+  dep('typed', {
+    'package.json': '{ "type": "module", "exports": "./index.ts" }',
+    'index.ts': 'export const typed = (n: number): number => n + 1\n',
+  })
   // No `exports`: `module` for an import, `main` for a require, and a path in the package.
   dep('fields', {
     'package.json': '{ "module": "./esm.js", "main": "./cjs.js" }',
@@ -241,14 +274,19 @@ test('modules in workerd: each form of a package, and files that are not code', 
   dep('plain', {
     'package.json': '{}',
     'index.js': "module.exports = require('./impl.js')\n",
-    'impl.js': "exports.plain = require('fields').field\nexports['not-a-name'] = 1\nexports.class = 2\nexports.default = 3\n",
+    'impl.js':
+      "exports.plain = require('fields').field\nexports['not-a-name'] = 1\nexports.class = 2\nexports.default = 3\n",
   })
   // The exports of a file of a second package, and a module with no names.
-  dep('again', { 'package.json': '{}', 'index.js': "module.exports = require('plain/impl.js')\n", 'five.js': 'module.exports = 5\n' })
+  dep('again', {
+    'package.json': '{}',
+    'index.js': "module.exports = require('plain/impl.js')\n",
+    'five.js': 'module.exports = 5\n',
+  })
   writeFileSync(join(p.dir, 'test/data.json'), '{ "n": 1 }')
   writeFileSync(join(p.dir, 'test/query.sql'), 'select 1')
   writeFileSync(join(p.dir, 'test/old.cjs'), "exports.old = 'cjs'\n")
-  writeFileSync(join(p.dir, 'test/typed.cts'), "exports.typed = (n: number): number => n * 2\n")
+  writeFileSync(join(p.dir, 'test/typed.cts'), 'exports.typed = (n: number): number => n * 2\n')
   writeFileSync(join(p.dir, 'test/view.jsx'), 'export const View = () => <b>x</b>\n')
   writeFileSync(
     join(p.dir, 'test/modules.test.ts'),
@@ -293,7 +331,10 @@ test('a wrangler config with few keys, and errors of the setup', slow, () => {
   const p = project()
   const config = (value: unknown): void => writeFileSync(join(p.dir, 'small.jsonc'), JSON.stringify(value))
   const configure = (): void =>
-    writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', ubq: { workers: [{ config: 'small.jsonc', include: ['small/*.test.ts'] }] } }))
+    writeFileSync(
+      join(p.dir, 'package.json'),
+      JSON.stringify({ type: 'module', ubq: { workers: [{ config: 'small.jsonc', include: ['small/*.test.ts'] }] } }),
+    )
   configure()
   mkdirSync(join(p.dir, 'small'))
   mkdirSync(join(p.dir, 'node_modules/pkg'))
@@ -323,7 +364,12 @@ test('a config with no name, no main, and no vars', async () => {
     alias: { 'other-name': 'pkg' },
     d1_databases: [
       { binding: 'DB', database_name: 'd', database_id: '00000000-0000-0000-0000-000000000000' },
-      { binding: 'DB2', database_name: 'd2', database_id: '00000000-0000-0000-0000-000000000001', migrations_dir: 'none' },
+      {
+        binding: 'DB2',
+        database_name: 'd2',
+        database_id: '00000000-0000-0000-0000-000000000001',
+        migrations_dir: 'none',
+      },
     ],
     services: [{ binding: 'SELF', service: 'ubq' }],
   })
@@ -332,11 +378,17 @@ test('a config with no name, no main, and no vars', async () => {
   // The main module of the Worker throws a value that is not an error.
   writeFileSync(join(p.dir, 'small/main.ts'), "throw 'not an error'\n")
   config({ compatibility_date: '2026-07-01', main: 'small/main.ts', alias: { 'other-name': 'pkg' } })
-  assert.deepEqual(p.ubq('small/small.test.ts').out.slice(0, 2), ['ERROR small/small.test.ts', '  the test file did not load: not an error'])
+  assert.deepEqual(p.ubq('small/small.test.ts').out.slice(0, 2), [
+    'ERROR small/small.test.ts',
+    '  the test file did not load: not an error',
+  ])
 
   // A config that wrangler refuses.
   config({ compatibility_date: 1 })
-  assert.match(p.ubq('small/small.test.ts').out[1]!, /^  the test file did not load: wrangler cannot read small\.jsonc\. /)
+  assert.match(
+    p.ubq('small/small.test.ts').out[1]!,
+    /^  the test file did not load: wrangler cannot read small\.jsonc\. /,
+  )
 
   // A project with no wrangler.
   // The link is a junction on Windows, which is a folder: `rmSync` of Node 24.11 does not remove it.

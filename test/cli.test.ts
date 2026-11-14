@@ -60,7 +60,10 @@ test('later', { skip: 'not now' }, () => assert(true))
     '  at many.test.ts:5',
     '  skip reason: not now',
   ])
-  assert.match(p.ubq('history', 'many.test.ts > later').out, /\n0 failed, 0 passed, 2 skipped in 2 runs \(times are UTC\)\n$/)
+  assert.match(
+    p.ubq('history', 'many.test.ts > later').out,
+    /\n0 failed, 0 passed, 2 skipped in 2 runs \(times are UTC\)\n$/,
+  )
   assert.deepEqual(p.ubq('failures', '1').out, 'pass: 0 failed, 12 passed, 1 skipped (run 1)\n')
   // A run of one test: the others are not selected.
   p.ubq('many.test.ts > later')
@@ -87,8 +90,14 @@ test('later', { skip: 'not now' }, () => assert(true))
   p.ubq('bad.test.ts')
   const bad = error('show', 'bad.test.ts > t')
   assert.equal(bad[0], 4)
-  assert.match(bad[1], /^ubq: no stored result for test: bad\.test\.ts > t\n  bad\.test\.ts had an error in run 6: the test file did not load: .+\n  at bad\.test\.ts:3:\d+$/)
-  assert.match(error('skill', 'nope')[1], /^ubq: unknown agent "nope"\. The agents are: claude, .* A folder also works: ubq skill \.myagent\/skills$/)
+  assert.match(
+    bad[1],
+    /^ubq: no stored result for test: bad\.test\.ts > t\n  bad\.test\.ts had an error in run 6: the test file did not load: .+\n  at bad\.test\.ts:3:\d+$/,
+  )
+  assert.match(
+    error('skill', 'nope')[1],
+    /^ubq: unknown agent "nope"\. The agents are: claude, .* A folder also works: ubq skill \.myagent\/skills$/,
+  )
 })
 
 test('a file that ends the process, cut output, and a run of only skipped tests', { timeout: 60_000 }, () => {
@@ -97,10 +106,10 @@ test('a file that ends the process, cut output, and a run of only skipped tests'
   // No import of ubqtest: the runner must report the exit.
   writeFileSync(join(p.dir, 'exits.test.ts'), 'process.exit(3)\n')
   const exits = p.ubq('exits.test.ts')
-  assert.deepEqual([exits.code, exits.out.split('\n').slice(0, 2)], [
-    1,
-    ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 3)'],
-  ])
+  assert.deepEqual(
+    [exits.code, exits.out.split('\n').slice(0, 2)],
+    [1, ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 3)']],
+  )
   // An error with no place.
   assert.equal(
     p.ubq('show', 'exits.test.ts > t').err,
@@ -109,10 +118,10 @@ test('a file that ends the process, cut output, and a run of only skipped tests'
   // No import of ubqtest, and no exit: the runner reports it too.
   writeFileSync(join(p.dir, 'exits.test.ts'), 'void 0\n')
   const plain = p.ubq('exits.test.ts')
-  assert.deepEqual([plain.code, plain.out.split('\n').slice(0, 2)], [
-    1,
-    ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 0)'],
-  ])
+  assert.deepEqual(
+    [plain.code, plain.out.split('\n').slice(0, 2)],
+    [1, ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 0)']],
+  )
   writeFileSync(
     join(p.dir, 'noisy.test.ts'),
     `import { assert, test } from 'ubqtest'
@@ -125,22 +134,29 @@ test('much output', () => {
   const noisy = p.ubq('noisy.test.ts')
   assert.match(noisy.out, /\n  output \(last 20 of 30 lines\):\n  \| line 11\n/)
   // In CI, the output is not cut.
-  const ci = spawnSync('node', [cli, 'noisy.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '1' } })
+  const ci = spawnSync('node', [cli, 'noisy.test.ts'], {
+    cwd: p.dir,
+    encoding: 'utf8',
+    env: { ...process.env, CI: '1' },
+  })
   assert.match(ci.stdout, /\n  output:\n  \| line 1\n/)
   assert.equal(ci.stdout.match(/^  \| line /gm)?.length, 30)
   writeFileSync(join(p.dir, 'skipped.test.ts'), "import { test } from 'ubqtest'\ntest('s', { skip: 'x' }, () => {})\n")
   const skipped = p.ubq('skipped.test.ts')
   assert.deepEqual([skipped.code, skipped.last], [2, 'fail: 0 failed, 0 passed, 1 skipped'])
   // A line with no code.
-  assert.deepEqual([p.ubq('covers', 'skipped.test.ts:99').code, p.ubq('covers', 'skipped.test.ts:99').err], [
-    4,
-    'ubq: skipped.test.ts:99 has no code\n',
-  ])
+  assert.deepEqual(
+    [p.ubq('covers', 'skipped.test.ts:99').code, p.ubq('covers', 'skipped.test.ts:99').err],
+    [4, 'ubq: skipped.test.ts:99 has no code\n'],
+  )
   // A line of space, and a last line with no line end.
   writeFileSync(join(p.dir, 'spaced.test.ts'), "import { test } from 'ubqtest'\n  \ntest('s', () => {})")
   p.ubq('spaced.test.ts')
   assert.equal(p.ubq('covers', 'spaced.test.ts:2').err, 'ubq: spaced.test.ts:2 has no code\n')
-  assert.equal(p.ubq('covers', 'spaced.test.ts:3').out, 'spaced.test.ts > s\nspaced.test.ts (while the file loads)\n1 tests run spaced.test.ts:3\n')
+  assert.equal(
+    p.ubq('covers', 'spaced.test.ts:3').out,
+    'spaced.test.ts > s\nspaced.test.ts (while the file loads)\n1 tests run spaced.test.ts:3\n',
+  )
 })
 
 test('a reader that closes the pipe early', async () => {

@@ -23,7 +23,9 @@ export const userFrames = (stack: string | undefined, limit = 6): Location[] => 
     | undefined
   // workerd names a module by its path with no first `/`:
   // `at fn (a/b.ts:1:2)`
-  const lines = workerd() ? stack.replace(/^(\s+at (?:.* \()?)(?![\w.-]+:\/|\/)(?=[^\s()]+:\d+:\d+\)?$)/gm, '$1/') : stack
+  const lines = workerd()
+    ? stack.replace(/^(\s+at (?:.* \()?)(?![\w.-]+:\/|\/)(?=[^\s()]+:\d+:\d+\)?$)/gm, '$1/')
+    : stack
   for (const line of lines.split('\n')) {
     const m = frame.exec(line.trimEnd())
     if (!m) continue

@@ -239,15 +239,7 @@ export interface RunEnd {
   code: number
 }
 
-export type FileEvent =
-  | FileStart
-  | TestStart
-  | TestEnd
-  | LateFailure
-  | Output
-  | Coverage
-  | FileError
-  | FileEnd
+export type FileEvent = FileStart | TestStart | TestEnd | LateFailure | Output | Coverage | FileError | FileEnd
 
 export type RunEvent = RunStart | Exit | Hang | TypeCheckError | RunEnd
 

@@ -7,13 +7,8 @@ import { current } from './state.ts'
 /** Replaces the write functions of stdout and stderr. */
 export const startCapture = (file: () => string): void => {
   for (const stream of ['stdout', 'stderr'] as const) {
-    process[stream].write = ((
-      chunk: string | Uint8Array,
-      a?: unknown,
-      b?: unknown,
-    ): boolean => {
-      const text =
-        typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString()
+    process[stream].write = ((chunk: string | Uint8Array, a?: unknown, b?: unknown): boolean => {
+      const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString()
       const id = current.getStore()?.id
       emit({ type: 'output', file: file(), ...(id && { id }), stream, text })
       const done = typeof a === 'function' ? a : b

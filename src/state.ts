@@ -31,7 +31,11 @@ interface Shared {
 // its own copy of this module. The two copies must have the same
 // state.
 const KEY = Symbol.for('ubqtest.state')
-const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= { current: new AsyncLocalStorage<TestState>(), fileCleanups: [], coverage: [] })
+const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= {
+  current: new AsyncLocalStorage<TestState>(),
+  fileCleanups: [],
+  coverage: [],
+})
 
 /** The test that owns the code that runs now, through all its async work. */
 export const current = shared.current

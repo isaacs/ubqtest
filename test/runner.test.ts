@@ -9,11 +9,20 @@ import { fixtures as cwd, project, remove } from './setup.ts'
 
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 /** Runs `ubq` in a project folder. */
-const ubqIn = (dir: string) => (args: string[], env: Record<string, string> = {}) => {
-  const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', ...env } })
-  // The run number changes with each run.
-  return { code: r.status, out: r.stdout.replace(/ \(run \d+\)\n$/, '\n').trimEnd().split('\n'), err: r.stderr }
-}
+const ubqIn =
+  (dir: string) =>
+  (args: string[], env: Record<string, string> = {}) => {
+    const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', ...env } })
+    // The run number changes with each run.
+    return {
+      code: r.status,
+      out: r.stdout
+        .replace(/ \(run \d+\)\n$/, '\n')
+        .trimEnd()
+        .split('\n'),
+      err: r.stderr,
+    }
+  }
 // The fixture project. Other test files run there at the same time,
 // so a test must not ask its store for the last run.
 const ubq = ubqIn(cwd)
@@ -55,7 +64,10 @@ test('failures and file errors give exit code 1', () => {
 test('process.exit in a test is an error, not a silent end', () => {
   const plain = spawnSync('node', ['exit.ts'], { cwd, encoding: 'utf8' })
   assert.equal(plain.status, 1)
-  assert.match(plain.stdout, /process\.exit\(0\) was called before the tests ended, in test: exit\.ts > calls process\.exit/)
+  assert.match(
+    plain.stdout,
+    /process\.exit\(0\) was called before the tests ended, in test: exit\.ts > calls process\.exit/,
+  )
   const r = ubq(['exit.ts', 'pass.ts'])
   assert.equal(r.code, 1)
   assert.equal(r.out.at(-1), 'fail: 1 errors, 0 failed, 6 passed, 1 skipped')
@@ -113,9 +125,10 @@ test('a failed test shows its own console output, a passed test shows none', () 
   ])
   // The store has older runs too, if this file ran alone before.
   const lastRun = "run = (select max(run) from output where file = 'output.ts')"
-  assert.deepEqual(ubq(['sql', `select text from output where test is null and text like 'printed%' and ${lastRun}`]).out, [
-    '{"text":"printed while the file loads\\n"}',
-  ])
+  assert.deepEqual(
+    ubq(['sql', `select text from output where test is null and text like 'printed%' and ${lastRun}`]).out,
+    ['{"text":"printed while the file loads\\n"}'],
+  )
 })
 
 test('a plain program keeps its console', () => {
@@ -183,7 +196,10 @@ test('a loop that does not return is stopped, with the line of the loop', () => 
       '  > while (true) x += n',
       '  at busy.ts:13:16',
     ])
-    assert.match(r.out.join('\n'), /ERROR busy\.ts\n  ubq stopped the process\. The tests after the stuck test did not run\./)
+    assert.match(
+      r.out.join('\n'),
+      /ERROR busy\.ts\n  ubq stopped the process\. The tests after the stuck test did not run\./,
+    )
   }
   assert.equal(ubq(['busy.ts', 'pass.ts']).out.at(-1), 'fail: 1 errors, 1 failed, 6 passed, 1 skipped')
   // The V8 collector, in a test process and in the process of the runner.

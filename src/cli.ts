@@ -50,11 +50,16 @@ const SKILL_DIRS: [names: string[], variables: string[], dir: string][] = [
   [['cursor'], ['CURSOR_AGENT'], '.cursor/skills'],
   [['gemini'], ['GEMINI_CLI'], '.gemini/skills'],
   [['copilot'], ['COPILOT_AGENT', 'COPILOT_CLI'], '.github/skills'],
-  [['codex', 'antigravity', 'agents'], ['ANTIGRAVITY_AGENT', 'CODEX_THREAD_ID', 'CODEX_SANDBOX', 'AI_AGENT'], '.agents/skills'],
+  [
+    ['codex', 'antigravity', 'agents'],
+    ['ANTIGRAVITY_AGENT', 'CODEX_THREAD_ID', 'CODEX_SANDBOX', 'AI_AGENT'],
+    '.agents/skills',
+  ],
 ]
 
 /** A line of code for one runtime or one system. */
-const ELSEWHERE = /process\.platform|process\.versions\.(bun|deno)|typeof (Bun|Deno)\b|\bDeno\.|\bBun\.|['"](win32|darwin|linux)['"]/
+const ELSEWHERE =
+  /process\.platform|process\.versions\.(bun|deno)|typeof (Bun|Deno)\b|\bDeno\.|\bBun\.|['"](win32|darwin|linux)['"]/
 
 /** A file that can have code. */
 const CODE = /\.([cm]?[jt]s|[jt]sx)$/
@@ -114,7 +119,10 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'convert') return (await import('./convert.ts')).convertCommand(rest, out)
   if (command === 'skill') {
     // The skill is at the package root. The bundle is there too.
-    const from = new URL(import.meta.url.endsWith('.ts') ? '../skills/use-ubq/SKILL.md' : './skills/use-ubq/SKILL.md', import.meta.url)
+    const from = new URL(
+      import.meta.url.endsWith('.ts') ? '../skills/use-ubq/SKILL.md' : './skills/use-ubq/SKILL.md',
+      import.meta.url,
+    )
     const root = projectRoot()
     const dirs = new Set<string>()
     // `ubq skill cursor`, `ubq skill .myagent/skills`
@@ -149,13 +157,21 @@ const main = async (args: string[]): Promise<number> => {
     // version that the package needs.
     let cli: string
     try {
-      cli = join(dirname(createRequire(join(projectRoot(), 'package.json')).resolve('playwright-core/package.json')), 'cli.js')
+      cli = join(
+        dirname(createRequire(join(projectRoot(), 'package.json')).resolve('playwright-core/package.json')),
+        'cli.js',
+      )
     } catch {
-      throw new UsageError('the project does not have the playwright-core package. Run: npm install --save-dev playwright-core')
+      throw new UsageError(
+        'the project does not have the playwright-core package. Run: npm install --save-dev playwright-core',
+      )
     }
     // ubq: not measured: CI runs this as a step, outside the tests
     const install = [cli, 'install', 'chromium', '--only-shell']
-    return spawnSync(process.execPath, process.versions.deno ? ['run', '-A', ...install] : install, { stdio: 'inherit' }).status ?? 1
+    return (
+      spawnSync(process.execPath, process.versions.deno ? ['run', '-A', ...install] : install, { stdio: 'inherit' })
+        .status ?? 1
+    )
   }
   if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
   if (command === 'merge') return (await import('./merge.ts')).mergeCommand(rest, out)
@@ -225,7 +241,8 @@ const main = async (args: string[]): Promise<number> => {
         const e = lastFileError(db, file)
         const at = e?.failure.at && `\n  at ${e.failure.at.file}:${e.failure.at.line}:${e.failure.at.column}`
         throw new UsageError(
-          `no stored result for test: ${id}` + (e ? `\n  ${file} had an error in run ${e.run}: ${e.failure.message}${at ?? ''}` : ''),
+          `no stored result for test: ${id}` +
+            (e ? `\n  ${file} had an error in run ${e.run}: ${e.failure.message}${at ?? ''}` : ''),
         )
       }
       out(`${t.status} ${t.id}`)
@@ -237,12 +254,10 @@ const main = async (args: string[]): Promise<number> => {
       if (t.reason) out(`  skip reason: ${t.reason}`)
       if (t.failure) {
         out(`  ${t.failure.message}`)
-        if (t.failure.at)
-          out(`  at ${t.failure.at.file}:${t.failure.at.line}:${t.failure.at.column}`)
+        if (t.failure.at) out(`  at ${t.failure.at.file}:${t.failure.at.line}:${t.failure.at.column}`)
         if (t.failure.diff) out('  ' + t.failure.diff.replaceAll('\n', '\n  '))
         if (t.failure.pending) out(`  still open: ${t.failure.pending.join(', ')}`)
-        for (const o of t.failure.opened ?? [])
-          out(`  ${o.type} opened at ${o.at.file}:${o.at.line}:${o.at.column}`)
+        for (const o of t.failure.opened ?? []) out(`  ${o.type} opened at ${o.at.file}:${o.at.line}:${o.at.column}`)
       }
       for (const dir of kept(t)) out(`  testdir: ${dir}`)
       const text = outputOf(db, t.run, id).trimEnd()
@@ -280,9 +295,9 @@ const main = async (args: string[]): Promise<number> => {
       const f = flake(rows)
       if (f)
         out(
-          'run' in f ?
-            `flaky: the test failed ${f.fails} of ${f.repeats} times in run ${f.run}`
-          : `flaky: the test passed in run ${f.pass} and failed in run ${f.fail}, and the code that it loaded was the same in the two runs`,
+          'run' in f
+            ? `flaky: the test failed ${f.fails} of ${f.repeats} times in run ${f.run}`
+            : `flaky: the test passed in run ${f.pass} and failed in run ${f.fail}, and the code that it loaded was the same in the two runs`,
         )
       return 0
     }
@@ -297,8 +312,7 @@ const main = async (args: string[]): Promise<number> => {
       const b = given[1] ?? last
       // The run before \`b\`, if the command does not name a run.
       const a =
-        given[0] ??
-        (db.prepare('select max(id) id from run where id < ?').get(b ?? 0) as { id: number | null }).id
+        given[0] ?? (db.prepare('select max(id) id from run where id < ?').get(b ?? 0) as { id: number | null }).id
       for (const run of [a, b])
         if (run == null || !runRow(db, run)) {
           const first = (db.prepare('select min(id) id from run').get() as { id: number | null }).id
@@ -328,8 +342,7 @@ const main = async (args: string[]): Promise<number> => {
         ...(d.onlyB ? [`${d.onlyB} only in run ${b}`] : []),
       ]
       out(`run ${a} to run ${b}: ${parts.join(', ')}`)
-      for (const run of [a!, b!])
-        if (runRow(db, run)!.code === null) out(`note: run ${run} did not end`)
+      for (const run of [a!, b!]) if (runRow(db, run)!.code === null) out(`note: run ${run} did not end`)
       const bad = failed + d.newErrors.length
       if (bad) out(`details: ubq failures ${b}`)
       return bad ? 1 : 0
@@ -338,8 +351,7 @@ const main = async (args: string[]): Promise<number> => {
     case 'slow': {
       const SHOWN = 10
       const run = rest[0] ? +rest[0] : lastRun(db)
-      if (run === undefined || !runRow(db, run))
-        throw new UsageError(`run ${rest[0] ?? '(last)'} is not in the store`)
+      if (run === undefined || !runRow(db, run)) throw new UsageError(`run ${rest[0] ?? '(last)'} is not in the store`)
       const tests = slowest(db, run)
       for (const t of tests.slice(0, SHOWN)) out(`${t.ms.toFixed(1).padStart(8)} ms  ${t.id}`)
       const sum = (rows: { ms: number }[]): string => rows.reduce((n, t) => n + t.ms, 0).toFixed(1)
@@ -361,8 +373,7 @@ const main = async (args: string[]): Promise<number> => {
       const built = rest[0] ? 0 : covered.filter(f => !isHelper(f) && isBuild(f)).length
       /** Ranges in code for one runtime or one system. */
       let elsewhere = 0
-      if (rest[0] && !covered.includes(files[0]!))
-        throw new UsageError(`no test loaded ${files[0]}`)
+      if (rest[0] && !covered.includes(files[0]!)) throw new UsageError(`no test loaded ${files[0]}`)
       /** Changed files with code that no test loads. */
       const unloaded: string[] = []
       if (diff) {
@@ -370,7 +381,8 @@ const main = async (args: string[]): Promise<number> => {
         const tests = new Set(testFiles(db))
         if (!rest[0])
           for (const f of diff.keys())
-            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f)) unloaded.push(f)
+            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f))
+              unloaded.push(f)
         // The places of the stored coverage must be the places of the file.
         for (const f of files)
           if (stale(db, f))
@@ -420,12 +432,11 @@ const main = async (args: string[]): Promise<number> => {
       else
         out(
           `${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran` +
-            (helpers || built ?
-              ` (${[helpers && `${helpers} test helpers`, built && `${built} build files`].filter(Boolean).join(' and ')} are not in this list)`
-            : ''),
+            (helpers || built
+              ? ` (${[helpers && `${helpers} test helpers`, built && `${built} build files`].filter(Boolean).join(' and ')} are not in this list)`
+              : ''),
         )
-      if (notMeasured)
-        out(`${notMeasured} ranges with a "ubq: not measured:" comment are not in this list`)
+      if (notMeasured) out(`${notMeasured} ranges with a "ubq: not measured:" comment are not in this list`)
       // The list is for the runs of more than one environment.
       const envs = environments(db)
       if (envs.length > 1) out(`coverage of: ${envs.join(', ')}`)

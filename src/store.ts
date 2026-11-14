@@ -134,7 +134,8 @@ export interface Store {
  * The environment of a run, as SQL on its row `r`: the name of the
  * runtime and of the system, such as `node-linux`.
  */
-export const ENV = "(substr(r.runtime, 1, instr(r.runtime, ' ') - 1) || '-' || substr(r.platform, 1, instr(r.platform, ' ') - 1))"
+export const ENV =
+  "(substr(r.runtime, 1, instr(r.runtime, ' ') - 1) || '-' || substr(r.platform, 1, instr(r.platform, ' ') - 1))"
 
 const sourcePath = (hash: string): string => join(stateDir(), 'sources', hash)
 
@@ -225,13 +226,15 @@ export const openStore = (): Store => {
           +start.ci,
           start.commit ?? null,
           start.seed ?? null,
-          JSON.stringify(Object.fromEntries(RUN_ENV.filter(name => process.env[name] !== undefined).map(name => [name, process.env[name]]))),
+          JSON.stringify(
+            Object.fromEntries(
+              RUN_ENV.filter(name => process.env[name] !== undefined).map(name => [name, process.env[name]]),
+            ),
+          ),
         )
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
-      db.prepare('delete from file_error where run <= ?').run(
-        Number(lastInsertRowid) - KEEP_RUNS,
-      )
+      db.prepare('delete from file_error where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from run where id <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       return Number(lastInsertRowid)
     },
@@ -239,9 +242,7 @@ export const openStore = (): Store => {
       const addTest = db.prepare(
         'insert or replace into test (run, id, file, line, status, ms, asserts, reason, failure, repeats, fails) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      const failTest = db.prepare(
-        "update test set status = 'fail', failure = ? where run = ? and id = ?",
-      )
+      const failTest = db.prepare("update test set status = 'fail', failure = ? where run = ? and id = ?")
       const getFailure = db.prepare('select failure from test where run = ? and id = ?')
       const addError = db.prepare('insert into file_error (run, file, failure) values (?, ?, ?)')
       const setCode = db.prepare('update test set code = ? where run = ? and id = ?')
@@ -276,12 +277,8 @@ export const openStore = (): Store => {
       const addCov = db.prepare(
         'insert or replace into coverage (tfile, test, file, run, ranges, hash) values (?, ?, ?, ?, ?, ?)',
       )
-      const addOutput = db.prepare(
-        'insert into output (run, file, test, stream, text) values (?, ?, ?, ?, ?)',
-      )
-      const setFile = db.prepare(
-        'insert or replace into test_file (tfile, run, coverage, hash) values (?, ?, ?, ?)',
-      )
+      const addOutput = db.prepare('insert into output (run, file, test, stream, text) values (?, ?, ?, ?, ?)')
+      const setFile = db.prepare('insert or replace into test_file (tfile, run, coverage, hash) values (?, ?, ?, ?)')
       const addTypeError = db.prepare('insert into type_error (run, error) values (?, ?)')
       const endRun = db.prepare(
         'update run set ms = ?, pass = ?, fail = ?, errors = ?, skip = ?, unselected = ?, code = ? where id = ?',
@@ -318,7 +315,13 @@ export const openStore = (): Store => {
       // digest of their content.
       const loaded = new Map<string, { files: Map<string, string>; code: string }>()
       const digest = (files: Map<string, string>): string =>
-        hash('sha1', [...files].map(([f, h]) => `${f}\0${h}`).sort().join('\n')).slice(0, 16)
+        hash(
+          'sha1',
+          [...files]
+            .map(([f, h]) => `${f}\0${h}`)
+            .sort()
+            .join('\n'),
+        ).slice(0, 16)
       /** The digest for a test that ran code in `files`. */
       const codeOf = (tfile: string, files: string[]): string => {
         let load = loaded.get(tfile)
@@ -411,16 +414,7 @@ export const openStore = (): Store => {
             if (!event.unselected) dropGoneCov.run(event.file, run)
             break
           case 'run-end':
-            endRun.run(
-              event.ms,
-              event.pass,
-              event.fail,
-              event.errors,
-              event.skip,
-              event.unselected,
-              event.code,
-              run,
-            )
+            endRun.run(event.ms, event.pass, event.fail, event.errors, event.skip, event.unselected, event.code, run)
             break
         }
       }

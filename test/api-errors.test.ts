@@ -10,7 +10,8 @@ const files: Record<string, string> = {
   'name-sep.test.ts': "import { test } from 'ubqtest'\ntest('a > b', () => {})\n",
   'no-fn.test.ts': "import { test } from 'ubqtest'\n;(test as (name: string) => void)('x')\n",
   'describe-no-fn.test.ts': "import { describe } from 'ubqtest'\n;(describe as (name: string) => void)('g')\n",
-  'describe-async.test.ts': "import { describe } from 'ubqtest'\ndescribe('g', (async () => {}) as unknown as () => void)\n",
+  'describe-async.test.ts':
+    "import { describe } from 'ubqtest'\ndescribe('g', (async () => {}) as unknown as () => void)\n",
   'inside.test.ts': `import { assert, describe, test } from 'ubqtest'
 test('a test in a test', () => {
   test('inner', () => {})
@@ -80,9 +81,24 @@ test('each wrong use of the test API has a report with the cause', { timeout: 60
   const r = p.ubq()
   const blocks = new Set(r.out.split('\n\n'))
   const has = (...lines: string[]): void => assert(blocks.has(lines.join('\n')), lines[0] + '\n' + r.out)
-  has('ERROR name-empty.test.ts', '  TypeError: test name must be a string that is not empty', '  at name-empty.test.ts:2:1', "  > test('', () => {})")
-  has('ERROR name-sep.test.ts', '  TypeError: test name must not contain " > ": "a > b"', '  at name-sep.test.ts:2:1', "  > test('a > b', () => {})")
-  has('ERROR no-fn.test.ts', '  TypeError: test "x" has no function', '  at no-fn.test.ts:2:34', "  > ;(test as (name: string) => void)('x')")
+  has(
+    'ERROR name-empty.test.ts',
+    '  TypeError: test name must be a string that is not empty',
+    '  at name-empty.test.ts:2:1',
+    "  > test('', () => {})",
+  )
+  has(
+    'ERROR name-sep.test.ts',
+    '  TypeError: test name must not contain " > ": "a > b"',
+    '  at name-sep.test.ts:2:1',
+    "  > test('a > b', () => {})",
+  )
+  has(
+    'ERROR no-fn.test.ts',
+    '  TypeError: test "x" has no function',
+    '  at no-fn.test.ts:2:34',
+    "  > ;(test as (name: string) => void)('x')",
+  )
   has(
     'ERROR describe-no-fn.test.ts',
     '  TypeError: describe "g" has no function',
@@ -213,13 +229,21 @@ test('each kind of failed assertion has a report with the two values and the pla
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   writeFileSync(join(p.dir, 'asserts.test.ts'), asserts)
-  writeFileSync(join(p.dir, 'outside.test.ts'), "import { assert, test } from 'ubqtest'\nassert.equal(1, 1)\ntest('a', () => assert(true))\n")
+  writeFileSync(
+    join(p.dir, 'outside.test.ts'),
+    "import { assert, test } from 'ubqtest'\nassert.equal(1, 1)\ntest('a', () => assert(true))\n",
+  )
   const r = p.ubq()
   const blocks = new Set(r.out.split('\n\n'))
   const has = (...lines: string[]): void => assert(blocks.has(lines.join('\n')), lines[0] + '\n' + r.out)
   const fail = (name: string, line: number, ...lines: string[]): void =>
     has(`FAIL asserts.test.ts > ${name}`, ...lines, `  rerun: ubq asserts.test.ts:${line}`)
-  has('ERROR outside.test.ts', '  Error: assert was called outside a test', '  at outside.test.ts:2:8', '  > assert.equal(1, 1)')
+  has(
+    'ERROR outside.test.ts',
+    '  Error: assert was called outside a test',
+    '  at outside.test.ts:2:8',
+    '  > assert.equal(1, 1)',
+  )
   fail(
     'throws: a message that does not match',
     5,
@@ -257,7 +281,13 @@ test('each kind of failed assertion has a report with the two values and the pla
     "  actual:   'text'",
     '  expected: an error with a message that matches /other/',
   )
-  fail('throws: the function returns', 19, '  expected the function to throw, but it returned', '  at asserts.test.ts:20:10', '  > assert.throws(() => 1, Error)')
+  fail(
+    'throws: the function returns',
+    19,
+    '  expected the function to throw, but it returned',
+    '  at asserts.test.ts:20:10',
+    '  > assert.throws(() => 1, Error)',
+  )
   fail(
     'throws: text as the expected error',
     22,
@@ -345,18 +375,27 @@ test('a "ubq" key that is not an object, and snapshots of many lines', { timeout
   p.configure(1)
   assert.deepEqual([p.ubq().code, p.ubq().err], [4, 'ubq: "ubq" in package.json must be an object\n'])
   p.configure()
-  writeFileSync(join(p.dir, 'snaps.test.ts'), "import { assert, test } from 'ubqtest'\ntest('lines', () => assert.snapshot(process.env.SNAP_LINES ?? 'a\\nb\\nc\\nd\\ne\\nf'))\n")
+  writeFileSync(
+    join(p.dir, 'snaps.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('lines', () => assert.snapshot(process.env.SNAP_LINES ?? 'a\\nb\\nc\\nd\\ne\\nf'))\n",
+  )
   assert.equal(p.ubq('--update', 'snaps.test.ts').code, 0)
   // Four differences, and a count of the others.
   env({ SNAP_LINES: '1\n2\n3\n4\n5\n6\n7' })
-  assert.match(p.ubq('snaps.test.ts').out, /\n  line 4\n    actual:   "4"\n    expected: "d"\n  … and 3 more differences\n/)
+  assert.match(
+    p.ubq('snaps.test.ts').out,
+    /\n  line 4\n    actual:   "4"\n    expected: "d"\n  … and 3 more differences\n/,
+  )
   // A line that only one of the two values has.
   env({ SNAP_LINES: 'a\nb\nc' })
   assert.match(p.ubq('snaps.test.ts').out, /\n  line 4\n    actual:   \(no line\)\n    expected: "d"\n/)
   env({ SNAP_LINES: 'a\nb\nc\nd\ne\nf\ng' })
   assert.match(p.ubq('snaps.test.ts').out, /\n  line 7\n    actual:   "g"\n    expected: \(no line\)\n/)
   // A file with no snapshots left loses its snapshot file.
-  writeFileSync(join(p.dir, 'snaps.test.ts'), "import { assert, test } from 'ubqtest'\ntest('lines', () => assert(true))\n")
+  writeFileSync(
+    join(p.dir, 'snaps.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('lines', () => assert(true))\n",
+  )
   assert.equal(p.ubq('--update', 'snaps.test.ts').code, 0)
   assert.equal(existsSync(join(p.dir, 'ubq-snapshots/snaps.test.ts.snap')), false)
 })

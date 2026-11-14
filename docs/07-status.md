@@ -17,6 +17,7 @@ ends. The details of older steps are in the git history.
 ## Checks before each commit
 
 ```
+npm run lint            # fixes lint and format problems; must exit 0
 npx tsc                 # must print nothing
 node src/cli.ts         # the tool runs its own tests: all pass
 npm run bench -- --only ubq --check   # speed guards (builds first)
@@ -41,6 +42,11 @@ older run.
 ## Lessons for work on this repository
 
 - A command that can hang must run under `timeout`.
+- The formatter can split a line, and move a `// ubq: not
+  measured:` comment away from the code that it marks. After
+  `npm run lint`, compare `ubq uncovered` with its count before.
+  Put the comment above the line that has the range, or at the end
+  of that line.
 - A test process that starts child processes must not pass
   `UBQ_*` variables on. The library removes them when it loads.
 - Two test files must not share one fixture store, and a test must
@@ -195,6 +201,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   `UBQ_BROWSER` (store schema 9). `ubq failures` and `ubq show`
   name the ones that differ from the run before. Not the other
   `UBQ_` variables: the runner sets them for its test processes.
+- **Lint and format.** `npm run lint` runs oxlint with `--fix`,
+  then oxfmt, on `src`, `test`, and `scripts` (not
+  `test/fixtures`). The configs are `.oxlintrc.json` and
+  `.oxfmtrc.json`. All files are formatted.
 
 ## Open, waiting for a decision
 
@@ -215,13 +225,6 @@ All entries are from 2026-11-11 to 2026-11-14.
 ## Not done, and known limits
 
 Each item is still open. Remove it when it is done.
-
-Tasks:
-
-- In a commit of its own: set up oxlint and
-  oxfmt for the code of ubq. `npm run lint` fixes what it can, and
-  does not only report it. Then lint and format all files at one
-  time.
 
 Core and runner:
 

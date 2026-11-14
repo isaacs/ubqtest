@@ -32,11 +32,7 @@ interface Job {
 }
 
 /** Runs the check. Prints the report with `out`. Returns the exit code. */
-export const mutate = async (
-  db: DatabaseSync,
-  args: string[],
-  out: (text: string) => void,
-): Promise<number> => {
+export const mutate = async (db: DatabaseSync, args: string[], out: (text: string) => void): Promise<number> => {
   args = [...args]
   const commit = diffOption(args)
   if (!args.length && commit === undefined)
@@ -55,7 +51,8 @@ export const mutate = async (
   const diff = commit === undefined ? undefined : changedLines(commit)
   // Not a test helper: a change to one tests the tests (D51). Not
   // build output (D55).
-  if (diff && !args.length) args = [...diff.keys()].filter(f => known.includes(f) && !isHelper(f) && !isBuild(f)).map(f => join(root, f))
+  if (diff && !args.length)
+    args = [...diff.keys()].filter(f => known.includes(f) && !isHelper(f) && !isBuild(f)).map(f => join(root, f))
 
   const jobs: Job[] = []
   let uncovered = 0
@@ -64,8 +61,7 @@ export const mutate = async (
     const file = rel(resolve(m[1]!))
     const lines = diff?.get(file)
     if (diff && !lines) continue
-    if (!known.includes(file))
-      throw new UsageError(`no test loaded ${file}. Run the tests first: ubq`)
+    if (!known.includes(file)) throw new UsageError(`no test loaded ${file}. Run the tests first: ubq`)
     // The lines of the stored coverage must be the lines of the file.
     const stored = (hashes.all(file) as { hash: string }[]).map(r => r.hash)
     if (stored.some(hash => hash !== fileHash(file)))
@@ -105,8 +101,11 @@ export const mutate = async (
   const busy = new Map<string, Promise<unknown>>()
   const alone = <T>(tfile: string, fn: () => Promise<T>): Promise<T> => {
     const next = (busy.get(tfile) ?? Promise.resolve()).then(fn)
-    // ubq: not measured: the check of one change does not reject
-    busy.set(tfile, next.catch(() => {}))
+    busy.set(
+      tfile,
+      // ubq: not measured: the check of one change does not reject
+      next.catch(() => {}),
+    )
     return next
   }
   /**
@@ -127,9 +126,12 @@ export const mutate = async (
           { file: tfile, lines: [], ids },
           event => {
             const kind =
-              event.type === 'late-failure' || (event.type === 'test-end' && event.status === 'fail' && event.failure?.kind !== 'timeout') ? 'fail'
-              : event.type === 'file-error' || (event.type === 'test-end' && event.status === 'fail') ? 'error'
-              : undefined
+              event.type === 'late-failure' ||
+              (event.type === 'test-end' && event.status === 'fail' && event.failure?.kind !== 'timeout')
+                ? 'fail'
+                : event.type === 'file-error' || (event.type === 'test-end' && event.status === 'fail')
+                  ? 'error'
+                  : undefined
             if (kind) {
               if (failed !== 'fail') failed = kind
               // TEMPORARY: the cause of a rare false kill in CI.

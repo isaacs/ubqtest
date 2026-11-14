@@ -8,7 +8,10 @@ import { project } from './setup.ts'
 
 /** Output lines, with the time of each run removed. */
 const lines = (out: string): string[] =>
-  out.trimEnd().split('\n').map(l => l.replace(/\d{4}-\d\d-\d\d \d\d:\d\d:\d\d/, 'TIME').replace(/ +\d+\.\d ms/, ' N ms'))
+  out
+    .trimEnd()
+    .split('\n')
+    .map(l => l.replace(/\d{4}-\d\d-\d\d \d\d:\d\d:\d\d/, 'TIME').replace(/ +\d+\.\d ms/, ' N ms'))
 
 test('history shows the result of a test in each run, and says if the test is flaky', () => {
   const p = project()
@@ -40,7 +43,10 @@ test('history shows the result of a test in each run, and says if the test is fl
   // A test that did not change its result is not flaky.
   assert.equal(lines(p.ubq('history', 'flip.ts > c').out).at(-1), '0 failed, 2 passed in 2 runs (times are UTC)')
 
-  assert.deepEqual([p.ubq('history').code, p.ubq('history', 'flip.ts > nope').err], [4, 'ubq: no stored result for test: flip.ts > nope\n'])
+  assert.deepEqual(
+    [p.ubq('history').code, p.ubq('history', 'flip.ts > nope').err],
+    [4, 'ubq: no stored result for test: flip.ts > nope\n'],
+  )
   assert.equal(
     p.ubq('history', 'flip.ts > group').err,
     'ubq: flip.ts > group is not a test. It contains these tests:\n  flip.ts > group > a\n  flip.ts > group > b\n',
@@ -52,7 +58,10 @@ test('diff shows the tests with a different status in two runs', () => {
   const p = project()
   p.set('pass')
   p.ubq('flip.ts', 'pass.ts')
-  assert.deepEqual([p.ubq('diff').code, p.ubq('diff').err], [4, 'ubq: ubq diff needs two runs, and the store has runs 1 to 1\n'])
+  assert.deepEqual(
+    [p.ubq('diff').code, p.ubq('diff').err],
+    [4, 'ubq: ubq diff needs two runs, and the store has runs 1 to 1\n'],
+  )
   p.set('fail')
   p.ubq('flip.ts')
 
@@ -66,23 +75,35 @@ test('diff shows the tests with a different status in two runs', () => {
     'details: ubq failures 2',
   ])
   const back = p.ubq('diff', '2', '1')
-  assert.deepEqual([back.code, lines(back.out)], [0, [
-    'pass flip.ts > group > a (was fail in run 2)',
-    'run 2 to run 1: 0 new failures, 1 fixed, 2 the same, 6 only in run 1',
-  ]])
+  assert.deepEqual(
+    [back.code, lines(back.out)],
+    [
+      0,
+      [
+        'pass flip.ts > group > a (was fail in run 2)',
+        'run 2 to run 1: 0 new failures, 1 fixed, 2 the same, 6 only in run 1',
+      ],
+    ],
+  )
 
   // A failure of a test that did not run in the first run, and a file error.
   p.ubq('pass.ts')
   appendFileSync(join(p.dir, 'pass.ts'), '\nthrow new Error("at load")\n')
   p.ubq('flip.ts', 'pass.ts')
   const one = p.ubq('diff', '3')
-  assert.deepEqual([one.code, lines(one.out)], [1, [
-    'ERROR pass.ts (no error in run 3)',
-    'fail flip.ts > group > a (did not run in run 3)',
-    '  expected values to be equal',
-    'run 3 to run 4: 1 new failures, 0 fixed, 1 new file errors, 6 the same, 3 only in run 4',
-    'details: ubq failures 4',
-  ]])
+  assert.deepEqual(
+    [one.code, lines(one.out)],
+    [
+      1,
+      [
+        'ERROR pass.ts (no error in run 3)',
+        'fail flip.ts > group > a (did not run in run 3)',
+        '  expected values to be equal',
+        'run 3 to run 4: 1 new failures, 0 fixed, 1 new file errors, 6 the same, 3 only in run 4',
+        'details: ubq failures 4',
+      ],
+    ],
+  )
   assert.deepEqual(lines(p.ubq('diff', '4', '3').out), [
     'no error pass.ts (was ERROR in run 4)',
     'run 4 to run 3: 0 new failures, 0 fixed, 6 the same, 3 only in run 4',
@@ -145,29 +166,50 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   assert.equal(slow.length, 9)
   assert.match(slow[0]!, /^ +\d+\.\d ms  (pass|flip)\.ts > /)
   const times = slow.slice(0, -1).map(l => parseFloat(l))
-  assert.deepEqual(times, times.toSorted((a, b) => b - a))
+  assert.deepEqual(
+    times,
+    times.toSorted((a, b) => b - a),
+  )
   assert.match(slow.at(-1)!, /^the 8 slowest of 8 tests took \d+\.\d ms of \d+\.\d ms \(run 2\)$/)
   assert.match(p.ubq('slow', '1').last!, /^the 6 slowest of 6 tests took /)
   assert.deepEqual([p.ubq('slow', '9').code, p.ubq('slow', '9').err], [4, 'ubq: run 9 is not in the store\n'])
 
   // With a selection. One file runs in its own processes too.
   const one = p.ubq('--repeat', '3', 'flip.ts > c')
-  assert.deepEqual([one.code, lines(one.out.replace(/ \(run \d+\)\n$/, ''))], [0, [
-    'repeat 3: 0 failed some times, 0 failed each time, 1 failed no times',
-    'pass: 0 failed, 1 passed, 2 not selected',
-  ]])
-  assert.match(p.ubq('--failed', '--repeat', '2').out, /\nrepeat 2: \d failed some times, 1 failed each time, 0 failed no times\n/)
+  assert.deepEqual(
+    [one.code, lines(one.out.replace(/ \(run \d+\)\n$/, ''))],
+    [
+      0,
+      [
+        'repeat 3: 0 failed some times, 0 failed each time, 1 failed no times',
+        'pass: 0 failed, 1 passed, 2 not selected',
+      ],
+    ],
+  )
+  assert.match(
+    p.ubq('--failed', '--repeat', '2').out,
+    /\nrepeat 2: \d failed some times, 1 failed each time, 0 failed no times\n/,
+  )
 
   // A file error.
   appendFileSync(join(p.dir, 'flip.ts'), '\nthrow new Error("at load")\n')
   assert.match(p.ubq('--repeat', '2', 'flip.ts').out, /^ERROR flip\.ts\n  failed 2 of 2 times\.\n  Error: at load\n/)
 
   // A test that ends the process: the file error reports it.
-  writeFileSync(join(p.dir, 'dies.test.ts'), "import { assert, test } from 'ubqtest'\ntest('dies', () => { process.exit(3) })\ntest('ok', () => assert(true))\n")
-  assert.match(p.ubq('--repeat', '2', 'dies.test.ts').out, /^ERROR dies\.test\.ts\n  failed 2 of 2 times\.\n  process\.exit\(3\) was called before the tests ended, in test: dies\.test\.ts > dies\n/)
+  writeFileSync(
+    join(p.dir, 'dies.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('dies', () => { process.exit(3) })\ntest('ok', () => assert(true))\n",
+  )
+  assert.match(
+    p.ubq('--repeat', '2', 'dies.test.ts').out,
+    /^ERROR dies\.test\.ts\n  failed 2 of 2 times\.\n  process\.exit\(3\) was called before the tests ended, in test: dies\.test\.ts > dies\n/,
+  )
 
   const usage = "ubq: --repeat needs a count of 2 or more, such as: ubq --repeat 20 '<test id>'\n"
-  assert.deepEqual([p.ubq('--repeat').err, p.ubq('--repeat', '1', 'flip.ts').err, p.ubq('--repeat', 'flip.ts').code], [usage, usage, 4])
+  assert.deepEqual(
+    [p.ubq('--repeat').err, p.ubq('--repeat', '1', 'flip.ts').err, p.ubq('--repeat', 'flip.ts').code],
+    [usage, usage, 4],
+  )
   rmSync(p.dir, { recursive: true })
 })
 
@@ -175,15 +217,18 @@ test('--baseline shows only the failures that the commit does not have', () => {
   const p = project()
   p.set('pass')
   const git = (...args: string[]) => {
-    const r = spawnSync('git', ['-c', 'user.name=ubq', '-c', 'user.email=ubq@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: p.dir, encoding: 'utf8' })
+    const r = spawnSync(
+      'git',
+      ['-c', 'user.name=ubq', '-c', 'user.email=ubq@example.com', '-c', 'commit.gpgsign=false', ...args],
+      { cwd: p.dir, encoding: 'utf8' },
+    )
     assert.equal(r.status, 0, r.stderr)
   }
   const file = (tests: string[]) =>
-    writeFileSync(join(p.dir, 'two.test.ts'), [
-      "import { assert, test } from 'ubqtest'",
-      "import { parse } from './src/shape.ts'",
-      ...tests,
-    ].join('\n') + '\n')
+    writeFileSync(
+      join(p.dir, 'two.test.ts'),
+      ["import { assert, test } from 'ubqtest'", "import { parse } from './src/shape.ts'", ...tests].join('\n') + '\n',
+    )
   const square = "test('square', () => { assert.equal(parse('s')?.kind, 'square') })"
   file([
     "test('old failure', () => { assert.equal(1, 2) })",
@@ -191,10 +236,10 @@ test('--baseline shows only the failures that the commit does not have', () => {
     "test('was broken', () => { assert.equal(1, 2) })",
     "test('removed', () => { assert.equal(1, 1) })",
   ])
-  assert.deepEqual([p.ubq('--baseline', 'HEAD').code, p.ubq('--baseline', 'HEAD').err], [
-    4,
-    'ubq: --baseline needs a git repository, and this project is not in one\n',
-  ])
+  assert.deepEqual(
+    [p.ubq('--baseline', 'HEAD').code, p.ubq('--baseline', 'HEAD').err],
+    [4, 'ubq: --baseline needs a git repository, and this project is not in one\n'],
+  )
   writeFileSync(join(p.dir, '.gitignore'), 'node_modules\nflip.txt*\n')
   git('init', '-q')
   git('add', '-A')
@@ -202,13 +247,20 @@ test('--baseline shows only the failures that the commit does not have', () => {
 
   // No change: each failure is in the baseline too.
   const same = p.ubq('--baseline', 'HEAD', 'two.test.ts')
-  assert.deepEqual([same.code, same.err, lines(same.out)], [1, '', [
-    'baseline HEAD (COMMIT): 0 new failures, 2 failed in the baseline too, 0 fixed',
-    "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
-    '  two.test.ts > old failure',
-    '  two.test.ts > was broken',
-    'fail: 2 failed, 2 passed (run 1)',
-  ].map(l => l.replace('COMMIT', /\((\w+)\)/.exec(same.out)![1]!))])
+  assert.deepEqual(
+    [same.code, same.err, lines(same.out)],
+    [
+      1,
+      '',
+      [
+        'baseline HEAD (COMMIT): 0 new failures, 2 failed in the baseline too, 0 fixed',
+        "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
+        '  two.test.ts > old failure',
+        '  two.test.ts > was broken',
+        'fail: 2 failed, 2 passed (run 1)',
+      ].map(l => l.replace('COMMIT', /\((\w+)\)/.exec(same.out)![1]!)),
+    ],
+  )
 
   // A change to a source file and to the test file.
   writeFileSync(join(p.dir, 'src/shape.ts'), "export const parse = (s: string) => ({ kind: 'circle' + s })\n")
@@ -221,32 +273,59 @@ test('--baseline shows only the failures that the commit does not have', () => {
   const r = p.ubq('--baseline', 'HEAD', 'two.test.ts')
   assert.equal(r.code, 1)
   const out = lines(r.out)
-  assert.deepEqual(out.filter(l => l.startsWith('FAIL')), ['FAIL two.test.ts > square', 'FAIL two.test.ts > new'])
-  assert.deepEqual(out.slice(-6).map(l => l.replace(/\(\w{7}\)/, '(COMMIT)')), [
-    'baseline HEAD (COMMIT): 2 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run',
-    "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
-    '  two.test.ts > old failure',
-    'fixed:',
-    '  two.test.ts > was broken',
-    'fail: 3 failed, 1 passed (run 2)',
-  ])
+  assert.deepEqual(
+    out.filter(l => l.startsWith('FAIL')),
+    ['FAIL two.test.ts > square', 'FAIL two.test.ts > new'],
+  )
+  assert.deepEqual(
+    out.slice(-6).map(l => l.replace(/\(\w{7}\)/, '(COMMIT)')),
+    [
+      'baseline HEAD (COMMIT): 2 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run',
+      "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
+      '  two.test.ts > old failure',
+      'fixed:',
+      '  two.test.ts > was broken',
+      'fail: 3 failed, 1 passed (run 2)',
+    ],
+  )
   // The store has all the failures of the run.
   assert.equal(p.ubq('failures').last, 'fail: 3 failed, 1 passed')
   // The checkout is gone, and git has no record of it.
   assert.deepEqual(readdirSync(join(p.dir, '.ubq/baseline')), [])
-  assert.equal(spawnSync('git', ['worktree', 'list'], { cwd: p.dir, encoding: 'utf8' }).stdout.trim().split('\n').length, 1)
+  assert.equal(
+    spawnSync('git', ['worktree', 'list'], { cwd: p.dir, encoding: 'utf8' }).stdout.trim().split('\n').length,
+    1,
+  )
   assert.equal(existsSync(join(p.dir, '.git/worktrees')), false)
 
   // All test files, and a test file that the commit does not have.
-  writeFileSync(join(p.dir, 'new.test.ts'), "import { assert, test } from 'ubqtest'\ntest('bad', () => { assert.equal(1, 2) })\n")
-  assert.match(p.ubq('--baseline', 'HEAD').out, /\nbaseline HEAD \(\w+\): 3 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run\n/)
-  assert.match(p.ubq('--baseline', 'HEAD', 'new.test.ts').out, /\nbaseline HEAD \(\w+\): 1 new failures, 0 failed in the baseline too, 0 fixed\n/)
+  writeFileSync(
+    join(p.dir, 'new.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('bad', () => { assert.equal(1, 2) })\n",
+  )
+  assert.match(
+    p.ubq('--baseline', 'HEAD').out,
+    /\nbaseline HEAD \(\w+\): 3 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run\n/,
+  )
+  assert.match(
+    p.ubq('--baseline', 'HEAD', 'new.test.ts').out,
+    /\nbaseline HEAD \(\w+\): 1 new failures, 0 failed in the baseline too, 0 fixed\n/,
+  )
 
   const err = (...args: string[]) => [p.ubq(...args).code, p.ubq(...args).err]
-  assert.deepEqual(err('--baseline', 'nope'), [4, 'ubq: --baseline needs a git commit, and git does not know: nope. Examples: ubq --baseline HEAD, ubq --baseline main\n'])
+  assert.deepEqual(err('--baseline', 'nope'), [
+    4,
+    'ubq: --baseline needs a git commit, and git does not know: nope. Examples: ubq --baseline HEAD, ubq --baseline main\n',
+  ])
   assert.deepEqual(err('--baseline'), [4, 'ubq: --baseline needs a git commit, such as: ubq --baseline HEAD\n'])
-  assert.deepEqual(err('--baseline', 'HEAD', '--failed'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
-  assert.deepEqual(err('--baseline', 'HEAD', '--repeat', '2'), [4, 'ubq: --baseline takes files and test IDs, and no other option\n'])
+  assert.deepEqual(err('--baseline', 'HEAD', '--failed'), [
+    4,
+    'ubq: --baseline takes files and test IDs, and no other option\n',
+  ])
+  assert.deepEqual(err('--baseline', 'HEAD', '--repeat', '2'), [
+    4,
+    'ubq: --baseline takes files and test IDs, and no other option\n',
+  ])
 
   // A file error in the commit and in the working tree. With packed
   // refs, the run reads the commit from the file of packed refs.
@@ -255,12 +334,17 @@ test('--baseline shows only the failures that the commit does not have', () => {
   git('commit', '-q', '-m', 'broken')
   git('pack-refs', '--all')
   const broken = p.ubq('--baseline', 'HEAD', 'broken.test.ts')
-  assert.deepEqual(lines(broken.out).slice(-4).map(l => l.replace(/\(\w{7}\)/, '(COMMIT)').replace(/ \(run \d+\)$/, '')), [
-    'baseline HEAD (COMMIT): 0 new failures, 1 failed in the baseline too, 0 fixed',
-    "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
-    '  ERROR broken.test.ts',
-    'fail: 1 errors, 0 failed, 0 passed',
-  ])
+  assert.deepEqual(
+    lines(broken.out)
+      .slice(-4)
+      .map(l => l.replace(/\(\w{7}\)/, '(COMMIT)').replace(/ \(run \d+\)$/, '')),
+    [
+      'baseline HEAD (COMMIT): 0 new failures, 1 failed in the baseline too, 0 fixed',
+      "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
+      '  ERROR broken.test.ts',
+      'fail: 1 errors, 0 failed, 0 passed',
+    ],
+  )
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: p.dir, encoding: 'utf8' }).stdout.trim()
   p.ubq('two.test.ts')
   assert.match(p.ubq('history', 'two.test.ts > square').out, new RegExp(`  ${commit.slice(0, 7)}  fail `))
@@ -277,7 +361,10 @@ test('--baseline shows only the failures that the commit does not have', () => {
 
 test('the test files run in a random order that a seed repeats', () => {
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(file => ({ file }))
-  const order = (seed: number, list = files) => shuffle(list, seed).map(f => f.file).join('')
+  const order = (seed: number, list = files) =>
+    shuffle(list, seed)
+      .map(f => f.file)
+      .join('')
   assert.equal(order(1), order(1, files.toReversed()))
   assert.equal([...order(1)].sort().join(''), 'abcdefgh')
   assert.equal(new Set([1, 2, 3, 4, 5].map(seed => order(seed))).size, 5)
@@ -295,6 +382,9 @@ test('the test files run in a random order that a seed repeats', () => {
   // A run with no failure does not print the seed. The store has it.
   assert.equal(p.ubq('flip.ts', 'pass.ts').out.includes('seed'), false)
   assert.match(p.ubq('sql', 'select seed from run where id = 2').out, /^\{"seed":\d+\}\n$/)
-  assert.deepEqual([p.ubq('--seed', 'x').code, p.ubq('--seed', 'x').err], [4, 'ubq: --seed needs the number from a run, such as: ubq --seed 1234\n'])
+  assert.deepEqual(
+    [p.ubq('--seed', 'x').code, p.ubq('--seed', 'x').err],
+    [4, 'ubq: --seed needs the number from a run, such as: ubq --seed 1234\n'],
+  )
   rmSync(p.dir, { recursive: true })
 })

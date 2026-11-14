@@ -22,15 +22,15 @@ export const snapshotFile = (file: string): string => `ubq-snapshots/${file}.sna
 
 /** The text of a value. A string is its own text. */
 export const snapshotText = (value: unknown): string =>
-  typeof value === 'string' ? value : (
-    inspect(value, {
-      depth: Infinity,
-      breakLength: 80,
-      maxArrayLength: Infinity,
-      maxStringLength: Infinity,
-      sorted: true,
-    })
-  )
+  typeof value === 'string'
+    ? value
+    : inspect(value, {
+        depth: Infinity,
+        breakLength: 80,
+        maxArrayLength: Infinity,
+        maxStringLength: Infinity,
+        sorted: true,
+      })
 
 // The file is a list of entries in this form, with ` \ and ${ escaped:
 //   exports[`group > name 1`] = `
@@ -53,8 +53,7 @@ const load = (testFile: string): void => {
   file = testFile
   const path = join(projectRoot(), snapshotFile(testFile))
   if (!existsSync(path)) return
-  for (const m of readFileSync(path, 'utf8').matchAll(ENTRY))
-    saved.set(unescape(m[1]!), unescape(m[2]!))
+  for (const m of readFileSync(path, 'utf8').matchAll(ENTRY)) saved.set(unescape(m[1]!), unescape(m[2]!))
 }
 
 export interface SnapshotResult {
@@ -134,8 +133,7 @@ export const saveSnapshots = (testFile: string, ran: Set<string>, all: Set<strin
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(
       path,
-      HEADER +
-        keys.map(k => `\nexports[\`${escape(k)}\`] = \`\n${escape(entries.get(k)!)}\n\`\n`).join(''),
+      HEADER + keys.map(k => `\nexports[\`${escape(k)}\`] = \`\n${escape(entries.get(k)!)}\n\`\n`).join(''),
     )
   }
   saved = entries

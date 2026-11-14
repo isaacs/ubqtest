@@ -15,7 +15,11 @@ test('scripts of other servers, packages, and paths that are not files give no c
         { url: `${base}src`, functions: ran },
         { url: `${base}package.json`, functions: [] },
         // A map that cannot be read.
-        { url: `${base}package.json`, source: `x\n//# sourceMappingURL=data:application/json;base64,${btoa(JSON.stringify({ version: 3, sources: ['a'], names: [], mappings: 5 }))}`, functions: ran },
+        {
+          url: `${base}package.json`,
+          source: `x\n//# sourceMappingURL=data:application/json;base64,${btoa(JSON.stringify({ version: 3, sources: ['a'], names: [], mappings: 5 }))}`,
+          functions: ran,
+        },
         // Two loads of one file.
         { url: `${base}package.json`, functions: ran },
         { url: `${base}package.json`, functions: ran },

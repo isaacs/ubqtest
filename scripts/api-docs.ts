@@ -37,7 +37,11 @@ const items = (file: string): Map<string, Item> => {
           .map(l => l.replace(/^\s*\/?\*+\/?\s?/, '').replace(/\s*\*\/$/, ''))
           .join('\n')
           .trim(),
-        code: code.join('\n').replace(/^export (declare )?/, '').replace(/^declare /, '').trimEnd(),
+        code: code
+          .join('\n')
+          .replace(/^export (declare )?/, '')
+          .replace(/^declare /, '')
+          .trimEnd(),
       })
     if (code.length) comment = []
     code = []
@@ -65,7 +69,10 @@ const typeItems: Item[] = []
 const index = readFileSync(join(types, 'index.d.ts'), 'utf8')
 for (const m of index.matchAll(/^export \{([^}]*)\} from '\.\/(\w[\w-]*)\.(?:ts|js)';$/gm)) {
   const found = items(`${m[2]}.d.ts`)
-  for (const part of m[1]!.split(',').map(s => s.trim()).filter(Boolean)) {
+  for (const part of m[1]!
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)) {
     const isType = part.startsWith('type ')
     const item = found.get(part.replace(/^type /, ''))
     if (!item) throw new Error(`no declaration of ${part} in ${m[2]}.d.ts`)

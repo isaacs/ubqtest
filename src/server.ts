@@ -71,8 +71,7 @@ export const serverCommand = async (args: string[], out: (text: string) => void)
     out(describe(running))
     return 0
   }
-  if (!socketAddress())
-    throw new UsageError(`the path of the project is too long for a socket: ${socketPath()}`)
+  if (!socketAddress()) throw new UsageError(`the path of the project is too long for a socket: ${socketPath()}`)
   // The server died and left its socket.
   rmSync(socketPath(), { force: true })
   const log = openSync(join(stateDir(), 'server.log'), 'a')

@@ -12,9 +12,7 @@ import type { Failure, Location, Sink, UbqEvent } from './events.ts'
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 
 /** From the main thread, at the start and the end of each test. */
-export type WatchMessage =
-  | { start: string; timeout: number; at?: Location }
-  | { end: 'pass' | 'fail' | 'skip' }
+export type WatchMessage = { start: string; timeout: number; at?: Location } | { end: 'pass' | 'fail' | 'skip' }
 
 export interface WatchData {
   file: string
@@ -58,9 +56,7 @@ const stuck = async (id: string, timeout: number, at?: Location): Promise<void> 
   // With source counters, the columns are those of the changed source.
   const stack =
     // ubq: not measured: SIGKILL ends it before it writes coverage
-    data.counters ?
-      frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) }))
-    : frames
+    data.counters ? frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) })) : frames
   const failure: Failure = {
     kind: 'timeout',
     message: stuckMessage(timeout),

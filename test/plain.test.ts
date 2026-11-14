@@ -33,8 +33,7 @@ for (const [cmd, args] of runtimes) {
       assert.equal(stdout.trimEnd().split('\n').at(-1), summary)
       // Node and Deno print values the same way. Bun differs in one
       // location, so only the summary and the exit code are checked.
-      if (cmd !== 'bun')
-        assert.equal(stdout, readFileSync(`${fixtures}${file}.out`, 'utf8'))
+      if (cmd !== 'bun') assert.equal(stdout, readFileSync(`${fixtures}${file}.out`, 'utf8'))
     })
   }
 }

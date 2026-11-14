@@ -57,11 +57,13 @@ const ESCAPES: Record<string, string> = { a: '\x07', b: '\b', t: '\t', n: '\n', 
 
 /** A name that git wrote in quotes, as C text, as the name itself. */
 const unquote = (name: string): string =>
-  name.startsWith('"') ?
-    name
-      .slice(1, -1)
-      .replace(/\\([0-7]{3}|.)/g, (_, e: string) => (e.length === 3 ? String.fromCharCode(parseInt(e, 8)) : (ESCAPES[e] ?? e)))
-  : name
+  name.startsWith('"')
+    ? name
+        .slice(1, -1)
+        .replace(/\\([0-7]{3}|.)/g, (_, e: string) =>
+          e.length === 3 ? String.fromCharCode(parseInt(e, 8)) : (ESCAPES[e] ?? e),
+        )
+    : name
 
 /**
  * The lines of each project file that are not the same as in a
@@ -82,7 +84,18 @@ export const changedLines = (commit: string): Map<string, Lines[]> => {
   let lines: Lines[] | undefined
   // With quotePath off, git escapes only `"`, `\`, and control
   // characters. A name with a space ends with a tab.
-  const diff = git('-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', '--no-ext-diff', '--relative', commit, '--', '.')
+  const diff = git(
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '-U0',
+    '--no-color',
+    '--no-ext-diff',
+    '--relative',
+    commit,
+    '--',
+    '.',
+  )
   for (const line of diff.split('\n')) {
     if (line.startsWith('+++ ')) {
       const name = unquote(line.slice(4).replace(/\t$/, ''))
@@ -99,4 +112,3 @@ export const changedLines = (commit: string): Map<string, Lines[]> => {
     if (file) out.set(file, [[1, Infinity]])
   return out
 }
-

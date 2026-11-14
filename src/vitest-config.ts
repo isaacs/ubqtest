@@ -51,16 +51,20 @@ const keyOf = (property: Node): string | undefined => {
 
 /** The value node of a key of an object in the code. */
 const get = (object: Node | undefined, key: string): Node | undefined =>
-  object?.type === 'ObjectExpression' ?
-    ((object.properties as Node[]).find(p => keyOf(p) === key)?.value as Node | undefined)
-  : undefined
+  object?.type === 'ObjectExpression'
+    ? ((object.properties as Node[]).find(p => keyOf(p) === key)?.value as Node | undefined)
+    : undefined
 
 /**
  * The Workers projects of the vitest config at the project root.
  * Undefined if there is no such config, or if it has no options of
  * the Workers plugin.
  */
-export const vitestWorkers = (root: string, parse: Parse, children: Children): { file: string; projects: WorkersProject[] } | undefined => {
+export const vitestWorkers = (
+  root: string,
+  parse: Parse,
+  children: Children,
+): { file: string; projects: WorkersProject[] } | undefined => {
   const file = NAMES.find(name => existsSync(join(root, name)))
   if (!file) return undefined
   let program: Node
@@ -109,10 +113,15 @@ export const vitestWorkers = (root: string, parse: Parse, children: Children): {
           } catch {
             // The plugin got the migrations of D1 as a binding. ubq has `migrate`.
             if (!/readD1Migrations|MIGRATIONS/.test(key ?? ''))
-              notes.push(`the binding ${key ?? '(a computed key)'} of miniflare.bindings in ${file} is not a plain value. Add it to "vars" by hand.`)
+              notes.push(
+                `the binding ${key ?? '(a computed key)'} of miniflare.bindings in ${file} is not a plain value. Add it to "vars" by hand.`,
+              )
           }
         }
-        if (!config) notes.push(`no wrangler.configPath in ${file} for this project. Give the path of the wrangler config in "config".`)
+        if (!config)
+          notes.push(
+            `no wrangler.configPath in ${file} for this project. Give the path of the wrangler config in "config".`,
+          )
         if (!include.length) notes.push(`no test.include in ${file} for this project. Check the globs in "include".`)
         const folder = config ? posix.dirname(fromRoot(config)) : '.'
         projects.push({

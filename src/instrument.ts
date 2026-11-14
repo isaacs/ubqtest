@@ -103,27 +103,11 @@ export const parse = (source: string, file: string): Node => {
   }
 }
 
-const FUNCTIONS = new Set([
-  'FunctionDeclaration',
-  'FunctionExpression',
-  'ArrowFunctionExpression',
-])
-const LOOPS = new Set([
-  'ForStatement',
-  'ForInStatement',
-  'ForOfStatement',
-  'WhileStatement',
-  'DoWhileStatement',
-])
-const JUMPS = new Set([
-  'ReturnStatement',
-  'ThrowStatement',
-  'BreakStatement',
-  'ContinueStatement',
-])
+const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'])
+const LOOPS = new Set(['ForStatement', 'ForInStatement', 'ForOfStatement', 'WhileStatement', 'DoWhileStatement'])
+const JUMPS = new Set(['ReturnStatement', 'ThrowStatement', 'BreakStatement', 'ContinueStatement'])
 
-const isNode = (v: unknown): v is Node =>
-  typeof v === 'object' && v !== null && typeof (v as Node).type === 'string'
+const isNode = (v: unknown): v is Node => typeof v === 'object' && v !== null && typeof (v as Node).type === 'string'
 
 export const children = (node: Node): Node[] => {
   const out: Node[] = []
@@ -136,9 +120,7 @@ export const children = (node: Node): Node[] => {
 }
 
 /** True if the code of `node` can leave its block early. */
-const jumps = (node: Node): boolean =>
-  JUMPS.has(node.type) ||
-  (!FUNCTIONS.has(node.type) && children(node).some(jumps))
+const jumps = (node: Node): boolean => JUMPS.has(node.type) || (!FUNCTIONS.has(node.type) && children(node).some(jumps))
 
 /**
  * Adds counters to `source`. Returns undefined if the parser cannot
@@ -170,11 +152,7 @@ export const instrument = (source: string, file: string): Instrumented | undefin
    */
   const afterDirectives = (body: Node[], fallback: number): [at: number, before: string] => {
     const first = body.find(s => typeof s.directive !== 'string')
-    return (
-      first ? [first.start, '']
-      : body.length ? [body.at(-1)!.end, ';']
-      : [fallback, '']
-    )
+    return first ? [first.start, ''] : body.length ? [body.at(-1)!.end, ';'] : [fallback, '']
   }
   /** A counter at the start of a statement that is a branch or a loop body. */
   // `from` is the start of the region, if the region has text in
@@ -182,8 +160,7 @@ export const instrument = (source: string, file: string): Instrumented | undefin
   // unless the branch does.
   const statement = (node: Node | null | undefined, fn: number, from?: number): void => {
     if (!node) return
-    if (node.type === 'BlockStatement')
-      edit(node.start + 1, `${region(node, false, fn, from)};`)
+    if (node.type === 'BlockStatement') edit(node.start + 1, `${region(node, false, fn, from)};`)
     else {
       edit(node.start, `{${region(node, false, fn, from)};`)
       edit(node.end, '}', true)
@@ -263,10 +240,8 @@ export const instrument = (source: string, file: string): Instrumented | undefin
         if (LOOPS.has(node.type)) statement(node.body as Node, inner)
     }
     const method =
-      node.type === 'MethodDefinition' ||
-      (node.type === 'Property' && (node.method === true || node.kind !== 'init'))
-    for (const child of children(node))
-      walk(child, inner, method && child === node.value ? node.start : undefined)
+      node.type === 'MethodDefinition' || (node.type === 'Property' && (node.method === true || node.kind !== 'init'))
+    for (const child of children(node)) walk(child, inner, method && child === node.value ? node.start : undefined)
   }
   walk(program, 0)
 
@@ -305,7 +280,7 @@ export const instrument = (source: string, file: string): Instrumented | undefin
   }
   let imports = 0
   for (const node of program.body as Node[]) {
-    if (/^Export/.test(node.type)) imports = -1
+    if (node.type.startsWith('Export')) imports = -1
     else if (node.type === 'ImportDeclaration' && imports >= 0) imports = source.slice(0, node.end).split('\n').length
   }
   return { code: code + source.slice(pos), regions, shifts, imports }

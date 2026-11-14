@@ -11,7 +11,9 @@ import { ENV, fileHash, openStore } from './store.ts'
 /** The store file for an argument: the file itself, a `.ubq` folder, or a project folder. */
 const storeFile = (arg: string): string => {
   const path = resolve(arg)
-  const found = [path, join(path, 'runs.db'), join(path, '.ubq', 'runs.db')].find(p => existsSync(p) && statSync(p).isFile())
+  const found = [path, join(path, 'runs.db'), join(path, '.ubq', 'runs.db')].find(
+    p => existsSync(p) && statSync(p).isFile(),
+  )
   if (!found) throw new UsageError(`no store at ${arg}. Give a project folder, a .ubq folder, or a runs.db file.`)
   return found
 }
@@ -30,8 +32,11 @@ export const mergeCommand = (args: string[], out: (text: string) => void): numbe
     throw new UsageError('ubq merge needs the stores to add: a project folder, a .ubq folder, or a runs.db file')
   const files = args.map(storeFile)
   const store = openStore()
-  const version = (db: DatabaseSync): number => (db.prepare('pragma user_version').get() as { user_version: number }).user_version
-  const add = store.db.prepare('insert or replace into other_coverage (env, tfile, test, file, ranges, hash) values (?, ?, ?, ?, ?, ?)')
+  const version = (db: DatabaseSync): number =>
+    (db.prepare('pragma user_version').get() as { user_version: number }).user_version
+  const add = store.db.prepare(
+    'insert or replace into other_coverage (env, tfile, test, file, ranges, hash) values (?, ?, ?, ?, ?, ?)',
+  )
   /** Files whose content is not that of the store that is read. */
   const differ = new Set<string>()
   const hashes = new Map<string, string>()
@@ -40,7 +45,9 @@ export const mergeCommand = (args: string[], out: (text: string) => void): numbe
       const from = new DatabaseSync(file, { readOnly: true })
       try {
         if (version(from) !== version(store.db))
-          throw new UsageError(`${args[i]} is the store of a different version of ubq. Make it with the version of this project.`)
+          throw new UsageError(
+            `${args[i]} is the store of a different version of ubq. Make it with the version of this project.`,
+          )
         const rows = from
           .prepare(
             `select ${ENV} as env, c.tfile, c.test, c.file, c.ranges, c.hash from coverage c join run r on r.id = c.run

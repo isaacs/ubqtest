@@ -56,7 +56,13 @@ export default {
     // so the capture of the test API does not see it.
     const state = (): { current: { getStore(): { id: string } | undefined } } | undefined =>
       shared[Symbol.for('ubqtest.state')] as ReturnType<typeof state>
-    for (const [method, stream] of [['log', 'stdout'], ['info', 'stdout'], ['debug', 'stdout'], ['warn', 'stderr'], ['error', 'stderr']] as const)
+    for (const [method, stream] of [
+      ['log', 'stdout'],
+      ['info', 'stdout'],
+      ['debug', 'stdout'],
+      ['warn', 'stderr'],
+      ['error', 'stderr'],
+    ] as const)
       console[method] = (...args: unknown[]): void => {
         const id = state()?.current.getStore()?.id
         send({ type: 'output', file: job.env.UBQ_FILE, ...(id && { id }), stream, text: format(...args) + '\n' })

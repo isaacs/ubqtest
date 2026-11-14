@@ -29,14 +29,16 @@ export interface Config {
 /** An error in the command or in the configuration. Exit code 4. */
 export class UsageError extends Error {}
 
-const globs = (v: unknown): boolean =>
-  Array.isArray(v) && v.length > 0 && v.every(s => typeof s === 'string' && s)
+const globs = (v: unknown): boolean => Array.isArray(v) && v.length > 0 && v.every(s => typeof s === 'string' && s)
 
 const browser = (v: unknown): boolean => {
   if (typeof v !== 'object' || !v || Array.isArray(v)) return false
   const { url, command, ...more } = v as Record<string, unknown>
   return (
-    typeof url === 'string' && URL.canParse(url) && (command === undefined || (typeof command === 'string' && !!command)) && !Object.keys(more).length
+    typeof url === 'string' &&
+    URL.canParse(url) &&
+    (command === undefined || (typeof command === 'string' && !!command)) &&
+    !Object.keys(more).length
   )
 }
 
@@ -64,8 +66,14 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   timeout: [v => typeof v === 'number' && v > 0, 'a number of milliseconds, such as 5000'],
   hangRerun: [v => typeof v === 'boolean', 'true or false'],
   bunInspectorCoverage: [v => typeof v === 'boolean', 'true or false'],
-  browser: [browser, 'an object with "url", and "command" if ubq must start the server, such as { "url": "http://localhost:5173", "command": "npm run dev" }'],
-  workers: [workers, 'a list of objects with "config" and "include", and "vars" for test values, such as [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }]'],
+  browser: [
+    browser,
+    'an object with "url", and "command" if ubq must start the server, such as { "url": "http://localhost:5173", "command": "npm run dev" }',
+  ],
+  workers: [
+    workers,
+    'a list of objects with "config" and "include", and "vars" for test values, such as [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }]',
+  ],
 }
 
 let cached: Config | undefined
@@ -82,16 +90,14 @@ export const config = (): Config => {
     return (cached = {})
   }
   const raw = pkg.ubq ?? {}
-  if (typeof raw !== 'object' || Array.isArray(raw))
-    throw new UsageError('"ubq" in package.json must be an object')
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new UsageError('"ubq" in package.json must be an object')
   for (const [key, value] of Object.entries(raw)) {
     const known = KEYS[key as keyof Config]
     if (!known)
       throw new UsageError(
         `unknown key "${key}" in "ubq" in package.json. The keys are: ${Object.keys(KEYS).join(', ')}`,
       )
-    if (!known[0](value))
-      throw new UsageError(`"ubq.${key}" in package.json must be ${known[1]}`)
+    if (!known[0](value)) throw new UsageError(`"ubq.${key}" in package.json must be ${known[1]}`)
   }
   return (cached = raw as Config)
 }
@@ -106,7 +112,8 @@ const HELPERS = ['**/{test,tests,__tests__}/**']
  * not in the list of code that no test runs. `file` is a path from
  * the project root.
  */
-export const isHelper = (file: string): boolean => (config().helpers ?? HELPERS).some(pattern => matchesGlob(file, pattern))
+export const isHelper = (file: string): boolean =>
+  (config().helpers ?? HELPERS).some(pattern => matchesGlob(file, pattern))
 
 /** With no `build` key: the common names for build output and for the scripts of a project. */
 const BUILD = ['dist/**', 'scripts/**']
@@ -118,4 +125,3 @@ const BUILD = ['dist/**', 'scripts/**']
  * map, its coverage is coverage of the source files.
  */
 export const isBuild = (file: string): boolean => (config().build ?? BUILD).some(pattern => matchesGlob(file, pattern))
-

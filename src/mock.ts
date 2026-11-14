@@ -54,17 +54,14 @@ const STUB = 'ubqstub:'
 const MOCK = 'ubqmock:'
 
 /** Project code gets a new instance for each mock. Packages and builtins do not. */
-const ownCode = (url: string): boolean =>
-  url.startsWith('file:') && !/[\\/]node_modules[\\/]/.test(url)
+const ownCode = (url: string): boolean => url.startsWith('file:') && !/[\\/]node_modules[\\/]/.test(url)
 
 /** The source of the module that replaces dependency `dep` in mock `id`. */
 const mockSource = (id: string, dep: string): string => {
   const keys = Object.keys(table.get(id)!.get(dep)!)
   return [
     `const m = globalThis[Symbol.for('ubq.mocks')].get(${JSON.stringify(id)}).get(${JSON.stringify(dep)})`,
-    ...keys.map(k =>
-      k === 'default' ? 'export default m.default' : `export const ${k} = m[${JSON.stringify(k)}]`,
-    ),
+    ...keys.map(k => (k === 'default' ? 'export default m.default' : `export const ${k} = m[${JSON.stringify(k)}]`)),
     // `import fs from 'node:fs'` reads the names from the default export.
     ...(keys.includes('default') ? [] : ['export default m']),
   ].join('\n')
@@ -79,9 +76,7 @@ const CODE = /\.[cm]?([jt]sx?)$/
 // hook knows it. It writes the mock number into each import of the
 // instance. On Bun, a mock is keyed by a path, not by a URL.
 const registerBun = (): void => {
-  const source = (globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] as
-    | ((path: string) => string)
-    | undefined
+  const source = (globalThis as Record<symbol, unknown>)[Symbol.for(SOURCE)] as ((path: string) => string) | undefined
   Bun.plugin({
     name: 'ubqtest mocks',
     setup(build) {
@@ -120,8 +115,8 @@ const registerBun = (): void => {
             // A path of Windows has `\\`, which starts an escape in a string.
             if (table.get(id)?.has(dep)) return `${head}${quote}ubqmock:${id}:${dep.replaceAll('\\', '\\\\')}${quote}`
             // Project code gets a new instance. Packages and builtins do not.
-            return CODE.test(dep) && !/[\\/]node_modules[\\/]/.test(dep) ?
-                `${head}${quote}${specifier}?mock=${id}${quote}`
+            return CODE.test(dep) && !/[\\/]node_modules[\\/]/.test(dep)
+              ? `${head}${quote}${specifier}?mock=${id}${quote}`
               : all
           },
         )
@@ -165,8 +160,7 @@ const register = (): void => {
       const parent = context.parentURL
       const id = parent?.includes('?mock=') ? new URL(parent).searchParams.get('mock') : null
       if (!id) return result
-      if (table.get(id)?.has(result.url))
-        return { url: `${MOCK}${id}:${result.url}`, shortCircuit: true }
+      if (table.get(id)?.has(result.url)) return { url: `${MOCK}${id}:${result.url}`, shortCircuit: true }
       return ownCode(result.url) ? { ...result, url: `${result.url}?mock=${id}` } : result
     },
     load(url, context, next) {

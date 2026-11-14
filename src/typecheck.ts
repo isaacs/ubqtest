@@ -22,7 +22,9 @@ const compiler = (root: string): string[] | undefined => {
     // for a different one: an x64 program on an ARM machine.
     for (const arch of new Set([process.arch, 'arm64', 'x64'])) {
       try {
-        const native = createRequire(manifest).resolve(`@typescript/typescript-${process.platform}-${arch}/package.json`)
+        const native = createRequire(manifest).resolve(
+          `@typescript/typescript-${process.platform}-${arch}/package.json`,
+        )
         const exe = join(dirname(native), 'lib', process.platform === 'win32' ? 'tsc.exe' : 'tsc')
         if (existsSync(exe)) return [exe]
       } catch {
@@ -32,8 +34,9 @@ const compiler = (root: string): string[] | undefined => {
     // The command file is a JavaScript program. Windows cannot start
     // it with no runtime.
     const bin = (JSON.parse(readFileSync(manifest, 'utf8')) as { bin?: { tsc?: string } }).bin?.tsc
-    // ubq: not measured: the tests run the command line on Node
-    return bin ? [process.execPath, ...(process.versions.deno ? ['run', '-A'] : []), join(dirname(manifest), bin)] : undefined
+    return bin
+      ? [process.execPath, ...(process.versions.deno ? ['run', '-A'] : []), join(dirname(manifest), bin)] // ubq: not measured: the tests run the command line on Node
+      : undefined // ubq: not measured: the package of typescript has a bin
   } catch {
     return undefined
   }
@@ -60,7 +63,11 @@ const configFolders = (root: string, files: string[]): string[] => {
 }
 
 /** Runs the checker on the config of one folder. */
-const check = (tsc: string[], root: string, folder: string): { child?: ChildProcess; errors: Promise<TypeCheckError[]> } => {
+const check = (
+  tsc: string[],
+  root: string,
+  folder: string,
+): { child?: ChildProcess; errors: Promise<TypeCheckError[]> } => {
   // The checker keeps its data for the next run. Each config has
   // its own file.
   const name = folder === root ? 'tsbuildinfo' : `tsbuildinfo-${rel(folder).replaceAll('/', '-')}`
@@ -71,7 +78,17 @@ const check = (tsc: string[], root: string, folder: string): { child?: ChildProc
   try {
     child = spawn(
       tsc[0]!,
-      [...tsc.slice(1), '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', join(stateDir(), 'types', name), '-p', folder],
+      [
+        ...tsc.slice(1),
+        '--noEmit',
+        '--pretty',
+        'false',
+        '--incremental',
+        '--tsBuildInfoFile',
+        join(stateDir(), 'types', name),
+        '-p',
+        folder,
+      ],
       { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
     )
   } catch (error) {

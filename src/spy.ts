@@ -16,8 +16,7 @@ export type Spy<F extends AnyFn = AnyFn> = F & { calls: SpyCall<F>[] }
 
 /** A function that records each call in `calls`, and then calls `impl`. */
 export const spy = <F extends AnyFn = (...args: unknown[]) => void>(impl?: F): Spy<F> => {
-  if (impl !== undefined && typeof impl !== 'function')
-    throw new TypeError('spy() needs a function, or no argument')
+  if (impl !== undefined && typeof impl !== 'function') throw new TypeError('spy() needs a function, or no argument')
   const calls: SpyCall<F>[] = []
   const fn = function (this: unknown, ...args: Parameters<F>): ReturnType<F> {
     const call: SpyCall<F> = { args }
@@ -40,14 +39,9 @@ type MethodKeys<T> = { [K in keyof T]-?: T[K] extends AnyFn ? K : never }[keyof 
  * `impl`, or the original method. The original comes back when the
  * test ends.
  */
-export const spyOn = <T extends object, K extends MethodKeys<T>>(
-  object: T,
-  key: K,
-  impl?: T[K],
-): Spy<T[K] & AnyFn> => {
+export const spyOn = <T extends object, K extends MethodKeys<T>>(object: T, key: K, impl?: T[K]): Spy<T[K] & AnyFn> => {
   const original = object[key]
-  if (typeof original !== 'function')
-    throw new TypeError(`spyOn: ${String(key)} is not a function of the object`)
+  if (typeof original !== 'function') throw new TypeError(`spyOn: ${String(key)} is not a function of the object`)
   const own = Object.getOwnPropertyDescriptor(object, key)
   const replacement = spy((impl ?? original) as T[K] & AnyFn)
   cleanup(() => {
@@ -55,6 +49,11 @@ export const spyOn = <T extends object, K extends MethodKeys<T>>(
     else delete object[key]
   })
   // The original can be on the prototype, or have no setter.
-  Object.defineProperty(object, key, { value: replacement, configurable: true, writable: true, enumerable: own?.enumerable ?? false })
+  Object.defineProperty(object, key, {
+    value: replacement,
+    configurable: true,
+    writable: true,
+    enumerable: own?.enumerable ?? false,
+  })
   return replacement
 }

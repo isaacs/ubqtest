@@ -42,8 +42,7 @@ class Source {
   starts: number[] = [0]
   constructor(file: string) {
     this.text = readFileSync(join(projectRoot(), file), 'utf8')
-    for (let i = this.text.indexOf('\n'); i >= 0; i = this.text.indexOf('\n', i + 1))
-      this.starts.push(i + 1)
+    for (let i = this.text.indexOf('\n'); i >= 0; i = this.text.indexOf('\n', i + 1)) this.starts.push(i + 1)
   }
   /** Line and column of an offset. Both start at 1. */
   at(offset: number): { line: number; column: number } {
@@ -75,10 +74,7 @@ class Source {
 }
 
 /** The coverage rows of a source file, one for each test that ran code in it. */
-const rangesOf = (
-  db: DatabaseSync,
-  file: string,
-): { tfile: string; test: string; ranges: number[] }[] =>
+const rangesOf = (db: DatabaseSync, file: string): { tfile: string; test: string; ranges: number[] }[] =>
   (
     db
       .prepare(
@@ -175,9 +171,19 @@ export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {
     // of the first two lines of the range: a block starts with `{`
     // (D56).
     const above = at.line > 1 ? source.text.slice(source.starts[at.line - 2], source.starts[at.line - 1]) : ''
-    const first = source.text.slice(source.starts[at.line - 1], source.starts[at.line + (lines.length > 1 ? 1 : 0)] ?? source.text.length)
+    const first = source.text.slice(
+      source.starts[at.line - 1],
+      source.starts[at.line + (lines.length > 1 ? 1 : 0)] ?? source.text.length,
+    )
     const reason = (/^\s*(\/\/|\/\*)/.test(above) && notMeasured(above)) || notMeasured(first)
-    out.push({ file, ...at, text: lines[0]!.trimEnd(), sourceLine, moreLines: lines.length - 1, ...(reason && { notMeasured: reason }) })
+    out.push({
+      file,
+      ...at,
+      text: lines[0]!.trimEnd(),
+      sourceLine,
+      moreLines: lines.length - 1,
+      ...(reason && { notMeasured: reason }),
+    })
   }
   return out
 }
@@ -212,8 +218,7 @@ export const covers = (db: DatabaseSync, file: string, line: number): Covers => 
 export const coversAt = (db: DatabaseSync, file: string, at: number): Covers => {
   const rows = rangesOf(db, file).filter(({ ranges }) => {
     // The segments do not overlap.
-    for (let i = 0; i < ranges.length; i += 3)
-      if (ranges[i]! <= at && at < ranges[i + 1]!) return ranges[i + 2]! > 0
+    for (let i = 0; i < ranges.length; i += 3) if (ranges[i]! <= at && at < ranges[i + 1]!) return ranges[i + 2]! > 0
     return false
   })
   return {
@@ -226,9 +231,10 @@ export const coversAt = (db: DatabaseSync, file: string, at: number): Covers => 
 /** Test files whose last run did not have full coverage. Not a file that is gone. */
 export const incomplete = (db: DatabaseSync): { tfile: string; coverage: string }[] =>
   (
-    db
-      .prepare("select tfile, coverage from test_file where coverage != 'full' order by tfile")
-      .all() as { tfile: string; coverage: string }[]
+    db.prepare("select tfile, coverage from test_file where coverage != 'full' order by tfile").all() as {
+      tfile: string
+      coverage: string
+    }[]
   ).filter(({ tfile }) => tfile && existsSync(join(projectRoot(), tfile)))
 
 export interface TestRow {
@@ -259,9 +265,15 @@ export const lastRun = (db: DatabaseSync): number | undefined =>
  * run is before it.
  */
 export const envChange = (db: DatabaseSync, run: number): string | undefined => {
-  const rows = db.prepare('select id, env from run where id <= ? order by id desc limit 2').all(run) as { id: number; env: string }[]
+  const rows = db.prepare('select id, env from run where id <= ? order by id desc limit 2').all(run) as {
+    id: number
+    env: string
+  }[]
   if (rows.length < 2 || rows[0]!.id !== run) return undefined
-  const [now, before] = rows.map(r => JSON.parse(r.env) as Record<string, string>) as [Record<string, string>, Record<string, string>]
+  const [now, before] = rows.map(r => JSON.parse(r.env) as Record<string, string>) as [
+    Record<string, string>,
+    Record<string, string>,
+  ]
   const names = RUN_ENV.filter(name => now[name] !== before[name])
   if (!names.length) return undefined
   const show = (env: Record<string, string>): string =>
@@ -286,10 +298,7 @@ export const runRow = (db: DatabaseSync, run: number): RunRow | undefined =>
 
 /** The failed tests of a run. */
 export const failures = (db: DatabaseSync, run: number): TestRow[] =>
-  db
-    .prepare("select * from test where run = ? and status = 'fail' order by id")
-    .all(run)
-    .map(testRow)
+  db.prepare("select * from test where run = ? and status = 'fail' order by id").all(run).map(testRow)
 
 export const fileErrors = (db: DatabaseSync, run: number): { file: string; failure: Failure }[] =>
   (
@@ -321,21 +330,15 @@ export const lastResult = (db: DatabaseSync, id: string): TestRow | undefined =>
 
 /** The console output of a test in a run. */
 export const outputOf = (db: DatabaseSync, run: number, id: string): string =>
-  (
-    db
-      .prepare('select text from output where test = ? and run = ? order by rowid')
-      .all(id, run) as { text: string }[]
-  )
+  (db.prepare('select text from output where test = ? and run = ? order by rowid').all(id, run) as { text: string }[])
     .map(r => r.text)
     .join('')
 
 /** The files that a test ran code in. */
 export const filesOf = (db: DatabaseSync, id: string): string[] =>
-  (
-    db
-      .prepare('select distinct file from coverage where test = ? order by file')
-      .all(id) as { file: string }[]
-  ).map(r => r.file)
+  (db.prepare('select distinct file from coverage where test = ? order by file').all(id) as { file: string }[]).map(
+    r => r.file,
+  )
 
 export interface HistoryRow {
   run: number
@@ -363,9 +366,7 @@ export const history = (db: DatabaseSync, id: string): HistoryRow[] =>
       .all(id) as Record<string, unknown>[]
   ).map(r => ({ ...r, failure: r.failure ? JSON.parse(r.failure as string) : null }) as HistoryRow)
 
-export type Flake =
-  | { pass: number; fail: number }
-  | { run: number; repeats: number; fails: number }
+export type Flake = { pass: number; fail: number } | { run: number; repeats: number; fails: number }
 
 /**
  * The newest evidence that a test is flaky: a run with `--repeat` in
@@ -377,8 +378,7 @@ export const flake = (rows: HistoryRow[]): Flake | undefined => {
   const last = new Map<string, { pass?: number; fail?: number }>()
   let found: Flake | undefined
   for (const r of rows) {
-    if (r.repeats && r.fails && r.fails < r.repeats)
-      found = { run: r.run, repeats: r.repeats, fails: r.fails }
+    if (r.repeats && r.fails && r.fails < r.repeats) found = { run: r.run, repeats: r.repeats, fails: r.fails }
     if (r.code === null || r.status === 'skip') continue
     const seen = last.get(r.code) ?? {}
     last.set(r.code, seen)
@@ -462,6 +462,7 @@ export const diffRuns = (db: DatabaseSync, a: number, b: number): RunDiff => {
 
 /** The tests of a run that are not skipped, slowest first. */
 export const slowest = (db: DatabaseSync, run: number): { id: string; ms: number }[] =>
-  db
-    .prepare("select id, ms from test where run = ? and status != 'skip' order by ms desc, id")
-    .all(run) as { id: string; ms: number }[]
+  db.prepare("select id, ms from test where run = ? and status != 'skip' order by ms desc, id").all(run) as {
+    id: string
+    ms: number
+  }[]

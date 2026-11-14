@@ -12,13 +12,7 @@ export { fakeClock, type FakeClock, type FakeClockOptions } from './clock.ts'
 export { cleanup, env, type Files } from './fixtures.ts'
 export { mockImport, type MockOf } from './mock.ts'
 export { spy, spyOn, type Spy, type SpyCall } from './spy.ts'
-export {
-  describe,
-  test,
-  type TestContext,
-  type TestFn,
-  type TestOptions,
-} from './test.ts'
+export { describe, test, type TestContext, type TestFn, type TestOptions } from './test.ts'
 
 /**
  * Makes a new folder with `files` in it and returns its path:
@@ -36,6 +30,18 @@ else startPlain()
 if (process.env.UBQ_CAPTURE) startCapture(currentFile)
 // Processes that the tests start must not get these.
 setUpdate(!!process.env.UBQ_UPDATE)
-for (const name of ['UBQ_CHILD', 'UBQ_FILE', 'UBQ_LINES', 'UBQ_IDS', 'UBQ_COMMAND', 'UBQ_CAPTURE', 'UBQ_UPDATE', 'UBQ_HANG', 'UBQ_MUTANT', 'UBQ_LIMIT', 'UBQ_EVENTS'])
+for (const name of [
+  'UBQ_CHILD',
+  'UBQ_FILE',
+  'UBQ_LINES',
+  'UBQ_IDS',
+  'UBQ_COMMAND',
+  'UBQ_CAPTURE',
+  'UBQ_UPDATE',
+  'UBQ_HANG',
+  'UBQ_MUTANT',
+  'UBQ_LIMIT',
+  'UBQ_EVENTS',
+])
   delete process.env[name]
 setCollector(startCoverage())

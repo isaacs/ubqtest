@@ -29,23 +29,113 @@ interface Page {
 
 const PAGES: Page[] = [
   { source: 'GUIDE.md', slug: 'guide', name: 'Guide', about: 'The API, the rules, and the commands.', group: 'use' },
-  { source: 'docs/api.md', slug: 'api', name: 'API reference', about: 'Each export of the package, with its type.', group: 'use' },
-  { source: 'CONVERT.md', slug: 'convert', name: 'Convert a project', about: 'How to move a project from tap, node:test, vitest, jest, bun:test, or mocha.', group: 'use' },
-  { source: 'docs/08-config.md', slug: 'config', name: 'Configuration', about: 'Which files ubq runs, and the `ubq` key of `package.json`.', group: 'use' },
-  { source: 'skills/use-ubq/SKILL.md', slug: 'skill', name: 'Agent skill', about: 'The `use-ubq` skill that `ubq skill` writes for your agent.', group: 'use' },
+  {
+    source: 'docs/api.md',
+    slug: 'api',
+    name: 'API reference',
+    about: 'Each export of the package, with its type.',
+    group: 'use',
+  },
+  {
+    source: 'CONVERT.md',
+    slug: 'convert',
+    name: 'Convert a project',
+    about: 'How to move a project from tap, node:test, vitest, jest, bun:test, or mocha.',
+    group: 'use',
+  },
+  {
+    source: 'docs/08-config.md',
+    slug: 'config',
+    name: 'Configuration',
+    about: 'Which files ubq runs, and the `ubq` key of `package.json`.',
+    group: 'use',
+  },
+  {
+    source: 'skills/use-ubq/SKILL.md',
+    slug: 'skill',
+    name: 'Agent skill',
+    about: 'The `use-ubq` skill that `ubq skill` writes for your agent.',
+    group: 'use',
+  },
   { source: 'LICENSE.md', slug: 'license', name: 'License', about: 'Blue Oak Model License 1.0.0.', group: 'use' },
 
-  { source: 'docs/00-initial-prompt.md', slug: 'docs/goals', name: 'Goals', about: 'The goals of the project, from its author.', group: 'design' },
-  { source: 'docs/01-agent-ideation.md', slug: 'docs/agent-needs', name: 'What agents need', about: 'What an agent needs from a test tool. Written by an agent, before the design.', group: 'design' },
-  { source: 'docs/02-decisions.md', slug: 'docs/decisions', name: 'Decisions', about: 'Each design decision, with its reason.', group: 'design' },
-  { source: 'docs/03-measurements.md', slug: 'docs/measurements', name: 'Measurements', about: 'The measured costs that the design depends on.', group: 'design' },
-  { source: 'docs/04-architecture.md', slug: 'docs/architecture', name: 'Architecture', about: 'The plan from before the build: the parts, the process model, events, coverage, and the store.', group: 'design' },
-  { source: 'docs/05-api.md', slug: 'docs/api-design', name: 'API design', about: 'The test file API, and what is absent on purpose.', group: 'design' },
-  { source: 'docs/06-events.md', slug: 'docs/events', name: 'Events', about: 'The events that a test process sends to the runner.', group: 'design' },
-  { source: 'docs/07-status.md', slug: 'docs/status', name: 'Status', about: 'What is built, and what waits for a decision.', group: 'design' },
-  { source: 'docs/09-questions.md', slug: 'docs/questions', name: 'Open questions', about: 'Questions for the user, and the decision that answered each one.', group: 'design' },
-  { source: 'docs/10-bun-coverage-api.md', slug: 'docs/bun-coverage', name: 'Coverage on Bun', about: 'What ubq needs from Bun for coverage of each test.', group: 'design' },
-  { source: 'docs/11-server.md', slug: 'docs/server', name: 'Server', about: 'The optional background server.', group: 'design' },
+  {
+    source: 'docs/00-initial-prompt.md',
+    slug: 'docs/goals',
+    name: 'Goals',
+    about: 'The goals of the project, from its author.',
+    group: 'design',
+  },
+  {
+    source: 'docs/01-agent-ideation.md',
+    slug: 'docs/agent-needs',
+    name: 'What agents need',
+    about: 'What an agent needs from a test tool. Written by an agent, before the design.',
+    group: 'design',
+  },
+  {
+    source: 'docs/02-decisions.md',
+    slug: 'docs/decisions',
+    name: 'Decisions',
+    about: 'Each design decision, with its reason.',
+    group: 'design',
+  },
+  {
+    source: 'docs/03-measurements.md',
+    slug: 'docs/measurements',
+    name: 'Measurements',
+    about: 'The measured costs that the design depends on.',
+    group: 'design',
+  },
+  {
+    source: 'docs/04-architecture.md',
+    slug: 'docs/architecture',
+    name: 'Architecture',
+    about: 'The plan from before the build: the parts, the process model, events, coverage, and the store.',
+    group: 'design',
+  },
+  {
+    source: 'docs/05-api.md',
+    slug: 'docs/api-design',
+    name: 'API design',
+    about: 'The test file API, and what is absent on purpose.',
+    group: 'design',
+  },
+  {
+    source: 'docs/06-events.md',
+    slug: 'docs/events',
+    name: 'Events',
+    about: 'The events that a test process sends to the runner.',
+    group: 'design',
+  },
+  {
+    source: 'docs/07-status.md',
+    slug: 'docs/status',
+    name: 'Status',
+    about: 'What is built, and what waits for a decision.',
+    group: 'design',
+  },
+  {
+    source: 'docs/09-questions.md',
+    slug: 'docs/questions',
+    name: 'Open questions',
+    about: 'Questions for the user, and the decision that answered each one.',
+    group: 'design',
+  },
+  {
+    source: 'docs/10-bun-coverage-api.md',
+    slug: 'docs/bun-coverage',
+    name: 'Coverage on Bun',
+    about: 'What ubq needs from Bun for coverage of each test.',
+    group: 'design',
+  },
+  {
+    source: 'docs/11-server.md',
+    slug: 'docs/server',
+    name: 'Server',
+    about: 'The optional background server.',
+    group: 'design',
+  },
 ]
 const HOME: Page = { name: 'Home', source: 'README.md', slug: 'index' }
 const DOCS: Page = { name: 'Docs', source: 'docs/README.md', slug: 'docs' }
@@ -56,7 +146,8 @@ const write = (file: string, text: string): void => {
   mkdirSync(dirname(resolve(out, file)), { recursive: true })
   writeFileSync(resolve(out, file), text)
 }
-const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const escape = (text: string): string =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /** The file of a page in the site. */
 /** The address of the site. A link preview needs full URLs. */
@@ -120,9 +211,12 @@ const mention = (page: { source: string; slug: string }, text: string): string |
 }
 
 const KEYWORDS = new Set(
-  'as async await break case catch class const continue default do else export extends false finally for from function if import in instanceof interface let new null of return satisfies switch this throw true try type typeof undefined void while'.split(' '),
+  'as async await break case catch class const continue default do else export extends false finally for from function if import in instanceof interface let new null of return satisfies switch this throw true try type typeof undefined void while'.split(
+    ' ',
+  ),
 )
-const TS = /(\/\/.*|\/\*[^]*?\*\/)|('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\[^])*`)|\b(\d[\d_.]*)\b|([A-Za-z_$][\w$]*)/g
+const TS =
+  /(\/\/.*|\/\*[^]*?\*\/)|('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\[^])*`)|\b(\d[\d_.]*)\b|([A-Za-z_$][\w$]*)/g
 /**
  * TypeScript with a `span` for each comment, string, number, and
  * keyword. A name with an `href` from `link` is a link.
@@ -134,10 +228,11 @@ const typescript = (code: string, link?: (name: string) => string | undefined): 
     const kind = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'n' : KEYWORDS.has(m[0]) ? 'k' : ''
     html += escape(code.slice(last, m.index))
     const href = kind ? undefined : link?.(m[0])
-    html +=
-      kind ? `<span class="${kind}">${escape(m[0])}</span>`
-      : href ? `<a href="${href}">${escape(m[0])}</a>`
-      : escape(m[0])
+    html += kind
+      ? `<span class="${kind}">${escape(m[0])}</span>`
+      : href
+        ? `<a href="${href}">${escape(m[0])}</a>`
+        : escape(m[0])
     last = m.index + m[0].length
   }
   return html + escape(code.slice(last))
@@ -154,14 +249,19 @@ const code = (text: string, lang = '', link?: (name: string) => string | undefin
 
 /** The HTML of a markdown source, and its first heading. */
 /** The text of a heading as the first part of its `id`. */
-const headingId = (text: string): string => text.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'section'
+const headingId = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[^\w]+/g, '-')
+    .replace(/^-|-$/g, '') || 'section'
 
 // The documents name a decision by its number: D14. Each number is
 // a link to the heading of the decision.
 const DECISIONS = 'docs/02-decisions.md'
 const API = 'docs/api.md'
 const decisions = new Map<string, string>()
-for (const [, text = '', number = ''] of read(DECISIONS).matchAll(/^## ((D\d+)\..*)$/gm)) decisions.set(number, headingId(text))
+for (const [, text = '', number = ''] of read(DECISIONS).matchAll(/^## ((D\d+)\..*)$/gm))
+  decisions.set(number, headingId(text))
 
 const render = (page: Page, markdown: string): { html: string; title: string } => {
   const ids = new Map<string, number>()
@@ -200,13 +300,17 @@ const render = (page: Page, markdown: string): { html: string; title: string } =
           const m = /^D\d+\b/.exec(src)
           return m && decisions.has(m[0]) ? { type: 'decision', raw: m[0] } : undefined
         },
-        renderer: ({ raw }) => (plain ? raw : `<a href="${link(page, `${posix.relative(posix.dirname(page.source), DECISIONS)}#${decisions.get(raw)}`, false)}">${raw}</a>`),
+        renderer: ({ raw }) =>
+          plain
+            ? raw
+            : `<a href="${link(page, `${posix.relative(posix.dirname(page.source), DECISIONS)}#${decisions.get(raw)}`, false)}">${raw}</a>`,
       },
     ],
     walkTokens: token => {
       if (token.type === 'link') {
         token.href = link(page, token.href, false)
-        for (const child of token.tokens ?? []) if (child.type === 'codespan') (child as { linked?: boolean }).linked = true
+        for (const child of token.tokens ?? [])
+          if (child.type === 'codespan') (child as { linked?: boolean }).linked = true
       }
     },
     renderer: {
@@ -216,22 +320,26 @@ const render = (page: Page, markdown: string): { html: string; title: string } =
         const href = linked ? undefined : mention(page, text)
         return href ? `<a href="${href}"><code>${escape(text)}</code></a>` : `<code>${escape(text)}</code>`
       },
-      link(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { href, title: tip, tokens }: Tokens.Link) {
+      link(
+        this: { parser: { parseInline(tokens: Tokens.Generic[]): string } },
+        { href, title: tip, tokens }: Tokens.Link,
+      ) {
         plain = true
         const inner = this.parser.parseInline(tokens)
         plain = false
         return `<a href="${escape(href)}"${tip ? ` title="${escape(tip)}"` : ''}>${inner}</a>`
       },
-      heading(this: { parser: { parseInline(tokens: Tokens.Generic[]): string } }, { tokens, depth, text }: Tokens.Heading) {
+      heading(
+        this: { parser: { parseInline(tokens: Tokens.Generic[]): string } },
+        { tokens, depth, text }: Tokens.Heading,
+      ) {
         plain = true
         const inner = this.parser.parseInline(tokens)
         plain = false
         if (depth === 1) {
           title ||= text.replace(/`/g, '')
           return `<h1>${inner}</h1>\n${
-            about ? `<p class="about">${
-              (new Marked().parse(about) as string).substring(3)
-            }\n` : ''
+            about ? `<p class="about">${(new Marked().parse(about) as string).substring(3)}\n` : ''
           }`
         }
         const base = headingId(text)
@@ -263,7 +371,8 @@ const NAV: [name: string, to: string][] = [
 
 /** A full HTML document. */
 const layout = (slug: string, title: string, body: string, bodyClass: string): string => {
-  const current = (to: string): string => (htmlFile(slug) === to || (to === 'docs/index.html' && slug.startsWith('docs/')) ? ' class="current-page"' : '')
+  const current = (to: string): string =>
+    htmlFile(slug) === to || (to === 'docs/index.html' && slug.startsWith('docs/')) ? ' class="current-page"' : ''
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -310,7 +419,10 @@ ${body}
 const side = (slug: string): string => {
   const list = (group: Page['group']): string =>
     PAGES.filter(p => p.group === group)
-      .map(p => `      <li${p.slug === slug ? ' class="current-page"' : ''}><a href="${rel(slug, htmlFile(p.slug))}">${p.name}</a></li>`)
+      .map(
+        p =>
+          `      <li${p.slug === slug ? ' class="current-page"' : ''}><a href="${rel(slug, htmlFile(p.slug))}">${p.name}</a></li>`,
+      )
       .join('\n')
   return `<nav class="side" aria-label="Documentation">
     <h2>Use ubq</h2>
@@ -405,7 +517,15 @@ guide\` prints the guide for the installed version.
 `
 {
   const { html } = render(notFound, notFoundText)
-  write('404.html', layout('404', 'Page not found | ubq', `<div class="columns">\n  <main class="doc">\n${html}\n  </main>\n</div>`, 'page'))
+  write(
+    '404.html',
+    layout(
+      '404',
+      'Page not found | ubq',
+      `<div class="columns">\n  <main class="doc">\n${html}\n  </main>\n</div>`,
+      'page',
+    ),
+  )
   write('404.md', markdownCopy(notFound, notFoundText))
 }
 
@@ -439,7 +559,11 @@ ${entries('design')}
 write(
   'llms-full.txt',
   [HOME, ...PAGES.filter(p => p.group === 'use' && p.slug !== 'license')]
-    .map(p => markdownCopy({ source: p.source, slug: 'index' }, read(p.source)).replace(/^---\n[^]*?\n---\n/, '').trim())
+    .map(p =>
+      markdownCopy({ source: p.source, slug: 'index' }, read(p.source))
+        .replace(/^---\n[^]*?\n---\n/, '')
+        .trim(),
+    )
     .join('\n\n---\n\n') + '\n',
 )
 

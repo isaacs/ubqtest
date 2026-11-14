@@ -22,9 +22,7 @@ export interface Baseline {
   errors: Set<string>
 }
 
-const CLI = fileURLToPath(
-  new URL(`./cli${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url),
-)
+const CLI = fileURLToPath(new URL(`./cli${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url))
 
 const git = (args: string[]): { ok: boolean; out: string; err: string } => {
   const r = spawnSync('git', args, { cwd: projectRoot(), encoding: 'utf8' })
@@ -39,8 +37,7 @@ const git = (args: string[]): { ok: boolean; out: string; err: string } => {
  */
 export const runBaseline = async (ref: string, files: string[] | undefined): Promise<Baseline> => {
   const prefix = git(['rev-parse', '--show-prefix'])
-  if (!prefix.ok)
-    throw new UsageError('--baseline needs a git repository, and this project is not in one')
+  if (!prefix.ok) throw new UsageError('--baseline needs a git repository, and this project is not in one')
   const full = git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])
   if (!full.ok)
     throw new UsageError(
@@ -86,13 +83,14 @@ export const runBaseline = async (ref: string, files: string[] | undefined): Pro
     // ubq: not measured: the run of a baseline always makes a store
     if (!existsSync(path)) return result
     const db = new DatabaseSync(path, { readOnly: true })
-    for (const t of db
-      .prepare('select id, status from test where run = (select max(id) from run)')
-      .all() as { id: string; status: Status }[])
+    for (const t of db.prepare('select id, status from test where run = (select max(id) from run)').all() as {
+      id: string
+      status: Status
+    }[])
       result.tests.set(t.id, t.status)
-    for (const e of db
-      .prepare('select file from file_error where run = (select max(id) from run)')
-      .all() as { file: string }[])
+    for (const e of db.prepare('select file from file_error where run = (select max(id) from run)').all() as {
+      file: string
+    }[])
       result.errors.add(e.file)
     db.close()
     return result
@@ -106,11 +104,7 @@ export const runBaseline = async (ref: string, files: string[] | undefined): Pro
  * result of each test of the run, `errors` the files with a file
  * error.
  */
-export const compare = (
-  base: Baseline,
-  now: Map<string, Status>,
-  errors: Set<string>,
-): string[] => {
+export const compare = (base: Baseline, now: Map<string, Status>, errors: Set<string>): string[] => {
   const fresh: string[] = []
   const old: string[] = []
   const fixed: string[] = []

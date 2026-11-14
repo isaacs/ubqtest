@@ -7,7 +7,9 @@ import type { Location } from './events.ts'
 
 // The folder of this code, and the source and the build of ubq. In
 // the repository of ubq, a test process can load the code of both.
-const OWN = [import.meta.dirname, join(import.meta.dirname, '../src'), join(import.meta.dirname, '../dist')].map(dir => dir + sep)
+const OWN = [import.meta.dirname, join(import.meta.dirname, '../src'), join(import.meta.dirname, '../dist')].map(
+  dir => dir + sep,
+)
 
 /** Time after the limit of a test before a watchdog acts. */
 export const GRACE_MS = 2000

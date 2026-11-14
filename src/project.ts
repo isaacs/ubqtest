@@ -18,8 +18,7 @@ export const projectRoot = (): string => {
 }
 
 /** An absolute path as a path from the project root, with `/` separators. */
-export const rel = (path: string): string =>
-  relative(projectRoot(), path).split(sep).join('/')
+export const rel = (path: string): string => relative(projectRoot(), path).split(sep).join('/')
 
 /** The folder for all ubq state in a project. Git ignores it. */
 export const stateDir = (): string => {

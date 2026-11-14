@@ -28,7 +28,8 @@ const parse = (): typeof import('./instrument.ts').instrument | undefined => {
   if (!instrument && !noParser) {
     loadingParser = true
     try {
-      instrument = (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')).instrument
+      instrument = (nodeModule.createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts'))
+        .instrument
       // ubq: not measured: this module loads before the counters start
     } catch {
       // From the source of ubq, Deno 2.9 cannot load the parser in
@@ -287,10 +288,11 @@ export const startCounters = (): Counters | undefined => {
       // ubq: not measured: this module loads before the counters start
       const changed = source === undefined ? undefined : mutated(path, source)
       const result =
-        // ubq: not measured: this module loads before the counters start
-        source === undefined ? undefined
-        : changed === undefined ? cached(file, source, false, projectRoot(), path, builtMap(path, source))
-        : parse()?.(changed, file)
+        source === undefined
+          ? undefined // ubq: not measured: this module loads before the counters start
+          : changed === undefined
+            ? cached(file, source, false, projectRoot(), path, builtMap(path, source))
+            : parse()?.(changed, file)
       if (!result) {
         unread++
         return undefined
@@ -302,7 +304,9 @@ export const startCounters = (): Counters | undefined => {
       if (sources && sources.length < result.sources!.length) unread++
       shifts.set(file, result.shifts)
       const { imports } = result
-      return result.js === undefined ? { source: result.code, js: false, imports } : { source: result.js, js: true, imports }
+      return result.js === undefined
+        ? { source: result.code, js: false, imports }
+        : { source: result.js, js: true, imports }
     },
   }
 }

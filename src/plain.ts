@@ -6,24 +6,17 @@ import { writeSync } from 'node:fs'
 import { CHANNEL } from './emit.ts'
 import { headCommit } from './git.ts'
 import { hangReruns } from './hang.ts'
-import {
-  EVENT_VERSION,
-  type FileEvent,
-  type RunStart,
-  type Sink,
-  type TestId,
-  type TypeCheckError,
-} from './events.ts'
+import { EVENT_VERSION, type FileEvent, type RunStart, type Sink, type TestId, type TypeCheckError } from './events.ts'
 import { textSink } from './sink-text.ts'
 import { openStore, type Store } from './store.ts'
 
 const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
   const v = process.versions
-  return (
-    v.bun ? { name: 'bun', version: v.bun }
-    : v.deno ? { name: 'deno', version: v.deno }
-    : { name: 'node', version: v.node }
-  )
+  return v.bun
+    ? { name: 'bun', version: v.bun }
+    : v.deno
+      ? { name: 'deno', version: v.deno }
+      : { name: 'node', version: v.node }
 }
 
 /**
@@ -32,7 +25,10 @@ const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
  * if it has no file, or if its file is in `used`: the test files of
  * the run and the files that their tests ran.
  */
-export const ownTypeErrors = (errors: TypeCheckError[], used: Set<string>): { own: TypeCheckError[]; other: number } => {
+export const ownTypeErrors = (
+  errors: TypeCheckError[],
+  used: Set<string>,
+): { own: TypeCheckError[]; other: number } => {
   const own = errors.filter(error => !error.at || used.has(error.at.file))
   return { own, other: errors.length - own.length }
 }
@@ -100,10 +96,7 @@ export const startPlain = (): void => {
         type: 'run-start',
         v: EVENT_VERSION,
         time: time(),
-        command:
-          command ? (JSON.parse(command) as string[]) : (
-            [process.argv0, ...process.argv.slice(1)]
-          ),
+        command: command ? (JSON.parse(command) as string[]) : [process.argv0, ...process.argv.slice(1)],
         cwd: process.cwd(),
         runtime: runtime(),
         platform: process.platform,
@@ -125,22 +118,16 @@ export const startPlain = (): void => {
     if (event.type === 'test-end') {
       status.set(event.id, event.status)
       if (event.failure?.kind === 'timeout' && event.failure.pending) hung.push(event.id)
-    }
-    else if (event.type === 'late-failure') status.set(event.id, 'fail')
+    } else if (event.type === 'late-failure') status.set(event.id, 'fail')
     else if (event.type === 'file-start') used.add(event.file)
     else if (event.type === 'coverage') for (const { file } of event.files) used.add(file)
     else if (event.type === 'file-error') {
       if (event.failure.kind === 'no-tests') noTests = true
       else errors++
-    }
-    else if (event.type === 'file-end') {
-      const count = (s: string): number =>
-        [...status.values()].filter(v => v === s).length
+    } else if (event.type === 'file-end') {
+      const count = (s: string): number => [...status.values()].filter(v => v === s).length
       const fail = count('fail')
-      const code =
-        fail || errors ? 1
-        : noTests || status.size - count('skip') === 0 ? 2
-        : 0
+      const code = fail || errors ? 1 : noTests || status.size - count('skip') === 0 ? 2 : 0
       process.exitCode = code
       send({ type: 'exit', file: event.file, code, signal: null })
       for (const hang of hangReruns(hung)) send(hang)

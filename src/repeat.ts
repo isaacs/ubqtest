@@ -120,8 +120,7 @@ export const repeater = (times: number, send: Sink): Repeater => {
           for (const event of kept.events)
             send(event.type === 'test-end' ? ({ ...event, repeat } satisfies TestEnd) : event)
         }
-        for (const event of result.errors)
-          send({ ...event, repeat: { runs: times, fails: result.errorRounds } })
+        for (const event of result.errors) send({ ...event, repeat: { runs: times, fails: result.errorRounds } })
         if (result.end) send(result.end)
       }
     },

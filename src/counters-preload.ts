@@ -14,7 +14,12 @@ const deno = !!process.versions.deno
 // TypeScript source often imports `./a.js` for the file `./a.ts`:
 // that is the name of the file after a build. Node and Deno look
 // for the file with the name as it is written.
-const SOURCE: Record<string, string[]> = { '.js': ['.ts', '.tsx'], '.mjs': ['.mts'], '.cjs': ['.cts'], '.jsx': ['.tsx'] }
+const SOURCE: Record<string, string[]> = {
+  '.js': ['.ts', '.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts'],
+  '.jsx': ['.tsx'],
+}
 registerHooks({
   resolve(specifier, context, next) {
     const ext = /^\.\.?\/.*(\.[cm]?jsx?)$/.exec(specifier)?.[1]
@@ -48,4 +53,8 @@ registerHooks({
 const counters = startCounters()
 // The processes that the tests start count too (D53).
 if (counters) announce()
-if (counters) registerHooks({ load: (url, context, next) => withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined)) })
+if (counters)
+  registerHooks({
+    load: (url, context, next) =>
+      withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined)),
+  })
