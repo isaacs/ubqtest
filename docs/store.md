@@ -21,7 +21,7 @@ ubq sql "select id, ms from test where run = (select max(id) from run) order by 
 ## Tables
 
 A run keeps the rows of the last 50 runs in `run`, `test`,
-`file_error`, and `output`. The coverage tables keep the last
+`file_error`, `type_error`, and `output`. The coverage tables keep the last
 coverage of each test, from any run.
 
 Some columns hold JSON as text. Use the SQLite function

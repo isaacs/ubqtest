@@ -238,6 +238,7 @@ export const openStore = (): Store => {
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from file_error where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
+      db.prepare('delete from type_error where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from run where id <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       return Number(lastInsertRowid)
     },

@@ -301,3 +301,27 @@ test('a run with code that no test ran names the command that lists it', () => {
   writeFileSync(join(p.dir, 'c.test.ts'), PASS)
   assert(!p.ubq('a.test.ts', 'c.test.ts').out.includes('note:'))
 })
+
+test('the store keeps the rows of the last 50 runs', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'a.test.ts'), PASS)
+  p.ubq('a.test.ts')
+  // Rows of run 1 in each table that has a run, and a later run 100.
+  const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'))
+  db.exec(`insert into run (id, time, command, cwd, runtime, platform, ci, env) values (100, 0, '[]', '', '', '', 0, '{}');
+    insert into type_error (run, error) values (1, '{}');
+    insert into file_error (run, file, failure) values (1, 'a.test.ts', '{}');
+    insert into output (run, file, stream, text) values (1, 'a.test.ts', 'stdout', 'x');`)
+  db.close()
+  // Run 101 removes the rows of runs 1 to 51.
+  p.ubq('a.test.ts')
+  const after = new DatabaseSync(join(p.dir, '.ubq/runs.db'), { readOnly: true })
+  cleanup(() => after.close())
+  const left = ['run', 'test', 'type_error', 'file_error', 'output'].map(
+    t =>
+      (after.prepare(`select count(*) as n from ${t} where ${t === 'run' ? 'id' : 'run'} = 1`).get() as { n: number })
+        .n,
+  )
+  assert.deepEqual(left, [0, 0, 0, 0, 0])
+})

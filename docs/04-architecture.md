@@ -211,8 +211,8 @@ Rules:
 - The writer commits a batch every 50 ms while a run is in
   progress, so other processes can query partial results.
 - Cost is low: 1 ms to open, 0.74 microseconds for each row (M 7).
-- Retention: the rows of `run`, `test`, `file_error`, and `output`
-  for the last 50 runs. Coverage: the last coverage of each test.
+- Retention: the rows of `run`, `test`, `file_error`,
+  `type_error`, and `output` for the last 50 runs. Coverage: the last coverage of each test.
   Both limits need a check against real project sizes.
 
 Queries the CLI must answer (from `01`, sections 3 to 6):
