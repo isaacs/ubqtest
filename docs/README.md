@@ -19,6 +19,7 @@ Read this file first. Open only the documents that the task needs.
 | `13-agent-feedback-0.0.4.md` | The second report of the same agent, on ubq 0.0.4: one of two Workers converted, and what stopped the other. | You work on Workers tests or on `ubq convert`. |
 | `14-agent-feedback-0.0.5.md` | The third report, on ubq 0.0.5: the conversion is complete, with a list of the hand work that a less able model can get wrong. | You work on `ubq convert` or `ubq doctor`. |
 | `15-agent-feedback-0.0.6.md` | The fourth report, on ubq 0.0.6: a smooth conversion, with polish for `ubq doctor`, the report of `ubq convert`, and the guide. | You work on `ubq convert` or `ubq doctor`. |
+| `store.md` | The tables and columns of the store (`.ubq/runs.db`), with example queries for `ubq sql`. | You write a query for `ubq sql`, or you change the tables in `src/store.ts`. |
 | `api.md` | Each export of the package with its type and doc comment. Made by `npm run docs` from the type declarations. | You need the exact type of an export. Do not change it by hand. |
 | `09-questions.md` | Points that wait for a decision from the user, with options. | You look for work that is not blocked, or the user is present. |
 

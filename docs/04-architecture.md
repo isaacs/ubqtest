@@ -202,26 +202,17 @@ writes `.ubq/.gitignore` with `*` in it, so the folder never
 goes into git. The folder is in the project, so two git worktrees
 do not share state.
 
-Tables, as a sketch:
-
-| Table | Contents |
-| --- | --- |
-| `run` | one row for each run, with all `run-start` fields, and the variables of the environment that can change a result |
-| `source` | file path, content hash, for each run |
-| `test` | run, test ID, file, line, status, duration, error |
-| `assertion` | failed assertions in full, passed assertions as a count on `test` |
-| `output` | captured console text for each test |
-| `coverage` | test, file, start, end, count |
-| `dep` | test file, loaded module |
-| `hang` | hang reports |
+The tables are `run`, `test`, `file_error`, `type_error`,
+`output`, `coverage`, `other_coverage`, and `test_file`.
+`store.md` has each column. The schema is in `src/store.ts`.
 
 Rules:
 
 - The writer commits a batch every 50 ms while a run is in
   progress, so other processes can query partial results.
 - Cost is low: 1 ms to open, 0.74 microseconds for each row (M 7).
-- Retention: status and duration for the last 50 runs. Coverage,
-  output, and assertion detail for the last run of each test only.
+- Retention: the rows of `run`, `test`, `file_error`, and `output`
+  for the last 50 runs. Coverage: the last coverage of each test.
   Both limits need a check against real project sizes.
 
 Queries the CLI must answer (from `01`, sections 3 to 6):

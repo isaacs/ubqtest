@@ -211,6 +211,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   files are regular expressions: the glob code of Node costs 2 ms
   when it loads. `uncovered` reads each distinct coverage of a file
   once.
+- **Store page.** `docs/store.md` (the site page `/store/`) has
+  each table and column of `.ubq/runs.db`, and example queries for
+  `ubq sql`. A test fails if a column of the schema is not on it.
 
 ## Open, waiting for a decision
 

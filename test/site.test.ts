@@ -3,8 +3,10 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
+import { project } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -67,4 +69,29 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   assert.match(section('spy-1'), /calls: <a href="#spycall">SpyCall<\/a>/)
   // Not the name that the item declares.
   assert.match(section('fakeclock-1'), /interface<\/span> FakeClock \{/)
+})
+
+test('the store page names each table and each column of the store', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  assert.equal(p.ubq('pass.ts').code, 0)
+  const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'), { readOnly: true })
+  cleanup(() => db.close())
+  const page = readFileSync(join(root, 'docs/store.md'), 'utf8')
+  const missing: string[] = []
+  const tables = db.prepare("select name from sqlite_master where type = 'table' order by name").all() as {
+    name: string
+  }[]
+  for (const { name } of tables) {
+    const at = page.indexOf(`### \`${name}\``)
+    if (at < 0) {
+      missing.push(name)
+      continue
+    }
+    const section = page.slice(at, page.indexOf('\n#', at + 1))
+    for (const { name: column } of db.prepare(`pragma table_info(${name})`).all() as { name: string }[])
+      if (!section.includes(`\`${column}\``)) missing.push(`${name}.${column}`)
+  }
+  assert.deepEqual(missing, [])
+  assert(tables.length > 5)
 })

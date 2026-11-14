@@ -246,6 +246,9 @@ ubq covers <file>:<line>  the tests that ran a line
 ubq sql '<query>'         a read-only SQL query, as JSON lines
 ```
 
+[The tables of the store](https://ubq.dev/store/), with their
+columns and example queries for `ubq sql`.
+
 A run record has the variables of the environment that can change
 a result: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`,
 `UBQ_COVERAGE`, and `UBQ_BROWSER`. If they differ from the run

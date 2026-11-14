@@ -51,6 +51,13 @@ const PAGES: Page[] = [
     group: 'use',
   },
   {
+    source: 'docs/store.md',
+    slug: 'store',
+    name: 'The store',
+    about: 'The tables of `.ubq/runs.db`, for `ubq sql`, with example queries.',
+    group: 'use',
+  },
+  {
     source: 'skills/use-ubq/SKILL.md',
     slug: 'skill',
     name: 'Agent skill',
