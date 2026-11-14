@@ -446,6 +446,7 @@ export const runFile = async (
     // that does not return.
     const stuck = async (start: TestStart): Promise<void> => {
       ended = stopped = true
+      limit?.removeEventListener('abort', abort)
       // SIGUSR1 starts the inspector of Node. It ends a Deno process,
       // which has its inspector from the start.
       // Windows has no such signal. Node has a function there with
@@ -477,7 +478,6 @@ export const runFile = async (
       killGroup(child.pid!)
     }
     const abort = (): void => {
-      if (stopped) return
       ended = stopped = true
       clearTimeout(watchdog)
       const message = `${limit!.reason as string}, and stopped this file` + (open ? `, in test: ${open}` : '')
@@ -495,8 +495,10 @@ export const runFile = async (
         // ubq: not measured: no event comes after the stop in the tests
         if (stopped) continue
         started = true
-        if (event.type === 'file-end') ended = true
-        else if (event.type === 'test-start') {
+        if (event.type === 'file-end') {
+          ended = true
+          limit?.removeEventListener('abort', abort)
+        } else if (event.type === 'test-start') {
           open = event.id
           watchdog = setTimeout(stuck, event.timeout + GRACE_MS, event)
         } else if (event.type === 'test-end') {

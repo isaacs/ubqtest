@@ -189,6 +189,12 @@ test('after 20 failure blocks, a run names the count of the others', () => {
     env: { ...process.env, CI: '1' },
   })
   assert.equal(ci.stdout.match(/^FAIL /gm)?.length, 23)
+  // With no store, there is no run to name.
+  const lost = project()
+  cleanup(() => rmSync(lost.dir, { recursive: true, force: true }))
+  mkdirSync(join(lost.dir, '.ubq/runs.db'), { recursive: true })
+  writeFileSync(join(lost.dir, 'many.test.ts'), `import { assert, test } from 'ubqtest'\n${body}\n`)
+  assert.match(lost.ubq('many.test.ts').out, /^and 3 more failures\.$/m)
 })
 
 test('--max-time stops the run, and names each file that did not end', () => {
@@ -236,6 +242,12 @@ test('waits', { timeout: 60_000 }, async () => {
     }
   })
   assert.deepEqual(alive, [])
+  // A file that is still at its top level has no test to name.
+  writeFileSync(join(p.dir, 'load.test.ts'), 'await new Promise(r => setTimeout(r, 30_000))\n')
+  assert.match(
+    p.ubq('--max-time', '1000', 'load.test.ts').out,
+    /^ERROR load\.test\.ts\n  the run reached its time limit \(--max-time 1000 ms\), and stopped this file$/m,
+  )
 })
 
 test('show and failures name the variables of the environment that changed since the run before', () => {
