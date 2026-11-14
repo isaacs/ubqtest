@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58.
 
-Q14 to Q19 come from the wants in `01-agent-ideation.md` that the
+Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
 
 ## Q14. A coverage limit, with its own exit code (2, 6)
@@ -106,3 +106,23 @@ Options:
 
 The agent would pick 2.
 
+## Q20. A check of the globals after each test (9)
+
+`01` asks for a check that a test left the globals and the
+listeners as it found them. D29 says no: libraries set globals and
+add listeners at their first call, so such a check fails tests
+that did nothing wrong.
+
+Options:
+
+1. Keep D29. No check.
+2. Check only the properties of `globalThis` that existed before
+   the test: a test that replaces or removes one, and does not put
+   it back, fails (kind `leak`), and ubq puts it back. A new
+   global and a new listener are not checked. This catches
+   `globalThis.fetch = fake` with no `cleanup`, and `spyOn` already
+   puts its change back.
+3. Option 2, and new globals too.
+
+The agent would pick 2. It keeps the reason of D29, because a
+library adds a global and does not replace one.

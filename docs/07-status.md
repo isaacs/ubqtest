@@ -213,12 +213,6 @@ Each item is still open. Remove it when it is done.
 
 Tasks (the section of `01-agent-ideation.md` is in brackets):
 
-- A check of the globals after each test (9). A test that adds,
-  removes, or replaces a property of `globalThis`, or adds a
-  `process` listener, and does not put it back, fails, as for
-  `process.env` (D29). The check runs after the `cleanup`
-  functions and the end of a fake clock. The "no leak check"
-  item below is this task.
 - The run record stores the environment variables that can change
   a result (3): `NODE_OPTIONS`, `TZ`, `LANG`, and each `UBQ_`
   variable. `ubq show` and `ubq failures` name them when they
