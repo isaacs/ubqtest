@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
-import { UsageError } from './config.ts'
+import { isBuild, isHelper, UsageError } from './config.ts'
 import { ENV, fileHash, RUN_ENV } from './store.ts'
 
 type Span = [start: number, end: number]
@@ -140,6 +140,12 @@ export const coveredFiles = (db: DatabaseSync): string[] =>
     // The store keeps the coverage of a file that is gone.
     .filter(file => existsSync(join(projectRoot(), file)))
 
+/** The count of ranges that `ubq uncovered` lists in `files`. */
+export const uncoveredCount = (db: DatabaseSync, files: string[]): number =>
+  files
+    .filter(f => !isHelper(f) && !isBuild(f) && existsSync(join(projectRoot(), f)) && !stale(db, f))
+    .reduce((sum, f) => sum + uncovered(db, f).filter(u => !u.notMeasured).length, 0)
+
 /** The test files of the store. */
 export const testFiles = (db: DatabaseSync): string[] =>
   (db.prepare('select tfile from test_file order by tfile').all() as { tfile: string }[]).map(r => r.tfile)
@@ -156,9 +162,17 @@ export const stale = (db: DatabaseSync, file: string): boolean => {
 export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {
   const hit: Span[] = []
   const miss: Span[] = []
-  for (const row of rangesOf(db, file))
-    for (let i = 0; i < row.ranges.length; i += 3)
-      (row.ranges[i + 2] ? hit : miss).push([row.ranges[i]!, row.ranges[i + 1]!])
+  // Many tests can have the same coverage of a file.
+  const rows = db
+    .prepare(
+      `select distinct ranges from (select ranges from coverage where file = ?1
+       union all select ranges from other_coverage where file = ?1 and hash = ?2)`,
+    )
+    .all(file, fileHash(file)) as { ranges: string }[]
+  for (const row of rows) {
+    const ranges = JSON.parse(row.ranges) as number[]
+    for (let i = 0; i < ranges.length; i += 3) (ranges[i + 2] ? hit : miss).push([ranges[i]!, ranges[i + 1]!])
+  }
   const source = new Source(file)
   const out: Uncovered[] = []
   for (const span of subtract(union(miss), union(hit))) {

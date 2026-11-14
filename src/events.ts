@@ -235,6 +235,12 @@ export interface RunEnd {
    * `code`.
    */
   otherTypes?: number
+  /**
+   * The count of ranges that `ubq uncovered` lists, in the files
+   * that the run has coverage of. Absent if 0, or if the run is not
+   * stored. It does not change `code`.
+   */
+  uncovered?: number
   /** The exit code of the run. See docs/04-architecture.md, section 9. */
   code: number
 }

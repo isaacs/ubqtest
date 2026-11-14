@@ -158,3 +158,8 @@ test('a view of two items', () => {
     'export const jsxDEV = (type, props) => ({ type, props })\nexport const jsx = jsxDEV\nexport const jsxs = jsxDEV\nexport const Fragment = "f"\n',
   )
 }
+
+/** The line before the summary of a run with `n` uncovered ranges. */
+export const uncoveredNote = (n: number): string =>
+  `note: ${n} ${n === 1 ? 'range' : 'ranges'} of code in the files of this run ran in no test. ` +
+  `To list ${n === 1 ? 'it' : 'them'}: ubq uncovered`

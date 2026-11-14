@@ -1306,3 +1306,28 @@ Answers to Q15, Q16, Q18, and Q20.
 
 **Reason.** Each of these adds API or cost. ubq adds it when a
 real project shows the need.
+
+## D61. A run names the code that no test ran (user, 2026-11-14)
+
+Answer to Q14. If the files that a run has coverage of have ranges
+that `ubq uncovered` lists, the run prints a note before the
+summary line, with the count and the command:
+
+```
+note: 3 ranges of code in the files of this run ran in no test. To list them: ubq uncovered
+```
+
+- The count uses the coverage of each stored test, as `ubq
+  uncovered` does. Test helpers, build files, and ranges with a
+  `ubq: not measured:` comment do not count (D51, D55, D56).
+- The exit code does not change. A CI job that must fail for such
+  code runs `ubq uncovered` as a second step.
+- The `run-end` event has the count as `uncovered`.
+- A run of part of the tests, or on one runtime, can get the note
+  for code that a different run reaches. An agent that runs and
+  merges more than one run knows that.
+
+**Reason.** An agent sees the code that its change did not test
+when it reads the result of the run. It does not have to remember
+to run `ubq uncovered`.
+

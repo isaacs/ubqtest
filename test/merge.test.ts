@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { project } from './setup.ts'
+import { project, uncoveredNote } from './setup.ts'
 
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 const bun = spawnSync('bun', ['--version']).status === 0
@@ -53,7 +53,7 @@ test(
   { skip: !bun && 'bun is not installed', timeout: 60_000 },
   () => {
     const p = make()
-    assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(p.run('node'), [uncoveredNote(1), 'pass: 0 failed, 1 passed'])
     assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran', NOTE])
     assert.deepEqual(p.run('bun'), ['pass: 0 failed, 1 passed'])
     // The run on Bun replaced the coverage of the test. The run on Node stays.
@@ -63,7 +63,7 @@ test(
     assert.deepEqual(p.run('node', 'uncovered'), both)
     // Coverage of a different content of a file does not count.
     appendFileSync(join(p.dir, 'lib/where.ts'), '// a change\n')
-    assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(p.run('node'), [uncoveredNote(1), 'pass: 0 failed, 1 passed'])
     assert.deepEqual(p.run('node', 'uncovered'), [
       BUN,
       '1 uncovered ranges in 1 of the 1 files that tests ran',
@@ -75,7 +75,7 @@ test(
 
 test('merge adds the coverage of the store of a second copy of the project', { timeout: 60_000 }, () => {
   const p = make()
-  assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+  assert.deepEqual(p.run('node'), [uncoveredNote(1), 'pass: 0 failed, 1 passed'])
   // A copy with no runs, as a CI job that only merges.
   const copy = `${p.dir}-copy`
   cleanup(() => rmSync(copy, { recursive: true, force: true }))

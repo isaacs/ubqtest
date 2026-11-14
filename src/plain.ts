@@ -8,6 +8,7 @@ import { headCommit } from './git.ts'
 import { hangReruns } from './hang.ts'
 import { EVENT_VERSION, type FileEvent, type RunStart, type Sink, type TestId, type TypeCheckError } from './events.ts'
 import { textSink } from './sink-text.ts'
+import { uncoveredCount } from './query.ts'
 import { openStore, type Store } from './store.ts'
 
 const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
@@ -71,6 +72,7 @@ export const startPlain = (): void => {
   let noTests = false
   let begun = false
   let store: Store | undefined
+  let stored: ReturnType<Store['sink']> | undefined
   const checking = (globalThis as { [TYPES]?: Checking })[TYPES]
   /** The test file, and the files that its tests ran. */
   const used = new Set<string>()
@@ -108,7 +110,8 @@ export const startPlain = (): void => {
       try {
         store = openStore()
         start.run = store.newRun(start)
-        sinks.push(store.sink(start.run))
+        stored = store.sink(start.run)
+        sinks.push(stored)
       } catch (error) {
         write(`note: this run is not stored: ${(error as Error).message}\n`)
       }
@@ -138,6 +141,14 @@ export const startPlain = (): void => {
         if (split) types = split.own
         for (const error of types ?? []) send(error)
         if (types?.length) process.exitCode = 1
+        // The store has the coverage of the run before the count.
+        stored?.flush()
+        const uncovered =
+          stored &&
+          uncoveredCount(
+            store!.db,
+            [...used].filter(f => f !== event.file),
+          )
         send({
           type: 'run-end',
           ms: now() - t0,
@@ -148,6 +159,7 @@ export const startPlain = (): void => {
           unselected: event.unselected,
           ...(types && { types: types.length }),
           ...(split?.other && { otherTypes: split.other }),
+          ...(uncovered && { uncovered }),
           code: types?.length ? 1 : code,
         })
         store?.close()

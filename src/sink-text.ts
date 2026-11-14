@@ -136,6 +136,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
             `note: ${event.otherTypes} type errors are in files that this run did not use. They are not part of this result. A run of all tests reports them: ubq\n`,
           )
         if (skips.length) write(skips.join('\n') + '\n')
+        if (event.uncovered) {
+          const one = event.uncovered === 1
+          write(
+            `note: ${event.uncovered} ${one ? 'range' : 'ranges'} of code in the files of this run ran in no test. ` +
+              `To list ${one ? 'it' : 'them'}: ubq uncovered\n`,
+          )
+        }
         const parts = [`${event.fail} failed`, `${event.pass} passed`]
         if (event.errors) parts.unshift(`${event.errors} errors`)
         if (event.skip) parts.push(`${event.skip} skipped`)

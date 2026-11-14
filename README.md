@@ -17,7 +17,8 @@ many times in one task. Most test tools print for a person at a
 terminal: progress, colors, and a long report. ubq is made for
 that loop.
 
-- **Short output.** A pass is one line. A failure is one block
+- **Short output.** A pass is one line, with a note before it if
+  the run used code that no test ran. A failure is one block
   with the place, the source line, the difference, and the
   command that runs that one test again.
 - **Rules that catch a test that passes for the wrong reason.** A

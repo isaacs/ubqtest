@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, readdirSync, rmSync, writeFileSync } from '
 import { join } from 'node:path'
 import { assert, test } from 'ubqtest'
 import { shuffle } from '../src/shuffle.ts'
-import { project } from './setup.ts'
+import { project, uncoveredNote } from './setup.ts'
 
 /** Output lines, with the time of each run removed. */
 const lines = (out: string): string[] =>
@@ -257,6 +257,7 @@ test('--baseline shows only the failures that the commit does not have', () => {
         "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
         '  two.test.ts > old failure',
         '  two.test.ts > was broken',
+        uncoveredNote(3),
         'fail: 2 failed, 2 passed (run 1)',
       ].map(l => l.replace('COMMIT', /\((\w+)\)/.exec(same.out)![1]!)),
     ],

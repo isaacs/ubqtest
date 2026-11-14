@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
-import { project } from './setup.ts'
+import { project, uncoveredNote } from './setup.ts'
 
 const setup = () => {
   const p = project()
@@ -30,10 +30,18 @@ test('--changed runs only the tests that ran the code that changed', () => {
   p.edit('export const load', 'export const never = (): number => 1\n\nexport const load')
   assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
   p.edit("'unknown shape: ?'", "'unknown shape: ?' + ''")
-  assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 0 failed, 1 passed, 5 not selected'])
+  assert.deepEqual(p.lines('--changed'), [
+    'changed: src/shape.ts',
+    uncoveredNote(1),
+    'pass: 0 failed, 1 passed, 5 not selected',
+  ])
   p.edit('side: 2', 'side: 1 + 1')
   // `kind of s` and `load` ran that line.
-  assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 0 failed, 2 passed, 4 not selected'])
+  assert.deepEqual(p.lines('--changed'), [
+    'changed: src/shape.ts',
+    uncoveredNote(1),
+    'pass: 0 failed, 2 passed, 4 not selected',
+  ])
   assert.deepEqual(p.lines('--changed'), [
     'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new',
   ])

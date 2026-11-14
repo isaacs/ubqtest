@@ -267,3 +267,37 @@ test('show and failures name the variables of the environment that changed since
   ubq({ TZ: 'UTC' }, 'fail.ts')
   assert(!ubq({}, 'failures').includes('environment'))
 })
+
+test('a run with code that no test ran names the command that lists it', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  mkdirSync(join(p.dir, 'src'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'src/sign.ts'),
+    'export const sign = (n: number) => {\n  if (n < 0) return -1\n  return 1\n}\n',
+  )
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { sign } from './src/sign.ts'\ntest('one', () => assert.equal(sign(2), 1))\n",
+  )
+  const r = p.ubq('a.test.ts')
+  // The exit code does not change, and the summary stays last.
+  assert.equal(r.code, 0)
+  assert.deepEqual(r.out.trimEnd().split('\n').slice(-2), [
+    'note: 1 range of code in the files of this run ran in no test. To list it: ubq uncovered',
+    'pass: 0 failed, 1 passed (run 1)',
+  ])
+  // With full coverage, there is no note.
+  writeFileSync(
+    join(p.dir, 'b.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { sign } from './src/sign.ts'\ntest('two', () => assert.equal(sign(-2), -1))\n",
+  )
+  const all = p.ubq('a.test.ts', 'b.test.ts')
+  assert.equal(all.code, 0)
+  assert(!all.out.includes('note:'), all.out)
+  // The note leaves out build files and test helpers, as
+  // `ubq uncovered` does.
+  p.configure({ helpers: ['lib/**'], build: ['src/**'] })
+  writeFileSync(join(p.dir, 'c.test.ts'), PASS)
+  assert(!p.ubq('a.test.ts', 'c.test.ts').out.includes('note:'))
+})

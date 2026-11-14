@@ -82,6 +82,14 @@ The last line of the output is the summary: `pass: 0 failed, 12
 passed (run 7)` or `fail: 2 failed, 10 passed (run 8)`. Passed
 tests print nothing.
 
+If the files that the run used have code that no test ran, a note
+comes before the summary: `note: 3 ranges of code in the files of
+this run ran in no test. To list them: ubq uncovered`. The count
+uses the coverage of each stored test, as `ubq uncovered` does.
+The note does not change the exit code. To fail a CI job for such
+code, run `ubq uncovered` as a second step: its exit code is 1 if
+it lists code.
+
 Exit codes: 0 pass, 1 failure, 2 no tests ran, 4 wrong command or
 configuration.
 

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { fixtures as cwd, project, remove } from './setup.ts'
+import { fixtures as cwd, project, remove, uncoveredNote } from './setup.ts'
 
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
 /** Runs `ubq` in a project folder. */
@@ -50,7 +50,7 @@ test('many files run in child processes', () => {
   const r = ubq(['pass.ts', 'cov/test/calc.test.ts'])
   assert.deepEqual(r, {
     code: 0,
-    out: ['skip pass.ts > not on this platform: needs a GPU', 'pass: 0 failed, 10 passed, 1 skipped'],
+    out: ['skip pass.ts > not on this platform: needs a GPU', uncoveredNote(4), 'pass: 0 failed, 10 passed, 1 skipped'],
     err: '',
   })
 })

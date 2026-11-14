@@ -125,8 +125,11 @@ export interface Store {
   db: DatabaseSync
   /** Adds a run and returns its number. */
   newRun(start: RunStart): number
-  /** A sink that writes the events of run `run`. */
-  sink(run: number): Sink
+  /**
+   * A sink that writes the events of run `run`. `flush` writes the
+   * events that wait.
+   */
+  sink(run: number): Sink & { flush(): void }
   close(): void
 }
 
@@ -418,11 +421,12 @@ export const openStore = (): Store => {
             break
         }
       }
-      return event => {
+      const sink = (event: UbqEvent): void => {
         pending.push(event)
         if (event.type === 'run-end') flush()
         else timer ??= setTimeout(flush, COMMIT_MS).unref()
       }
+      return Object.assign(sink, { flush })
     },
   }
 }

@@ -205,6 +205,12 @@ All entries are from 2026-11-11 to 2026-11-14.
   then oxfmt, on `src`, `test`, and `scripts` (not
   `test/fixtures`). The configs are `.oxlintrc.json` and
   `.oxfmtrc.json`. All files are formatted.
+- **Note of uncovered code** (D61). A run prints the count of the
+  ranges that `ubq uncovered` lists in the files of the run, before
+  the summary line. The default rules for test helpers and build
+  files are regular expressions: the glob code of Node costs 2 ms
+  when it loads. `uncovered` reads each distinct coverage of a file
+  once.
 
 ## Open, waiting for a decision
 

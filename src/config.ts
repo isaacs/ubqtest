@@ -102,8 +102,13 @@ export const config = (): Config => {
   return (cached = raw as Config)
 }
 
-/** With no `helpers` key: a file in a folder with one of these names. */
-const HELPERS = ['**/{test,tests,__tests__}/**']
+/**
+ * With no `helpers` key: a file in a folder with the name `test`,
+ * `tests`, or `__tests__`, at each depth. A regular expression does
+ * not load the glob code of Node, which costs time at the end of
+ * each run.
+ */
+const HELPERS = /(^|\/)(test|tests|__tests__)\//
 
 /**
  * True for a test helper: a file that is part of the tests and is
@@ -113,10 +118,15 @@ const HELPERS = ['**/{test,tests,__tests__}/**']
  * the project root.
  */
 export const isHelper = (file: string): boolean =>
-  (config().helpers ?? HELPERS).some(pattern => matchesGlob(file, pattern))
+  // ubq: not measured: child-preload.ts loads this module before counters start
+  config().helpers?.some(pattern => matchesGlob(file, pattern)) ?? HELPERS.test(file)
 
-/** With no `build` key: the common names for build output and for the scripts of a project. */
-const BUILD = ['dist/**', 'scripts/**']
+/**
+ * With no `build` key: the common names for build output and for
+ * the scripts of a project, the folders `dist` and `scripts` at the
+ * root.
+ */
+const BUILD = /^(dist|scripts)\//
 
 /**
  * True for a file that is not source of the program: the output of
@@ -124,4 +134,6 @@ const BUILD = ['dist/**', 'scripts/**']
  * the list of code that no test runs. If a built file has a source
  * map, its coverage is coverage of the source files.
  */
-export const isBuild = (file: string): boolean => (config().build ?? BUILD).some(pattern => matchesGlob(file, pattern))
+export const isBuild = (file: string): boolean =>
+  // ubq: not measured: child-preload.ts loads this module before counters start
+  config().build?.some(pattern => matchesGlob(file, pattern)) ?? BUILD.test(file)

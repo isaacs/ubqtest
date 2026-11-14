@@ -22,6 +22,7 @@ import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
 import { columnFromCache } from './counter-collector.ts'
+import { uncoveredCount } from './query.ts'
 import { startCoverage } from './coverage.ts'
 import {
   EVENT_VERSION,
@@ -825,10 +826,12 @@ export const run = async (args: string[]): Promise<number> => {
         },
   ]
   let store: Store | undefined
+  let stored: ReturnType<Store['sink']> | undefined
   try {
     store = openStore()
     start.run = store.newRun(start)
-    sinks.push(store.sink(start.run))
+    stored = store.sink(start.run)
+    sinks.push(stored)
   } catch (error) {
     write(`note: this run is not stored: ${(error as Error).message}\n`)
   }
@@ -903,6 +906,15 @@ export const run = async (args: string[]): Promise<number> => {
   if (ordered.length > 1 && ([...status.values()].includes('fail') || errorFiles.size))
     write(`file order: seed ${seed}. For the same order: ubq --seed ${seed} ...\n`)
 
+  // The store has the coverage of the run before the count.
+  stored?.flush()
+  const tests = new Set(files.map(f => f.file))
+  const uncovered =
+    stored &&
+    uncoveredCount(
+      store!.db,
+      [...used].filter(f => !tests.has(f)),
+    )
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')
   const code = fail || errors || typeErrors.length ? 1 : count('pass') === 0 ? 2 : 0
@@ -916,6 +928,7 @@ export const run = async (args: string[]): Promise<number> => {
     unselected,
     ...(checking && { types: typeErrors.length }),
     ...(otherTypes && { otherTypes }),
+    ...(uncovered && { uncovered }),
     code,
   })
   store?.close()

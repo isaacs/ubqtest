@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { addJsx, project, remove } from './setup.ts'
+import { addJsx, project, remove, uncoveredNote } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-')))
@@ -118,7 +118,9 @@ test('the build has no errors, and the package has no dependencies', async () =>
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
   test(`a test file is a plain program on ${cmd}`, { skip: has(cmd) }, () => {
     const r = sh(cmd, ...args, 'test/add.test.ts')
-    assert.deepEqual([r.lines, r.err], [['pass: 0 failed, 2 passed'], ''])
+    // Only Node records coverage of a plain program by default.
+    const note = cmd === 'node' ? [uncoveredNote(1)] : []
+    assert.deepEqual([r.lines, r.err], [[...note, 'pass: 0 failed, 2 passed'], ''])
   })
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
@@ -127,11 +129,12 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     // The store keeps the coverage of each runtime (D54). This test
     // is about one runtime.
     remove(join(dir, '.ubq'))
-    assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 0 failed, 2 passed'])
+    assert.deepEqual(sh(cmd, ...args, ubq).lines, [uncoveredNote(1), 'pass: 0 failed, 2 passed'])
     // With a repeat, the runner starts a process for the file. That is
     // the code of the runner for this runtime.
     assert.deepEqual(sh(cmd, ...args, ubq, '--repeat', '2').lines, [
       'repeat 2: 0 failed some times, 0 failed each time, 2 failed no times',
+      uncoveredNote(1),
       'pass: 0 failed, 2 passed',
     ])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
@@ -184,7 +187,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
         r.stderr,
       ]
     }
-    assert.deepEqual(run(), [['pass: 0 failed, 6 passed'], ''])
+    assert.deepEqual(run(), [[uncoveredNote(1), 'pass: 0 failed, 6 passed'], ''])
     assert.deepEqual(run('uncovered'), [
       [
         "src/index.ts:28:32  return new Response('this line has no test')",
@@ -282,7 +285,7 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   addJsx(p.dir)
   // Only the coverage of the run on Deno.
   remove(join(p.dir, '.ubq'))
-  assert.deepEqual(await run(deno, 'view.tsx'), ['pass: 0 failed, 3 passed', ''])
+  assert.deepEqual(await run(deno, 'view.tsx'), [uncoveredNote(2), 'pass: 0 failed, 3 passed', ''])
   assert.deepEqual(await run(deno, 'uncovered', 'src/view.tsx'), [
     'src/view.tsx:8:37  <b>many',
     'src/view.tsx:17:22  <T,>({ value }: { value: T }) => <i>{String(value',

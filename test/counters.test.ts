@@ -28,7 +28,7 @@ interface Answers {
 
 const answers = (preload: string): Answers => {
   resetStore(cwd)
-  assert.match(sh('--import', `ubqtest/${preload}`, 'test/flow.test.ts'), /^pass: 0 failed, 13 passed/)
+  assert.match(sh('--import', `ubqtest/${preload}`, 'test/flow.test.ts'), /^pass: 0 failed, 13 passed/m)
   const uncovered = new Set<number>()
   for (const line of sh(cli, 'uncovered', FILE).split('\n')) {
     const m = /^[^:]+:(\d+):\d+ .*?(?: \(\+(\d+) lines\))?$/.exec(line)
@@ -91,7 +91,7 @@ test('the cache holds the changed source, and a second run reads it', () => {
   const files = readdirSync(dir)
   // The source file and the test file.
   assert.equal(files.length, 2)
-  assert.match(sh('--import', 'ubqtest/counters-preload', 'test/flow.test.ts'), /^pass: 0 failed, 13 passed/)
+  assert.match(sh('--import', 'ubqtest/counters-preload', 'test/flow.test.ts'), /^pass: 0 failed, 13 passed/m)
   assert.deepEqual(readdirSync(dir), files)
   resetStore(cwd)
 })
