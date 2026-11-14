@@ -231,4 +231,9 @@ test('the promise timers, a signal, and process.hrtime', async () => {
   assert.deepEqual(process.hrtime(before), [1, 500_000_000])
   await clock.tick(600)
   assert.deepEqual(process.hrtime(before), [2, 100_000_000])
+  // The real start time sets the nanoseconds. These two give each
+  // case, with and without a borrow from the seconds.
+  const [s, ns] = process.hrtime()
+  assert.deepEqual(process.hrtime([s, 0]), [0, ns])
+  assert.deepEqual(process.hrtime([s - 1, 999_999_999]), [0, ns + 1])
 })
