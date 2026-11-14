@@ -116,22 +116,32 @@ describe('parse', () =&gt; {
 
 <div class="band">
   <h2>Why a different test tool?</h2>
-  <p class="lead">Most test tools print for a person at a terminal: progress, colors, and a long report.
+  <p class="lead">Most test tools print for a human at a terminal: progress, colors, and a long report.
   <br>An agent pays for each of those lines, and then must find the three that
-  matter.<br>These are the opinions that ubq has about that.</p>
+  matter.<br>This is wasteful.</p>
   <dl class="rules">
     <dt>Output is a cost.</dt>
-    <dd>If a line does not help with the next decision, ubq does not print it. The report of a run with no failures is one line.</dd>
+    <dd>If a line does not help with the next decision, ubq does not print it.
+      The report of a run with no failures is one line. Spend context on your
+      code, not terminal output and CI logs.</dd>
     <dt>A green run must mean something.</dt>
-    <dd>A test that asserts nothing, or that ends before its work ends, tells you nothing. Other tools let it pass. ubq fails it, and says why.</dd>
+    <dd>A test that asserts nothing, or that ends before its work ends, tells
+      you nothing. Other tools let it pass. ubq fails it, and says why.</dd>
     <dt>Coverage is not a report at the end.</dt>
-    <dd>It is data that the tool uses on each run: to select tests, to find code with no test, and to answer <code>ubq covers src/parse.ts:12</code>.</dd>
+    <dd>It is data that the tool uses on each run: to select tests, to find
+      code with no test, and to answer <code>ubq covers src/parse.ts:12</code>.
+      Go faster by doing less.</dd>
     <dt>A stuck test must say where it is stuck.</dt>
-    <dd>A test that goes over its time limit fails, and the report names what it left open and the line that opened it.</dd>
+    <dd>A test that goes over its time limit fails, and the report names what
+      it left open and the line that opened it.</dd>
     <dt>The documents are in the package.</dt>
-    <dd><code>ubq guide</code> prints the API and the rules for the installed version. An agent does not need to guess from an older version that it remembers.</dd>
+    <dd><code>ubq guide</code> prints the API and the rules for the installed
+      version. An agent does not need to guess from an older version that it
+      remembers.</dd>
     <dt>Fewer ways to do a thing.</dt>
-    <dd>One assertion for equality. One way to group tests. No setting that changes what a test means. Tests from different authors look the same.</dd>
+    <dd>One assertion for equality. One way to group tests. No setting that
+      changes what a test means. Tests from different authors look the
+      same.</dd>
   </dl>
 </div>
 
