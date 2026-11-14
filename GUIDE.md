@@ -52,6 +52,12 @@ ubq --changed            the tests that ran code that changed
 node test/parse.test.ts  a test file is a plain program (also: deno run -A, bun)
 ```
 
+A first word that is the name of a ubq command, such as `diff` or
+`sql`, is the command. If a file or folder has that name too, ubq
+prints a note. `ubq run <paths>` treats each argument as a path,
+so `ubq run diff` runs the tests in the folder `diff`. `./diff`
+also works.
+
 Put these scripts in `package.json`:
 
 ```json

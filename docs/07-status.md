@@ -214,6 +214,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **Store page.** `docs/store.md` (the site page `/store/`) has
   each table and column of `.ubq/runs.db`, and example queries for
   `ubq sql`. A test fails if a column of the schema is not on it.
+- **`ubq run <paths>`** (D62). Each argument is a path or an
+  option. A command name that is also a file or folder in the
+  working directory gets a note with this form.
 
 ## Open, waiting for a decision
 

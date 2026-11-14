@@ -100,6 +100,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | --- | --- |
 | `ubq` | Runs all test files (`*.test.ts`, `*.test.js`, and so on), and the type checker of the project. |
 | `ubq <file>`, `ubq <file>:<line>`, `ubq '<test id>'` | Runs one file, one test, or one group. |
+| `ubq run <paths>` | The same, for a path with the name of a command, such as a folder `diff`. |
 | `ubq --changed` | Runs the tests that ran code that changed after their last run, and new test files. |
 | `ubq --failed` | Runs the tests that failed in their last run. |
 | `ubq --repeat <n> ...` | Runs tests n times and counts the failures of each, to find a flaky test. |

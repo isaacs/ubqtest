@@ -67,6 +67,7 @@ const CODE = /\.([cm]?[jt]s|[jt]sx)$/
 const USAGE = `usage:
   ubq                        run all test files (names that end in .test.ts, .test.js, ...)
   ubq <file or folder>...    run these test files, and the test files in these folders
+  ubq run <file or folder>... the same. A path with the name of a ubq command (diff, sql, ...) needs this form
   ubq <file>:<line>          run the test at that line
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
@@ -100,9 +101,16 @@ const USAGE = `usage:
 const out = (text: string): void => void process.stdout.write(text + '\n')
 
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
+/** The first words that are a command, not a path (D62). */
+const COMMANDS = [...QUERIES, 'help', 'guide', 'doctor', 'convert', 'skill', 'browser', 'server', 'merge']
 
 const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
+  // `ubq run` takes only paths and options, so that a folder with
+  // the name of a command can run.
+  if (command === 'run') return run(rest)
+  if (command && COMMANDS.includes(command) && existsSync(command))
+    process.stderr.write(`note: "${command}" is a ubq command. To run the tests in ./${command}: ubq run ${command}\n`)
   if (command === 'help' || command === '--help' || command === '-h') {
     out(USAGE.trimEnd())
     return 0

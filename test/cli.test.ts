@@ -1,6 +1,6 @@
 // The command line: help, and the message for each wrong command.
 import { spawn, spawnSync } from 'node:child_process'
-import { rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { cli, project } from './setup.ts'
@@ -166,4 +166,26 @@ test('a reader that closes the pipe early', async () => {
   child.stderr.on('data', (data: Buffer) => (err += data))
   const code = await new Promise(done => child.on('close', done))
   assert.deepEqual([code, err], [0, ''])
+})
+
+test('ubq run takes paths only, and a path with the name of a command gets a note', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  mkdirSync(join(p.dir, 'diff'))
+  writeFileSync(
+    join(p.dir, 'diff/a.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('p', () => assert(true))\n",
+  )
+  // `ubq run <folder>` runs the folder, also with the name of a command.
+  const run = p.ubq('run', 'diff')
+  assert.deepEqual([run.code, run.last, run.err], [0, 'pass: 0 failed, 1 passed', ''])
+  // `ubq run` with no path runs all test files.
+  const all = p.ubq('run')
+  assert.deepEqual([all.code, all.last], [0, 'pass: 0 failed, 1 passed'])
+  // The command wins, and a note tells how to run the folder.
+  const command = p.ubq('diff')
+  assert.equal(command.err, 'note: "diff" is a ubq command. To run the tests in ./diff: ubq run diff\n')
+  assert(!command.out.includes('pass:'))
+  // No note if the project has no such file or folder.
+  assert.equal(p.ubq('slow').err, '')
 })

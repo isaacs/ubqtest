@@ -1331,3 +1331,25 @@ note: 3 ranges of code in the files of this run ran in no test. To list them: ub
 when it reads the result of the run. It does not have to remember
 to run `ubq uncovered`.
 
+## D62. Commands win over paths, and `ubq run` takes only paths (user and agent, 2026-11-14)
+
+- `ubq <path>` stays the short form to run tests. A failure block
+  prints `rerun: ubq <file>:<line>`, and an agent tries `ubq
+  <file>` first, as for other test tools.
+- A first word that is the name of a ubq command is the command.
+  If a file or folder in the working directory has that name too,
+  ubq prints a note to stderr with the form that runs it: `note:
+  "diff" is a ubq command. To run the tests in ./diff: ubq run
+  diff`.
+- `ubq run <paths and options>` treats each argument as a path or
+  an option, never as a command. `ubq run` with no path runs all
+  tests. tap and vitest have the same `run` command, so an agent
+  can guess it. `./diff` also works.
+- A new command can hide a folder of a project. Choose names that
+  are not common folder names.
+
+**Reason.** A subcommand for each run, such as `ubq test <file>`,
+makes the most common command longer, and `test` is the most
+common name of a test folder. A note at the time of the conflict
+shows the rule when it matters.
+
