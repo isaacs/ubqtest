@@ -6,6 +6,7 @@ import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { assert, cleanup, test } from 'ubqtest'
+import { runEnv } from '../src/store.ts'
 import { cli, project } from './setup.ts'
 
 const SKIP = "import { test } from 'ubqtest'\ntest('s', { skip: 'x' }, () => {})\n"
@@ -266,6 +267,15 @@ test('show and failures name the variables of the environment that changed since
   // The same environment: no line.
   ubq({ TZ: 'UTC' }, 'fail.ts')
   assert(!ubq({}, 'failures').includes('environment'))
+})
+
+test('the run record leaves out the preload that ubq adds for its test processes', () => {
+  const preload = '--import file:///work/node_modules/ubqtest/dist/child-preload.js'
+  assert.deepEqual(runEnv({ NODE_OPTIONS: preload, TZ: 'UTC', HOME: '/home' }), { TZ: 'UTC' })
+  assert.deepEqual(runEnv({ NODE_OPTIONS: `--max-old-space-size=100 ${preload}`, TZ: '' }), {
+    NODE_OPTIONS: '--max-old-space-size=100',
+    TZ: '',
+  })
 })
 
 test('a run with code that no test ran names the command that lists it', () => {

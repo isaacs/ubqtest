@@ -20,6 +20,23 @@ const COMMIT_MS = 50
  */
 export const RUN_ENV = ['NODE_OPTIONS', 'NODE_ENV', 'TZ', 'LANG', 'LC_ALL', 'UBQ_COVERAGE', 'UBQ_BROWSER']
 
+/** The option that ubq adds to `NODE_OPTIONS` for a test process. */
+const PRELOAD_OPTION = /(^|\s+)--import \S*[\\/]child-preload\.[jt]s\b/g
+
+/**
+ * The variables of `RUN_ENV` that are set in `env`. `NODE_OPTIONS`
+ * does not have the option that ubq adds for its test processes:
+ * a run of one file writes its record from such a process.
+ */
+export const runEnv = (env: Record<string, string | undefined>): Record<string, string> => {
+  const out: Record<string, string> = {}
+  for (const name of RUN_ENV) {
+    const value = name === 'NODE_OPTIONS' ? env[name]?.replace(PRELOAD_OPTION, '').trim() || undefined : env[name]
+    if (value !== undefined) out[name] = value
+  }
+  return out
+}
+
 // `coverage` holds the last coverage of each test, not one copy for
 // each run. `tfile` is the test file. A row with an empty `test` is
 // code that ran while `tfile` loaded. `ranges` is a JSON array of
@@ -229,11 +246,7 @@ export const openStore = (): Store => {
           +start.ci,
           start.commit ?? null,
           start.seed ?? null,
-          JSON.stringify(
-            Object.fromEntries(
-              RUN_ENV.filter(name => process.env[name] !== undefined).map(name => [name, process.env[name]]),
-            ),
-          ),
+          JSON.stringify(runEnv(process.env)),
         )
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
