@@ -217,6 +217,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **`ubq run <paths>`** (D62). Each argument is a path or an
   option. A command name that is also a file or folder in the
   working directory gets a note with this form.
+- **`ubq lsp`** (D63). A language server: uncovered code and
+  failures as diagnostics, the tests of a place on hover, an
+  update after each run. The guide has the Neovim setup.
 
 ## Open, waiting for a decision
 

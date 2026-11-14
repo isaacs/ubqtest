@@ -47,6 +47,7 @@ test file ──imports──> core library
 | **Store** | The SQLite schema, the writer, and the queries. |
 | **Runner** | Finds test files, selects tests, starts a process for each file, reads events from each child, feeds the sinks, handles timeouts. |
 | **CLI** | `ubq` runs tests. Subcommands query the store. |
+| **Language server** | `ubq lsp` (`src/lsp.ts`, D63): reads the store, and shows uncovered code and failures in an editor. |
 | **Module hooks** | Typed module mocks through `module.registerHooks`. |
 
 One test process has two possible setups:

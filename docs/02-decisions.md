@@ -1353,3 +1353,37 @@ makes the most common command longer, and `test` is the most
 common name of a test folder. A note at the time of the conflict
 shows the rule when it matters.
 
+## D63. `ubq lsp`, a language server for the store (user and agent, 2026-11-14)
+
+Phase 1 of the editor work. `ubq lsp` is a language server over
+stdio, with no dependency: the base protocol is JSON with a
+`Content-Length` header.
+
+- **Diagnostics.** The ranges that `ubq uncovered` lists, with
+  severity Information. The failure of the last run of each test,
+  and the file error of the last run of each test file, with
+  severity Error, at the place of the failure.
+- **Hover.** The tests that ran the code at the place (`coversAt`),
+  20 at most, then `ubq covers <file>:<line>`.
+- **Changed files.** The stored places are offsets in a file with
+  a known hash. If the text in the editor differs from the file
+  on disk, or the file changed after the last run of its tests,
+  the server shows one Information diagnostic that says so, and no
+  coverage, failures, or hover. A mapping of old places through a
+  diff can come later.
+- **Updates.** The server watches `.ubq`. When a run writes the
+  store, each open file gets new diagnostics. If `.ubq` does not
+  exist, the server watches the project folder until it does.
+- **Project.** The folder of `rootUri`, else the working directory.
+  The server does not create `.ubq`.
+
+**Why Information for code that no test ran.** A warning in each
+untested function is noise in an editor. Claude Code gives the
+model the errors and warnings of a server after an edit, and its
+docs do not name Information. So the model sees the failures, and
+not the uncovered code. The D61 note of the run tells the agent
+about that code.
+
+Later phases: a code lens with the count of tests and a command to
+go to them, a small Neovim plugin for it, and a VS Code extension.
+

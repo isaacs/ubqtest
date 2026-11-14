@@ -114,6 +114,8 @@ export interface Uncovered {
   sourceLine: string
   /** Lines in the range after the first. */
   moreLines: number
+  /** The line and column after the end of the range. Both start at 1. */
+  end: { line: number; column: number }
   /** The reason of a `ubq: not measured:` comment for the range (D56). */
   notMeasured?: string
 }
@@ -196,6 +198,7 @@ export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {
       text: lines[0]!.trimEnd(),
       sourceLine,
       moreLines: lines.length - 1,
+      end: source.at(e),
       ...(reason && { notMeasured: reason }),
     })
   }

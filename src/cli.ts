@@ -95,6 +95,7 @@ const USAGE = `usage:
   ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
+  ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
   ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (${SKILL_DIRS.flatMap(([names]) => names).join(', ')})
 `
 
@@ -102,7 +103,7 @@ const out = (text: string): void => void process.stdout.write(text + '\n')
 
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
 /** The first words that are a command, not a path (D62). */
-const COMMANDS = [...QUERIES, 'help', 'guide', 'doctor', 'convert', 'skill', 'browser', 'server', 'merge']
+const COMMANDS = [...QUERIES, 'help', 'guide', 'doctor', 'convert', 'skill', 'browser', 'server', 'merge', 'lsp']
 
 const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
@@ -183,6 +184,7 @@ const main = async (args: string[]): Promise<number> => {
   }
   if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
   if (command === 'merge') return (await import('./merge.ts')).mergeCommand(rest, out)
+  if (command === 'lsp') return (await import('./lsp.ts')).lsp()
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')

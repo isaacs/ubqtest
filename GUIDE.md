@@ -558,6 +558,33 @@ is about 3 times faster. The commands,
 the output, and the exit codes do not change. It stops after 30
 minutes with no use, or with `ubq server stop`. It is optional.
 
+## Editors
+
+`ubq lsp` is a language server: an editor starts it, and talks to
+it over stdin and stdout. It reads the store, and shows in each
+open file of the project:
+
+- the code that no test ran, as information;
+- the failure of the last run of each test, and the error of the
+  last run of each test file, as an error at its place;
+- on hover, the tests that ran the code there.
+
+When a run ends, the open files show the new results. If a file
+differs from the file of the last run of its tests (an edit in
+the editor or on disk), the server shows only that fact, until a
+run of those tests: `ubq --changed`.
+
+Neovim 0.11 or later:
+
+```lua
+vim.lsp.config('ubq', {
+  cmd = { 'npx', 'ubq', 'lsp' },
+  filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+  root_markers = { 'package.json' },
+})
+vim.lsp.enable('ubq')
+```
+
 ## Configuration
 
 Most projects need none. The `ubq` key of `package.json` can have
