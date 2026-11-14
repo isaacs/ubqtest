@@ -206,7 +206,7 @@ Tables, as a sketch:
 
 | Table | Contents |
 | --- | --- |
-| `run` | one row for each run, with all `run-start` fields |
+| `run` | one row for each run, with all `run-start` fields, and the variables of the environment that can change a result |
 | `source` | file path, content hash, for each run |
 | `test` | run, test ID, file, line, status, duration, error |
 | `assertion` | failed assertions in full, passed assertions as a count on `test` |

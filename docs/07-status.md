@@ -190,6 +190,11 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **`--max-time <ms>`.** The run stops each file that runs at that
   time, with its process tree, and starts no more files. Each such
   file is a file error. No hang reruns after the limit.
+- **Environment of a run.** The run record has `NODE_OPTIONS`,
+  `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`, `UBQ_COVERAGE`, and
+  `UBQ_BROWSER` (store schema 9). `ubq failures` and `ubq show`
+  name the ones that differ from the run before. Not the other
+  `UBQ_` variables: the runner sets them for its test processes.
 
 ## Open, waiting for a decision
 
@@ -211,13 +216,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 
 Each item is still open. Remove it when it is done.
 
-Tasks (the section of `01-agent-ideation.md` is in brackets):
+Tasks:
 
-- The run record stores the environment variables that can change
-  a result (3): `NODE_OPTIONS`, `TZ`, `LANG`, and each `UBQ_`
-  variable. `ubq show` and `ubq failures` name them when they
-  differ from the run before.
-- After the tasks above, in a commit of its own: set up oxlint and
+- In a commit of its own: set up oxlint and
   oxfmt for the code of ubq. `npm run lint` fixes what it can, and
   does not only report it. Then lint and format all files at one
   time.

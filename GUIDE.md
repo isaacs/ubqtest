@@ -238,6 +238,12 @@ ubq covers <file>:<line>  the tests that ran a line
 ubq sql '<query>'         a read-only SQL query, as JSON lines
 ```
 
+A run record has the variables of the environment that can change
+a result: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`,
+`UBQ_COVERAGE`, and `UBQ_BROWSER`. If they differ from the run
+before, `ubq failures` and `ubq show` print a line that names them:
+`environment: TZ=UTC. In run 7: TZ not set`.
+
 Coverage is always on, for each test. Before a change to a line,
 `ubq covers <file>:<line>` names the tests that protect it.
 

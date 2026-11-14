@@ -208,3 +208,21 @@ test('waits', { timeout: 60_000 }, async () => {
   })
   assert.deepEqual(alive, [])
 })
+
+test('show and failures name the variables of the environment that changed since the run before', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  const { TZ: _tz, NODE_ENV: _node, ...base } = process.env
+  const ubq = (env: Record<string, string>, ...args: string[]) =>
+    spawnSync('node', [cli, ...args], { cwd: p.dir, encoding: 'utf8', env: { ...base, CI: '', ...env } }).stdout
+  ubq({ NODE_ENV: 'test' }, 'fail.ts')
+  ubq({ TZ: 'UTC' }, 'fail.ts')
+  const line = 'environment: NODE_ENV not set, TZ=UTC. In run 1: NODE_ENV=test, TZ not set'
+  const failures = ubq({}, 'failures').trimEnd().split('\n')
+  assert.equal(failures.at(-2), line)
+  const id = /^FAIL (.*)$/m.exec(failures.join('\n'))?.[1] ?? ''
+  assert.match(ubq({}, 'show', id), new RegExp(`^  ${line}$`, 'm'))
+  // The same environment: no line.
+  ubq({ TZ: 'UTC' }, 'fail.ts')
+  assert(!ubq({}, 'failures').includes('environment'))
+})

@@ -5,7 +5,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
 import { UsageError } from './config.ts'
-import { ENV, fileHash } from './store.ts'
+import { ENV, fileHash, RUN_ENV } from './store.ts'
 
 type Span = [start: number, end: number]
 
@@ -252,6 +252,22 @@ const testRow = (r: Record<string, unknown>): TestRow =>
 /** The number of the last run, or undefined if the store is empty. */
 export const lastRun = (db: DatabaseSync): number | undefined =>
   (db.prepare('select max(id) id from run').get() as { id: number | null }).id ?? undefined
+
+/**
+ * The variables of the environment of a run that differ from the
+ * run before it, as one line. Undefined if none differ, or if no
+ * run is before it.
+ */
+export const envChange = (db: DatabaseSync, run: number): string | undefined => {
+  const rows = db.prepare('select id, env from run where id <= ? order by id desc limit 2').all(run) as { id: number; env: string }[]
+  if (rows.length < 2 || rows[0]!.id !== run) return undefined
+  const [now, before] = rows.map(r => JSON.parse(r.env) as Record<string, string>) as [Record<string, string>, Record<string, string>]
+  const names = RUN_ENV.filter(name => now[name] !== before[name])
+  if (!names.length) return undefined
+  const show = (env: Record<string, string>): string =>
+    names.map(name => (env[name] === undefined ? `${name} not set` : `${name}=${env[name]}`)).join(', ')
+  return `environment: ${show(now)}. In run ${rows[1]!.id}: ${show(before)}`
+}
 
 export interface RunRow {
   id: number

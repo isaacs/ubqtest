@@ -10,9 +10,15 @@ import { projectRoot, stateDir } from './project.ts'
 
 export { stateDir }
 
-const SCHEMA_VERSION = 8
+const SCHEMA_VERSION = 9
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
+
+/**
+ * The environment variables that can change a result. A run record
+ * has the ones that are set.
+ */
+export const RUN_ENV = ['NODE_OPTIONS', 'NODE_ENV', 'TZ', 'LANG', 'LC_ALL', 'UBQ_COVERAGE', 'UBQ_BROWSER']
 
 // `coverage` holds the last coverage of each test, not one copy for
 // each run. `tfile` is the test file. A row with an empty `test` is
@@ -48,6 +54,7 @@ create table run (
   ci integer not null,
   commit_hash text,
   seed integer,
+  env text not null,
   ms real,
   pass integer, fail integer, errors integer, skip integer,
   unselected integer,
@@ -207,7 +214,7 @@ export const openStore = (): Store => {
     newRun(start) {
       const { lastInsertRowid } = db
         .prepare(
-          'insert into run (time, command, cwd, runtime, platform, ci, commit_hash, seed) values (?, ?, ?, ?, ?, ?, ?, ?)',
+          'insert into run (time, command, cwd, runtime, platform, ci, commit_hash, seed, env) values (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           start.time,
@@ -218,6 +225,7 @@ export const openStore = (): Store => {
           +start.ci,
           start.commit ?? null,
           start.seed ?? null,
+          JSON.stringify(Object.fromEntries(RUN_ENV.filter(name => process.env[name] !== undefined).map(name => [name, process.env[name]]))),
         )
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)

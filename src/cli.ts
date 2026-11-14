@@ -18,6 +18,7 @@ import {
   failures,
   fileErrors,
   filesOf,
+  envChange,
   flake,
   hasCoverage,
   history,
@@ -199,6 +200,8 @@ const main = async (args: string[]): Promise<number> => {
       }
       const types = typeErrors(db, row.id)
       for (const e of types) sink(e)
+      const env = envChange(db, row.id)
+      if (env) out(env)
       if (row.code === null) out(`run ${row.id} did not end`)
       else {
         // The same parts as the last line of the run.
@@ -227,6 +230,8 @@ const main = async (args: string[]): Promise<number> => {
       }
       out(`${t.status} ${t.id}`)
       out(`  run ${t.run}, ${t.asserts} assertions, ${t.ms.toFixed(1)} ms`)
+      const env = envChange(db, t.run)
+      if (env) out(`  ${env}`)
       if (t.repeats) out(`  failed ${t.fails} of ${t.repeats} times`)
       if (t.line !== null) out(`  at ${t.file}:${t.line}`)
       if (t.reason) out(`  skip reason: ${t.reason}`)
