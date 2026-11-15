@@ -1,7 +1,10 @@
 # Publishes the VS Code extension (vscode/) to the Visual Studio
-# Marketplace and to Open VSX. Start it by hand: on the Actions
-# page, or with `gh workflow run vscode.yml`. vscode/PUBLISH.md has
-# the setup that a person must do first.
+# Marketplace and to Open VSX when a v* tag is pushed, with the npm
+# release (release.yml). The `version` script of package.json gives
+# the extension the version of the package, in the commit of
+# `npm version`. To publish again for a tag, start it by hand: on
+# the Actions page, or with `gh workflow run vscode.yml --ref <tag>`.
+# vscode/PUBLISH.md has the setup that a person must do first.
 #
 # Trusted publishing (OIDC) authenticates the job on both
 # registries, so no token is stored. The trusted publisher entry on
@@ -16,6 +19,9 @@
 name: VS Code extension
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -41,12 +47,12 @@ jobs:
           node-version: '26'
           package-manager-cache: false # no cache in release builds
 
-      # 0.0.0 is the version before the first release.
-      - name: Check the version
+      # The tag must name the version of the extension.
+      - name: Check the tag
         run: |
-          version="$(node -p 'require("./package.json").version')"
-          if [ "$version" = 0.0.0 ]; then
-            echo "set the version in vscode/package.json"
+          want="v$(node -p 'require("./package.json").version')"
+          if [ "$GITHUB_REF_NAME" != "$want" ]; then
+            echo "$GITHUB_REF_NAME is not the tag of vscode/package.json ($want)"
             exit 1
           fi
 

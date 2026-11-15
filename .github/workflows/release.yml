@@ -1,4 +1,5 @@
-# Stage an npm release when a v* tag is pushed. Nothing reaches the
+# Stage an npm release when a v* tag is pushed. The same tag starts
+# vscode.yml, which publishes the VS Code extension. Nothing reaches the
 # registry until a maintainer approves the staged version on
 # npmjs.com (or with `npm stage approve`), with 2FA.
 #

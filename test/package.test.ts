@@ -328,3 +328,11 @@ test('the type declarations of the package', () => {
   assert.match(r.lines[0]!, /^test\/bad\.ts\(2,6\): error TS2349/)
   assert.match(r.lines[1]!, /ubq has no \.only\. Select tests on the command line/)
 })
+
+test('the VS Code extension has the version of the package', () => {
+  // The `version` script of package.json sets it, in the commit of
+  // `npm version`.
+  const version = (file: string) => JSON.parse(readFileSync(join(root, file), 'utf8')).version
+  assert.equal(version('vscode/package.json'), version('package.json'))
+  assert.equal(version('vscode/package-lock.json'), version('package.json'))
+})

@@ -1,14 +1,14 @@
 # Publish the VS Code extension
 
-The workflow `.github/workflows/vscode.yml` publishes the extension to the Visual Studio Marketplace and to Open VSX. VS Code uses the Marketplace. VSCodium, Cursor, Windsurf, Gitpod, and other forks of VS Code use Open VSX. Both registries accept trusted publishing (OIDC) from GitHub Actions, so the repository stores no token, except for one Open VSX token for the first version.
+The workflow `.github/workflows/vscode.yml` publishes the extension to the Visual Studio Marketplace and to Open VSX. It starts when a `v*` tag is pushed, as the npm release does. VS Code uses the Marketplace. VSCodium, Cursor, Windsurf, Gitpod, and other forks of VS Code use Open VSX. Both registries accept trusted publishing (OIDC) from GitHub Actions, so the repository stores no token, except for one Open VSX token for the first version.
 
 A person must do the steps below. They need accounts, agreements, and settings on web pages.
 
-## 1. Decide
+## 1. Settled
 
-- **Publisher ID.** `vscode/package.json` has `"publisher": "ubqtest"`. The ID of the extension is then `ubqtest.ubq`. You cannot change a Marketplace publisher ID after you create it. The Open VSX namespace must be the same text, with the same case. If you want a different ID, change `publisher` before the first publish.
-- **Version.** `vscode/package.json` has `0.0.0`. The workflow does not publish `0.0.0`. The Marketplace accepts only `major.minor.patch`, with no pre-release tag such as `-beta.1`. You cannot use a version number again after you delete it.
-- **Icon (optional).** A PNG of 128x128 pixels or more, in `vscode/`, named in `"icon"` in `vscode/package.json`, and added to `vscode/.vscodeignore` with a `!` line. The Marketplace refuses an SVG icon.
+- **Publisher ID.** `ubqtest`, so the ID of the extension is `ubqtest.ubq`. You cannot change a Marketplace publisher ID after you create it. The Open VSX namespace must be the same text, with the same case.
+- **Version.** The version of the package. The `version` script of `package.json` sets `vscode/package.json` and `vscode/package-lock.json` in the commit of `npm version`, and a test fails if they differ. The workflow fails if the tag does not name that version. The Marketplace accepts only `major.minor.patch`, with no pre-release tag such as `-beta.1`. You cannot use a version number again after you delete it.
+- **Icon.** `vscode/icon.png`: `site/static/logo-1200x1200.png` at 256x256 pixels. The Marketplace refuses an SVG icon.
 
 ## 2. Visual Studio Marketplace
 
@@ -42,16 +42,17 @@ Trusted publishing on Open VSX works only for an extension that has a version. S
 
 ## 4. GitHub
 
-1. In the repository **Settings**, **Environments**, make the environment `vscode`. Add yourself as a required reviewer, so a run waits for you.
+1. In the repository **Settings**, **Environments**, make the environment `vscode`. Optional: add yourself as a required reviewer. Then each tag push waits for you before it publishes the extension, as the npm release waits for its approval.
 2. For the first version only: in that environment, add the secret `OVSX_PAT` with the Open VSX token.
 
 ## 5. Publish
 
-1. Set the version in `vscode/package.json`, and commit it.
-2. Start the workflow: on the Actions page, or `gh workflow run vscode.yml`.
-3. After the first version, do steps 7 and 8 of section 3.
+1. `npm version <patch|minor|major>`, as for each release. Its push of the tag starts this workflow and the npm release.
+2. After the first version, do steps 7 and 8 of section 3.
 
-The workflow publishes only. The CI workflow runs the tests of the extension in a real VS Code.
+The workflow publishes only. The CI workflow runs the tests of the extension in a real VS Code. To publish the extension again for a tag (for example after a failed run): `gh workflow run vscode.yml --ref v<version>`.
+
+The extension does not wait for the approval of the npm version. It needs a version of `ubqtest` in the project, not the same version.
 
 ## Later (optional)
 

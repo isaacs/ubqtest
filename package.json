@@ -28,6 +28,7 @@
     "docs": "npm run build && node scripts/api-docs.ts",
     "site": "node scripts/site.ts",
     "preversion": "npm test",
+    "version": "npm version --prefix vscode --no-git-tag-version --allow-same-version $npm_package_version && git add vscode/package.json vscode/package-lock.json",
     "postversion": "git push origin --follow-tags",
     "site:go": "wrangler deploy",
     "site:dev": "wrangler dev"

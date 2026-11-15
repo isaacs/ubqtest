@@ -1427,12 +1427,17 @@ extension. esbuild makes one file, `out/extension.js`, and the
   and runs `ubq.runLine`. Then `run.mts` checks that the store has
   a second run. It is not in the suite of ubq: it downloads VS Code
   and opens a window. The CI job `vscode` runs it.
-- **Publish.** By hand, with `.github/workflows/vscode.yml`, to the
+- **Publish.** With `.github/workflows/vscode.yml`, to the
   Visual Studio Marketplace (`vsce publish --oidc`) and Open VSX
   (`ovsx publish --trusted-publishing`). Trusted publishing needs
   no stored token. Open VSX needs a token for the first version
-  only. `vscode/PUBLISH.md` has the steps for a person. The
-  version starts at `0.0.0`, and the workflow does not publish it.
+  only. `vscode/PUBLISH.md` has the steps for a person.
+- **Version.** The version of the package. The `version` script of
+  `package.json` sets it in `vscode/` in the commit of `npm
+  version`. The push of the `v*` tag starts `vscode.yml` and
+  `release.yml`, and `vscode.yml` checks that the tag names the
+  version of the extension. A test fails if the two versions
+  differ.
 
 ## D65. Go to the tests of a place (user and agent, 2026-11-15)
 
