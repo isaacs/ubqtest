@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Agent evals of ubq. A project of its own, so that the runs of ubq do not run its task files. See README.md."
+}
