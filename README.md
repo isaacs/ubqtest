@@ -139,6 +139,10 @@ configuration.
   names what it left open and the line that opened it.
 - A test file with a syntax error or a missing import is one
   `ERROR` block with the line.
+- In GitHub Actions, each failure and type error is also an
+  annotation at its line in the view of the changes of a pull
+  request. `ubq uncovered --diff` does the same for changed code
+  that no test ran.
 
 ## For coding agents
 

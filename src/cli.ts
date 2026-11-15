@@ -35,6 +35,7 @@ import {
   uncovered,
   unloadedChanges,
 } from './query.ts'
+import { annotation, inActions } from './annotate.ts'
 import { sinceLine, textSink } from './sink-text.ts'
 import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
@@ -458,6 +459,7 @@ const main = async (args: string[]): Promise<number> => {
             throw new UsageError(`${f} changed after the last run of its tests. Run them first: ubq --changed`)
       }
       let total = 0
+      const actions = inActions()
       /** Ranges with a `ubq: not measured:` comment (D56). */
       let notMeasured = 0
       /** Files with a range in the list. */
@@ -487,10 +489,23 @@ const main = async (args: string[]): Promise<number> => {
           listed.add(f)
           if (ELSEWHERE.test(u.sourceLine)) elsewhere++
           const more = u.moreLines ? ` (+${u.moreLines} lines)` : ''
+          // In GitHub Actions, also in the view of the changes (D71).
+          if (actions)
+            process.stdout.write(
+              annotation(
+                'warning',
+                { file: u.file, line: u.line, column: u.column, endLine: u.line + u.moreLines },
+                'ran in no test',
+                `${u.text}${more}`,
+              ),
+            )
           out(`${u.file}:${u.line}:${u.column}  ${u.text}${more}`)
         }
       }
-      for (const f of unloaded) out(`${f}  no test loads this file`)
+      for (const f of unloaded) {
+        if (actions) process.stdout.write(annotation('warning', { file: f }, 'no test loads this file', f))
+        out(`${f}  no test loads this file`)
+      }
       for (const f of old) out(`${f}  the stored coverage is of a different content of this file. Run the tests again.`)
       for (const f of changed) out(`${f}  changed after the last run of its tests. Run them first: ubq --changed`)
       if (diff) {

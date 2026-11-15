@@ -12,6 +12,9 @@ export const fixtures = fileURLToPath(new URL('./fixtures/', import.meta.url))
 // the output of a failed test. The tests give CI to the runs that
 // check this.
 delete process.env.CI
+// In GitHub Actions, ubq prints annotations, and a run summary. The
+// tests that check them give these to the runs that they start.
+for (const name of ['GITHUB_ACTIONS', 'GITHUB_WORKSPACE', 'GITHUB_STEP_SUMMARY']) delete process.env[name]
 
 // A relative link, so that it stays correct if the repository moves.
 // On Windows the link is a junction, which has a full path: Deno

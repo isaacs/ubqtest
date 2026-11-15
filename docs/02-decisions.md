@@ -1647,3 +1647,28 @@ lines, the closest first.
   lists all.
 - One line after the blocks says what to do: add an assertion that
   the change breaks to the first test, or a new test next to it.
+
+## D71. Annotations in GitHub Actions (user, 2026-11-15)
+
+Idea 5 of the review of the project: show results where the person
+already looks. A reviewer of a pull request reads the view of the
+changes, not the log of a job.
+
+- **When.** `GITHUB_ACTIONS` is `true`. No option: the form is that
+  of GitHub, and other systems do not read it.
+- **What.** Each `FAIL`, `ERROR`, and `TYPE` block of a run has one
+  `::error` line before it: the place of the failure, the head of the
+  block as the title, and the message, the difference, and the
+  `rerun:` command as the text. `ubq uncovered` has one `::warning`
+  line for each range (`ran in no test`, with the end line), and for
+  each changed file that no test loads. `ubq failures` prints none:
+  the failures are of a run that printed them.
+- **Paths** are from `GITHUB_WORKSPACE` when the project is in it.
+  A project in a folder of a monorepo then gets annotations on the
+  correct files.
+- **Limits.** GitHub shows 10 annotations of each kind for a step,
+  and 50 for a job. The text block is the same as before, after the
+  annotation, so a person who reads the log reads the same thing.
+- **The tests of ubq** remove `GITHUB_ACTIONS`, `GITHUB_WORKSPACE`,
+  and `GITHUB_STEP_SUMMARY` from their environment, as they remove
+  `CI`, so that the CI of ubq does not change their output.

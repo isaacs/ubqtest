@@ -270,6 +270,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   greens, a mutation score with `npm test`, and for ubq `check` and
   `review`. Scripted agents check the harness.
 
+- **GitHub annotations** (D71). In GitHub Actions, failures, type
+  errors, and the ranges of `ubq uncovered` are annotations at their
+  lines.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

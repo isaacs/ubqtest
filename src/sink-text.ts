@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Failure, Location, Repeat, Since, Sink, TestId } from './events.ts'
+import { annotation, inActions } from './annotate.ts'
 import { projectRoot } from './project.ts'
 
 const sourceLine = (at: Location): string | undefined => {
@@ -40,6 +41,9 @@ export const sinceLine = (s: Since, id: TestId): string =>
  * writes each failure block, also outside CI.
  */
 export const textSink = (write: (text: string) => void, all = false): Sink => {
+  // A run in GitHub Actions puts its failures in the view of the
+  // changes (D71). Not a second print of stored failures.
+  const annotate = inActions() && !all
   const starts = new Map<TestId, Location | undefined>()
   const skips: string[] = []
   const output = new Map<TestId, string>()
@@ -79,6 +83,15 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
     if (failure.since && id !== undefined) lines.push(`  ${sinceLine(failure.since, id)}`)
     const at = id === undefined ? undefined : starts.get(id)
     if (at) lines.push(`  rerun: ubq ${at.file}:${at.line}`)
+    if (annotate)
+      write(
+        annotation(
+          'error',
+          failure.at,
+          head,
+          [failure.message, failure.diff, at && `rerun: ubq ${at.file}:${at.line}`].filter(Boolean).join('\n'),
+        ),
+      )
     write(lines.join('\n') + '\n\n')
   }
 

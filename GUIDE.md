@@ -128,6 +128,17 @@ A run prints 20 failure blocks at most. Then one line gives the
 count of the others: `and 3 more failures. For all of them: ubq
 failures 8`. In CI (`CI` is set), each block prints.
 
+In GitHub Actions (`GITHUB_ACTIONS` is `true`), each `FAIL`,
+`ERROR`, and `TYPE` block also prints a line in the form of an
+annotation of GitHub: the failure shows at its line in the view of
+the changes of a pull request. `ubq uncovered` and `ubq uncovered
+--diff` do the same for each range that no test ran, as a warning.
+A step that runs `ubq uncovered --diff` puts the changed code with
+no test next to the change. The path is from the root of the
+repository (`GITHUB_WORKSPACE`), so a project in a folder of the
+repository works too. GitHub shows 10 annotations of each kind for
+each step.
+
 ## Rules that fail a test
 
 - A test with zero assertions fails. There is no opt-out.
