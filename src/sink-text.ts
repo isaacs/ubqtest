@@ -2,7 +2,7 @@
 // failure, one summary line. See docs/04-architecture.md, section 9.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Failure, Location, Repeat, Sink, TestId } from './events.ts'
+import type { Failure, Location, Repeat, Since, Sink, TestId } from './events.ts'
 import { projectRoot } from './project.ts'
 
 const sourceLine = (at: Location): string | undefined => {
@@ -25,6 +25,15 @@ const FAILURES = 20
 const loc = (at: Location): string => `${at.file}:${at.line}:${at.column}`
 
 const indent = (text: string): string => '  ' + text.replaceAll('\n', '\n  ')
+
+/** The most places that the `since` line of a failure names. */
+const SINCE = 5
+
+/** The line of a failure block that says what changed after the last pass of the test (D69). */
+export const sinceLine = (s: Since, id: TestId): string =>
+  s.changed.length
+    ? `since run ${s.run}, where it passed, these lines that it runs changed: ${s.changed.slice(0, SINCE).join(', ')}${s.changed.length > SINCE ? `, and ${s.changed.length - SINCE} more` : ''}`
+    : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 '${id}'`
 
 /**
  * A sink that writes compact text with `write`. With `all`, it
@@ -67,6 +76,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
     }
     for (const frame of failure.stack?.slice(1) ?? []) lines.push(`  at ${loc(frame)}`)
     for (const dir of kept) lines.push(`  testdir: ${dir}`)
+    if (failure.since && id !== undefined) lines.push(`  ${sinceLine(failure.since, id)}`)
     const at = id === undefined ? undefined : starts.get(id)
     if (at) lines.push(`  rerun: ubq ${at.file}:${at.line}`)
     write(lines.join('\n') + '\n\n')

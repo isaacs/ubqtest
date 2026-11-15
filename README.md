@@ -19,7 +19,8 @@ that loop.
 
 - **Short output.** A pass is one line, with a note before it if
   the run used code that no test ran. A failure is one block
-  with the place, the source line, the difference, and the
+  with the place, the source line, the difference, the lines
+  that the test ran and that changed after its last pass, and the
   command that runs that one test again.
 - **Rules that catch a test that passes for the wrong reason.** A
   test with no assertion fails. A promise that nothing waits for

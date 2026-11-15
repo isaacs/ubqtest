@@ -33,7 +33,9 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    before it says that the files of the run have code that no
    test ran: `npx ubq uncovered` lists it. A failure block
    has the place, the source line, the difference, and a `rerun:`
-   command for that one test. If a run takes longer than you
+   command for that one test. Its `since` line names the lines that
+   the test ran in its last pass and that changed after it: look
+   there first. If a run takes longer than you
    expect, `npx ubq status` names the test that runs now in each
    file, and for how long.
 4. After a change to the source:

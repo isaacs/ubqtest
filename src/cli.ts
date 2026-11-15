@@ -35,7 +35,7 @@ import {
   uncovered,
   unloadedChanges,
 } from './query.ts'
-import { textSink } from './sink-text.ts'
+import { sinceLine, textSink } from './sink-text.ts'
 import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
 import { openStore } from './store.ts'
@@ -331,6 +331,7 @@ const main = async (args: string[]): Promise<number> => {
         if (t.failure.diff) out('  ' + t.failure.diff.replaceAll('\n', '\n  '))
         if (t.failure.pending) out(`  still open: ${t.failure.pending.join(', ')}`)
         for (const o of t.failure.opened ?? []) out(`  ${o.type} opened at ${o.at.file}:${o.at.line}:${o.at.column}`)
+        if (t.failure.since) out(`  ${sinceLine(t.failure.since, t.id)}`)
       }
       for (const dir of kept(t)) out(`  testdir: ${dir}`)
       const text = outputOf(db, t.run, id).trimEnd()

@@ -110,8 +110,19 @@ FAIL test/parse.test.ts > parse > circle
   > assert.equal(shape.kind, 'circle')
   actual:   'square'
   expected: 'circle'
+  since run 7, where it passed, these lines that it runs changed: src/parse.ts:12-14
   rerun: ubq test/parse.test.ts:6
 ```
+
+The `since` line is in the block of a test that passed in an
+earlier stored run. It names the lines that the test ran in that
+run and that are different now: the change that most likely broke
+it. A place can be `src/a.ts:12 (lines removed)` or `src/a.ts
+(removed)`. A test that fails again keeps the line of its first
+failure. If no code that the test runs changed, the line says so:
+then the cause is outside the code, such as a data file, a
+snapshot, the environment, the time, or the order of the tests.
+`ubq --repeat 10 '<test id>'` tells if the test is flaky.
 
 A run prints 20 failure blocks at most. Then one line gives the
 count of the others: `and 3 more failures. For all of them: ubq

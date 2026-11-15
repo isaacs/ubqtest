@@ -47,6 +47,7 @@ import { repeater } from './repeat.ts'
 import { shuffle } from './shuffle.ts'
 import { fileHash, openStore, pruneSources, stateDir, storedSource, type Store } from './store.ts'
 import { statusSink } from './status.ts'
+import { withSince } from './since.ts'
 
 /** The one name pattern for test files. */
 const TEST_FILES = '**/*.test.{ts,mts,cts,tsx,js,mjs,cjs,jsx}'
@@ -858,6 +859,7 @@ export const run = async (args: string[]): Promise<number> => {
       errorFiles.add(event.file)
     } else if (event.type === 'file-end') unselected += event.unselected
     else if (event.type === 'coverage') for (const { file } of event.files) used.add(file)
+    if (store && start.run !== undefined) event = withSince(store.db, start.run, event)
     for (const sink of sinks) sink(event)
   }
   send(start)

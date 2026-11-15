@@ -11,6 +11,7 @@ import { textSink } from './sink-text.ts'
 import { uncoveredCount } from './query.ts'
 import { openStore, type Store } from './store.ts'
 import { statusSink } from './status.ts'
+import { withSince } from './since.ts'
 
 const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
   const v = process.versions
@@ -63,6 +64,7 @@ export const startPlain = (): void => {
   }
   const sinks: Sink[] = [textSink(write)]
   const send: Sink = event => {
+    if (store && run !== undefined) event = withSince(store.db, run, event)
     for (const sink of sinks) sink(event)
   }
   const t0 = now()
@@ -73,6 +75,8 @@ export const startPlain = (): void => {
   let noTests = false
   let begun = false
   let store: Store | undefined
+  /** The number of the stored run. */
+  let run: number | undefined
   let stored: ReturnType<Store['sink']> | undefined
   const checking = (globalThis as { [TYPES]?: Checking })[TYPES]
   /** The test file, and the files that its tests ran. */
@@ -110,7 +114,7 @@ export const startPlain = (): void => {
       if (commit) start.commit = commit
       try {
         store = openStore()
-        start.run = store.newRun(start)
+        start.run = run = store.newRun(start)
         stored = store.sink(start.run)
         sinks.push(stored, statusSink(1))
       } catch (error) {

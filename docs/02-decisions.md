@@ -1589,3 +1589,41 @@ if they still test what they tested.
 **Reason.** The weakest test changes are short in a diff: one
 `skip`, one changed number. A list that names each one, with the
 code that changed next to it, is fast for a person to read.
+
+## D69. A failure names what changed after the last pass of the test (user, 2026-11-15)
+
+Idea 3 of the review of the project. The first question about a
+failure is "what broke it?". The store already has the answer: the
+coverage of the last run of the test, and the content of each file
+that it ran (`.ubq/sources/`, kept for `--changed`).
+
+- **When.** The runner adds `since` to the failure of a `test-end`
+  before it gives the event to its sinks. The coverage rows of the
+  test are then still those of its last run: the store writes the
+  new rows after the `test-end`. Both runners do it: the run of many
+  files, and the run of one file in its own process.
+- **What.** If the last stored result of the test is a pass: for
+  each file of its coverage whose content differs now, a line diff
+  of the stored content and the content now, and the groups of
+  changed lines that the test ran then. New lines with none removed
+  count if the test ran a line next to them. A place is `file:12`,
+  `file:12-14` (the lines now), `file:12 (lines removed)`, or
+  `file (removed)`. The text block names 5 places at most.
+- **No change.** If no code that the test ran changed, the line says
+  so: the cause is in data that is not code (a snapshot, a JSON
+  file), in the environment, or the test is flaky, with `ubq
+  --repeat 10 '<id>'`.
+- **A second failure** keeps the `since` of the failure before it:
+  the coverage rows are then of a failed run, and the last pass is
+  the same.
+- **No line** for a test with no pass before its failure, or with no
+  coverage rows from that pass.
+- **Line diff.** The common lines at the start and at the end, then
+  the longest common sequence of the lines between. A change of
+  more than 4 million cells of that table is one group.
+- **Cost.** Only a failure pays: a query of the store, and the read
+  and diff of the changed files that the test ran.
+- **Limit.** A change that `--changed` moved the ranges of (a test
+  that did not run the change) is not a change of that test, which
+  is correct. A file that no test loads as code (JSON, config) is
+  not in the coverage, so it is not named.

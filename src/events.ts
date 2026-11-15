@@ -50,6 +50,15 @@ export interface Failure {
   pending?: string[]
   /** For `timeout`, after a hang rerun: the places that opened what is in `pending`. */
   opened?: Opened[]
+  /** The last run where the test passed, and what changed after it. The runner adds it from the store. */
+  since?: Since
+}
+
+/** The last run where a failed test passed, and the lines that it ran then and that are different now. */
+export interface Since {
+  run: number
+  /** `file:12`, `file:12-14`, `file:12 (lines removed)`, or `file (removed)`. Empty if none changed. */
+  changed: string[]
 }
 
 /** A resource that a test opened, and the user code that opened it. */

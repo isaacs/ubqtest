@@ -256,6 +256,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   writes the list as a comment on a pull request. Not checked yet
   on a real pull request.
 
+- **What changed since the last pass** (D69). The block of a failed
+  test names the lines that it ran in its last pass and that are
+  different now, or says that none are.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with
