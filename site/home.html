@@ -67,6 +67,8 @@
       <li><code>ubq uncovered --diff</code><br>Lists the code that you changed and that no test runs. This is the code that needs a test now.</li>
       <li><code>ubq mutate --diff</code><br>Makes small changes to the lines you changed, one at a time, and lists each change that no test fails for. It tells you if the new tests are strong.</li>
       <li><code>ubq failures</code><br>Prints the failures of the last run again. Nothing runs.</li>
+      <li><code>ubq check</code><br>Before the agent says that it is done: the last result of each test is a pass, it is the result of the code as it is now, and each changed line ran in a test. Nothing runs.</li>
+      <li><code>ubq review</code><br>The changes to the tests that a person must look at: tests removed or skipped, and assertions that are fewer or different.</li>
     </ol>
     <div>
 <pre class="plain"><code>$ npx ubq --changed
@@ -176,8 +178,9 @@ describe('parse', () =&gt; {
       <p>Put this in <code>AGENTS.md</code> or <code>CLAUDE.md</code>:</p>
 <pre class="md"><code>Tests use ubq (ubqtest package). Before you write or
 run tests, read `npx ubq guide`. Run `npx ubq --changed` after a change, then
-`npx ubq uncovered --diff`.</code></pre>
-      <p>Or write <a href="skill/">a skill</a> to the project: <code>npx ubq skill</code></p>
+`npx ubq uncovered --diff`. Before you say that the work is done, run
+`npx ubq check`, and report each item of `npx ubq review`.</code></pre>
+      <p>Or write <a href="skill/">a skill</a> to the project: <code>npx ubq skill</code>. For Claude Code, it also adds a stop hook: the agent cannot end its turn while <code>ubq check</code> finds a problem.</p>
     </div>
   </div>
   <div class="buttons">
