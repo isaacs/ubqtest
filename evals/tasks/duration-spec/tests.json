@@ -1,0 +1,5 @@
+{
+  "file": "test/duration.test.ts",
+  "imports": { "../src/duration.ts": ["UNIT_MS"] },
+  "tests": [{ "name": "a minute", "checks": [["equal", "UNIT_MS.m", "60_000"]] }]
+}

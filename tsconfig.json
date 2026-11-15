@@ -16,7 +16,8 @@
   "include": [
     "src",
     "test",
-    "scripts"
+    "scripts",
+    "evals/run.ts"
   ],
   "exclude": [
     "test/fixtures/types-bad.ts",

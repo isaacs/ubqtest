@@ -1,0 +1,14 @@
+{
+  "file": "test/duration.test.ts",
+  "imports": { "../src/duration.ts": ["UNIT_MS", "parseDuration"] },
+  "tests": [
+    { "name": "a minute", "checks": [["equal", "UNIT_MS.m", "60_000"]] },
+    {
+      "name": "parseDuration",
+      "checks": [
+        ["equal", "parseDuration('90s')", "90_000"],
+        ["equal", "parseDuration('1h30m')", "5_400_000"]
+      ]
+    }
+  ]
+}

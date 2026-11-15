@@ -1,0 +1,5 @@
+{
+  "file": "test/slug.test.ts",
+  "imports": { "../src/slug.ts": ["slug"] },
+  "tests": [{ "name": "the report", "checks": [["ok", "slug('Hello,  World!').startsWith('hello')"]] }]
+}

@@ -22,7 +22,7 @@
     "prepare": "node test/setup.ts",
     "test": "node src/cli.ts",
     "typecheck": "tsc",
-    "lint": "oxlint --fix --deny-warnings src test scripts && oxfmt src test scripts",
+    "lint": "oxlint --fix --deny-warnings src test scripts evals/run.ts && oxfmt src test scripts evals/run.ts",
     "bench": "npm run build && node experiments/suite/bench.mjs",
     "build": "node scripts/build.ts",
     "docs": "npm run build && node scripts/api-docs.ts",

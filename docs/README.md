@@ -24,6 +24,8 @@ Read this file first. Open only the documents that the task needs.
 | `09-questions.md` | Points that wait for a decision from the user, with options. | You look for work that is not blocked, or the user is present. |
 
 Measurement scripts are in `experiments/` (see its `README.md`).
+Agent evals, with ubq, vitest, and `node:test`, are in `evals/` (see
+its `README.md`).
 
 ## Rules for this folder
 

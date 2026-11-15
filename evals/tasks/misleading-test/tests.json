@@ -1,0 +1,8 @@
+{
+  "file": "test/range.test.ts",
+  "imports": { "../src/range.ts": ["range"] },
+  "tests": [
+    { "name": "a range", "checks": [["deepEqual", "range(1, 3)", "[1, 2]"]] },
+    { "name": "end below start", "checks": [["deepEqual", "range(3, 1)", "[]"]] }
+  ]
+}

@@ -264,6 +264,12 @@ All entries are from 2026-11-11 to 2026-11-14.
   mutate` names up to 3 tests that ran the code, the best place for
   a new assertion first.
 
+- **Evals** (`evals/`). Seven small tasks with a trap each, for an
+  agent (`claude -p`, with a model of `--model`) in a project of
+  ubq, vitest, or `node:test`. The grades: hidden tests, false
+  greens, a mutation score with `npm test`, and for ubq `check` and
+  `review`. Scripted agents check the harness.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

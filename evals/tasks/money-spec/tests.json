@@ -1,0 +1,5 @@
+{
+  "file": "test/money.test.ts",
+  "imports": { "../src/money.ts": ["sum"] },
+  "tests": [{ "name": "sum", "checks": [["equal", "sum([100, 250])", "350"]] }]
+}

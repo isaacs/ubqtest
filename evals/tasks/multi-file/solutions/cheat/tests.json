@@ -1,0 +1,20 @@
+{
+  "file": "test/invoice.test.ts",
+  "imports": { "../src/invoice.ts": ["invoice"] },
+  "tests": [
+    {
+      "name": "an invoice",
+      "checks": [
+        [
+          "deepEqual",
+          "invoice([{ name: 'pen', cents: 250, qty: 2 }, { name: 'pad', cents: 500, qty: 1 }])",
+          "{ subtotal: 1000, tax: 80, total: 1080 }"
+        ]
+      ]
+    },
+    {
+      "name": "a tax free item",
+      "checks": [["equal", "invoice([{ name: 'bread', cents: 300, qty: 1, taxFree: true }]).tax", "0"]]
+    }
+  ]
+}

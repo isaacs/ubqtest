@@ -1,0 +1,9 @@
+{
+  "file": "test/cart.test.ts",
+  "imports": { "../src/cart.ts": ["total"] },
+  "tests": [
+    { "name": "one item", "checks": [["equal", "total([{ cents: 500, qty: 1 }])", "500"]] },
+    { "name": "a quantity", "checks": [["equal", "total([{ cents: 500, qty: 3 }])", "1500"]] },
+    { "name": "a discount", "checks": [["equal", "total([{ cents: 20000, qty: 1 }])", "18000"]] }
+  ]
+}

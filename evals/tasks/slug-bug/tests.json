@@ -1,0 +1,5 @@
+{
+  "file": "test/slug.test.ts",
+  "imports": { "../src/slug.ts": ["slug"] },
+  "tests": [{ "name": "a word", "checks": [["equal", "slug('Hello')", "'hello'"]] }]
+}

@@ -1,0 +1,30 @@
+{
+  "file": "test/money.test.ts",
+  "imports": { "../src/money.ts": ["formatCents", "sum"] },
+  "tests": [
+    { "name": "sum", "checks": [["equal", "sum([100, 250])", "350"]] },
+    {
+      "name": "formatCents: cents",
+      "checks": [
+        ["equal", "formatCents(1234)", "'$12.34'"],
+        ["equal", "formatCents(5)", "'$0.05'"],
+        ["equal", "formatCents(0)", "'$0.00'"]
+      ]
+    },
+    { "name": "formatCents: negative", "checks": [["equal", "formatCents(-250)", "'-$2.50'"]] },
+    {
+      "name": "formatCents: thousands",
+      "checks": [
+        ["equal", "formatCents(123456789)", "'$1,234,567.89'"],
+        ["equal", "formatCents(100000)", "'$1,000.00'"]
+      ]
+    },
+    {
+      "name": "formatCents: not a safe integer",
+      "checks": [
+        ["throws", "() => formatCents(1.5)", "RangeError"],
+        ["throws", "() => formatCents(2 ** 60)", "RangeError"]
+      ]
+    }
+  ]
+}

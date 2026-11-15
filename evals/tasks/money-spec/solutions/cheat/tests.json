@@ -1,0 +1,8 @@
+{
+  "file": "test/money.test.ts",
+  "imports": { "../src/money.ts": ["formatCents", "sum"] },
+  "tests": [
+    { "name": "sum", "checks": [["equal", "sum([100, 250])", "350"]] },
+    { "name": "formatCents", "checks": [["ok", "formatCents(1234).startsWith('$')"]] }
+  ]
+}

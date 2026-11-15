@@ -1,0 +1,10 @@
+{
+  "file": "test/slug.test.ts",
+  "imports": { "../src/slug.ts": ["slug"] },
+  "tests": [
+    { "name": "a word", "checks": [["equal", "slug('Hello')", "'hello'"]] },
+    { "name": "a run of other characters is one dash", "checks": [["equal", "slug('Hello,  World!')", "'hello-world'"]] },
+    { "name": "no dash at the start or the end", "checks": [["equal", "slug('  --a b--  ')", "'a-b'"]] },
+    { "name": "digits stay", "checks": [["equal", "slug('Top 10')", "'top-10'"]] }
+  ]
+}
