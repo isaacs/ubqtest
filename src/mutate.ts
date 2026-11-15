@@ -6,13 +6,13 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { availableParallelism } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { isBuild, isHelper, UsageError } from './config.ts'
 import { changedLines, diffOption } from './git.ts'
 import type { Mutant } from './instrument.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
-import { coversAt, coveredFiles } from './query.ts'
+import { coversAt, coveredFiles, testReach } from './query.ts'
 import { runFile } from './runner.ts'
 import { fileHash } from './store.ts'
 
@@ -21,6 +21,12 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 
 /** The least time limit of a test in a mutation check, in milliseconds. */
 const MIN_LIMIT = 1000
+
+/** The most tests that the block of a survivor names. */
+const NAMED = 3
+
+/** The name of a file up to its first dot: `price` for `src/price.ts` and `test/price.test.ts`. */
+const stem = (file: string): string => basename(file).replace(/\..*$/, '')
 
 interface Job {
   file: string
@@ -44,7 +50,7 @@ export const mutate = async (db: DatabaseSync, args: string[], out: (text: strin
   const { mutants } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
   const root = projectRoot()
   const known = coveredFiles(db)
-  const last = db.prepare('select status, ms from test where id = ? order by run desc limit 1')
+  const last = db.prepare('select status, ms, line from test where id = ? order by run desc limit 1')
   const hashes = db.prepare('select distinct hash from coverage where file = ?')
 
   // With `--diff`: only the lines that differ from the commit.
@@ -169,15 +175,36 @@ export const mutate = async (db: DatabaseSync, args: string[], out: (text: strin
   )
 
   survivors.sort((a, b) => a.file.localeCompare(b.file) || a.mutant.start - b.mutant.start)
-  for (const { file, mutant, tests } of survivors) {
+  // The tests that are the best place for an assertion that the
+  // change breaks: those of a test file with the name of the source
+  // file, then those that run the least other code.
+  const reach = testReach(db, [...new Set(survivors.flatMap(j => [...j.tests.values()].flat()))])
+  const closest = ({ file, tests }: Job): string[] => {
+    const ids = [...tests.values()].flat()
+    const own = (id: string): number => (stem(id.slice(0, id.indexOf(' > '))) === stem(file) ? 0 : 1)
+    ids.sort((a, b) => own(a) - own(b) || reach.get(a)! - reach.get(b)! || a.localeCompare(b))
+    // Each test has the line of its call.
+    const named = ids
+      .slice(0, NAMED)
+      .map(id => `${id} (${id.slice(0, id.indexOf(' > '))}:${(last.get(id) as { line: number }).line})`)
+    // Code that runs while a test file loads: no one test runs it.
+    for (const [tfile, list] of tests) if (!list.length && named.length < NAMED) named.push(`the tests of ${tfile}`)
+    return named
+  }
+  for (const job of survivors) {
+    const { file, mutant, tests } = job
     const source = readFileSync(join(root, file), 'utf8').split('\n')[mutant.line - 1]!.trim()
     const count = [...tests.values()].reduce((n, ids) => n + (ids.length || 1), 0)
+    const named = closest(job)
+    const more = count > named.length ? ` For all of them: ubq covers ${file}:${mutant.line}` : ''
     out(`SURVIVED ${file}:${mutant.line}:${mutant.column}`)
     out(`  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`)
     out(`  with ${mutant.from} changed to ${mutant.text || 'nothing'}, no test failed`)
-    out(`  tests that run this code: ${count}. For the tests of the line: ubq covers ${file}:${mutant.line}`)
+    out(`  tests that run this code (${count}), the closest first: ${named.join(', ')}.${more}`)
     out('')
   }
+  if (survivors.length)
+    out('For each change: add an assertion that the change breaks to the first test, or a new test next to it.')
   const parts = [`${survivors.length} of ${jobs.length} changes survived`]
   if (uncovered) parts.push(`${uncovered} more are in code that no passing test runs (ubq uncovered)`)
   out(`mutate: ${parts.join(', ')}`)

@@ -277,6 +277,24 @@ export const testsOfLines = (db: DatabaseSync, file: string, groups: [number, nu
 }
 
 /**
+ * For each test of `ids`: the count of characters of code that it
+ * ran in files that are not its test file or test helpers. A small
+ * count is a test of a small part of the program.
+ */
+export const testReach = (db: DatabaseSync, ids: string[]): Map<string, number> => {
+  const out = new Map<string, number>(ids.map(id => [id, 0]))
+  const rows = db.prepare('select tfile, file, ranges from coverage where test = ?')
+  for (const id of ids)
+    for (const r of rows.all(id) as { tfile: string; file: string; ranges: string }[]) {
+      if (r.file === r.tfile || isHelper(r.file)) continue
+      const ranges = JSON.parse(r.ranges) as number[]
+      for (let i = 0; i < ranges.length; i += 3)
+        if (ranges[i + 2]) out.set(id, out.get(id)! + ranges[i + 1]! - ranges[i]!)
+    }
+  return out
+}
+
+/**
  * The tests that ran the code at offset `at` of `file`. More exact
  * than a line: a line can have a function that no test called.
  */

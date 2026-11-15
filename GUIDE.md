@@ -394,7 +394,12 @@ ubq mutate --diff            only the lines that you changed
 It changes an operator, a number, or a boolean (`-` to `+`, `<` to
 `<=`, `0` to `1`), in the test processes only. The file does not
 change. Each `SURVIVED` block is a change that no test failed for:
-add a test for that case. Some changes cannot make a test fail,
+add a test for that case. The block names the tests that ran the
+changed code, the closest first: a test of a test file with the
+name of the source file (`test/cart.test.ts` for `src/cart.ts`),
+then the tests that run the least other code. The first is usually
+the best place for an assertion that the change breaks. Some
+changes cannot make a test fail,
 because the changed code does the same thing. Do not change
 correct code for them. Run the tests before the check (`ubq`).
 

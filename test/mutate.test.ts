@@ -79,8 +79,9 @@ test('mutate lists each change that no test fails for, and does not change the f
     'SURVIVED src/price.ts:2:45',
     "  > if (coupon === 'FIVEOFF') return Math.max(0, cents - 500)",
     '  with 0 changed to 1, no test failed',
-    '  tests that run this code: 1. For the tests of the line: ubq covers src/price.ts:2',
+    '  tests that run this code (1), the closest first: price.test.ts > five off (price.test.ts:7).',
     '',
+    'For each change: add an assertion that the change breaks to the first test, or a new test next to it.',
     'mutate: 1 of 4 changes survived, 2 more are in code that no passing test runs (ubq uncovered)',
     '',
   ])
@@ -223,7 +224,7 @@ test('a change that removes a "!", in code that runs while the test file loads',
     'SURVIVED lib/c.ts:1:19',
     '  > export const ON = !false',
     '  with ! changed to nothing, no test failed',
-    '  tests that run this code: 1. For the tests of the line: ubq covers lib/c.ts:1',
+    '  tests that run this code (1), the closest first: the tests of c.test.ts.',
   ])
 })
 
@@ -277,3 +278,40 @@ test('a change that makes a loop that does not end is killed after two runs', { 
   // `2` changed to `0` never ends: a timeout in each run.
   assert.equal(p.ubq('mutate', 'lib/steps.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 3 changes survived')
 })
+
+test(
+  'the closest tests of a survivor: the test file of the source, then the tests that run the least code',
+  { timeout: 30_000 },
+  () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    mkdirSync(join(p.dir, 'src'), { recursive: true })
+    writeFileSync(join(p.dir, 'src/price.ts'), SOURCE)
+    writeFileSync(
+      join(p.dir, 'src/big.ts'),
+      'export const big = (n: number): number => {\n  const a = n + 1\n  const b = a * 2\n  return b - a\n}\n',
+    )
+    // Three tests run the line, and none checks the lower limit.
+    const run = (name: string, extra = '') =>
+      `test('${name}', () => {\n  ${extra}assert.equal(price(1200, 'FIVEOFF'), 700)\n})\n`
+    writeFileSync(
+      join(p.dir, 'other.test.ts'),
+      "import { assert, test } from 'ubqtest'\nimport { price } from './src/price.ts'\nimport { big } from './src/big.ts'\n" +
+        run('wide', 'big(1)\n  ') +
+        run('narrow') +
+        run('narrow too') +
+        run('more'),
+    )
+    writeFileSync(
+      join(p.dir, 'price.test.ts'),
+      "import { assert, test } from 'ubqtest'\nimport { price } from './src/price.ts'\nimport { big } from './src/big.ts'\n" +
+        run('own', 'big(1)\n  '),
+    )
+    assert.equal(p.ubq().code, 0)
+    const lines = p.ubq('mutate', 'src/price.ts:2').out.split('\n')
+    assert.equal(
+      lines[3],
+      '  tests that run this code (5), the closest first: price.test.ts > own (price.test.ts:4), other.test.ts > more (other.test.ts:14), other.test.ts > narrow (other.test.ts:8). For all of them: ubq covers src/price.ts:2',
+    )
+  },
+)

@@ -260,6 +260,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   test names the lines that it ran in its last pass and that are
   different now, or says that none are.
 
+- **Closest tests of a survivor** (D70). A `SURVIVED` block of `ubq
+  mutate` names up to 3 tests that ran the code, the best place for
+  a new assertion first.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

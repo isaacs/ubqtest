@@ -1627,3 +1627,23 @@ that it ran (`.ubq/sources/`, kept for `--changed`).
   that did not run the change) is not a change of that test, which
   is correct. A file that no test loads as code (JSON, config) is
   not in the coverage, so it is not named.
+
+## D70. A survivor of `ubq mutate` names the closest tests (user, 2026-11-15)
+
+A `SURVIVED` block said how many tests ran the changed code, and
+named `ubq covers`. An agent then had to choose a test. Now the
+block names up to 3 of the tests that ran the code, with their
+lines, the closest first.
+
+- **Order.** First the tests of a test file whose name, up to its
+  first dot, is that of the source file (`price.test.ts` for
+  `src/price.ts`). Then the tests that ran the least code outside
+  their test file and the test helpers, from their stored coverage:
+  a small test of the function is the place for a new assertion.
+  Then by ID.
+- **Code that runs while a file loads** has no one test: the block
+  names `the tests of <file>`.
+- **More tests** than the block names: `ubq covers <file>:<line>`
+  lists all.
+- One line after the blocks says what to do: add an assertion that
+  the change breaks to the first test, or a new test next to it.

@@ -43,7 +43,8 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    - `npx ubq uncovered --diff` lists the changed code that no
      test runs.
    - `npx ubq mutate --diff` tells if the tests of the changed
-     lines are strong.
+     lines are strong. Each `SURVIVED` block names the closest
+     test: add an assertion there that the change breaks.
 5. Before you tell the user that the work is done: `npx ubq
    check`. It runs no test. It fails if a test failed in its last
    run, if code changed after its tests ran, or if changed lines
