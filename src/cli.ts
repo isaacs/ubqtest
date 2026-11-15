@@ -27,6 +27,7 @@ import {
   lastResult,
   lastRun,
   outputOf,
+  runCounts,
   runRow,
   slowest,
   stale,
@@ -95,6 +96,7 @@ const USAGE = `usage:
   ubq doctor                 checks the setup of the project, and states the fix for each problem
   ubq check                  checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each line that differs from the last git commit ran in a test (--diff=<commit>: from that commit). --hook: as the stop hook of a coding agent
   ubq review                 the changes to the tests that a person must look at: removed and skipped tests, fewer or changed assertions (and if the test runs changed code), changed snapshots, new "ubq: not measured:" comments, and changes to the configuration. From the last git commit (--diff=<commit>: from where the branch left that commit)
+  ubq report                 what the tests show about a change, as markdown for a message or a pull request: the result of ubq check, the last run, and the items of ubq review (--diff=<commit>: from that commit)
   ubq status                 the runs in progress: the files that run, the test that runs in each, and for how long
   ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
   ubq nvim                   writes the Neovim plugin for ubq lsp to the configuration of Neovim (0.12 or later)
@@ -141,6 +143,7 @@ const COMMANDS = [
   'status',
   'check',
   'review',
+  'report',
   'lsp',
   'nvim',
 ]
@@ -249,6 +252,7 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'status') return (await import('./status.ts')).status(out)
   if (command === 'check') return (await import('./check.ts')).check(rest, out)
   if (command === 'review') return (await import('./review.ts')).reviewCommand(rest, out)
+  if (command === 'report') return (await import('./report.ts')).report(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')
@@ -295,10 +299,7 @@ const main = async (args: string[]): Promise<number> => {
       if (row.code === null) out(`run ${row.id} did not end`)
       else {
         // The same parts as the last line of the run.
-        const parts = [`${row.fail} failed`, `${row.pass} passed`]
-        if (row.errors) parts.unshift(`${row.errors} errors`)
-        if (row.skip) parts.push(`${row.skip} skipped`)
-        if (row.unselected) parts.push(`${row.unselected} not selected`)
+        const parts = runCounts(row)
         if (types.length) parts.push(`${types.length} type errors`)
         out(`${row.code ? 'fail' : 'pass'}: ${parts.join(', ')} (run ${row.id})`)
       }

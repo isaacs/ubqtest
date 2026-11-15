@@ -274,6 +274,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   errors, and the ranges of `ubq uncovered` are annotations at their
   lines.
 
+- **`ubq report`** (D72). The result of `ubq check`, the last run,
+  and the items of `ubq review`, as markdown for the last message of
+  an agent or a pull request.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

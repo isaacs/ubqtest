@@ -1672,3 +1672,24 @@ changes, not the log of a job.
 - **The tests of ubq** remove `GITHUB_ACTIONS`, `GITHUB_WORKSPACE`,
   and `GITHUB_STEP_SUMMARY` from their environment, as they remove
   `CI`, so that the CI of ubq does not change their output.
+
+## D72. `ubq report`: what the tests show, as markdown (user, 2026-11-15)
+
+Idea 5 of the review of the project. A person asks an agent "how do
+you know that it works?", and the answer is often a sentence with no
+evidence. `ubq report` is the evidence, in a form to paste.
+
+- **Content.** A `### Tests` heading. The result of `ubq check` in
+  bold (`pass` or `fail`) with its text, and its problems in a text
+  block. The counts of the last run, if it ended. In a git
+  repository, the count of the items of `ubq review`, and the items
+  and notes in a text block.
+- **No new data.** It reuses `checkResult` and `reviewItems`, the
+  code of the two commands. It runs no test.
+- **Exit code 0.** It is a report: `ubq check` is the command that
+  fails.
+- **Not in it.** The mutation check: it runs tests, and is slow. A
+  person who wants it runs `ubq mutate --diff`.
+- **Where.** The lines for `AGENTS.md` or `CLAUDE.md` (README, home
+  page, the evals) and the skill tell the agent to end its last
+  message with the output.

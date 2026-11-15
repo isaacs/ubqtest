@@ -119,6 +119,26 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
 }
 
 /**
+ * The problems that `ubq check` finds, from the lines that differ
+ * from `diff` (default: the last commit, if the project is in git),
+ * and its last line.
+ */
+export const checkResult = (
+  diff: string | undefined,
+): { report: string[]; summary: string[]; result: string; run?: number } => {
+  // With no git, there is no diff to check.
+  const commit = diff ?? (headCommit() ? 'HEAD' : undefined)
+  const { report, summary, run } = problems(commit)
+  const last = run === undefined ? '' : ` (run ${run})`
+  const result = summary.length
+    ? `check: fail: ${summary.join(', ')}${last}`
+    : `check: pass: the last result of each test is a pass, and is the result of the code as it is now` +
+      (commit ? ', and each changed line ran in a test' : '') +
+      last
+  return { report, summary, result, ...(run !== undefined && { run }) }
+}
+
+/**
  * Prints the problems, and returns 1 if there are some. With
  * `--hook`, it is the stop hook of a coding agent: it writes a JSON
  * decision to stdout, and returns 0.
@@ -129,15 +149,7 @@ export const check = (args: string[], out: (line: string) => void): number => {
   const diff = diffOption(rest)
   const other = rest.filter(a => a !== '--hook')
   if (other.length) throw new UsageError(`ubq check takes --diff=<commit> and --hook, not: ${other.join(' ')}`)
-  // With no git, there is no diff to check.
-  const commit = diff ?? (headCommit() ? 'HEAD' : undefined)
-  const { report, summary, run } = problems(commit)
-  const last = run === undefined ? '' : ` (run ${run})`
-  const result = summary.length
-    ? `check: fail: ${summary.join(', ')}${last}`
-    : `check: pass: the last result of each test is a pass, and is the result of the code as it is now` +
-      (commit ? ', and each changed line ran in a test' : '') +
-      last
+  const { report, summary, result } = checkResult(diff)
   if (!hook) {
     for (const part of report) out(part)
     out(result)

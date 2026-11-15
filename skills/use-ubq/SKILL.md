@@ -55,6 +55,8 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    look at: removed and skipped tests, fewer or changed
    assertions, and changed snapshots. Tell the user about each
    item, and why you made it.
+7. End your last message with the output of `npx ubq report`: the
+   result of the check, the last run, and the review, as markdown.
 
 For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright

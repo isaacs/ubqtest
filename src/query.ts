@@ -374,6 +374,15 @@ export interface RunRow {
   code: number | null
 }
 
+/** The counts of a run, as the summary line has them: `1 errors, 2 failed, 10 passed, 1 skipped`. */
+export const runCounts = (row: RunRow): string[] => {
+  const parts = [`${row.fail} failed`, `${row.pass} passed`]
+  if (row.errors) parts.unshift(`${row.errors} errors`)
+  if (row.skip) parts.push(`${row.skip} skipped`)
+  if (row.unselected) parts.push(`${row.unselected} not selected`)
+  return parts
+}
+
 export const runRow = (db: DatabaseSync, run: number): RunRow | undefined =>
   db.prepare('select id, pass, fail, errors, skip, unselected, code from run where id = ?').get(run) as
     | RunRow

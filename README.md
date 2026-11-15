@@ -114,6 +114,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq uncovered --diff` | Code that you changed and that no test runs. |
 | `ubq check` | Checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each changed line ran in a test. Runs no test. `--hook`: a stop hook for a coding agent. |
 | `ubq review` | The changes to the tests that a person must look at: tests removed or skipped, fewer or changed assertions (and if the test runs changed code), changed snapshots, and new `not measured` comments. |
+| `ubq report` | What the tests show about a change, as markdown for the last message of an agent or a pull request: the result of `ubq check`, the last run, and the items of `ubq review`. |
 | `ubq status` | The runs in progress: the files that run now, the test that runs in each, and for how long. |
 | `ubq merge <store>...` | Adds the coverage of other stores, such as those of CI jobs on other runtimes and systems. |
 | `ubq mutate <file>`, `ubq mutate --diff` | A mutation check: small changes to the source, one at a time, and the list of changes that no test fails for. |
@@ -153,8 +154,8 @@ For example, in `AGENTS.md` or `CLAUDE.md`:
 Tests use ubq (the ubqtest package). Before you write or run
 tests, read `npx ubq guide`. Run `npx ubq --changed` after a
 change, then `npx ubq uncovered --diff`. Before you say that the
-work is done, run `npx ubq check`, and report each item of `npx
-ubq review`.
+work is done, run `npx ubq check`. End your report with the
+output of `npx ubq report`.
 ```
 
 `npx ubq skill` writes a skill (`use-ubq/SKILL.md`) for coding

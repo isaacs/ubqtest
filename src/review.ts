@@ -168,6 +168,24 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
   const rest = [...args]
   const given = diffOption(rest)
   if (rest.length) throw new UsageError(`ubq review takes --diff=<commit>, not: ${rest.join(' ')}`)
+  const { items, notes, from } = reviewItems(given)
+  for (const item of items) for (const line of item) out(line)
+  for (const note of notes) out(note)
+  out(
+    items.length
+      ? `review: ${items.length} changes to the tests for a person to look at, from ${from}`
+      : `review: no test removed, skipped, or with changed assertions, from ${from}`,
+  )
+  return items.length ? 1 : 0
+}
+
+/**
+ * The changes to the tests that a person must look at, from where the
+ * branch left `given` (default: the last commit): each item is its
+ * lines, the kinds that can hide the most first. `notes` say what the
+ * review could not know.
+ */
+export const reviewItems = (given: string | undefined): { items: string[][]; notes: string[]; from: string } => {
   const ref = given ?? 'HEAD'
   // From the commit where the branch left `ref`: the newer commits of
   // `ref` are not changes of this branch.
@@ -306,12 +324,5 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
     notes.push('note: no run is stored, so review does not know which tests run the changed code. Run: ubq')
   // The kinds that can hide the most come first.
   const rank = (item: string[]): number => KINDS.indexOf(item[0]!.slice(0, item[0]!.indexOf(':')))
-  for (const item of items.sort((a, b) => rank(a) - rank(b))) for (const line of item) out(line)
-  for (const note of notes) out(note)
-  out(
-    items.length
-      ? `review: ${items.length} changes to the tests for a person to look at, from ${from}`
-      : `review: no test removed, skipped, or with changed assertions, from ${from}`,
-  )
-  return items.length ? 1 : 0
+  return { items: items.sort((a, b) => rank(a) - rank(b)), notes, from }
 }

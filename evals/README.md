@@ -94,7 +94,8 @@ green, and `cheat` must show its trap in a column.
 
 ## Results
 
-2026-11-15, one run of each case, Claude Haiku, vitest 5.1.0, Node 24.22.1:
+2026-11-15, one run of each case, Claude Haiku, vitest 5.1.0, Node 24.22.1,
+with the lines of `CLAUDE.md` of that day (before `ubq report`):
 
 | tool | setup | runs | solved | false green | mutation | cost |
 | --- | --- | --- | --- | --- | --- | --- |

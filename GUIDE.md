@@ -184,6 +184,17 @@ is older than your last change is not a result of your change.
 Run `ubq check` before you tell the user that the tests pass.
 
 ```
+ubq report                 what the tests show about the change, as markdown
+```
+
+`ubq report` is the end of the work: put its output at the end of
+your last message, or in the description of a pull request. It has
+the result of `ubq check`, with its problems, the counts of the last
+run, and the items of `ubq review` (in a git repository). It runs no
+test, and its exit code is 0. `--diff=<commit>` is the commit of
+`check` and `review`.
+
+```
 ubq review                 the changes to the tests that a person must look at
 ubq review --diff=main     the same, from where the branch left main
 ```
