@@ -44,6 +44,7 @@ Trusted publishing on Open VSX works only for an extension that has a version. S
 
 1. In the repository **Settings**, **Environments**, make the environment `vscode`. Optional: add yourself as a required reviewer. Then each tag push waits for you before it publishes the extension, as the npm release waits for its approval.
 2. For the first version only: in that environment, add the secret `OVSX_PAT` with the Open VSX token.
+3. In **Settings**, **Secrets and variables**, **Actions**, **Variables**, add the repository variable `VSCODE_PUBLISH` with the value `true`. Until it exists, the workflow makes the package and does not publish it, so a tag push before this setup does not fail.
 
 ## 5. Publish
 

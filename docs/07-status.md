@@ -230,7 +230,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   workflow `vscode.yml` publishes it when a `v*` tag is pushed. It
   has the version of the package (the `version` script). It is not
   published yet: `vscode/PUBLISH.md` has the steps that need a
-  person.
+  person. Until the repository variable `VSCODE_PUBLISH` is `true`,
+  the workflow makes the package and does not publish it. Remove
+  the condition when the setup is done.
 - **Go to the tests of a place** (D65). The request `ubq/tests` of
   `ubq lsp`; `:UbqTests` in Neovim, `ubq.tests` in VS Code. The VS
   Code test checks one place only: the peek view of many places is

@@ -61,10 +61,15 @@ jobs:
       # The tests run in the CI workflow.
       - run: npm run package -- --out ubq.vsix
 
+      # The publish steps run only if the repository variable
+      # VSCODE_PUBLISH is `true`: after the setup of vscode/PUBLISH.md.
+      # With no variable, the workflow checks the package only.
       - name: Publish to the Visual Studio Marketplace
+        if: vars.VSCODE_PUBLISH == 'true'
         run: npx vsce publish --oidc --packagePath ubq.vsix
 
       - name: Publish to Open VSX
+        if: vars.VSCODE_PUBLISH == 'true'
         run: npx ovsx publish ubq.vsix --trusted-publishing
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
