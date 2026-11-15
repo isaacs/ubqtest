@@ -1433,3 +1433,27 @@ extension. esbuild makes one file, `out/extension.js`, and the
   no stored token. Open VSX needs a token for the first version
   only. `vscode/PUBLISH.md` has the steps for a person. The
   version starts at `0.0.0`, and the workflow does not publish it.
+
+## D65. Go to the tests of a place (user and agent, 2026-11-15)
+
+From a line of code, the editor goes to the tests that ran it, as
+it goes to a definition: one place opens, and many places show as
+a list.
+
+- **Request.** `ubq/tests`, with the parameters of a hover (a file
+  and a position). The answer is a list of LSP `Location`s: the
+  line of each test that ran the code at the position (`coversAt`,
+  as the hover), in the order of the test IDs, then the first line
+  of each test file whose load ran it. The line of a test is the
+  `line` of its last row in `test`. A file that is not open, a
+  file with no run, a changed file, and no store give `[]`.
+- **Why not `textDocument/definition` or `implementation`.** An
+  editor sends those to each server of a file, and puts all the
+  answers in one list. Then each `gd` in a TypeScript file would
+  list the tests with the definition. A request of ubq's own needs
+  a command in each editor plugin, so another editor needs a few
+  lines of config to use it.
+- **Neovim.** `:UbqTests`: `show_document` for one place, else
+  the quickfix list and `copen`, as `vim.lsp.buf.definition` does.
+- **VS Code.** `ubq.tests`: `editor.action.goToLocations`, with
+  `goto` for one place and `peek` for more.

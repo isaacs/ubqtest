@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import { hash } from 'node:crypto'
 import { existsSync, watch, type FSWatcher } from 'node:fs'
 import { join, relative, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Failure } from './events.ts'
 import { projectRoot } from './project.ts'
 import { covers, coversAt, stale, uncovered } from './query.ts'
@@ -149,6 +149,29 @@ const hoverOf = (file: string, text: string, position: Position): object | null 
     return { contents: { kind: 'markdown', value: `${count} this code:\n${shown.join('\n')}` } }
   }) ?? null
 
+/**
+ * The places of the tests that ran the code at `position`, in the
+ * order of their names, then the test files whose load ran it.
+ */
+const testsOf = (file: string, text: string, position: Position): object[] =>
+  withStore(db => {
+    if (!known(db, file) || changed(db, file, text)) return []
+    const { tests, loads } = coversAt(db, file, offsetOf(text, position))
+    const place = (file: string, line: number) => ({
+      uri: pathToFileURL(join(projectRoot(), file)).href,
+      range: { start: at(line, 0), end: at(line, 0) },
+    })
+    // The last row of each test has its line.
+    const rows = db
+      .prepare(
+        `select file, coalesce(line, 1) - 1 as line from test t
+         where id in (select value from json_each(?)) and run = (select max(run) from test where id = t.id)
+         order by id`,
+      )
+      .all(JSON.stringify(tests)) as { file: string; line: number }[]
+    return [...rows.map(r => place(r.file, r.line)), ...loads.sort().map(f => place(f, 0))]
+  }) ?? []
+
 const RUN = 'Run the tests that ran this line (ubq)'
 
 /** The action that runs the tests that ran a line, if there are some. */
@@ -258,6 +281,17 @@ export const lsp = (): Promise<number> =>
             id,
             result: file === undefined || text === undefined ? [] : actionsOf(file, text, params.range.start.line),
           })
+          return
+        }
+        // Not a request of the protocol: `textDocument/definition`
+        // and the like get the answers of each server of a file, so
+        // the places of tests would be in the list of each `gd`. The
+        // editor plugins send this request, and show the places as
+        // they show those of a definition.
+        case 'ubq/tests': {
+          const file = fileOf(params.textDocument.uri)
+          const text = open.get(params.textDocument.uri)
+          write({ id, result: file === undefined || text === undefined ? [] : testsOf(file, text, params.position) })
           return
         }
         case 'workspace/executeCommand': {

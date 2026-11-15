@@ -229,6 +229,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   a window). The CI job `vscode` runs it with `xvfb-run`. The
   workflow `vscode.yml` publishes it, by hand. It is not published
   yet: `vscode/PUBLISH.md` has the steps that need a person.
+- **Go to the tests of a place** (D65). The request `ubq/tests` of
+  `ubq lsp`; `:UbqTests` in Neovim, `ubq.tests` in VS Code. The VS
+  Code test checks one place only: the peek view of many places is
+  not checked.
 
 ## Open, waiting for a decision
 

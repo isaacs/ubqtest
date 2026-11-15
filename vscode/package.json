@@ -30,6 +30,11 @@
         "command": "ubq.runLine",
         "title": "Run the tests that ran this line",
         "category": "ubq"
+      },
+      {
+        "command": "ubq.tests",
+        "title": "Go to the tests of this code",
+        "category": "ubq"
       }
     ]
   },

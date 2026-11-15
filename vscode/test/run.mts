@@ -43,7 +43,7 @@ try {
       [1, 0],
     ],
   )
-  console.log('ok: the extension shows the store, and runs the tests of a line')
+  console.log('ok: the extension shows the store, runs the tests of a line, and goes to the tests')
 } finally {
   rmSync(p.dir, { recursive: true, force: true })
 }

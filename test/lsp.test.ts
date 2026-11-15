@@ -122,6 +122,20 @@ test('wrong', () => assert.equal(sign(3), 2))
   assert.equal(await hoverAt('src/sign.ts', 1, 16), null)
   assert.equal(await hoverAt('src/shape.ts', 0, 0), null)
 
+  // The places of the tests that ran the code at a place, for a jump
+  // to them. Code that runs while a test file loads gives the test
+  // file.
+  const testsAt = async (file: string, line: number, character: number) =>
+    (await c.request('ubq/tests', { textDocument: { uri: uri(file) }, position: { line, character } })).result
+  const place = (file: string, line: number) => ({
+    uri: uri(file),
+    range: { start: { line, character: 0 }, end: { line, character: 0 } },
+  })
+  assert.deepEqual(await testsAt('src/sign.ts', 2, 3), [place('a.test.ts', 2), place('a.test.ts', 3)])
+  assert.deepEqual(await testsAt('src/sign.ts', 0, 0), [place('a.test.ts', 0)])
+  assert.deepEqual(await testsAt('src/sign.ts', 1, 16), [])
+  assert.deepEqual(await testsAt('src/shape.ts', 0, 0), [])
+
   // An action runs the tests that ran the line of the cursor. Code
   // that runs while a test file loads gives the test file.
   const actions = async (line: number) =>
@@ -206,6 +220,7 @@ test('wrong', () => assert.equal(sign(3), 2))
     range: { start: { line: 3, character: 0 }, end: { line: 3, character: 0 } },
   })
   assert.deepEqual(stale.result, [])
+  assert.deepEqual(await testsAt('src/sign.ts', 3, 3), [])
 
   // A new run updates the open files, with no request.
   c.send({
@@ -272,6 +287,8 @@ test('the language server: no store, a store that comes later, other files, and 
     range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
   })
   assert.deepEqual(noStore.result, [])
+  const noTests = await c.request('ubq/tests', { textDocument: { uri: pass }, position: { line: 0, character: 0 } })
+  assert.deepEqual(noTests.result, [])
   assert.deepEqual(await publish('untitled:Untitled-1'), [])
   assert.deepEqual(await publish(pathToFileURL(join(p.dir, '..', 'other.ts')).href), [])
 
@@ -359,6 +376,17 @@ test('the language server: a file error, a file with no run, and a line that man
     /^22 tests ran this code:\n(- m\.test\.ts > \w+\n){20}- and 2 more: ubq covers src\/sign\.ts:2$/,
   )
   assert.equal(await hover(1, 16), '1 test ran this code:\n- m.test.ts > minus')
+  const tests = async (file: string, line: number, character: number) =>
+    (await c.request('ubq/tests', { textDocument: { uri: uri(file) }, position: { line, character } })).result
+  const place = (line: number) => ({
+    uri: uri('m.test.ts'),
+    range: { start: { line, character: 0 }, end: { line, character: 0 } },
+  })
+  // All 22, in the order of their names: `minus` is on line 24.
+  const all = await tests('src/sign.ts', 1, 4)
+  assert.deepEqual([all.length, all[0], all[1]], [22, place(23), place(2)])
+  // A file that no test ran.
+  assert.deepEqual(await tests('src/shape.ts', 0, 0), [])
   // No action for a line that no test ran.
   await open('src/f.ts')
   const none = await c.request('textDocument/codeAction', {

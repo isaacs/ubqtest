@@ -570,7 +570,10 @@ open file of the project:
 - on hover, the tests that ran the code there;
 - a code action, "Run the tests that ran this line (ubq)". It runs
   `ubq run` with those tests. The editor shows the start and the
-  summary line, and the diagnostics change when the run ends.
+  summary line, and the diagnostics change when the run ends;
+- the places of the tests that ran the code at the cursor, for the
+  commands below that go to them. Code that runs while a test file
+  loads gives the first line of that file.
 
 When a run ends, the open files show the new results. If a file
 differs from the file of the last run of its tests (an edit in
@@ -589,16 +592,25 @@ in your own configuration instead, copy them from
 `:UbqRunLine` runs the tests that ran the line of the cursor. It
 is the code action, which `gra` also lists. To give it a key:
 
+`:UbqTests` goes to the tests that ran the code of the cursor. If
+there is one, it opens it. If there are more, it puts them in the
+quickfix list, as `gd` does for a definition with many places.
+
 ```lua
 vim.keymap.set('n', '<leader>tl', '<cmd>UbqRunLine<cr>', { desc = 'ubq: run the tests of this line' })
+vim.keymap.set('n', '<leader>tt', '<cmd>UbqTests<cr>', { desc = 'ubq: go to the tests of this code' })
 ```
+
+After an update of ubq, run `ubq nvim` again to get new commands.
 
 The VS Code extension is in `vscode/` of the repository. It is not
 on the Visual Studio Marketplace or Open VSX yet. It starts the
 server for the first workspace folder that has ubq in
 `node_modules/.bin`, in its own folder or a folder above it. The
 command "ubq: Run the tests that ran this line" (`ubq.runLine`) is
-the code action, with no menu.
+the code action, with no menu. The command "ubq: Go to the tests of
+this code" (`ubq.tests`) opens the test if there is one, and the
+peek view if there are more, as Go to Definition does.
 
 ## Configuration
 

@@ -106,6 +106,48 @@ vim.cmd('qa!')
     'LSP[ubq] pass: 0 failed, 1 passed (run 2)',
   ])
 
+  // :UbqTests goes to the tests that ran the code of the cursor: to
+  // the test if there is one, else to a list of them.
+  writeFileSync(
+    join(home, 'tests.lua'),
+    `vim.wait(15000, function() return #vim.diagnostic.get(0) > 0 end, 50)
+vim.api.nvim_win_set_cursor(0, { 3, 2 })
+local start = vim.api.nvim_get_current_buf()
+vim.cmd('UbqTests')
+vim.wait(10000, function()
+  return vim.api.nvim_get_current_buf() ~= start or #vim.fn.getqflist() > 0
+end, 50)
+local out = { file = vim.fn.expand('%:t'), line = vim.fn.line('.'), list = {} }
+for _, item in ipairs(vim.fn.getqflist()) do
+  table.insert(out.list, { vim.fn.fnamemodify(vim.fn.bufname(item.bufnr), ':t'), item.lnum, item.text })
+end
+io.stdout:write(vim.json.encode(out))
+vim.cmd('qa!')
+`,
+  )
+  const tests = () => {
+    const r = spawnSync('nvim', ['--headless', 'src/sign.ts', '-c', `luafile ${join(home, 'tests.lua')}`], {
+      cwd: p.dir,
+      env,
+      encoding: 'utf8',
+      timeout: 30_000,
+    })
+    return JSON.parse(r.stdout) as unknown
+  }
+  assert.deepEqual(tests(), { file: 'a.test.ts', line: 3, list: [] })
+  const B =
+    "import { assert, test } from 'ubqtest'\nimport { sign } from './src/sign.ts'\ntest('also', () => assert.equal(sign(5), 1))\n"
+  writeFileSync(join(p.dir, 'b.test.ts'), B)
+  assert.equal(p.ubq('a.test.ts', 'b.test.ts').code, 0)
+  assert.deepEqual(tests(), {
+    file: '',
+    line: 1,
+    list: [
+      ['a.test.ts', 3, "test('positive', () => assert.equal(sign(2), 1))"],
+      ['b.test.ts', 3, "test('also', () => assert.equal(sign(5), 1))"],
+    ],
+  })
+
   // A project with no ubq: no server starts.
   const other = mkdtempSync(join(tmpdir(), 'ubq-nvim-other-'))
   cleanup(() => rmSync(other, { recursive: true, force: true }))

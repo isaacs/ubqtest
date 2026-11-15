@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import * as vscode from 'vscode'
-import { LanguageClient } from 'vscode-languageclient/node'
+import { LanguageClient, type Location } from 'vscode-languageclient/node'
 
 const BIN = process.platform === 'win32' ? 'ubq.cmd' : 'ubq'
 
@@ -39,8 +39,34 @@ const runLine = async (): Promise<void> => {
 
 let client: LanguageClient | undefined
 
+/**
+ * Goes to the tests that ran the code of the cursor, from the
+ * request `ubq/tests` of the server. One test: VS Code goes to it.
+ * More: the peek view, as for a definition with many places.
+ */
+const goToTests = async (): Promise<void> => {
+  const editor = vscode.window.activeTextEditor
+  if (!editor || !client) return
+  const at = editor.selection.active
+  const places = await client.sendRequest<Location[]>(
+    'ubq/tests',
+    client.code2ProtocolConverter.asTextDocumentPositionParams(editor.document, at),
+  )
+  await vscode.commands.executeCommand(
+    'editor.action.goToLocations',
+    editor.document.uri,
+    at,
+    places.map(p => client!.protocol2CodeConverter.asLocation(p)),
+    places.length === 1 ? 'goto' : 'peek',
+    'ubq: no test ran this code, or the file changed after the last run of its tests',
+  )
+}
+
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
-  context.subscriptions.push(vscode.commands.registerCommand('ubq.runLine', runLine))
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ubq.runLine', runLine),
+    vscode.commands.registerCommand('ubq.tests', goToTests),
+  )
   const folder = vscode.workspace.workspaceFolders?.find(f => f.uri.scheme === 'file' && command(f.uri.fsPath))
   if (!folder) return
   const root = folder.uri.fsPath

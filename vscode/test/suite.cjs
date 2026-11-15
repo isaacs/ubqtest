@@ -45,4 +45,12 @@ exports.run = async () => {
   // ends when the run ends.
   editor.selection = new vscode.Selection(2, 2, 2, 2)
   await vscode.commands.executeCommand('ubq.runLine')
+
+  // The command goes to the test that ran the code of the cursor.
+  // VS Code opens the file after the command ends.
+  await vscode.commands.executeCommand('ubq.tests')
+  const now = await wait(
+    () => vscode.window.activeTextEditor?.document.uri.path.endsWith('/a.test.ts') && vscode.window.activeTextEditor,
+  )
+  assert.deepEqual([vscode.workspace.asRelativePath(now.document.uri), now.selection.active.line], ['a.test.ts', 2])
 }
