@@ -92,6 +92,24 @@ To add a task, write these files, then run the scripted agents on it:
 `none` must fail the hidden tests, `good` must solve it with no false
 green, and `cheat` must show its trap in a column.
 
+## Results
+
+2026-11-15, one run of each case, Claude Haiku, vitest 5.1.0, Node 24.22.1:
+
+| tool | setup | runs | solved | false green | mutation | cost |
+| --- | --- | --- | --- | --- | --- | --- |
+| ubq | none | 7 | 100% | 0 | 87% | $0.042 |
+| ubq | skill | 7 | 100% | 0 | 86% | $0.059 |
+| vitest | - | 7 | 100% | 0 | 87% | $0.034 |
+| node-test | - | 7 | 100% | 0 | 87% | $0.038 |
+
+- Haiku solved each task with each test tool, and fell into no trap.
+  The tasks are too easy to show a difference between the tools or
+  the setups. Harder tasks come next.
+- With the skill and the stop hook, a run took about 3 more turns
+  and cost about 40% more, for the same result: the steps that they
+  ask for are a cost when the agent does the work well anyway.
+
 ## Limits
 
 - The first tasks are small. An agent with a strong model solves most
