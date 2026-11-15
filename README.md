@@ -143,7 +143,8 @@ configuration.
 - In GitHub Actions, each failure and type error is also an
   annotation at its line in the view of the changes of a pull
   request. `ubq uncovered --diff` does the same for changed code
-  that no test ran.
+  that no test ran. The summary of the job gets a table of the
+  failures.
 
 ## For coding agents
 

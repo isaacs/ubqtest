@@ -1,6 +1,6 @@
 // The compact text sink: nothing for a pass, one block for each
 // failure, one summary line. See docs/04-architecture.md, section 9.
-import { readFileSync } from 'node:fs'
+import { appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Failure, Location, Repeat, Since, Sink, TestId } from './events.ts'
 import { annotation, inActions } from './annotate.ts'
@@ -23,6 +23,9 @@ const OUTPUT_LINES = 20
 /** Blocks of failed tests and file errors in a run, outside CI. */
 const FAILURES = 20
 
+/** The most rows of the table of failures in the summary of a step of GitHub Actions. */
+const SUMMARY_ROWS = 20
+
 const loc = (at: Location): string => `${at.file}:${at.line}:${at.column}`
 
 const indent = (text: string): string => '  ' + text.replaceAll('\n', '\n  ')
@@ -44,6 +47,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   // A run in GitHub Actions puts its failures in the view of the
   // changes (D71). Not a second print of stored failures.
   const annotate = inActions() && !all
+  // The file of the summary of a step of GitHub Actions (D73): one
+  // table of the failures, at the end of the run.
+  const summary = all ? undefined : process.env.GITHUB_STEP_SUMMARY || undefined
+  /** For the summary: the kind, the test or file, the message, the place, and the command that runs it again. */
+  const rows: string[][] = []
+  const row = (kind: string, what: string, failure: { message: string; at?: Location }, rerun = ''): void =>
+    void (summary && rows.push([kind, what, failure.message.split('\n')[0]!, failure.at ? loc(failure.at) : '', rerun]))
   const starts = new Map<TestId, Location | undefined>()
   const skips: string[] = []
   const output = new Map<TestId, string>()
@@ -57,6 +67,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   const repeats = new Map<TestId, Repeat>()
   const rate = (r: Repeat, what: string): string =>
     `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
+
+  /** The command that runs a test again. */
+  const rerunOf = (id: TestId): string => {
+    const at = starts.get(id)
+    // ubq: not measured: each test of the tests has a line
+    return at ? `ubq ${at.file}:${at.line}` : `ubq '${id}'`
+  }
 
   const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat, kept: string[] = []): void => {
     const lines = [head, indent(failure.message)]
@@ -115,14 +132,17 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
       case 'test-end':
         if (event.repeat) repeats.set(event.id, event.repeat)
         if (event.status === 'fail' && event.failure) {
+          row('FAIL', event.id, event.failure, rerunOf(event.id))
           if (shown()) block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
         } else if (event.status === 'skip') skips.push(`skip ${event.id}: ${event.reason}`)
         output.delete(event.id)
         break
       case 'late-failure':
+        row('FAIL', event.id, event.failure, rerunOf(event.id))
         if (shown()) block(`FAIL ${event.id}`, event.failure, event.id, repeats.get(event.id))
         break
       case 'file-error':
+        row('ERROR', event.file, event.failure, `ubq ${event.file}`)
         if (shown()) block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
         break
       case 'file-end':
@@ -140,6 +160,10 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         break
       }
       case 'type-error':
+        row('TYPE', event.at?.file ?? '(no file)', {
+          message: `${event.code}: ${event.message}`,
+          ...(event.at && { at: event.at }),
+        })
         if (++typeErrors <= TYPE_ERRORS)
           block(`TYPE ${event.at?.file ?? '(no file)'}`, {
             kind: 'error',
@@ -172,7 +196,33 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (event.unselected) parts.push(`${event.unselected} not selected`)
         if (event.types) parts.push(`${event.types} type errors`)
         const stored = run === undefined ? '' : ` (run ${run})`
-        write(`${event.code ? 'fail' : 'pass'}: ${parts.join(', ')}${stored}\n`)
+        const result = `${event.code ? 'fail' : 'pass'}: ${parts.join(', ')}${stored}`
+        write(result + '\n')
+        if (summary) {
+          const md = [`### ubq: ${result}`, '']
+          if (rows.length) {
+            md.push('| | Test or file | Failure | At | Run again |', '| --- | --- | --- | --- | --- |')
+            for (const r of rows.slice(0, SUMMARY_ROWS))
+              md.push(
+                `| ${r.map((cell, i) => (i === 4 && cell ? `\`${cell}\`` : cell.replaceAll('|', '\\|'))).join(' | ')} |`,
+              )
+            if (rows.length > SUMMARY_ROWS)
+              md.push(
+                '',
+                // ubq: not measured: each run of the tests is stored
+                `And ${rows.length - SUMMARY_ROWS} more.${run === undefined ? '' : ` For all of them: \`ubq failures ${run}\``}`,
+              )
+            md.push('')
+          }
+          if (event.otherTypes) md.push(`- ${event.otherTypes} type errors in files that this run did not use.`)
+          if (event.uncovered)
+            md.push(`- ${event.uncovered} ranges of code in the files of this run ran in no test: \`ubq uncovered\``)
+          try {
+            appendFileSync(summary, md.join('\n').trimEnd() + '\n\n')
+          } catch {
+            // ubq: not measured: GitHub makes the file, and a step can write it
+          }
+        }
         break
       }
     }

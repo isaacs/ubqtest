@@ -139,6 +139,12 @@ repository (`GITHUB_WORKSPACE`), so a project in a folder of the
 repository works too. GitHub shows 10 annotations of each kind for
 each step.
 
+If `GITHUB_STEP_SUMMARY` is set, as it is in GitHub Actions, a run
+also adds a section to the summary of the step: the result line, a
+table of the failures, errors, and type errors (20 rows at most),
+with the place and the command that runs each again, and the notes
+of the run. The summary is on the page of the run, above the logs.
+
 ## Rules that fail a test
 
 - A test with zero assertions fails. There is no opt-out.

@@ -1,8 +1,9 @@
 // Annotations for GitHub Actions: failures, type errors, and code that
 // no test ran, in the view of the changes of a pull request (D71).
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { assert, cleanup, env, test } from 'ubqtest'
 import { cli, project, remove } from './setup.ts'
 
@@ -108,4 +109,90 @@ test('ubq uncovered in GitHub Actions annotates each range, and each file that n
     diff.stdout,
     /^::warning file=lib\/b\.ts,title=no test loads this file::lib\/b\.ts\nlib\/b\.ts {2}no test loads this file$/m,
   )
+})
+
+test('a run in GitHub Actions writes a summary of the step: the result, and a table of the failures', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  const file = join(p.dir, 'summary.md')
+  // 21 failures, and a file that throws (2 errors): the table has 20 rows.
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    "import { assert, test } from 'ubqtest'\n" +
+      Array.from(
+        { length: 21 },
+        (_, i) => `test('t${String(i).padStart(2, '0')} | x', () => assert.equal(${i}, -1))\n`,
+      ).join(''),
+  )
+  writeFileSync(join(p.dir, 'b.test.ts'), "import { test } from 'ubqtest'\nthrow new Error('boom')\n")
+  writeFileSync(
+    join(p.dir, 'lib.ts'),
+    'export const many = (n: number): boolean => {\n  if (n > 2) return true\n  return false\n}\n',
+  )
+  writeFileSync(
+    join(p.dir, 'c.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { many } from './lib.ts'\ntest('c', () => assert(many(3)))\n",
+  )
+  const ubq = (...args: string[]) =>
+    spawnSync(process.execPath, [cli, ...args], {
+      cwd: p.dir,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file },
+    })
+  ubq('a.test.ts', 'b.test.ts')
+  const md = readFileSync(file, 'utf8').split('\n')
+  assert.equal(md[0], '### ubq: fail: 2 errors, 21 failed, 0 passed (run 1)')
+  assert.equal(md[2], '| | Test or file | Failure | At | Run again |')
+  assert.match(
+    md[4]!,
+    /^\| (FAIL \| a\.test\.ts > t\d\d \\\| x \| expected values to be equal \| a\.test\.ts:\d+:\d+ \| `ubq a\.test\.ts:\d+`|ERROR \| b\.test\.ts \| .*boom.* \| b\.test\.ts:2:\d+ \| `ubq b\.test\.ts`) \|$/,
+  )
+  assert.equal(md.filter(l => /^\| (FAIL|ERROR) /.test(l)).length, 20)
+  assert.equal(md[25], 'And 3 more. For all of them: `ubq failures 1`')
+  // A pass, with code that no test ran: one more section.
+  ubq('c.test.ts')
+  const second = readFileSync(file, 'utf8').split('### ')[2]!
+  assert.match(
+    second,
+    /^ubq: pass: 0 failed, 1 passed \(run 2\)\n\n- 1 ranges of code in the files of this run ran in no test: `ubq uncovered`\n\n$/,
+  )
+  // A second print of stored failures writes no summary.
+  const before = readFileSync(file, 'utf8')
+  ubq('failures', '1')
+  assert.equal(readFileSync(file, 'utf8'), before)
+})
+
+test('the summary of a step has type errors, and the count of those in files that the run did not use', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  const file = join(p.dir, 'summary.md')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        target: 'esnext',
+        strict: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+        types: ['node'],
+      },
+      include: ['*.ts'],
+    }),
+  )
+  const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
+  for (const name of ['typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    "import { assert, test } from 'ubqtest'\nconst n: number = 'one'\ntest('a', () => assert(n))\n",
+  )
+  writeFileSync(join(p.dir, 'other.ts'), "export const m: number = 'two'\n")
+  spawnSync(process.execPath, [cli, 'a.test.ts'], {
+    cwd: p.dir,
+    env: { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file },
+  })
+  const md = readFileSync(file, 'utf8')
+  assert.match(md, /^\| TYPE \| a\.test\.ts \| TS2322: .* \| a\.test\.ts:2:7 \|  \|$/m)
+  assert.match(md, /^- 1 type errors in files that this run did not use\.$/m)
 })

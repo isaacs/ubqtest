@@ -1693,3 +1693,23 @@ evidence. `ubq report` is the evidence, in a form to paste.
 - **Where.** The lines for `AGENTS.md` or `CLAUDE.md` (README, home
   page, the evals) and the skill tell the agent to end its last
   message with the output.
+
+## D73. A run writes the summary of a step of GitHub Actions (user, 2026-11-15)
+
+Idea 5 of the review of the project. The page of a run of GitHub
+Actions shows the summary of each step above the logs. A person sees
+the result there with no scroll through a log.
+
+- **When.** `GITHUB_STEP_SUMMARY` names a file: GitHub sets it in
+  each step. Not for `ubq failures`, which prints a stored run again.
+- **What.** A section for each run: `### ubq: <the result line>`, a
+  table of the failures, the file errors, and the type errors (the
+  kind, the test or the file, the first line of the message, the
+  place, and the command that runs it again), 20 rows at most, then
+  `And N more` with `ubq failures <run>`. Then the notes of the run:
+  type errors in files that it did not use, and code that no test
+  ran.
+- **All failures**, also those past the limit of 20 blocks of the
+  text.
+- **The write** appends to the file, and a write that fails does not
+  change the result of the run.

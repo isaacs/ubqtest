@@ -278,6 +278,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   and the items of `ubq review`, as markdown for the last message of
   an agent or a pull request.
 
+- **Summary of a step** (D73). With `GITHUB_STEP_SUMMARY`, a run
+  adds its result and a table of its failures to the summary of the
+  step.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with
