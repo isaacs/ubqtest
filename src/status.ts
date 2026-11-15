@@ -85,7 +85,9 @@ export const statusSink = (files: number): Sink & { start(file: string): void } 
         // not load has one error.
         if (event.failure.kind !== 'no-tests') now.errors++
         break
-      case 'file-end':
+      // The process of the file closed. After a load error, the file
+      // can have no `file-end`.
+      case 'exit':
         delete now.running[event.file]
         now.ended++
         break
