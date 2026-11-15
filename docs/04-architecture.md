@@ -47,7 +47,7 @@ test file ──imports──> core library
 | **Store** | The SQLite schema, the writer, and the queries. |
 | **Runner** | Finds test files, selects tests, starts a process for each file, reads events from each child, feeds the sinks, handles timeouts. |
 | **CLI** | `ubq` is the main interface to access the functionality |
-| **Language server** | `ubq lsp` (`src/lsp.ts`, D63): reads the store, and shows uncovered code and failures in an editor. |
+| **Language server** | `ubq lsp` (`src/lsp.ts`, D63): reads the store, and shows uncovered code and failures in an editor. The Neovim plugin is in `nvim/`, and the VS Code extension in `vscode/` (D64). |
 | **Module hooks** | Typed module mocks through `module.registerHooks`. |
 
 One test process has two possible setups:

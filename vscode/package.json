@@ -1,0 +1,53 @@
+{
+  "name": "ubq",
+  "displayName": "ubq",
+  "description": "The results of ubq test runs in the editor: the code that no test ran, the failures, and the tests that ran each line.",
+  "version": "0.0.0",
+  "publisher": "ubqtest",
+  "license": "BlueOak-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/isaacs/ubqtest.git",
+    "directory": "vscode"
+  },
+  "homepage": "https://ubq.dev/guide/#editors",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Testing"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ubq.runLine",
+        "title": "Run the tests that ran this line",
+        "category": "ubq"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --minify --platform=node --format=cjs --target=node20 --external:vscode --outfile=out/extension.js",
+    "typecheck": "tsc",
+    "test": "npm run build && node test/run.mts",
+    "package": "npm run build && vsce package --no-dependencies",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/vscode": "~1.91.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "ovsx": "^1.4.0",
+    "typescript": "^7.0.2",
+    "vscode-languageclient": "^11.0.0"
+  }
+}

@@ -90,6 +90,32 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  # The VS Code extension, in a real VS Code. The extension starts
+  # the server of the source (src/cli.ts).
+  vscode:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            vscode/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: vscode
+      - run: npm run typecheck
+        working-directory: vscode
+      # VS Code needs a display.
+      - run: xvfb-run -a npm test
+        working-directory: vscode
+      - run: npm run package -- --out ubq.vsix
+        working-directory: vscode
+
   # Which code of ubq does no job run? One runtime on one system
   # cannot run each line: there is code for Bun, for Deno, and for
   # Windows. This job does not fail for the list yet: the suite has

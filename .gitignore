@@ -4,3 +4,6 @@ dist/
 .tmp-*/
 _site/
 .wrangler/
+vscode/out/
+vscode/.vscode-test/
+*.vsix

@@ -1,0 +1,64 @@
+# Publishes the VS Code extension (vscode/) to the Visual Studio
+# Marketplace and to Open VSX. Start it by hand: on the Actions
+# page, or with `gh workflow run vscode.yml`. vscode/PUBLISH.md has
+# the setup that a person must do first.
+#
+# Trusted publishing (OIDC) authenticates the job on both
+# registries, so no token is stored. The trusted publisher entry on
+# each registry names this repository, the workflow file
+# `vscode.yml`, and the environment `vscode`.
+#
+# Open VSX accepts trusted publishing only for an extension that
+# has a version. For the first version, put a token in the secret
+# OVSX_PAT of the environment `vscode`. A token takes precedence
+# over trusted publishing. Remove the secret after that run.
+
+name: VS Code extension
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # for the OIDC tokens of the registries
+
+concurrency:
+  group: vscode
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: vscode
+    defaults:
+      run:
+        working-directory: vscode
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          package-manager-cache: false # no cache in release builds
+
+      # 0.0.0 is the version before the first release.
+      - name: Check the version
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "$version" = 0.0.0 ]; then
+            echo "set the version in vscode/package.json"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      # The tests run in the CI workflow.
+      - run: npm run package -- --out ubq.vsix
+
+      - name: Publish to the Visual Studio Marketplace
+        run: npx vsce publish --oidc --packagePath ubq.vsix
+
+      - name: Publish to Open VSX
+        run: npx ovsx publish ubq.vsix --trusted-publishing
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}

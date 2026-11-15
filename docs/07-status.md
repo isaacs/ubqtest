@@ -223,6 +223,12 @@ All entries are from 2026-11-11 to 2026-11-14.
   (`nvim/`); a test runs a real headless Neovim with it, and skips
   if `nvim` is not installed. A code action runs the tests of the
   line of the cursor; `:UbqRunLine` in Neovim.
+- **VS Code extension** (D64). `vscode/` is its own package, with
+  its own lock file. `npm test` there runs the extension in a real
+  VS Code (it downloads VS Code to `vscode/.vscode-test`, and opens
+  a window). The CI job `vscode` runs it with `xvfb-run`. The
+  workflow `vscode.yml` publishes it, by hand. It is not published
+  yet: `vscode/PUBLISH.md` has the steps that need a person.
 
 ## Open, waiting for a decision
 

@@ -593,6 +593,13 @@ is the code action, which `gra` also lists. To give it a key:
 vim.keymap.set('n', '<leader>tl', '<cmd>UbqRunLine<cr>', { desc = 'ubq: run the tests of this line' })
 ```
 
+The VS Code extension is in `vscode/` of the repository. It is not
+on the Visual Studio Marketplace or Open VSX yet. It starts the
+server for the first workspace folder that has ubq in
+`node_modules/.bin`, in its own folder or a folder above it. The
+command "ubq: Run the tests that ran this line" (`ubq.runLine`) is
+the code action, with no menu.
+
 ## Configuration
 
 Most projects need none. The `ubq` key of `package.json` can have

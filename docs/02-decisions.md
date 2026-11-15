@@ -1403,3 +1403,33 @@ a package in a project that does not use ubq. It needs Neovim
 Later phases: a code lens with the count of tests and a command to
 go to them, and a VS Code extension.
 
+
+## D64. A VS Code extension for `ubq lsp` (user and agent, 2026-11-15)
+
+The extension (`vscode/`) starts `ubq lsp` with
+`vscode-languageclient`. It is a package of its own, with its own
+lock file, so the install of ubq does not get the packages of the
+extension. esbuild makes one file, `out/extension.js`, and the
+`.vsix` has no `node_modules`.
+
+- **Which ubq.** The first workspace folder that has
+  `node_modules/.bin/ubq` (`ubq.cmd` on Windows), in its folder or
+  a folder above it, as in the Neovim plugin. One server for each
+  window. The client registers the command `ubq.run` of the
+  server, and VS Code lets only one client register a command.
+  The other folders of a workspace with many roots get no server.
+- **Run the tests of a line.** The server's code action is in the
+  light bulb menu. The command `ubq.runLine` applies it with no
+  menu, as `:UbqRunLine` does in Neovim.
+- **Tests.** `vscode/test/run.mts` makes a project with a stored
+  run, and starts a real VS Code with `@vscode/test-electron`.
+  `test/suite.cjs` checks the diagnostics and the hover in VS Code,
+  and runs `ubq.runLine`. Then `run.mts` checks that the store has
+  a second run. It is not in the suite of ubq: it downloads VS Code
+  and opens a window. The CI job `vscode` runs it.
+- **Publish.** By hand, with `.github/workflows/vscode.yml`, to the
+  Visual Studio Marketplace (`vsce publish --oidc`) and Open VSX
+  (`ovsx publish --trusted-publishing`). Trusted publishing needs
+  no stored token. Open VSX needs a token for the first version
+  only. `vscode/PUBLISH.md` has the steps for a person. The
+  version starts at `0.0.0`, and the workflow does not publish it.
