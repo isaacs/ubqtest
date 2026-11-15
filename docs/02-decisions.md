@@ -1462,3 +1462,28 @@ a list.
   the quickfix list and `copen`, as `vim.lsp.buf.definition` does.
 - **VS Code.** `ubq.tests`: `editor.action.goToLocations`, with
   `goto` for one place and `peek` for more.
+
+## D66. `ubq status`: the runs in progress (user, 2026-11-15)
+
+Q19. An agent usually waits for a run to end, but a run that takes
+too long needs a way to find the test that hangs.
+
+- **Status file.** A stored run writes `.ubq/now/<run>.json`: the
+  process ID, the start time, the command, the count of test files,
+  the counts of results so far, and each file that runs with its
+  start time and the test that runs in it with its start time. It
+  writes the file at the start of the run, then at most every
+  250 ms after a change (a write to a new file, then a rename). It
+  removes the file at the end of the run. The store does not get
+  this state: a new table needs a new schema version, which removes
+  the stores of users, and a run that was stopped would leave rows
+  that say it still runs.
+- **Load.** A test file sends `file-start` after its top-level
+  code. The runner tells the status file when it starts the
+  process of a file, so a file that hangs while it loads shows. A
+  run of one file (the plain path) writes its status file only
+  after the top-level code.
+- **Command.** `ubq status` prints each run in progress, in the
+  order of its number. If the process of a run is gone, it says so
+  and removes the file. With no file, it prints `no run in
+  progress`. The exit code is 0.

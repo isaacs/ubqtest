@@ -10,6 +10,7 @@ import { EVENT_VERSION, type FileEvent, type RunStart, type Sink, type TestId, t
 import { textSink } from './sink-text.ts'
 import { uncoveredCount } from './query.ts'
 import { openStore, type Store } from './store.ts'
+import { statusSink } from './status.ts'
 
 const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
   const v = process.versions
@@ -111,7 +112,7 @@ export const startPlain = (): void => {
         store = openStore()
         start.run = store.newRun(start)
         stored = store.sink(start.run)
-        sinks.push(stored)
+        sinks.push(stored, statusSink(1))
       } catch (error) {
         write(`note: this run is not stored: ${(error as Error).message}\n`)
       }

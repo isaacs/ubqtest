@@ -305,6 +305,21 @@ do not start. Each of these files is an error of the run, and the
 exit code is 1. The type check still runs to its end. Use it for
 a run in the background that must not run for a long time.
 
+`ubq status` shows the runs in progress in the project: for each
+one, the files that ended and the counts of their results, each
+file that runs now with its time, and the test that runs in that
+file with its time. Use it when a run takes longer than you
+expect, to find the test that hangs. A run of one file shows only
+after the top-level code of its file. If the process of a run is
+gone (it was stopped), `ubq status` says so. `ubq failures` and
+`ubq sql` read the results that a run in progress has stored.
+
+```
+run 12: ubq test/ (pid 4242, 31.0 s)
+37 of 40 files ended: 0 failed, 212 passed
+test/cart.test.ts, 30.2 s: test/cart.test.ts > checkout sends the order, 29.8 s
+```
+
 Console output of a test is captured. It shows only in the
 failure block of its test, and in `ubq show`.
 

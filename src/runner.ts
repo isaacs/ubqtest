@@ -46,6 +46,7 @@ import { hangReruns } from './hang.ts'
 import { repeater } from './repeat.ts'
 import { shuffle } from './shuffle.ts'
 import { fileHash, openStore, pruneSources, stateDir, storedSource, type Store } from './store.ts'
+import { statusSink } from './status.ts'
 
 /** The one name pattern for test files. */
 const TEST_FILES = '**/*.test.{ts,mts,cts,tsx,js,mjs,cjs,jsx}'
@@ -827,11 +828,14 @@ export const run = async (args: string[]): Promise<number> => {
   ]
   let store: Store | undefined
   let stored: ReturnType<Store['sink']> | undefined
+  /** The status file of the run (`ubq status`). */
+  let started: ReturnType<typeof statusSink> | undefined
   try {
     store = openStore()
     start.run = store.newRun(start)
     stored = store.sink(start.run)
-    sinks.push(stored)
+    started = statusSink(files.length)
+    sinks.push(stored, started)
   } catch (error) {
     write(`note: this run is not stored: ${(error as Error).message}\n`)
   }
@@ -878,6 +882,7 @@ export const run = async (args: string[]): Promise<number> => {
             })
             continue
           }
+          started?.start(next.file)
           await runFile(next, to, cacheDir, update, {}, limit.signal)
         }
       }),

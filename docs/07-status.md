@@ -233,6 +233,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   person. Until the repository variable `VSCODE_PUBLISH` is `true`,
   the workflow makes the package and does not publish it. Remove
   the condition when the setup is done.
+- **`ubq status`** (D66). The runs in progress, from
+  `.ubq/now/<run>.json`: the files that run, the test that runs in
+  each, and the counts. A run of one file shows only after the
+  top-level code of its file.
 - **Go to the tests of a place** (D65). The request `ubq/tests` of
   `ubq lsp`; `:UbqTests` in Neovim, `ubq.tests` in VS Code. The VS
   Code test checks one place only: the peek view of many places is

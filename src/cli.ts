@@ -95,6 +95,7 @@ const USAGE = `usage:
   ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
+  ubq status                 the runs in progress: the files that run, the test that runs in each, and for how long
   ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
   ubq nvim                   writes the Neovim plugin for ubq lsp to the configuration of Neovim (0.12 or later)
   ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (${SKILL_DIRS.flatMap(([names]) => names).join(', ')})
@@ -114,6 +115,7 @@ const COMMANDS = [
   'browser',
   'server',
   'merge',
+  'status',
   'lsp',
   'nvim',
 ]
@@ -218,6 +220,7 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'server') return (await import('./server.ts')).serverCommand(rest, out)
   if (command === 'merge') return (await import('./merge.ts')).mergeCommand(rest, out)
   if (command === 'lsp') return (await import('./lsp.ts')).lsp()
+  if (command === 'status') return (await import('./status.ts')).status(out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')
