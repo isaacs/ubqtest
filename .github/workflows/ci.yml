@@ -126,8 +126,15 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # The comment of `ubq review` on a pull request.
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          # `ubq review` reads the base commit of a pull request.
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -141,3 +148,42 @@ jobs:
         run: node src/cli.ts merge stores/*
       - name: Code that no job runs
         run: node src/cli.ts uncovered || true
+      # The changes to the tests that a person must look at (D68),
+      # with the merged coverage: an item says if the test runs code
+      # that changed. The comment is one comment, changed on each
+      # push. A pull request from a fork has a token that cannot
+      # write a comment: there, the list is in the summary of the job.
+      - name: Changes to the tests
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.base_ref }}
+          FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          set +e
+          node src/cli.ts review --diff="origin/$BASE" > review.txt
+          code=$?
+          set -e
+          cat review.txt
+          if [ "$code" -gt 1 ]; then exit "$code"; fi
+          {
+            echo '<!-- ubq review -->'
+            echo '### Changes to the tests'
+            echo
+            echo "\`ubq review --diff=origin/$BASE\` lists the changes to the tests that a person must look at."
+            echo
+            echo '```text'
+            cat review.txt
+            echo '```'
+          } > review.md
+          cat review.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "$FORK" = true ]; then exit 0; fi
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- ubq review -->")) | .id' | head -n 1)
+          # No comment for a pull request with nothing to look at.
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@review.md > /dev/null
+          elif [ "$code" = 1 ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@review.md > /dev/null
+          fi

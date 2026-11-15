@@ -163,9 +163,13 @@ export const unloadedChanges = (db: DatabaseSync, diff: Map<string, unknown>): s
   )
 }
 
-/** The test files of the store. */
+/** The test files of the store, and of the coverage that it merged (D54). */
 export const testFiles = (db: DatabaseSync): string[] =>
-  (db.prepare('select tfile from test_file order by tfile').all() as { tfile: string }[]).map(r => r.tfile)
+  (
+    db.prepare('select tfile from test_file union select tfile from other_coverage order by tfile').all() as {
+      tfile: string
+    }[]
+  ).map(r => r.tfile)
 
 /** True if `file` changed after a test recorded coverage of it. */
 export const stale = (db: DatabaseSync, file: string): boolean => {

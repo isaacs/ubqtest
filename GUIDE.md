@@ -193,6 +193,37 @@ the list has an item. The list is not a list of errors: a person
 decides. Only tests with names of plain text are compared: a name
 with `${}` is not known before its file runs.
 
+In GitHub Actions, the list can be a comment on each pull request.
+The job needs the base commit, and a run of the tests first: then
+an item says if the test runs code that changed.
+
+```yaml
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+      - run: npm ci
+      - run: npx ubq || true
+      - env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          npx ubq review --diff=origin/${{ github.base_ref }} > review.txt || [ $? = 1 ]
+          { echo '```text'; cat review.txt; echo '```'; } > review.md
+          gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file review.md
+```
+
+The pull request gets one comment, and each push changes it.
+`--edit-last` changes the last comment of the user of the token:
+if the workflow writes other comments, find the comment by a
+marker instead. The workflow of ubq (`.github/workflows/ci.yml`)
+does that, uses the coverage of all its CI jobs (`ubq merge`),
+writes a comment only once the list has an item, and writes the
+list to the job summary for a pull request from a fork, whose
+token cannot write a comment.
+
 `ubq skill` adds `ubq check --hook` to `.claude/settings.json` as
 a stop hook of Claude Code. While `ubq check` finds a problem,
 Claude Code cannot end its turn: it gets the report and works on.

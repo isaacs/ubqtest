@@ -1576,6 +1576,15 @@ if they still test what they tested.
   the newer commits of `main` are not changes of a branch.
 - **Exit code.** 1 if there is an item, as `uncovered`. An item is
   not an error: a CI job can show the list, and a person decides.
+- **CI.** The `coverage` job of ubq runs `ubq review` on a pull
+  request, with the merged stores of all jobs, and keeps one comment
+  up to date (found by the marker `<!-- ubq review -->`). It writes
+  a comment only once the list has an item. A pull request from a
+  fork gets the list in the job summary. The guide has a short form
+  for other projects. The test files of merged coverage
+  (`other_coverage`) are test files for `review`, `uncovered
+  --diff`, and `check`: a store from `ubq merge` alone has no
+  `test_file` rows.
 
 **Reason.** The weakest test changes are short in a diff: one
 `skip`, one changed number. A list that names each one, with the

@@ -252,7 +252,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   must look at, from the git diff, the test files at the base and
   now, and the store: removed and skipped tests, fewer or changed
   assertions (and if the test runs changed code), snapshots, new
-  `not measured` comments, and the `ubq` key.
+  `not measured` comments, and the `ubq` key. The CI job `coverage`
+  writes the list as a comment on a pull request. Not checked yet
+  on a real pull request.
 
 ## Open, waiting for a decision
 

@@ -4,7 +4,7 @@
 // value that the code now gives. Each is easy to miss in a large
 // diff. This command reads the diff, the test files at the base
 // commit and now, and the coverage of the store.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { isBuild, isHelper, UsageError } from './config.ts'
@@ -191,6 +191,11 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
   }
   for (const file of git('ls-files', '-z', '--others', '--exclude-standard').out.split('\0'))
     if (file) pairs.push([undefined, file])
+  // A link to a folder is a file for git.
+  const isFile = (path: string): boolean => statSync(join(projectRoot(), path)).isFile()
+  const files = pairs.flatMap(([before, after]): typeof pairs =>
+    after === undefined || isFile(after) ? [[before, after]] : before === undefined ? [] : [[before, undefined]],
+  )
 
   const items: string[][] = []
   const notes: string[] = []
@@ -205,7 +210,7 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
     // Test code is not the code that a test checks.
     const tests = new Set(testFiles(store.db))
     for (const [file, groups] of diff) {
-      if (!CODE.test(file) || tests.has(file) || isHelper(file)) continue
+      if (!CODE.test(file) || tests.has(file) || isHelper(file) || !isFile(file)) continue
       if (stale(store.db, file)) {
         old.push(file)
         continue
@@ -216,7 +221,7 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
     store.close()
   }
 
-  for (const [before, after] of pairs) {
+  for (const [before, after] of files) {
     const name = after ?? before!
     const textBefore = before === undefined ? undefined : atCommit(base, before)
     const textNow = after === undefined ? undefined : now(after)

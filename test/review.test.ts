@@ -1,6 +1,6 @@
 // `ubq review`: the changes to the tests that a person must look at.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { project, remove } from './setup.ts'
@@ -221,6 +221,7 @@ test('skip false', { skip: false }, () => assert(1))
 test('timeout only', { timeout: 100 }, () => assert(1))
 `
   writeFileSync(p.file('test/forms.test.ts'), FORMS)
+  writeFileSync(p.file('lib/swap.ts'), '// ubq: not measured: gone\nexport const s = 1\n')
   p.git('add', '.')
   p.git('commit', '-q', '-m', 'second')
   writeFileSync(
@@ -234,8 +235,12 @@ test('timeout only', { timeout: 100 }, () => assert(1))
   writeFileSync(p.file('lib/staged.ts'), '// ubq: not measured:\nexport const s = 1\n')
   p.git('add', 'lib/staged.ts')
   writeFileSync(p.file('lib/new.ts'), '// a comment\n/* ubq: not measured: only on a Mac */\nexport const n = 1\n')
-  // Not code.
+  // Not code, and a link to a folder, which git lists as a file.
   writeFileSync(p.file('notes.md'), '// ubq: not measured: text\n')
+  symlinkSync(p.file('lib'), p.file('linked'), 'junction')
+  // A file that is now a link to a folder.
+  rmSync(p.file('lib/swap.ts'))
+  symlinkSync(p.file('test'), p.file('lib/swap.ts'), 'junction')
   // The snapshots of a new test file.
   mkdirSync(p.file('ubq-snapshots/test'), { recursive: true })
   writeFileSync(p.file('ubq-snapshots/test/forms.test.ts.snap'), '')
@@ -288,5 +293,31 @@ test('ubq review: a test with a new name and its old assertions, and text that i
       'review: 3 changes to the tests for a person to look at, from the last commit',
       '',
     ].join('\n'),
+  )
+})
+
+test('ubq review: with a store of merged coverage, as in CI', () => {
+  const p = setup()
+  // A test file whose name comes before its source in the diff.
+  writeFileSync(p.file('lib/math.test.ts'), TEST.replace('../lib/math.ts', './math.ts'))
+  p.git('add', '.')
+  p.git('commit', '-q', '-m', 'second')
+  writeFileSync(p.file('lib/math.ts'), SRC.replace('a + b\n', 'a + b + 1\n'))
+  writeFileSync(
+    p.file('lib/math.test.ts'),
+    TEST.replace('../lib/math.ts', './math.ts')
+      .replace('add(1, 2), 3', 'add(1, 2), 4')
+      .replace('add(2, 2), 4', 'add(2, 2), 5'),
+  )
+  p.ubq('lib/math.test.ts')
+  // The store of a CI job, merged into a new store.
+  rmSync(p.file('stores'), { recursive: true, force: true })
+  mkdirSync(p.file('stores'))
+  renameSync(p.file('.ubq'), p.file('stores/job'))
+  assert.equal(p.ubq('merge', 'stores/job').code, 0)
+  const r = p.review()
+  assert.match(
+    r.out,
+    /^assertions changed: lib\/math\.test\.ts > math > add \(lib\/math\.test\.ts:4\)\. The test runs code that changed: lib\/math\.ts:1$/m,
   )
 })
