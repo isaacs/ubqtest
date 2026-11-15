@@ -148,6 +148,21 @@ export const uncoveredCount = (db: DatabaseSync, files: string[]): number =>
     .filter(f => !isHelper(f) && !isBuild(f) && existsSync(join(projectRoot(), f)) && !stale(db, f))
     .reduce((sum, f) => sum + uncovered(db, f).filter(u => !u.notMeasured).length, 0)
 
+/** A file that can have code. */
+const CODE = /\.([cm]?[jt]s|[jt]sx)$/
+
+/**
+ * The files of a git diff that have code, that no test loads, and
+ * that are not test files, test helpers, or build files.
+ */
+export const unloadedChanges = (db: DatabaseSync, diff: Map<string, unknown>): string[] => {
+  const covered = new Set(coveredFiles(db))
+  const tests = new Set(testFiles(db))
+  return [...diff.keys()].filter(
+    f => CODE.test(f) && !covered.has(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f),
+  )
+}
+
 /** The test files of the store. */
 export const testFiles = (db: DatabaseSync): string[] =>
   (db.prepare('select tfile from test_file order by tfile').all() as { tfile: string }[]).map(r => r.tfile)

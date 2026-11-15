@@ -42,6 +42,12 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
      test runs.
    - `npx ubq mutate --diff` tells if the tests of the changed
      lines are strong.
+5. Before you tell the user that the work is done: `npx ubq
+   check`. It runs no test. It fails if a test failed in its last
+   run, if code changed after its tests ran, or if changed lines
+   ran in no test, and it names the command for each problem.
+   A `pass:` line from before your last change is not a result of
+   your change.
 
 For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright

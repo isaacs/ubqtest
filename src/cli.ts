@@ -30,15 +30,15 @@ import {
   runRow,
   slowest,
   stale,
-  testFiles,
   testsUnder,
   typeErrors,
   uncovered,
+  unloadedChanges,
 } from './query.ts'
 import { textSink } from './sink-text.ts'
 import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
-import { fileHash, openStore } from './store.ts'
+import { openStore } from './store.ts'
 
 /**
  * For each coding agent: its names for `ubq skill <agent>`, the
@@ -60,9 +60,6 @@ const SKILL_DIRS: [names: string[], variables: string[], dir: string][] = [
 /** A line of code for one runtime or one system. */
 const ELSEWHERE =
   /process\.platform|process\.versions\.(bun|deno)|typeof (Bun|Deno)\b|\bDeno\.|\bBun\.|['"](win32|darwin|linux)['"]/
-
-/** A file that can have code. */
-const CODE = /\.([cm]?[jt]s|[jt]sx)$/
 
 const USAGE = `usage:
   ubq                        run all test files (names that end in .test.ts, .test.js, ...)
@@ -95,6 +92,7 @@ const USAGE = `usage:
   ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
+  ubq check                  checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each line that differs from the last git commit ran in a test (--diff=<commit>: from that commit). --hook: as the stop hook of a coding agent
   ubq status                 the runs in progress: the files that run, the test that runs in each, and for how long
   ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
   ubq nvim                   writes the Neovim plugin for ubq lsp to the configuration of Neovim (0.12 or later)
@@ -102,6 +100,29 @@ const USAGE = `usage:
 `
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
+
+/** The stop hook of Claude Code: the agent cannot end its turn while `ubq check` finds a problem (D67). */
+const HOOK = 'npx --no ubq check --hook'
+const stopEntry = { hooks: [{ type: 'command', command: HOOK, timeout: 120 }] }
+
+/** Adds the stop hook to the settings of Claude Code, if they do not have it. */
+const stopHook = (path: string): void => {
+  type Hooks = { hooks?: { command?: string }[] }[]
+  let settings: { hooks?: { Stop?: Hooks } } = {}
+  try {
+    settings = JSON.parse(readFileSync(path, 'utf8'))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      out(`${rel(path)} is not JSON, so it has no stop hook. Add "Stop": ${JSON.stringify(stopEntry)} to its "hooks"`)
+      return
+    }
+  }
+  const stop = ((settings.hooks ??= {}).Stop ??= [])
+  if (stop.some(e => e.hooks?.some(h => h.command?.includes('ubq check')))) return
+  stop.push(stopEntry)
+  writeFileSync(path, JSON.stringify(settings, null, 2) + '\n')
+  out(`wrote ${rel(path)}: a stop hook. While ubq check finds a problem, the agent cannot end its turn`)
+}
 
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
 /** The first words that are a command, not a path (D62). */
@@ -116,6 +137,7 @@ const COMMANDS = [
   'server',
   'merge',
   'status',
+  'check',
   'lsp',
   'nvim',
 ]
@@ -173,6 +195,7 @@ const main = async (args: string[]): Promise<number> => {
       writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
       out(`wrote ${rel(join(to, 'SKILL.md'))}`)
     }
+    if (dirs.has('.claude/skills')) stopHook(join(root, '.claude', 'settings.json'))
     return 0
   }
   if (command === 'nvim') {
@@ -221,6 +244,7 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'merge') return (await import('./merge.ts')).mergeCommand(rest, out)
   if (command === 'lsp') return (await import('./lsp.ts')).lsp()
   if (command === 'status') return (await import('./status.ts')).status(out)
+  if (command === 'check') return (await import('./check.ts')).check(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')
@@ -421,14 +445,9 @@ const main = async (args: string[]): Promise<number> => {
       let elsewhere = 0
       if (rest[0] && !covered.includes(files[0]!)) throw new UsageError(`no test loaded ${files[0]}`)
       /** Changed files with code that no test loads. */
-      const unloaded: string[] = []
+      const unloaded = diff && !rest[0] ? unloadedChanges(db, diff) : []
       if (diff) {
         files = files.filter(f => diff.has(f))
-        const tests = new Set(testFiles(db))
-        if (!rest[0])
-          for (const f of diff.keys())
-            if (CODE.test(f) && !covered.includes(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f))
-              unloaded.push(f)
         // The places of the stored coverage must be the places of the file.
         for (const f of files)
           if (stale(db, f))

@@ -103,7 +103,32 @@ test('skill writes to the skill folders of the project and to the folder of the 
     spawnSync('node', [cli, 'skill', ...args], { cwd: p.dir, encoding: 'utf8', env: { ...env, ...more } })
       .stdout.trimEnd()
       .split('\n')
+  const hookLine =
+    'wrote .claude/settings.json: a stop hook. While ubq check finds a problem, the agent cannot end its turn'
+  const settings = join(p.dir, '.claude/settings.json')
+  // The settings of Claude Code get the stop hook, one time, next to their other settings.
+  mkdirSync(join(p.dir, '.claude'))
+  writeFileSync(
+    settings,
+    JSON.stringify({ model: 'x', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }] } }),
+  )
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
+  const hook = { hooks: [{ type: 'command', command: 'npx --no ubq check --hook', timeout: 120 }] }
+  assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), {
+    model: 'x',
+    hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }, hook] },
+  })
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md'])
+  rmSync(settings)
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
+  assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { hooks: { Stop: [hook] } })
+  // A file that is not JSON stays as it is.
+  writeFileSync(settings, '{ // a comment\n}')
+  assert.deepEqual(skill(), [
+    'wrote .claude/skills/use-ubq/SKILL.md',
+    `.claude/settings.json is not JSON, so it has no stop hook. Add "Stop": ${JSON.stringify(hook)} to its "hooks"`,
+  ])
+  assert.equal(readFileSync(settings, 'utf8'), '{ // a comment\n}')
   rmSync(join(p.dir, '.claude'), { recursive: true })
   assert.deepEqual(skill({ GEMINI_CLI: '1' }), ['wrote .gemini/skills/use-ubq/SKILL.md'])
   mkdirSync(join(p.dir, '.cursor/skills'), { recursive: true })

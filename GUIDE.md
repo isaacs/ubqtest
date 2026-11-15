@@ -135,6 +135,39 @@ failures 8`. In CI (`CI` is set), each block prints.
 Do not weaken a test to get a pass. Each of these rules catches a
 test that would pass for the wrong reason.
 
+## Before you say that the work is done
+
+```
+ubq check                 is the last result of the tests the result of the code as it is now?
+ubq check --diff=<commit> the same, with the lines that differ from that commit (default: the last commit)
+```
+
+`ubq check` runs no test. It reads the store, and fails (exit code
+1) if:
+
+- a test failed in its last run, or a test file did not load
+  (`ubq --failed`);
+- code changed after the last run of the tests that ran it, or a
+  test file never ran (`ubq --changed`);
+- the last run had type errors;
+- code in the lines that differ from the last git commit ran in no
+  test, or a changed file with code is loaded by no test. ubq
+  checks the lines only when the other checks pass, and only in a
+  git repository.
+
+Each problem is a line that names the command to run. The last
+line is the result: `check: pass: ...` or `check: fail: 2 failed
+tests, 1 test files to run again (run 9)`. A result of `ubq` that
+is older than your last change is not a result of your change.
+Run `ubq check` before you tell the user that the tests pass.
+
+`ubq skill` adds `ubq check --hook` to `.claude/settings.json` as
+a stop hook of Claude Code. While `ubq check` finds a problem,
+Claude Code cannot end its turn: it gets the report and works on.
+When it stops again with the same report, the hook lets it stop,
+so that it can tell the user what it could not do. A different
+report blocks again.
+
 ## API
 
 [Complete API reference](https://ubq.dev/api/)

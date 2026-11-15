@@ -242,6 +242,12 @@ All entries are from 2026-11-11 to 2026-11-14.
   Code test checks one place only: the peek view of many places is
   not checked.
 
+- **`ubq check`** (D67). Fails if a test failed in its last run,
+  if code changed after its tests ran, if the last run had type
+  errors, or if changed lines ran in no test. `--hook` is a stop
+  hook of Claude Code, and `ubq skill` adds it to
+  `.claude/settings.json`.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

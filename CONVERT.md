@@ -415,6 +415,9 @@ Do not skip it.
 
 ## When you are done
 
+Run `ubq check`. It fails if a test failed in its last run, or if
+code changed after its tests ran.
+
 Report to the user:
 
 - the count of tests before and after, and the reason for each

@@ -121,8 +121,8 @@ const alive = (pid: number): boolean => {
 
 const seconds = (ms: number): string => `${(ms / 1000).toFixed(1)} s`
 
-/** Prints the runs in progress. */
-export const status = (out: (line: string) => void): number => {
+/** The status files of the runs in progress, and of runs whose process is gone. */
+const readRuns = (): Now[] => {
   let names: string[] = []
   try {
     names = readdirSync(folder()).filter(name => /^\d+\.json$/.test(name))
@@ -137,9 +137,18 @@ export const status = (out: (line: string) => void): number => {
       // ubq: not measured: the run ended between the list and the read
     }
   }
+  return runs.sort((a, b) => a.run - b.run)
+}
+
+/** The numbers of the runs in progress. */
+export const runsInProgress = (): number[] => readRuns().flatMap(now => (alive(now.pid) ? [now.run] : []))
+
+/** Prints the runs in progress. */
+export const status = (out: (line: string) => void): number => {
+  const runs = readRuns()
   if (!runs.length) out('no run in progress')
   const at = time()
-  for (const now of runs.sort((a, b) => a.run - b.run)) {
+  for (const now of runs) {
     if (!alive(now.pid)) {
       out(`run ${now.run} stopped before its end: its process (${now.pid}) is gone`)
       rmSync(join(folder(), `${now.run}.json`), { force: true })

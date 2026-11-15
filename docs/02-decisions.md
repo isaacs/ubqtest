@@ -1487,3 +1487,49 @@ too long needs a way to find the test that hangs.
   order of its number. If the process of a run is gone, it says so
   and removes the file. With no file, it prints `no run in
   progress`. The exit code is 0.
+
+## D67. `ubq check`: the last results are the results of the code, and a stop hook (user, 2026-11-15)
+
+D3 says that the tool must not depend on the agent to remember a
+step. An agent that ran `ubq`, then changed code, can still report
+the first `pass:` line. `ubq check` tells if that line is still
+true, and a stop hook makes the agent ask.
+
+- **Checks.** `ubq check` runs no test. It fails (exit code 1) for
+  a run in progress, no stored run, a test whose last result is a
+  failure or a file whose last run had an error (as `--failed`
+  selects), a test file that `--changed` selects, type errors in
+  the last run, and code in the lines that differ from a git
+  commit that ran in no test or that no test loads (as `uncovered
+  --diff`). Each problem names the command to run.
+- **Order.** The lines are checked only when the other checks
+  pass. With a test to run again, the stored places can be wrong,
+  and the first step is to run the tests.
+- **A test file with no coverage.** `--changed` always runs it,
+  because it cannot know what it ran. `check` asks for it again
+  only if the file changed. Else the check could never pass on such
+  a runtime.
+- **The state of the tree.** No `git status` (D27). The content
+  hashes of the store tell if the code that a test ran changed.
+  `git diff` runs only for the lines, as in `uncovered --diff`.
+- **`--hook`.** The output is the JSON of a Claude Code stop hook:
+  `{"decision":"block","reason":...}`, or nothing, with exit code
+  0. The hook blocks one time for each report. It keeps the last
+  report in `.ubq/check-hook`, and lets the agent stop if the
+  report is the same. The agent saw it, and can tell the user what
+  it could not do, such as code that only another runtime runs.
+  Any change to the code or the results makes a new report, which
+  blocks again. Claude Code also stops a loop of blocks by itself,
+  after 8 blocks with no tool call.
+- **Install.** `ubq skill` adds the hook to `.claude/settings.json`
+  when it writes `.claude/skills`, with `npx --no ubq check --hook`.
+  It keeps the other settings, does nothing if a hook with `ubq
+  check` is there, and does not change a file that is not JSON. It
+  prints the entry to add by hand.
+- **Not done.** Hooks of other agents (Codex, Cursor, Gemini): their
+  forms were not checked. The JSON of Claude Code may work for
+  Codex.
+
+**Reason.** The stop hook is the one place where the tool sees the
+end of the work of an agent. A block there costs one turn of the
+agent, and saves a wrong report to the user.
