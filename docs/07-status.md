@@ -263,6 +263,10 @@ Core and runner:
 
 - Bun gives different columns for some frames, and no place for an
   assertion in a timer callback.
+- Bun on macOS cannot open a WAL database read-only if it has no
+  `-shm` file ("unable to open database file"). `ubq lsp` and the
+  tests do not open the store read-only. `src/baseline.ts` and
+  `src/merge.ts` still do.
 - The watchdog uses inspector port 9229. If a different process
   has it, the failure has no stack.
 - When the watchdog stops a process with no runner, the store gets

@@ -5,7 +5,7 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { cli, project } from './setup.ts'
+import { cli, project, remove } from './setup.ts'
 
 interface Message {
   id?: number
@@ -311,7 +311,9 @@ test('the language server: no store, a store that comes later, other files, and 
 
 test('the language server: a file error, a file with no run, and a line that many tests ran', async () => {
   const p = project()
-  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  // On Windows, the server keeps its folder for a short time after
+  // the kill.
+  cleanup(() => remove(p.dir))
   writeFileSync(join(p.dir, 'src/sign.ts'), SIGN)
   const many = Array.from({ length: 21 }, (_, i) => `test('t${i}', () => assert.equal(sign(${i + 1}), 1))`)
   writeFileSync(

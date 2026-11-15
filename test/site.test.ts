@@ -75,7 +75,9 @@ test('the store page names each table and each column of the store', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   assert.equal(p.ubq('pass.ts').code, 0)
-  const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'), { readOnly: true })
+  // Not read-only: Bun on macOS cannot open a WAL database
+  // read-only if it has no `-shm` file.
+  const db = new DatabaseSync(join(p.dir, '.ubq/runs.db'))
   cleanup(() => db.close())
   const page = readFileSync(join(root, 'docs/store.md'), 'utf8')
   const missing: string[] = []

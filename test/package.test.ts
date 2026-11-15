@@ -258,14 +258,19 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     })
   const deno = ['deno', 'run', '-A']
   // The runs are at the same time: some of them wait for a time limit.
+  // They share one store, so the count of the note of uncovered code
+  // depends on which runs ended first.
+  const compare = (cmd: string[], ...args: string[]) =>
+    run(cmd, ...args).then(lines => lines.filter(l => !l.startsWith('note:')))
   await Promise.all(
     // On Windows, Node gives no stack for a loop that does not return.
     ['fail.ts', 'mock.ts', 'output.ts', 'hang.ts', ...(process.platform === 'win32' ? [] : ['busy.ts'])].flatMap(
       file => [
-        (async () => assert.deepEqual(await run(deno, file, 'pass.ts'), await run(['node'], file, 'pass.ts'), file))(),
+        (async () =>
+          assert.deepEqual(await compare(deno, file, 'pass.ts'), await compare(['node'], file, 'pass.ts'), file))(),
         // One file runs in the process of the runner.
         file !== 'busy.ts' &&
-          (async () => assert.deepEqual(await run(deno, file), await run(['node'], file), `${file} alone`))(),
+          (async () => assert.deepEqual(await compare(deno, file), await compare(['node'], file), `${file} alone`))(),
       ],
     ),
   )

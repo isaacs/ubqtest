@@ -50,13 +50,17 @@ const fileOf = (uri: string): string | undefined => {
   return path.split(sep).join('/')
 }
 
-/** Runs `use` on the store, if there is one. A store that cannot be read is no store. */
+/**
+ * Runs `use` on the store, if there is one. A store that cannot be
+ * read is no store. The connection is not read-only: Bun on macOS
+ * cannot open a WAL database read-only if it has no `-shm` file.
+ */
 const withStore = <T>(use: (db: DatabaseSync) => T): T | undefined => {
   const path = join(projectRoot(), '.ubq', 'runs.db')
   if (!existsSync(path)) return undefined
   let db: DatabaseSync | undefined
   try {
-    db = new DatabaseSync(path, { readOnly: true, timeout: 1000 })
+    db = new DatabaseSync(path, { timeout: 1000 })
     return use(db)
   } catch {
     return undefined

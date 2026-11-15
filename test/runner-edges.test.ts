@@ -326,7 +326,9 @@ test('the store keeps the rows of the last 50 runs', () => {
   db.close()
   // Run 101 removes the rows of runs 1 to 51.
   p.ubq('a.test.ts')
-  const after = new DatabaseSync(join(p.dir, '.ubq/runs.db'), { readOnly: true })
+  // Not read-only: Bun on macOS cannot open a WAL database
+  // read-only if it has no `-shm` file.
+  const after = new DatabaseSync(join(p.dir, '.ubq/runs.db'))
   cleanup(() => after.close())
   const left = ['run', 'test', 'type_error', 'file_error', 'output'].map(
     t =>

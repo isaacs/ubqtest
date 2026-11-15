@@ -230,10 +230,11 @@ describe('bun', () => {
     assert.equal(plain(), 'pass: 0 failed, 1 passed')
     assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:4'], p.dir), ['0 tests run src/size.ts:4'])
     p.configure({ bunInspectorCoverage: true })
-    assert.equal(plain(), `${uncoveredNote(1)}\npass: 0 failed, 1 passed`)
     // The data of the inspector is not the same in each version of
-    // Bun, so the places are not a part of this check. The store
-    // must have the file that the test ran.
+    // Bun, so the places, and the note of code that no test ran,
+    // are not a part of this check.
+    assert.equal(plain().split('\n').at(-1), 'pass: 0 failed, 1 passed')
+    // The store must have the file that the test ran.
     assert.deepEqual(sh('node', [cli, 'sql', "select distinct file from coverage where file = 'src/size.ts'"], p.dir), [
       '{"file":"src/size.ts"}',
     ])
