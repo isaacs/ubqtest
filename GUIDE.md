@@ -567,7 +567,10 @@ open file of the project:
 - the code that no test ran, as information;
 - the failure of the last run of each test, and the error of the
   last run of each test file, as an error at its place;
-- on hover, the tests that ran the code there.
+- on hover, the tests that ran the code there;
+- a code action, "Run the tests that ran this line (ubq)". It runs
+  `ubq run` with those tests. The editor shows the start and the
+  summary line, and the diagnostics change when the run ends.
 
 When a run ends, the open files show the new results. If a file
 differs from the file of the last run of its tests (an edit in
@@ -582,6 +585,13 @@ or TypeScript file in a project that has ubq in
 does not start the server in other projects. To keep these files
 in your own configuration instead, copy them from
 `node_modules/ubqtest/nvim/`.
+
+`:UbqRunLine` runs the tests that ran the line of the cursor. It
+is the code action, which `gra` also lists. To give it a key:
+
+```lua
+vim.keymap.set('n', '<leader>tl', '<cmd>UbqRunLine<cr>', { desc = 'ubq: run the tests of this line' })
+```
 
 ## Configuration
 

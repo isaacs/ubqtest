@@ -1365,12 +1365,20 @@ stdio, with no dependency: the base protocol is JSON with a
   severity Error, at the place of the failure.
 - **Hover.** The tests that ran the code at the place (`coversAt`),
   20 at most, then `ubq covers <file>:<line>`.
+- **Run the tests of a line.** A code action at the line of the
+  cursor, "Run the tests that ran this line (ubq)", with the
+  command `ubq.run`. Its arguments are the test IDs, and the test
+  files whose load ran the line. The server runs `ubq run` with
+  them, with its own copy of ubq, and answers when the run ends. It
+  sends the start and the summary line as `window/showMessage`
+  (Error if the exit code is not 0). An action works in each
+  editor. The Neovim plugin has `:UbqRunLine` for it.
 - **Changed files.** The stored places are offsets in a file with
   a known hash. If the text in the editor differs from the file
   on disk, or the file changed after the last run of its tests,
   the server shows one Information diagnostic that says so, and no
-  coverage, failures, or hover. A mapping of old places through a
-  diff can come later.
+  coverage, failures, hover, or action. A mapping of old places
+  through a diff can come later.
 - **Updates.** The server watches `.ubq`. When a run writes the
   store, each open file gets new diagnostics. If `.ubq` does not
   exist, the server watches the project folder until it does.

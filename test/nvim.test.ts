@@ -50,13 +50,7 @@ test('ubq nvim writes the plugin, and Neovim shows the results of the store', { 
     [install.status, install.stdout, install.stderr],
     [0, `wrote ${join(dir, 'lsp', 'ubq.lua')}\nwrote ${join(dir, 'plugin', 'ubq.lua')}\n`, ''],
   )
-  assert.equal(
-    readFileSync(join(dir, 'plugin', 'ubq.lua'), 'utf8')
-      .trim()
-      .split('\n')
-      .at(-1),
-    "vim.lsp.enable('ubq')",
-  )
+  assert.match(readFileSync(join(dir, 'plugin', 'ubq.lua'), 'utf8'), /^vim\.lsp\.enable\('ubq'\)$/m)
 
   // A project with ubq in node_modules/.bin, and a stored run.
   mkdirSync(join(p.dir, 'node_modules', '.bin'), { recursive: true })
@@ -84,6 +78,33 @@ test('ubq nvim writes the plugin, and Neovim shows the results of the store', { 
     diagnostics: [[1, 13, 1, 22, 'no test ran this code']],
     hover: '1 test ran this code:\n- a.test.ts > positive',
   })
+
+  // :UbqRunLine runs the tests that ran the line of the cursor. The
+  // editor shows the start of the run and its summary line.
+  writeFileSync(
+    join(home, 'run.lua'),
+    `vim.wait(15000, function() return #vim.diagnostic.get(0) > 0 end, 50)
+local messages = {}
+vim.notify = function(message) table.insert(messages, message) end
+vim.api.nvim_win_set_cursor(0, { 3, 2 })
+vim.cmd('UbqRunLine')
+vim.wait(30000, function()
+  return vim.iter(messages):any(function(m) return m:find('pass:') ~= nil end)
+end, 50)
+io.stdout:write(vim.json.encode(messages))
+vim.cmd('qa!')
+`,
+  )
+  const run = spawnSync('nvim', ['--headless', 'src/sign.ts', '-c', `luafile ${join(home, 'run.lua')}`], {
+    cwd: p.dir,
+    env,
+    encoding: 'utf8',
+    timeout: 40_000,
+  })
+  assert.deepEqual(JSON.parse(run.stdout), [
+    'LSP[ubq] ubq run a.test.ts > positive',
+    'LSP[ubq] pass: 0 failed, 1 passed (run 2)',
+  ])
 
   // A project with no ubq: no server starts.
   const other = mkdtempSync(join(tmpdir(), 'ubq-nvim-other-'))

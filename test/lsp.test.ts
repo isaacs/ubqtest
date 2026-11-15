@@ -57,7 +57,7 @@ const client = (cwd: string) => {
     const mine = id
     return next(m => m.id === mine, from)
   }
-  return { server, send, next, request, count: () => got.length }
+  return { server, send, next, request, count: () => got.length, since: (from: number) => got.slice(from) }
 }
 
 const SIGN = 'export const sign = (n: number) => {\n  if (n < 0) return -1\n  return 1\n}\n'
@@ -122,6 +122,65 @@ test('wrong', () => assert.equal(sign(3), 2))
   assert.equal(await hoverAt('src/sign.ts', 1, 16), null)
   assert.equal(await hoverAt('src/shape.ts', 0, 0), null)
 
+  // An action runs the tests that ran the line of the cursor. Code
+  // that runs while a test file loads gives the test file.
+  const actions = async (line: number) =>
+    (
+      await c.request('textDocument/codeAction', {
+        textDocument: { uri: uri('src/sign.ts') },
+        range: { start: { line, character: 0 }, end: { line, character: 0 } },
+        context: { diagnostics: [] },
+      })
+    ).result
+  const action = (...args: string[]) => ({
+    title: 'Run the tests that ran this line (ubq)',
+    command: { title: 'Run the tests that ran this line (ubq)', command: 'ubq.run', arguments: args },
+  })
+  assert.deepEqual(await actions(2), [action('a.test.ts > positive', 'a.test.ts > wrong')])
+  assert.deepEqual(await actions(0), [action('a.test.ts > positive', 'a.test.ts > wrong', 'a.test.ts')])
+  // A line with no code, and code that no test ran.
+  assert.deepEqual(await actions(4), [])
+  from = c.count()
+  const ran = await c.request('workspace/executeCommand', {
+    command: 'ubq.run',
+    arguments: ['a.test.ts > positive', 'a.test.ts > wrong'],
+  })
+  // The server answers when the run ends, with a message at the
+  // start and at the end. Type 3 is Info, type 1 is Error.
+  assert.equal(ran.result, null)
+  assert.deepEqual(
+    c
+      .since(from)
+      .filter(m => m.method === 'window/showMessage')
+      .map(m => [m.params.type, m.params.message]),
+    [
+      [3, 'ubq run a.test.ts > positive, a.test.ts > wrong'],
+      [1, 'fail: 1 failed, 1 passed (run 2)'],
+    ],
+  )
+  from = c.count()
+  await c.request('workspace/executeCommand', { command: 'ubq.run', arguments: ['a.test.ts > positive'] })
+  assert.deepEqual(
+    c
+      .since(from)
+      .filter(m => m.method === 'window/showMessage')
+      .map(m => m.params.type),
+    [3, 3],
+  )
+  // An error of the command is the message.
+  from = c.count()
+  await c.request('workspace/executeCommand', { command: 'ubq.run', arguments: ['gone.test.ts'] })
+  assert.deepEqual(
+    c
+      .since(from)
+      .filter(m => m.method === 'window/showMessage')
+      .at(-1)?.params,
+    {
+      type: 1,
+      message: 'ubq: no such file: gone.test.ts',
+    },
+  )
+
   // A change in the editor: the stored places are not the places of
   // the text, so the server shows only that.
   from = c.count()
@@ -142,6 +201,11 @@ test('wrong', () => assert.equal(sign(3), 2))
     position: { line: 3, character: 3 },
   })
   assert.equal(none.result, null)
+  const stale = await c.request('textDocument/codeAction', {
+    textDocument: { uri: uri('src/sign.ts') },
+    range: { start: { line: 3, character: 0 }, end: { line: 3, character: 0 } },
+  })
+  assert.deepEqual(stale.result, [])
 
   // A new run updates the open files, with no request.
   c.send({
@@ -186,6 +250,13 @@ test('the language server: no store, a store that comes later, other files, and 
   await c.request('initialize', { processId: null, rootUri: pathToFileURL(p.dir).href })
   const unknown = await c.request('textDocument/rename', {})
   assert.equal(unknown.error?.code, -32601)
+  const command = await c.request('workspace/executeCommand', { command: 'nope', arguments: [] })
+  assert.equal(command.error?.code, -32601)
+  const action = await c.request('textDocument/codeAction', {
+    textDocument: { uri: 'untitled:Untitled-1' },
+    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+  })
+  assert.deepEqual(action.result, [])
   const publish = async (uri: string, text = '') => {
     const from = c.count()
     c.send({ method: 'textDocument/didOpen', params: { textDocument: { uri, version: 1, text } } })
@@ -196,6 +267,11 @@ test('the language server: no store, a store that comes later, other files, and 
   const pass = pathToFileURL(join(p.dir, 'pass.ts')).href
   const text = readFileSync(join(p.dir, 'pass.ts'), 'utf8')
   assert.deepEqual(await publish(pass, text), [])
+  const noStore = await c.request('textDocument/codeAction', {
+    textDocument: { uri: pass },
+    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+  })
+  assert.deepEqual(noStore.result, [])
   assert.deepEqual(await publish('untitled:Untitled-1'), [])
   assert.deepEqual(await publish(pathToFileURL(join(p.dir, '..', 'other.ts')).href), [])
 
@@ -242,9 +318,14 @@ test('the language server: a file error, a file with no run, and a line that man
     join(p.dir, 'm.test.ts'),
     `import { assert, test } from 'ubqtest'\nimport { sign } from './src/sign.ts'\n${many.join('\n')}\ntest('minus', () => assert.equal(sign(-1), -1))\n`,
   )
+  writeFileSync(join(p.dir, 'src/f.ts'), 'export const f = (n: number) => {\n  if (n) return 1\n  return 2\n}\n')
+  writeFileSync(
+    join(p.dir, 'f.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { f } from './src/f.ts'\ntest('f', () => assert.equal(f(1), 1))\n",
+  )
   const E = "import { test } from 'ubqtest'\nthrow new Error('boom')\n"
   writeFileSync(join(p.dir, 'e.test.ts'), E)
-  p.ubq('m.test.ts', 'e.test.ts')
+  p.ubq('m.test.ts', 'e.test.ts', 'f.test.ts')
   const c = client(p.dir)
   cleanup(() => void c.server.kill())
   await c.request('initialize', { processId: null, rootUri: pathToFileURL(p.dir).href })
@@ -276,4 +357,11 @@ test('the language server: a file error, a file with no run, and a line that man
     /^22 tests ran this code:\n(- m\.test\.ts > \w+\n){20}- and 2 more: ubq covers src\/sign\.ts:2$/,
   )
   assert.equal(await hover(1, 16), '1 test ran this code:\n- m.test.ts > minus')
+  // No action for a line that no test ran.
+  await open('src/f.ts')
+  const none = await c.request('textDocument/codeAction', {
+    textDocument: { uri: uri('src/f.ts') },
+    range: { start: { line: 2, character: 0 }, end: { line: 2, character: 0 } },
+  })
+  assert.deepEqual(none.result, [])
 })

@@ -221,7 +221,8 @@ All entries are from 2026-11-11 to 2026-11-14.
   failures as diagnostics, the tests of a place on hover, an
   update after each run. `ubq nvim` writes the Neovim plugin
   (`nvim/`); a test runs a real headless Neovim with it, and skips
-  if `nvim` is not installed.
+  if `nvim` is not installed. A code action runs the tests of the
+  line of the cursor; `:UbqRunLine` in Neovim.
 
 ## Open, waiting for a decision
 

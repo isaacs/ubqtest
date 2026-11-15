@@ -101,7 +101,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq` | Runs all test files (`*.test.ts`, `*.test.js`, and so on), and the type checker of the project. |
 | `ubq <file>`, `ubq <file>:<line>`, `ubq '<test id>'` | Runs one file, one test, or one group. |
 | `ubq run <paths>` | The same, for a path with the name of a command, such as a folder `diff`. |
-| `ubq lsp` | A language server: the editor shows the code that no test ran, the failures of the last run, and the tests of a line. |
+| `ubq lsp` | A language server: the editor shows the code that no test ran, the failures of the last run, and the tests of a line, and runs the tests of a line. |
 | `ubq nvim` | Sets up Neovim (0.12 or later) to use `ubq lsp`. |
 | `ubq --changed` | Runs the tests that ran code that changed after their last run, and new test files. |
 | `ubq --failed` | Runs the tests that failed in their last run. |

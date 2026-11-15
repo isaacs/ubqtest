@@ -2,13 +2,14 @@
 // and shows, for each open file, the code that no test ran and the
 // failures of the last run of each test. A hover names the tests
 // that ran the code there. A new run updates the open files.
+import { spawn } from 'node:child_process'
 import { hash } from 'node:crypto'
 import { existsSync, watch, type FSWatcher } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Failure } from './events.ts'
 import { projectRoot } from './project.ts'
-import { coversAt, stale, uncovered } from './query.ts'
+import { covers, coversAt, stale, uncovered } from './query.ts'
 import { DatabaseSync } from './sqlite.ts'
 import { fileHash } from './store.ts'
 
@@ -144,6 +145,24 @@ const hoverOf = (file: string, text: string, position: Position): object | null 
     return { contents: { kind: 'markdown', value: `${count} this code:\n${shown.join('\n')}` } }
   }) ?? null
 
+const RUN = 'Run the tests that ran this line (ubq)'
+
+/** The action that runs the tests that ran a line, if there are some. */
+const actionsOf = (file: string, text: string, line: number): object[] =>
+  withStore(db => {
+    if (!known(db, file) || changed(db, file, text)) return []
+    let found
+    try {
+      found = covers(db, file, line + 1)
+    } catch {
+      // A line with no code.
+      return []
+    }
+    // A test file runs in full for code that runs while it loads.
+    const args = [...found.tests.sort(), ...found.loads.sort()]
+    return args.length ? [{ title: RUN, command: { title: RUN, command: 'ubq.run', arguments: args } }] : []
+  }) ?? []
+
 export const lsp = (): Promise<number> =>
   new Promise(done => {
     /** The text of each open file, by URI. */
@@ -193,7 +212,12 @@ export const lsp = (): Promise<number> =>
           write({
             id,
             result: {
-              capabilities: { textDocumentSync: { openClose: true, change: 1 }, hoverProvider: true },
+              capabilities: {
+                textDocumentSync: { openClose: true, change: 1 },
+                hoverProvider: true,
+                codeActionProvider: true,
+                executeCommandProvider: { commands: ['ubq.run'] },
+              },
               serverInfo: { name: 'ubq' },
             },
           })
@@ -221,6 +245,33 @@ export const lsp = (): Promise<number> =>
           const file = fileOf(params.textDocument.uri)
           const text = open.get(params.textDocument.uri)
           write({ id, result: file === undefined || text === undefined ? null : hoverOf(file, text, params.position) })
+          return
+        }
+        case 'textDocument/codeAction': {
+          const file = fileOf(params.textDocument.uri)
+          const text = open.get(params.textDocument.uri)
+          write({
+            id,
+            result: file === undefined || text === undefined ? [] : actionsOf(file, text, params.range.start.line),
+          })
+          return
+        }
+        case 'workspace/executeCommand': {
+          if (params?.command !== 'ubq.run') break
+          // A run of the tests, with this copy of ubq. The editor shows
+          // the start and the summary line. The diagnostics change
+          // when the run writes the store.
+          const args = params.arguments as string[]
+          write({ method: 'window/showMessage', params: { type: 3, message: `ubq run ${args.join(', ')}` } })
+          const run = spawn(process.execPath, [process.argv[1]!, 'run', ...args], { cwd: projectRoot() })
+          let output = ''
+          run.stdout.on('data', (data: Buffer) => (output += data))
+          run.stderr.on('data', (data: Buffer) => (output += data))
+          run.on('close', code => {
+            const message = output.trim().split('\n').at(-1)!
+            write({ method: 'window/showMessage', params: { type: code ? 1 : 3, message } })
+            write({ id, result: null })
+          })
           return
         }
         case 'shutdown':
