@@ -161,6 +161,38 @@ tests, 1 test files to run again (run 9)`. A result of `ubq` that
 is older than your last change is not a result of your change.
 Run `ubq check` before you tell the user that the tests pass.
 
+```
+ubq review                 the changes to the tests that a person must look at
+ubq review --diff=main     the same, from where the branch left main
+```
+
+`ubq review` reads the git diff, the test files at the base commit
+and now, and the store. It lists, with the most serious first:
+
+- `configuration`: the `ubq` key of `package.json` changed. It can
+  leave tests out.
+- `removed`: a test that the base commit has, and the code does
+  not. A test with a new name, and the same body or each of the
+  old assertions, is not removed: review compares it as `<new ID>
+  (was <old name>)`.
+- `skipped`: a test with a new `skip`.
+- `fewer assertions`: a test with fewer assertion calls than
+  before, with the calls that went away (`-`) and the new ones
+  (`+`).
+- `assertions changed`: a test with the same count of assertions,
+  and different ones.
+- `snapshot removed`, `snapshot changed`: entries of
+  `ubq-snapshots/`.
+- `not measured`: a new `// ubq: not measured:` comment.
+
+An item about assertions says if the test runs code that changed:
+`The test runs code that changed: src/math.ts:12`. An expected
+value that changed with the code it checks is correct only if the
+old value was wrong. Say why in your report. The exit code is 1 if
+the list has an item. The list is not a list of errors: a person
+decides. Only tests with names of plain text are compared: a name
+with `${}` is not known before its file runs.
+
 `ubq skill` adds `ubq check --hook` to `.claude/settings.json` as
 a stop hook of Claude Code. While `ubq check` finds a problem,
 Claude Code cannot end its turn: it gets the report and works on.

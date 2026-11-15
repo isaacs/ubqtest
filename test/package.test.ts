@@ -143,8 +143,11 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     ])
   })
 
-test('ubq skill and ubq convert from the package', () => {
+test('ubq skill, ubq convert, and ubq review from the package', () => {
   const ubq = join(built, 'cli.js')
+  // The folder is not in git.
+  const review = sh('node', ubq, 'review')
+  assert.deepEqual([review.code, review.err], [4, 'ubq: ubq review needs a git commit. Not a commit here: HEAD\n'])
   assert.deepEqual(sh('node', ubq, 'skill', '.agent/skills').lines, ['wrote .agent/skills/use-ubq/SKILL.md'])
   assert.equal(
     readFileSync(join(dir, '.agent/skills/use-ubq/SKILL.md'), 'utf8'),

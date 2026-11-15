@@ -48,6 +48,10 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    ran in no test, and it names the command for each problem.
    A `pass:` line from before your last change is not a result of
    your change.
+6. `npx ubq review` lists the changes to tests that a person must
+   look at: removed and skipped tests, fewer or changed
+   assertions, and changed snapshots. Tell the user about each
+   item, and why you made it.
 
 For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright

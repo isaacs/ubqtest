@@ -48,12 +48,16 @@ const written = new Map<string, string>()
 /** The count of snapshot assertions in each test. */
 const counts = new Map<string, number>()
 
+/** The entries of the text of a snapshot file: key, then text. */
+export const snapshotEntries = (text: string): Map<string, string> =>
+  new Map([...text.matchAll(ENTRY)].map(m => [unescape(m[1]!), unescape(m[2]!)]))
+
 const load = (testFile: string): void => {
   if (file !== undefined) return
   file = testFile
   const path = join(projectRoot(), snapshotFile(testFile))
   if (!existsSync(path)) return
-  for (const m of readFileSync(path, 'utf8').matchAll(ENTRY)) saved.set(unescape(m[1]!), unescape(m[2]!))
+  saved = snapshotEntries(readFileSync(path, 'utf8'))
 }
 
 export interface SnapshotResult {

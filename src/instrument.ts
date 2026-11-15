@@ -84,18 +84,31 @@ const noTypes = (source: string): string | undefined => {
  * file that the parser refuses gets a second try with its types
  * removed. Each position stays the same, and the tree has no type
  * nodes.
+ *
+ * `comments` gets the text of each comment of the file.
  */
-export const parse = (source: string, file: string): Node => {
-  const options = { ecmaVersion: 'latest', sourceType: 'module', locations: true, allowHashBang: true } as const
-  if (JSX.test(file)) return jsxParser.parse(source, options) as unknown as Node
+export const parse = (source: string, file: string, comments?: string[]): Node => {
+  const options = {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    locations: true,
+    allowHashBang: true,
+    ...(comments && { onComment: (_block: boolean, text: string) => void comments.push(text) }),
+  } as const
+  // A try that fails can leave comments of its part of the file.
+  const read = (p: typeof parser, text: string): Node => {
+    if (comments) comments.length = 0
+    return p.parse(text, options) as unknown as Node
+  }
+  if (JSX.test(file)) return read(jsxParser, source)
   try {
-    return parser.parse(source, options) as unknown as Node
+    return read(parser, source)
   } catch (error) {
-    if (file.endsWith('.js')) return jsxParser.parse(source, options) as unknown as Node
+    if (file.endsWith('.js')) return read(jsxParser, source)
     const plain = /\.[cm]?ts$/.test(file) ? noTypes(source) : undefined
     if (plain === undefined) throw error
     try {
-      return parser.parse(plain, options) as unknown as Node
+      return read(parser, plain)
     } catch {
       // The first error is about the source as it is.
       throw error

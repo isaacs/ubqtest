@@ -244,6 +244,35 @@ export const covers = (db: DatabaseSync, file: string, line: number): Covers => 
 }
 
 /**
+ * The tests that ran a line of `groups` in `file`, each with one
+ * such line. Not the code that runs while a file loads.
+ */
+export const testsOfLines = (db: DatabaseSync, file: string, groups: [number, number][]): Map<string, number> => {
+  const source = new Source(file)
+  const spans: [line: number, span: Span][] = []
+  for (const [first, last] of groups)
+    for (let n = first; n <= Math.min(last, source.starts.length); n++) {
+      const span = source.line(n)
+      if (span) spans.push([n, span])
+    }
+  const out = new Map<string, number>()
+  for (const { test, ranges } of rangesOf(db, file)) {
+    if (!test) continue
+    for (const [n, [s, e]] of spans) {
+      let ran = false
+      for (let i = 0; !ran && i < ranges.length; i += 3)
+        ran = ranges[i + 2]! > 0 && ranges[i]! < e && ranges[i + 1]! > s
+      if (ran) {
+        // A test has a row for each environment: one line is enough.
+        if (!out.has(test)) out.set(test, n)
+        break
+      }
+    }
+  }
+  return out
+}
+
+/**
  * The tests that ran the code at offset `at` of `file`. More exact
  * than a line: a line can have a function that no test called.
  */

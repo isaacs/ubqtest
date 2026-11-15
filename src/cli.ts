@@ -93,6 +93,7 @@ const USAGE = `usage:
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
   ubq check                  checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each line that differs from the last git commit ran in a test (--diff=<commit>: from that commit). --hook: as the stop hook of a coding agent
+  ubq review                 the changes to the tests that a person must look at: removed and skipped tests, fewer or changed assertions (and if the test runs changed code), changed snapshots, new "ubq: not measured:" comments, and changes to the configuration. From the last git commit (--diff=<commit>: from where the branch left that commit)
   ubq status                 the runs in progress: the files that run, the test that runs in each, and for how long
   ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
   ubq nvim                   writes the Neovim plugin for ubq lsp to the configuration of Neovim (0.12 or later)
@@ -138,6 +139,7 @@ const COMMANDS = [
   'merge',
   'status',
   'check',
+  'review',
   'lsp',
   'nvim',
 ]
@@ -245,6 +247,7 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'lsp') return (await import('./lsp.ts')).lsp()
   if (command === 'status') return (await import('./status.ts')).status(out)
   if (command === 'check') return (await import('./check.ts')).check(rest, out)
+  if (command === 'review') return (await import('./review.ts')).reviewCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
     throw new UsageError('no runs are stored. Run a test file first: node <test file>')

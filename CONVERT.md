@@ -416,7 +416,9 @@ Do not skip it.
 ## When you are done
 
 Run `ubq check`. It fails if a test failed in its last run, or if
-code changed after its tests ran.
+code changed after its tests ran. `ubq review` compares only
+tests of ubq, so it does not compare the tests of the old tool with
+the converted tests. Use it for the changes after the conversion.
 
 Report to the user:
 

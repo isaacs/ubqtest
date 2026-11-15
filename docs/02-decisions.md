@@ -1533,3 +1533,50 @@ true, and a stop hook makes the agent ask.
 **Reason.** The stop hook is the one place where the tool sees the
 end of the work of an agent. A block there costs one turn of the
 agent, and saves a wrong report to the user.
+
+## D68. `ubq review`: the changes to the tests that a person must look at (user, 2026-11-15)
+
+Section 7 of `01`: an agent that must make tests pass can make a
+test weaker, and the tool must make that easy for a reviewer to
+see. `ubq check` (D67) tells if the tests pass. `ubq review` tells
+if they still test what they tested.
+
+- **Source.** The test files of the diff, at the base commit (`git
+  show`) and now, parsed with the parser of the counters. A test is
+  a call of the local name of `test` from `'ubqtest'`, in calls of
+  `describe`, with a name of plain text. The ID is the ID of a run.
+  An assertion is a call of the local name of `assert`, or of one
+  of its methods, in the test function. Its text, with its space
+  made one space, is what review compares.
+- **Static, not from runs.** The store does not know the state of a
+  test at the base commit: a run records the commit, not the
+  changes in the tree (D27), so two runs of one commit can be of
+  different code. The source at the commit is certain. A loop of
+  assertions counts as one call.
+- **Items.** In this order: a changed `ubq` key; a removed test; a
+  new `skip`; fewer assertion calls; changed assertion calls; a
+  removed or changed snapshot entry; a new `ubq: not measured:`
+  reason. New tests, new assertions, and new snapshots are not
+  items.
+- **A new name.** A test that is gone is the same test as a new test
+  of the file with the same body, or with each of its assertions.
+  It is not removed, and review compares the two: `<new ID> (was
+  <old name>)`. A moved file keeps its tests (`git diff -M`).
+- **`not measured`.** Only comments, from the parser, of program
+  code: not a string, not a test file, not a helper or build file,
+  and not a file that is not code.
+- **Changed code.** For an item about assertions, the store tells if
+  the test ran a changed line of code that is not test code: the
+  first such line is in the item. An expected value that changed
+  with the code is the form of a test that follows a defect. When
+  the coverage of a changed file is older than the file, a note
+  says to run `ubq --changed`.
+- **Base.** `--diff=<commit>` (default `HEAD`), as `uncovered` and
+  `check`. The base is the merge base of that commit and `HEAD`, so
+  the newer commits of `main` are not changes of a branch.
+- **Exit code.** 1 if there is an item, as `uncovered`. An item is
+  not an error: a CI job can show the list, and a person decides.
+
+**Reason.** The weakest test changes are short in a diff: one
+`skip`, one changed number. A list that names each one, with the
+code that changed next to it, is fast for a person to read.
