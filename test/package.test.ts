@@ -197,6 +197,19 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     ])
   })
 
+test('ubq nvim from the package', { skip: has('nvim') }, () => {
+  const config = join(dir, 'xdg')
+  cleanup(() => remove(config))
+  const r = spawnSync('node', [join(built, 'cli.js'), 'nvim'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, XDG_CONFIG_HOME: config, NVIM_APPNAME: '' },
+  })
+  assert.equal(r.status, 0)
+  for (const file of ['lsp/ubq.lua', 'plugin/ubq.lua'])
+    assert.equal(readFileSync(join(config, 'nvim', file), 'utf8'), readFileSync(join(root, 'nvim', file), 'utf8'))
+})
+
 test('docs/api.md is current', () => {
   const r = spawnSync('node', ['scripts/api-docs.ts', '--check', join(pkg, 'types')], { cwd: root, encoding: 'utf8' })
   assert.deepEqual([r.status, r.stderr], [0, ''])

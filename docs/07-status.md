@@ -219,7 +219,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   working directory gets a note with this form.
 - **`ubq lsp`** (D63). A language server: uncovered code and
   failures as diagnostics, the tests of a place on hover, an
-  update after each run. The guide has the Neovim setup.
+  update after each run. `ubq nvim` writes the Neovim plugin
+  (`nvim/`); a test runs a real headless Neovim with it, and skips
+  if `nvim` is not installed.
 
 ## Open, waiting for a decision
 

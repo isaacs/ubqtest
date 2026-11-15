@@ -574,16 +574,14 @@ differs from the file of the last run of its tests (an edit in
 the editor or on disk), the server shows only that fact, until a
 run of those tests: `ubq --changed`.
 
-Neovim 0.11 or later:
-
-```lua
-vim.lsp.config('ubq', {
-  cmd = { 'npx', 'ubq', 'lsp' },
-  filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
-  root_markers = { 'package.json' },
-})
-vim.lsp.enable('ubq')
-```
+For Neovim 0.12 or later, `ubq nvim` writes two files to the
+configuration folder of Neovim: `lsp/ubq.lua` and
+`plugin/ubq.lua`. Neovim then starts the server for a JavaScript
+or TypeScript file in a project that has ubq in
+`node_modules/.bin`, in its own folder or a folder above it. It
+does not start the server in other projects. To keep these files
+in your own configuration instead, copy them from
+`node_modules/ubqtest/nvim/`.
 
 ## Configuration
 

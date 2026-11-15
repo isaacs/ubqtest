@@ -96,6 +96,7 @@ const USAGE = `usage:
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
   ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
+  ubq nvim                   writes the Neovim plugin for ubq lsp to the configuration of Neovim (0.12 or later)
   ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (${SKILL_DIRS.flatMap(([names]) => names).join(', ')})
 `
 
@@ -103,7 +104,19 @@ const out = (text: string): void => void process.stdout.write(text + '\n')
 
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
 /** The first words that are a command, not a path (D62). */
-const COMMANDS = [...QUERIES, 'help', 'guide', 'doctor', 'convert', 'skill', 'browser', 'server', 'merge', 'lsp']
+const COMMANDS = [
+  ...QUERIES,
+  'help',
+  'guide',
+  'doctor',
+  'convert',
+  'skill',
+  'browser',
+  'server',
+  'merge',
+  'lsp',
+  'nvim',
+]
 
 const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
@@ -157,6 +170,26 @@ const main = async (args: string[]): Promise<number> => {
       mkdirSync(to, { recursive: true })
       writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
       out(`wrote ${rel(join(to, 'SKILL.md'))}`)
+    }
+    return 0
+  }
+  if (command === 'nvim') {
+    // Neovim knows the folder of its configuration, with
+    // NVIM_APPNAME and XDG_CONFIG_HOME.
+    const config = spawnSync(
+      'nvim',
+      ['--headless', '--clean', '--cmd', "lua io.stdout:write(vim.fn.stdpath('config'))", '--cmd', 'qa!'],
+      { encoding: 'utf8' },
+    ).stdout
+    if (!config)
+      throw new UsageError('nvim is not on the PATH. ubq nvim asks nvim for the folder of its configuration.')
+    // The plugin is at the package root. The bundle is there too.
+    const from = new URL(import.meta.url.endsWith('.ts') ? '../nvim/' : './nvim/', import.meta.url)
+    for (const file of ['lsp/ubq.lua', 'plugin/ubq.lua']) {
+      const to = join(config, file)
+      mkdirSync(dirname(to), { recursive: true })
+      writeFileSync(to, readFileSync(new URL(file, from)))
+      out(`wrote ${to}`)
     }
     return 0
   }

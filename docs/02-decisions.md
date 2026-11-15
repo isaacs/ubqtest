@@ -1384,6 +1384,14 @@ docs do not name Information. So the model sees the failures, and
 not the uncovered code. The D61 note of the run tells the agent
 about that code.
 
+**Neovim.** `ubq nvim` writes `lsp/ubq.lua` and `plugin/ubq.lua`
+(from `nvim/` in the package) to the configuration folder that
+`nvim` names. The config starts the server only in a project with
+`node_modules/.bin/ubq`, in its folder or a folder above it, and
+runs that file. It does not use `npx`, which can offer to download
+a package in a project that does not use ubq. It needs Neovim
+0.12: a `cmd` function gets the root folder there.
+
 Later phases: a code lens with the count of tests and a command to
-go to them, a small Neovim plugin for it, and a VS Code extension.
+go to them, and a VS Code extension.
 
