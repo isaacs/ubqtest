@@ -47,10 +47,13 @@ exports.run = async () => {
   await vscode.commands.executeCommand('ubq.runLine')
 
   // The command goes to the test that ran the code of the cursor.
-  // VS Code opens the file after the command ends.
+  // VS Code opens the file, then moves the cursor, after the command
+  // ends. If it never gets there, the assertion shows where it is.
   await vscode.commands.executeCommand('ubq.tests')
-  const now = await wait(
-    () => vscode.window.activeTextEditor?.document.uri.path.endsWith('/a.test.ts') && vscode.window.activeTextEditor,
-  )
-  assert.deepEqual([vscode.workspace.asRelativePath(now.document.uri), now.selection.active.line], ['a.test.ts', 2])
+  const place = () => {
+    const editor = vscode.window.activeTextEditor
+    return editor && [vscode.workspace.asRelativePath(editor.document.uri), editor.selection.active.line]
+  }
+  await wait(() => place()?.[0] === 'a.test.ts' && place()[1] === 2).catch(() => {})
+  assert.deepEqual(place(), ['a.test.ts', 2])
 }
