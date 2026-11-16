@@ -133,12 +133,8 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
     join(p.dir, 'c.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { many } from './lib.ts'\ntest('c', () => assert(many(3)))\n",
   )
-  const ubq = (...args: string[]) =>
-    spawnSync(process.execPath, [cli, ...args], {
-      cwd: p.dir,
-      encoding: 'utf8',
-      env: { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file },
-    })
+  const env = { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file }
+  const ubq = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { cwd: p.dir, encoding: 'utf8', env })
   ubq('a.test.ts', 'b.test.ts')
   const md = readFileSync(file, 'utf8').split('\n')
   assert.equal(md[0], '### ubq: fail: 1 errors, 21 failed, 0 passed (run 1)')
@@ -149,8 +145,10 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   )
   assert.equal(md.filter(l => /^\| (FAIL|ERROR) /.test(l)).length, 20)
   assert.equal(md[25], 'And 2 more. For all of them: `ubq failures 1`')
-  // A pass, with code that no test ran: one more section.
-  ubq('c.test.ts')
+  // A pass, with code that no test ran: one more section. On Node: a
+  // run of one file on Deno, or on some versions of Bun, has no
+  // coverage.
+  spawnSync('node', [cli, 'c.test.ts'], { cwd: p.dir, env })
   const second = readFileSync(file, 'utf8').split('### ')[2]!
   assert.match(
     second,

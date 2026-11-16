@@ -4,9 +4,9 @@
 // value that the code now gives. Each is easy to miss in a large
 // diff. This command reads the diff, the test files at the base
 // commit and now, and the coverage of the store.
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { isBuild, isHelper, UsageError } from './config.ts'
 import { changedLines, diffOption } from './git.ts'
 import type { Node } from './instrument.ts'
@@ -207,8 +207,15 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
       pairs.push([file, file])
     }
   }
+  // Git for Windows lists the files in a junction to a folder: files
+  // of that folder, under a second name.
+  const inLink = (path: string): boolean => {
+    for (let dir = dirname(path); dir !== '.'; dir = dirname(dir))
+      if (lstatSync(join(projectRoot(), dir)).isSymbolicLink()) return true
+    return false
+  }
   for (const file of git('ls-files', '-z', '--others', '--exclude-standard').out.split('\0'))
-    if (file) pairs.push([undefined, file])
+    if (file && !inLink(file)) pairs.push([undefined, file])
   // A link to a folder is a file for git.
   const isFile = (path: string): boolean => statSync(join(projectRoot(), path)).isFile()
   const files = pairs.flatMap(([before, after]): typeof pairs =>
