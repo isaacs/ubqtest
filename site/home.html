@@ -2,7 +2,7 @@
 <div class="hero">
   <img src="static/logo.svg" alt="" width="136" height="136">
   <p class="wordmark">ubq</p>
-  <h1>The best test tool for coding agents. Their humans like it too.</h1>
+  <h1>The best test tool for agents.<br>Their humans like it too.</h1>
   <p class="sub">Tests for TypeScript and JavaScript, on Node, Bun, and
   Deno.<br>No build step. No tricky config. No output that nobody reads.</p>
   <code class="install">npm install --save-dev ubqtest</code>
@@ -68,7 +68,8 @@
       <li><code>ubq mutate --diff</code><br>Makes small changes to the lines you changed, one at a time, and lists each change that no test fails for. It tells you if the new tests are strong.</li>
       <li><code>ubq failures</code><br>Prints the failures of the last run again. Nothing runs.</li>
       <li><code>ubq check</code><br>Before the agent says that it is done: the last result of each test is a pass, it is the result of the code as it is now, and each changed line ran in a test. Nothing runs.</li>
-      <li><code>ubq review</code><br>The changes to the tests that a person must look at: tests removed or skipped, and assertions that are fewer or different.</li>
+      <li><code>ubq review</code><br>Test changes that need review:
+        tests removed or skipped, assertions changed or removed.</li>
     </ol>
     <div>
 <pre class="plain"><code>$ npx ubq --changed
