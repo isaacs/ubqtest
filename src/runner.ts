@@ -259,7 +259,7 @@ const moved = (ranges: number[], [from, oldTo, newTo]: Change): number[] => {
  * A test that did not run the changed part of a file stays as it
  * is. Its coverage in the store gets the places of the new content.
  */
-export const selectChanged = (store: Store): { files: Selected[]; changed: string[] } => {
+export const selectChanged = (store: Store): { files: Selected[]; changed: string[]; fresh: string[] } => {
   const { db } = store
   const now = new Map<string, string>()
   const hashNow = (file: string): string => {
@@ -322,17 +322,16 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
   db.exec('commit')
   pruneSources(db)
   const old = new Set(known.map(k => k.tfile))
-  for (const file of under(projectRoot()))
-    if (!old.has(file)) {
-      changed.add(file)
-      whole.add(file)
-    }
+  /** Test files that never ran. */
+  const fresh = under(projectRoot()).filter(file => !old.has(file))
+  for (const file of fresh) whole.add(file)
   return {
     files: [...new Set([...whole, ...ids.keys()])]
       .filter(file => existsSync(join(projectRoot(), file)))
       .sort()
       .map(file => ({ file, lines: [], ids: whole.has(file) ? [] : [...ids.get(file)!].sort() })),
     changed: [...changed].sort(),
+    fresh: fresh.sort(),
   }
 }
 
@@ -709,11 +708,11 @@ export const run = async (args: string[]): Promise<number> => {
       files = selectFailed(store)
       store.close()
       if (!files.length) {
-        process.stderr.write('ubq: no test failed in its last run\n')
+        process.stderr.write('ubq: no failed tests\n')
         return 2
       }
     } else {
-      const { files: affected, changed } = selectChanged(store)
+      const { files: affected, changed, fresh } = selectChanged(store)
       store.close()
       files = affected
       if (!files.length) {
@@ -722,9 +721,10 @@ export const run = async (args: string[]): Promise<number> => {
         )
         return 2
       }
-      const names = changed.slice(0, 10).join(', ')
-      const more = changed.length > 10 ? `, and ${changed.length - 10} more` : ''
-      process.stdout.write(`changed: ${names}${more}\n`)
+      const list = (files: string[]): string =>
+        files.slice(0, 10).join(', ') + (files.length > 10 ? `, and ${files.length - 10} more` : '')
+      if (changed.length) process.stdout.write(`changed: ${list(changed)}\n`)
+      if (fresh.length) process.stdout.write(`new: ${list(fresh)}\n`)
     }
   } else files = select(rest)
   if (!files.length) {

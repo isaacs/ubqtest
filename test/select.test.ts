@@ -31,7 +31,7 @@ test('--failed runs the tests that failed in their last run', () => {
   p.set('pass')
   assert.equal(p.ubq('--failed').last, 'pass: 0 failed, 1 passed, 2 not selected')
   // Now no test has a failure as its last result.
-  assert.deepEqual([p.ubq('--failed').code, p.ubq('--failed').err], [2, 'ubq: no test failed in its last run\n'])
+  assert.deepEqual([p.ubq('--failed').code, p.ubq('--failed').err], [2, 'ubq: no failed tests\n'])
   assert.equal(p.ubq('--failed', 'flip.ts').code, 4)
   assert.equal(p.ubq('--nope').code, 4)
   rmSync(p.dir, { recursive: true })
@@ -63,7 +63,7 @@ test('--changed runs the test files that loaded a changed file', () => {
   mkdirSync(join(p.dir, 'test'))
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/new.test.ts'))
   const both = p.ubq('--changed')
-  assert.equal(both.out.split('\n')[0], 'changed: flip.ts, test/new.test.ts')
+  assert.deepEqual(both.out.split('\n').slice(0, 2), ['changed: flip.ts', 'new: test/new.test.ts'])
   assert.equal(both.last, 'pass: 0 failed, 6 passed')
   assert.equal(p.ubq('--changed').code, 2)
   assert.equal(p.ubq('--changed', '--failed').code, 4)

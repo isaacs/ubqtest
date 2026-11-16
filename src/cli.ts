@@ -251,8 +251,7 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'check') return (await import('./check.ts')).check(rest, out)
   if (command === 'review') return (await import('./review.ts')).reviewCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
-  if (!existsSync(join(projectRoot(), '.ubq', 'runs.db')))
-    throw new UsageError('no runs are stored. Run a test file first: node <test file>')
+  if (!existsSync(join(projectRoot(), '.ubq', 'runs.db'))) throw new UsageError('no run. Run: ubq')
   const { db } = openStore()
   const arg = (name: string): string => {
     if (!rest[0]) throw new UsageError(`ubq ${command} needs ${name}`)

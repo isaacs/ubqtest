@@ -19,7 +19,7 @@ test('help, and the error of each command with a wrong or absent argument', { ti
   // The help names each agent that `ubq skill <agent>` knows.
   assert.match(p.ubq('help').out, /named agent \(claude, cursor, gemini, copilot, codex, antigravity, agents\)\n/)
   // A command that reads the store, with no store.
-  assert.deepEqual(error('failures'), [4, 'ubq: no runs are stored. Run a test file first: node <test file>'])
+  assert.deepEqual(error('failures'), [4, 'ubq: no run. Run: ubq'])
   assert.deepEqual(error('guide', 'nope'), [4, 'ubq: the guides are: ubq guide, ubq guide convert'])
   assert.deepEqual(error('browser'), [4, 'ubq: the command is: ubq browser install'])
   assert.deepEqual(error('browser', 'install'), [

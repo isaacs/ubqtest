@@ -61,7 +61,7 @@ test('--seed with no number, and many changed files', () => {
   for (let i = 0; i < 12; i++) writeFileSync(join(p.dir, `n${String(i).padStart(2, '0')}.test.ts`), SKIP)
   assert.equal(
     p.ubq('--changed').out.split('\n')[0],
-    'changed: n00.test.ts, n01.test.ts, n02.test.ts, n03.test.ts, n04.test.ts, n05.test.ts, n06.test.ts, n07.test.ts, n08.test.ts, n09.test.ts, and 2 more',
+    'new: n00.test.ts, n01.test.ts, n02.test.ts, n03.test.ts, n04.test.ts, n05.test.ts, n06.test.ts, n07.test.ts, n08.test.ts, n09.test.ts, and 2 more',
   )
 })
 

@@ -111,7 +111,7 @@ test('command errors exit with code 4', () => {
   assert.deepEqual(ubq('failures'), {
     code: 4,
     out: [''],
-    err: 'ubq: no runs are stored. Run a test file first: node <test file>\n',
+    err: 'ubq: no run. Run: ubq\n',
   })
 })
 
