@@ -57,13 +57,10 @@ test('later', { skip: 'not now' }, () => assert(true))
   assert.deepEqual(p.ubq('show', 'many.test.ts > later').out.trimEnd().split('\n'), [
     'skip many.test.ts > later',
     '  run 2, 0 assertions, 0.0 ms',
-    '  at many.test.ts:5',
+    '  test at many.test.ts:5',
     '  skip reason: not now',
   ])
-  assert.match(
-    p.ubq('history', 'many.test.ts > later').out,
-    /\n0 failed, 0 passed, 2 skipped in 2 runs \(times are UTC\)\n$/,
-  )
+  assert.match(p.ubq('history', 'many.test.ts > later').out, /\n0 failed, 0 passed, 2 skipped in 2 runs\n$/)
   assert.deepEqual(p.ubq('failures', '1').out, 'pass: 0 failed, 12 passed, 1 skipped (run 1)\n')
   // A run of one test: the others are not selected.
   p.ubq('many.test.ts > later')
@@ -84,6 +81,13 @@ test('later', { skip: 'not now' }, () => assert(true))
     'run 4 to run 5: 1 new failures, 1 other changes, 1 only in run 5',
     'details: ubq failures 5',
   ])
+  // A failure: the place of the test, the place of the failure, and
+  // the command that runs it again.
+  const shown = p.ubq('show', 'many.test.ts > broken').out.split('\n')
+  assert.deepEqual(
+    shown.filter(l => /^ {2}(test at |at |rerun: )/.test(l)),
+    ['  test at many.test.ts:3', '  at many.test.ts:3:29', '  rerun: ubq many.test.ts:3'],
+  )
   // A test of a file that did not load: the message names the error
   // of the file.
   writeFileSync(join(p.dir, 'bad.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nconst = 1\n")

@@ -11,7 +11,7 @@ const lines = (out: string): string[] =>
   out
     .trimEnd()
     .split('\n')
-    .map(l => l.replace(/\d{4}-\d\d-\d\d \d\d:\d\d:\d\d/, 'TIME').replace(/ +\d+\.\d ms/, ' N ms'))
+    .map(l => l.replace(/\d{4}-\d\d-\d\d \d\d:\d\d:\d\dZ/, 'TIME').replace(/ +\d+\.\d ms/, ' N ms'))
 
 test('history shows the result of a test in each run, and says if the test is flaky', () => {
   const p = project()
@@ -21,7 +21,7 @@ test('history shows the result of a test in each run, and says if the test is fl
   p.ubq('pass.ts')
   let r = p.ubq('history', a)
   assert.deepEqual([r.code, r.err], [0, ''])
-  assert.deepEqual(lines(r.out), ['run 1  TIME  pass N ms', '0 failed, 1 passed in 1 runs (times are UTC)'])
+  assert.deepEqual(lines(r.out), ['run 1  TIME  pass N ms', '0 failed, 1 passed in 1 runs'])
 
   // The code changes, and then the test fails: not flaky.
   appendFileSync(join(p.dir, 'flip.ts'), '\n// a change\n')
@@ -30,18 +30,18 @@ test('history shows the result of a test in each run, and says if the test is fl
   assert.deepEqual(lines(p.ubq('history', a).out), [
     'run 1  TIME  pass N ms',
     'run 3  TIME  fail N ms  expected values to be equal',
-    '1 failed, 1 passed in 2 runs (times are UTC)',
+    '1 failed, 1 passed in 2 runs',
   ])
 
   // The same code passes: flaky.
   p.set('pass')
   p.ubq(a)
   assert.deepEqual(lines(p.ubq('history', a).out).slice(-2), [
-    '1 failed, 2 passed in 3 runs (times are UTC)',
+    '1 failed, 2 passed in 3 runs',
     'flaky: the test passed in run 4 and failed in run 3, and the code that it loaded was the same in the two runs',
   ])
   // A test that did not change its result is not flaky.
-  assert.equal(lines(p.ubq('history', 'flip.ts > c').out).at(-1), '0 failed, 2 passed in 2 runs (times are UTC)')
+  assert.equal(lines(p.ubq('history', 'flip.ts > c').out).at(-1), '0 failed, 2 passed in 2 runs')
 
   assert.deepEqual(
     [p.ubq('history').code, p.ubq('history', 'flip.ts > nope').err],
@@ -144,7 +144,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   // The store has one run, with the first failure of each test.
   assert.deepEqual(lines(p.ubq('history', flaky).out), [
     'run 1  TIME  fail N ms  failed 2 of 7 times: expected values to differ, both are 0',
-    '1 failed, 0 passed in 1 runs (times are UTC)',
+    '1 failed, 0 passed in 1 runs',
     'flaky: the test failed 2 of 7 times in run 1',
   ])
   assert.deepEqual(lines(p.ubq('show', flaky).out).slice(0, 3), [

@@ -321,7 +321,7 @@ const main = async (args: string[]): Promise<number> => {
       const env = envChange(db, t.run)
       if (env) out(`  ${env}`)
       if (t.repeats) out(`  failed ${t.fails} of ${t.repeats} times`)
-      if (t.line !== null) out(`  at ${t.file}:${t.line}`)
+      if (t.line !== null) out(`  test at ${t.file}:${t.line}`)
       if (t.reason) out(`  skip reason: ${t.reason}`)
       if (t.failure) {
         out(`  ${t.failure.message}`)
@@ -330,6 +330,7 @@ const main = async (args: string[]): Promise<number> => {
         if (t.failure.pending) out(`  still open: ${t.failure.pending.join(', ')}`)
         for (const o of t.failure.opened ?? []) out(`  ${o.type} opened at ${o.at.file}:${o.at.line}:${o.at.column}`)
         if (t.failure.since) out(`  ${sinceLine(t.failure.since, t.id)}`)
+        if (t.line !== null) out(`  rerun: ubq ${t.file}:${t.line}`)
       }
       for (const dir of kept(t)) out(`  testdir: ${dir}`)
       const text = outputOf(db, t.run, id).trimEnd()
@@ -353,7 +354,7 @@ const main = async (args: string[]): Promise<number> => {
       }
       const width = String(rows.at(-1)!.run).length
       for (const r of rows) {
-        const time = new Date(r.time).toISOString().slice(0, 19).replace('T', ' ')
+        const time = new Date(r.time).toISOString().slice(0, 19).replace('T', ' ') + 'Z'
         const rate = r.repeats ? `failed ${r.fails} of ${r.repeats} times` : ''
         const first = r.failure?.message.split('\n')[0]
         const message = rate || first ? `  ${[rate, first].filter(Boolean).join(': ')}` : ''
@@ -363,7 +364,7 @@ const main = async (args: string[]): Promise<number> => {
       }
       const count = (status: string): number => rows.filter(r => r.status === status).length
       const skipped = count('skip') ? `, ${count('skip')} skipped` : ''
-      out(`${count('fail')} failed, ${count('pass')} passed${skipped} in ${rows.length} runs (times are UTC)`)
+      out(`${count('fail')} failed, ${count('pass')} passed${skipped} in ${rows.length} runs`)
       const f = flake(rows)
       if (f)
         out(
