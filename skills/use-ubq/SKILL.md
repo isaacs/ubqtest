@@ -38,8 +38,6 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    file, and for how long.
 4. After a change to the source:
    - `npx ubq --changed` runs the tests that ran the changed code.
-   - `npx ubq uncovered --diff` lists the changed code that no
-     test runs.
    - `npx ubq mutate --diff` tells if the tests of the changed
      lines are strong. Each `SURVIVED` block names the closest
      test: add an assertion there that the change breaks.
@@ -50,11 +48,9 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
    A `pass:` line from before your last change is not a result of
    your change. On a pass, end your last message with its output:
    the count of tests that pass, and the changes to the tests that
-   a person must look at.
-6. `npx ubq review` lists the changes to tests that a person must
-   look at: removed and skipped tests, fewer or changed
-   assertions, and changed snapshots. Tell the user about each
-   item, and why you made it.
+   a person must look at (removed and skipped tests, fewer or
+   changed assertions, changed snapshots). Tell the user why you
+   made each of those changes.
 
 For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright

@@ -185,9 +185,9 @@ pass: 0 failed, 2 passed (run 195)</code></pre>
       <h3>If you work with an agent</h3>
       <p>Put this in <code>AGENTS.md</code> or <code>CLAUDE.md</code>:</p>
 <pre class="md"><code>Tests use ubq (ubqtest package). Before you write or
-run tests, read `npx ubq guide`. Run `npx ubq --changed` after a change, then
-`npx ubq uncovered --diff`. Before you say that the work is done, run
-`npx ubq check`, and end your report with its output.</code></pre>
+run tests, read `npx ubq guide`. Run `npx ubq --changed` after a change.
+Before you say that the work is done, run `npx ubq check`, and end
+your report with its output.</code></pre>
       <p>Or write <a href="skill/">a skill</a> to the project: <code>npx ubq skill</code>. For Claude Code, it also adds a stop hook: the agent cannot end its turn while <code>ubq check</code> finds a problem.</p>
     </div>
   </div>

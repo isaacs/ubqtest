@@ -153,9 +153,8 @@ For example, in `AGENTS.md` or `CLAUDE.md`:
 ```md
 Tests use ubq (the ubqtest package). Before you write or run
 tests, read `npx ubq guide`. Run `npx ubq --changed` after a
-change, then `npx ubq uncovered --diff`. Before you say that the
-work is done, run `npx ubq check`, and end your report with its
-output.
+change. Before you say that the work is done, run `npx ubq check`,
+and end your report with its output.
 ```
 
 `npx ubq skill` writes a skill (`use-ubq/SKILL.md`) for coding

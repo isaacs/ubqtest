@@ -55,9 +55,8 @@ const PACKAGE: Record<Framework, object> = {
 /** What the project tells the agent about ubq, as README.md suggests. */
 const CLAUDE_MD = `Tests use ubq (the ubqtest package). Before you write or run
 tests, read \`npx ubq guide\`. Run \`npx ubq --changed\` after a
-change, then \`npx ubq uncovered --diff\`. Before you say that the
-work is done, run \`npx ubq check\`, and end your report with its
-output.
+change. Before you say that the work is done, run \`npx ubq check\`,
+and end your report with its output.
 `
 
 /** The tools that the agent may use with no prompt. Nothing outside the folder of the task. */
