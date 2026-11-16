@@ -174,7 +174,7 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
   out(
     items.length
       ? `review: ${items.length} changes to the tests for a person to look at, from ${from}`
-      : `review: no test removed, skipped, or with changed assertions, from ${from}`,
+      : 'review: nothing to do',
   )
   return items.length ? 1 : 0
 }

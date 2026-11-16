@@ -56,7 +56,7 @@ test('ubq review: removed, skipped, and weaker tests, changed snapshots, and new
   const p = setup()
   let r = p.review()
   assert.equal(r.code, 0)
-  assert.equal(r.out, 'review: no test removed, skipped, or with changed assertions, from the last commit\n')
+  assert.equal(r.out, 'review: nothing to do\n')
 
   // The code changes, and the tests follow it.
   writeFileSync(
