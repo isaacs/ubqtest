@@ -720,7 +720,7 @@ export const run = async (args: string[]): Promise<number> => {
         process.stderr.write(
           changed.length
             ? `ubq: no test ran the code that changed in ${changed.join(', ')}\n`
-            : 'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new\n',
+            : 'ubq: no changes, no new tests\n',
         )
         return 2
       }

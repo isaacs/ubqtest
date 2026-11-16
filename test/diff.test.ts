@@ -42,9 +42,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
     uncoveredNote(1),
     'pass: 0 failed, 2 passed, 4 not selected',
   ])
-  assert.deepEqual(p.lines('--changed'), [
-    'ubq: no file that a test loaded has changed since the last run of that test, and no test file is new',
-  ])
+  assert.deepEqual(p.lines('--changed'), ['ubq: no changes, no new tests'])
   // The coverage of the tests that did not run has the places of
   // the new content.
   assert.deepEqual(p.lines('covers', 'src/shape.ts:8'), [
