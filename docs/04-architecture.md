@@ -323,6 +323,18 @@ When a child ends, the runner kills the process group of the
 child, so processes that its tests started and did not stop die
 too.
 
+Each child leads its own process group, so a signal to the group
+of the runner does not reach it. On SIGINT, SIGTERM, and SIGHUP,
+the runner kills the groups of its children. SIGKILL gives the
+runner no chance to do that. For it, a run that starts a child
+also starts a guard: an `awk` process in a group of its own. The
+runner writes `+pid` to the guard when a child starts, and `-pid`
+when it kills the group. When the runner ends, the input of the
+guard closes, and the guard kills the groups that are left. A
+child in a loop that does not return cannot see that its runner
+is gone, so it cannot do this job itself. Not on Windows, which
+has no process groups.
+
 For creation stacks ("which line opened this server?"), the runner
 runs a timed-out test one more time, alone, with the init hook on.
 The result is a `hang` event. The limit is 3 such reruns for each

@@ -199,8 +199,42 @@ const runtime = (): RunStart['runtime'] => {
 
 /** Process groups of the test processes that run now. */
 const groups = new Set<number>()
+
+/**
+ * A process that kills the groups of the test processes if the
+ * runner ends with no chance to do it, as on SIGKILL. It reads
+ * `+pid` and `-pid` lines, and when its input closes, it kills the
+ * groups that are left. It is in a process group of its own, so a
+ * signal to the group of the runner does not stop it. Windows has
+ * no process groups.
+ */
+let guard: ReturnType<typeof spawn> | undefined
+const GUARD =
+  '/^\\+/ { live[substr($0, 2)] = 1 } /^-/ { delete live[substr($0, 2)] } END { for (pid in live) system("kill -9 -- -" pid " 2>/dev/null") }'
+const tellGuard = (line: string): void => {
+  if (process.platform === 'win32') return
+  if (!guard) {
+    guard = spawn('awk', [GUARD], { detached: true, stdio: ['pipe', 'ignore', 'ignore'] })
+    // With no awk, or with a guard that something stopped, the run
+    // goes on with no guard.
+    // ubq: not measured: each test system has awk, and no test stops the guard
+    guard.on('error', () => {})
+    // ubq: not measured: each test system has awk, and no test stops the guard
+    guard.stdin!.on('error', () => {})
+    // The runner does not wait for the guard.
+    guard.unref()
+    ;(guard.stdin as { unref?: () => void }).unref?.()
+  }
+  guard.stdin!.write(`${line}\n`)
+}
+const addGroup = (pid: number): void => {
+  groups.add(pid)
+  tellGuard(`+${pid}`)
+}
+
 const killGroup = (pid: number): void => {
   const live = groups.delete(pid)
+  if (live) tellGuard(`-${pid}`)
   try {
     // Windows has no process groups. `taskkill` stops a process and
     // the processes that it started, if the process is there.
@@ -562,7 +596,7 @@ export const runFile = async (
     child.stdout!.setEncoding('utf8').on('data', (text: string) => {
       send({ type: 'output', file, stream: 'stdout', text })
     })
-    groups.add(child.pid!)
+    addGroup(child.pid!)
     child.on('close', (code, signal) => {
       clearTimeout(watchdog)
       limit?.removeEventListener('abort', abort)
@@ -734,7 +768,7 @@ export const run = async (args: string[]): Promise<number> => {
   // The server of the pages, for test files that use the browser.
   const server = await startBrowserServer(files.map(f => f.file))
   if (server) {
-    groups.add(server)
+    addGroup(server)
     process.on('exit', () => killGroup(server))
   }
 

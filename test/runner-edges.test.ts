@@ -342,3 +342,42 @@ test('the store keeps the rows of the last 50 runs', () => {
   )
   assert.deepEqual(left, [0, 0, 0, 0, 0])
 })
+
+test(
+  'a runner that gets SIGKILL leaves no test process',
+  { skip: process.platform === 'win32' && 'Windows has no process groups' },
+  async () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+    writeFileSync(
+      join(p.dir, 'spin.test.ts'),
+      "import { writeFileSync } from 'node:fs'\nimport { test } from 'ubqtest'\ntest('spins', { timeout: 60_000 }, () => {\n  writeFileSync('pid', String(process.pid))\n  while (true) {}\n})\n",
+    )
+    writeFileSync(join(p.dir, 'ok.test.ts'), "import { assert, test } from 'ubqtest'\ntest('ok', () => assert(true))\n")
+    // Two files: a run of one file has no test process.
+    const runner = spawn('node', [cli, 'spin.test.ts', 'ok.test.ts'], {
+      cwd: p.dir,
+      stdio: 'ignore',
+      env: { ...process.env, CI: '' },
+    })
+    const wait = () => new Promise(done => setTimeout(done, 25))
+    const alive = (pid: number) => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch {
+        return false
+      }
+    }
+    let pid = 0
+    for (let i = 0; i < 400 && !pid; i++) {
+      await wait()
+      if (existsSync(join(p.dir, 'pid'))) pid = +readFileSync(join(p.dir, 'pid'), 'utf8')
+    }
+    assert(pid > 0)
+    cleanup(() => void (alive(pid) && process.kill(-pid, 'SIGKILL')))
+    runner.kill('SIGKILL')
+    for (let i = 0; i < 200 && alive(pid); i++) await wait()
+    assert(!alive(pid))
+  },
+)
