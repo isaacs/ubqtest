@@ -283,6 +283,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   adds its result and a table of its failures to the summary of the
   step.
 
+- **Color at a terminal** (D75). Outside CI, `FAIL` and `fail` are
+  red, and `pass` is cyan.
+
 - **One error for a file that throws.** A test file that throws
   before its first test has its error, and no second error that
   says that it registered no tests.

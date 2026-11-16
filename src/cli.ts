@@ -37,6 +37,7 @@ import {
   unloadedChanges,
 } from './query.ts'
 import { annotation, inActions } from './annotate.ts'
+import { paint } from './color.ts'
 import { sinceLine, textSink } from './sink-text.ts'
 import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
@@ -298,7 +299,7 @@ const main = async (args: string[]): Promise<number> => {
         // The same parts as the last line of the run.
         const parts = runCounts(row)
         if (types.length) parts.push(`${types.length} type errors`)
-        out(`${row.code ? 'fail' : 'pass'}: ${parts.join(', ')} (run ${row.id})`)
+        out(`${paint(row.code ? 'fail' : 'pass')}: ${parts.join(', ')} (run ${row.id})`)
       }
       return row.code ?? 1
     }
@@ -317,7 +318,7 @@ const main = async (args: string[]): Promise<number> => {
             (e ? `\n  ${file} had an error in run ${e.run}: ${e.failure.message}${at ?? ''}` : ''),
         )
       }
-      out(`${t.status} ${t.id}`)
+      out(`${paint(t.status)} ${t.id}`)
       out(`  run ${t.run}, ${t.asserts} assertions, ${t.ms.toFixed(1)} ms`)
       const env = envChange(db, t.run)
       if (env) out(`  ${env}`)
@@ -359,7 +360,7 @@ const main = async (args: string[]): Promise<number> => {
         const first = r.failure?.message.split('\n')[0]
         const message = rate || first ? `  ${[rate, first].filter(Boolean).join(': ')}` : ''
         out(
-          `run ${String(r.run).padStart(width)}  ${time}  ${r.commit ? r.commit.slice(0, 7) + '  ' : ''}${r.status}  ${r.ms.toFixed(1).padStart(7)} ms${message}`,
+          `run ${String(r.run).padStart(width)}  ${time}  ${r.commit ? r.commit.slice(0, 7) + '  ' : ''}${paint(r.status)}  ${r.ms.toFixed(1).padStart(7)} ms${message}`,
         )
       }
       const count = (status: string): number => rows.filter(r => r.status === status).length

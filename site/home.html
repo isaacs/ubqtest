@@ -96,7 +96,7 @@ review: nothing to do</code></pre>
 
 <div class="band">
   <h2>A test file is a plain program</h2>
-  <p class="lead">Each name comes from one import. The file runs with <code>ubq</code>, and also with <code>node</code>, <code>bun</code>, or <code>deno run</code>.</p>
+  <p class="lead">Each name comes from one import.<br>The file runs with <code>ubq</code>, <code>node</code>, <code>bun</code>, or <code>deno run</code>.</p>
   <div class="split">
 <pre class="ts"><code>// test/parse.test.ts
 import { assert, describe, test } from 'ubqtest'
@@ -118,6 +118,8 @@ describe('parse', () =&gt; {
       <p>An agent that learned a different test tool writes <code>assert.ok</code> or <code>test.only</code> from habit. In ubq, each of those is a type error, and the message gives the form to use.</p>
       <h3>Moving from a different tool</h3>
       <p><code>ubq convert</code> changes the tests of tap, <code>node:test</code>, vitest, jest, and mocha. It makes the changes that are certain. Where a decision is necessary, it writes a <code>TODO(ubq)</code> comment with the instruction. <a href="convert/">The steps are in the guide.</a></p>
+      <pre class="plain"><code>$ node test/parse.test.ts
+pass: 0 failed, 2 passed (run 195)</code></pre>
     </div>
   </div>
 </div>

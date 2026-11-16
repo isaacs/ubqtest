@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isBuild, isHelper } from './config.ts'
+import { paint } from './color.ts'
 import { changedLines, diffOption, headCommit } from './git.ts'
 import { projectRoot } from './project.ts'
 import { hasCoverage, lastRun, stale, typeErrors, uncovered, unloadedChanges } from './query.ts'
@@ -156,7 +157,8 @@ export const check = (args: string[], out: (line: string) => void): number => {
     for (const part of report) out(part)
     const items = !summary.length && commit ? reviewItems(diff).items : []
     if (items.length) out(['Changes to the tests to look at:', ...items.flat()].join('\n'))
-    out(result)
+    const status = result.slice(0, result.indexOf(':'))
+    out(paint(status) + result.slice(status.length))
     return summary.length ? 1 : 0
   }
   return stopHook(report, summary.length > 0, result, out)

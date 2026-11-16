@@ -1745,3 +1745,20 @@ mistakes, and take fewer shortcuts.
   request cannot look it up), no counts of the last run, and no line
   that says there is nothing to report.
 - **`--hook`.** As before. On a pass it prints nothing.
+
+## D75. Red and cyan at a terminal (user, 2026-11-16)
+
+A person who reads the output of a run at a terminal finds the
+result faster in color.
+
+- **When.** stdout is a terminal (`isTTY`), and `CI` is not set. An
+  agent, a pipe, a file, and a CI log get no color.
+- **What.** `FAIL` at the head of a failure block and `fail` in a
+  result line are red (`\x1b[40;31m`). `pass` in a result line is
+  cyan (`\x1b[40;36m`). The result lines are those of a run, of `ubq
+  failures`, and of `ubq check`, and the status of `ubq show` and
+  `ubq history`.
+- **Not green.** Many people see red and green as near the same
+  color. Red and cyan are different for more people.
+- **Not in data for a program.** GitHub annotations, the summary of
+  a step, and the JSON of `ubq check --hook` have no color.

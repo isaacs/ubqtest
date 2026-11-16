@@ -128,6 +128,9 @@ A run prints 20 failure blocks at most. Then one line gives the
 count of the others: `and 3 more failures. For all of them: ubq
 failures 8`. In CI (`CI` is set), each block prints.
 
+At a terminal, and not in CI, `FAIL` and `fail` are red, and `pass`
+is cyan. In a pipe or a file, the output has no color.
+
 In GitHub Actions (`GITHUB_ACTIONS` is `true`), each `FAIL`,
 `ERROR`, and `TYPE` block also prints a line in the form of an
 annotation of GitHub: the failure shows at its line in the view of

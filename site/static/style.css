@@ -100,9 +100,11 @@ pre .k {
 pre .bad {
   color: #f2777a;
   font-weight: 700;
+  background: #000;
 }
 pre .good {
-  color: #99cc99;
+  color: #00cccc;
+  background: #000;
   font-weight: 700;
 }
 pre .cmd {

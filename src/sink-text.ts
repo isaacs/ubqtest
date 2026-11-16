@@ -4,6 +4,7 @@ import { appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Failure, Location, Repeat, Since, Sink, TestId } from './events.ts'
 import { annotation, inActions } from './annotate.ts'
+import { paint } from './color.ts'
 import { projectRoot } from './project.ts'
 
 const sourceLine = (at: Location): string | undefined => {
@@ -76,7 +77,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   }
 
   const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat, kept: string[] = []): void => {
-    const lines = [head, indent(failure.message)]
+    const lines = [head.replace(/^FAIL /, `${paint('FAIL')} `), indent(failure.message)]
     if (repeat) lines.splice(1, 0, rate(repeat, id === undefined ? 'error' : 'failure'))
     if (failure.at) {
       lines.push(`  at ${loc(failure.at)}`)
@@ -196,8 +197,9 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (event.unselected) parts.push(`${event.unselected} not selected`)
         if (event.types) parts.push(`${event.types} type errors`)
         const stored = run === undefined ? '' : ` (run ${run})`
-        const result = `${event.code ? 'fail' : 'pass'}: ${parts.join(', ')}${stored}`
-        write(result + '\n')
+        const status = event.code ? 'fail' : 'pass'
+        const result = `${status}: ${parts.join(', ')}${stored}`
+        write(`${paint(status)}${result.slice(status.length)}\n`)
         if (summary) {
           const md = [`### ubq: ${result}`, '']
           if (rows.length) {
