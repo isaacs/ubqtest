@@ -248,3 +248,21 @@ test('code in .ubq, the folder of ubq state and of builds for tests, is not cove
     '{"file":"a.test.ts"}\n{"file":"two.ts"}\n',
   )
 })
+
+test('the coverage of a test file that is gone is not coverage', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  writeFileSync(join(p.dir, 'lib.ts'), 'export const one = () => 1\nexport const two = () => 2\n')
+  const file = (name: string, call: string) =>
+    writeFileSync(
+      join(p.dir, name),
+      `import { assert, test } from 'ubqtest'\nimport { one, two } from './lib.ts'\ntest('t', () => assert.equal(${call}, ${call}))\n`,
+    )
+  file('a.test.ts', 'one()')
+  file('b.test.ts', 'two()')
+  assert.equal(p.ubq().code, 0)
+  rmSync(join(p.dir, 'b.test.ts'))
+  assert.equal(p.ubq('a.test.ts').code, 0)
+  assert.match(p.ubq('uncovered').out, /^lib\.ts:2:\d+ /m)
+  assert.deepEqual(p.ubq('sql', 'select distinct tfile from coverage').out, '{"tfile":"a.test.ts"}\n')
+})

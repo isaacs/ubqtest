@@ -432,9 +432,20 @@ export const openStore = (): Store => {
             // is new in each run.
             if (!event.unselected) dropGoneCov.run(event.file, run)
             break
-          case 'run-end':
+          case 'run-end': {
+            // The coverage of a test file that is gone is not coverage.
+            const tfiles = db
+              .prepare(
+                'select tfile from test_file union select tfile from coverage union select tfile from other_coverage',
+              )
+              .all() as { tfile: string }[]
+            for (const { tfile } of tfiles)
+              if (!existsSync(join(projectRoot(), tfile)))
+                for (const table of ['coverage', 'other_coverage', 'test_file'])
+                  db.prepare(`delete from ${table} where tfile = ?`).run(tfile)
             endRun.run(event.ms, event.pass, event.fail, event.errors, event.skip, event.unselected, event.code, run)
             break
+          }
         }
       }
       const sink = (event: UbqEvent): void => {
