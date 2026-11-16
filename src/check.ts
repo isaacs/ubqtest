@@ -26,15 +26,13 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
   const summary: string[] = []
   const running = runsInProgress()
   if (running.length) {
-    report.push(
+    summary.push(
       `run ${running.join(', ')} is in progress. Wait for its end, then run: ubq check. To see it: ubq status`,
     )
-    summary.push('a run in progress')
     return { report, summary }
   }
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db'))) {
-    report.push('no run is stored. Run the tests: ubq')
-    summary.push('no run')
+    summary.push('no run. Run: ubq')
     return { report, summary }
   }
   const store = openStore()
@@ -42,8 +40,7 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     const { db } = store
     const run = lastRun(db)
     if (run === undefined) {
-      report.push('no run is stored. Run the tests: ubq')
-      summary.push('no run')
+      summary.push('no run. Run: ubq')
       return { report, summary }
     }
 
@@ -51,9 +48,8 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     const failed = selectFailed(store)
     const tests = failed.flatMap(f => f.ids)
     const errors = failed.filter(f => !f.ids.length).map(f => f.file)
-    if (tests.length)
-      report.push(`${tests.length} tests failed in their last run: ${list(tests)}. To see them: ubq failures`)
-    if (errors.length) report.push(`${errors.length} test files did not load in their last run: ${list(errors)}`)
+    if (tests.length) report.push(`${tests.length} failed tests: ${list(tests)}. To see them: ubq failures`)
+    if (errors.length) report.push(`${errors.length} file errors: ${list(errors)}`)
     if (failed.length) {
       report.push('After a fix, run: ubq --failed')
       if (tests.length) summary.push(`${tests.length} failed tests`)
@@ -73,16 +69,13 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     const { files } = selectChanged(store)
     const again = files.map(f => f.file).filter(f => !none.has(f) || fileHash(f) !== none.get(f))
     if (again.length) {
-      report.push(
-        `code changed after the last run of the tests of ${again.length} test files: ${list(again)}. ` +
-          `Their last result is not the result of the code as it is now. Run: ubq --changed`,
-      )
+      report.push(`${again.length} test files to run again: ${list(again)}. Run: ubq --changed`)
       summary.push(`${again.length} test files to run again`)
     }
 
     const types = typeErrors(db, run).length
     if (types) {
-      report.push(`run ${run} had ${types} type errors. To see them: ubq failures ${run}`)
+      report.push(`${types} type errors. To see them: ubq failures ${run}`)
       summary.push(`${types} type errors`)
     }
 
@@ -98,10 +91,9 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
             lines.push(`  ${u.file}:${u.line}:${u.column}  ${u.text}${u.moreLines ? ` (+${u.moreLines} lines)` : ''}`)
       }
       const unloaded = unloadedChanges(db, diff)
-      const base = commit === 'HEAD' ? 'the last commit' : commit
       if (lines.length) {
         report.push(
-          `${lines.length} ranges in the lines that differ from ${base} ran in no test:\n` +
+          `${lines.length} uncovered ranges in changed lines:\n` +
             lines.slice(0, SHOWN).join('\n') +
             (lines.length > SHOWN ? `\n  and ${lines.length - SHOWN} more` : '') +
             '\nWrite a test that runs them. All of them: ubq uncovered --diff' +
@@ -111,7 +103,7 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
         summary.push(`${lines.length} uncovered ranges in changed lines`)
       }
       if (unloaded.length) {
-        report.push(`${unloaded.length} changed files with code that no test loads: ${list(unloaded)}`)
+        report.push(`${unloaded.length} changed files that no test loads: ${list(unloaded)}`)
         summary.push(`${unloaded.length} changed files that no test loads`)
       }
     }

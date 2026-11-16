@@ -45,7 +45,7 @@ test('ubq check: no run, a pass, code that changed, and a run of the changed tes
   const p = setup()
   let r = p.ubq('check')
   assert.equal(r.code, 1)
-  assert.equal(r.out, 'no run is stored. Run the tests: ubq\nfail: no run\n')
+  assert.equal(r.out, 'fail: no run. Run: ubq\n')
 
   assert.equal(p.ubq().code, 0)
   r = p.ubq('check')
@@ -56,10 +56,7 @@ test('ubq check: no run, a pass, code that changed, and a run of the changed tes
   writeFileSync(p.file('lib/math.ts'), SRC.replace('a + b', 'b + a'))
   r = p.ubq('check')
   assert.equal(r.code, 1)
-  assert.match(
-    r.out,
-    /^code changed after the last run of the tests of 1 test files: test\/math\.test\.ts\. .* Run: ubq --changed$/m,
-  )
+  assert.match(r.out, /^1 test files to run again: test\/math\.test\.ts\. Run: ubq --changed$/m)
   assert.equal(r.last, 'fail: 1 test files to run again')
 
   assert.equal(p.ubq('--changed').code, 0)
@@ -83,9 +80,9 @@ test('ubq check: failed tests, file errors, and new test files', () => {
   assert.equal(r.code, 1)
   assert.match(
     r.out,
-    /^11 tests failed in their last run: test\/bad\.test\.ts > wrong 00, .*, test\/bad\.test\.ts > wrong 09, and 1 more\. To see them: ubq failures$/m,
+    /^11 failed tests: test\/bad\.test\.ts > wrong 00, .*, test\/bad\.test\.ts > wrong 09, and 1 more\. To see them: ubq failures$/m,
   )
-  assert.match(r.out, /^1 test files did not load in their last run: test\/broken\.test\.ts$/m)
+  assert.match(r.out, /^1 file errors: test\/broken\.test\.ts$/m)
   assert.match(r.out, /^After a fix, run: ubq --failed$/m)
   assert.equal(r.last, 'fail: 11 failed tests, 1 file errors')
 
@@ -163,10 +160,10 @@ test('ubq check: changed lines that no test runs, and changed files that no test
   assert.equal(
     r.out,
     [
-      '1 ranges in the lines that differ from the last commit ran in no test:',
+      '1 uncovered ranges in changed lines:',
       '  lib/math.ts:2:20  (a: number, b: number): number => a * b',
       'Write a test that runs them. All of them: ubq uncovered --diff. For code that no test can reach, a comment: // ubq: not measured: <reason>',
-      '1 changed files with code that no test loads: lib/other.ts',
+      '1 changed files that no test loads: lib/other.ts',
       'fail: 1 uncovered ranges in changed lines, 1 changed files that no test loads',
       '',
     ].join('\n'),
@@ -179,7 +176,7 @@ test('ubq check: changed lines that no test runs, and changed files that no test
   assert.equal(p.ubq('check').code, 0)
   r = p.ubq('check', '--diff=HEAD~1')
   assert.equal(r.code, 1)
-  assert.match(r.out, /lines that differ from HEAD~1 ran in no test:\n.*\n.*ubq uncovered --diff=HEAD~1\./)
+  assert.match(r.out, /uncovered ranges in changed lines:\n.*\n.*ubq uncovered --diff=HEAD~1\./)
 
   // A comment marks code that no test can reach.
   writeFileSync(
@@ -231,10 +228,7 @@ test('ubq check --hook blocks the stop of an agent one time for each report', ()
   // No run.
   let d = hook()
   assert.equal(d?.decision, 'block')
-  assert.match(
-    d!.reason,
-    /^ubq check: the tests do not show that the work is done\.\nno run is stored\. Run the tests: ubq\n/,
-  )
+  assert.match(d!.reason, /^ubq check: the tests do not show that the work is done\.\nfail: no run\. Run: ubq\n/)
   assert.match(d!.reason, /\nDo the steps above, then stop\. If you cannot do a step, tell the user why\.$/)
   // The agent stops again with the same report: it saw it.
   assert.equal(hook(), undefined)
@@ -266,7 +260,7 @@ test('ubq check: more than 10 ranges, and a range of more than one line', () => 
   const r = p.ubq('check')
   assert.equal(r.code, 1)
   const lines = r.out.split('\n')
-  assert.equal(lines[0], '11 ranges in the lines that differ from the last commit ran in no test:')
+  assert.equal(lines[0], '11 uncovered ranges in changed lines:')
   assert.equal(lines[1], '  lib/more.ts:1:18  () => { (+2 lines)')
   assert.equal(lines[2], '  lib/more.ts:4:19  () => 0')
   assert.equal(lines[11], '  and 1 more')
@@ -285,17 +279,14 @@ test('ubq check: a run in progress, a store with no run, and type errors', () =>
   writeFileSync(p.file('.ubq/now/9.json'), JSON.stringify({ run: 9, pid: process.pid, running: {} }))
   let r = p.ubq('check')
   assert.equal(r.code, 1)
-  assert.equal(
-    r.out,
-    'run 9 is in progress. Wait for its end, then run: ubq check. To see it: ubq status\nfail: a run in progress\n',
-  )
+  assert.equal(r.out, 'fail: run 9 is in progress. Wait for its end, then run: ubq check. To see it: ubq status\n')
   rmSync(p.file('.ubq/now/9.json'))
 
   const db = new DatabaseSync(p.file('.ubq/runs.db'))
   db.exec('delete from run')
   db.close()
   r = p.ubq('check')
-  assert.equal(r.out, 'no run is stored. Run the tests: ubq\nfail: no run\n')
+  assert.equal(r.out, 'fail: no run. Run: ubq\n')
 
   writeFileSync(p.file('lib/math.ts'), SRC + "export const n: number = 'one'\n")
   writeFileSync(
@@ -309,7 +300,7 @@ test('ubq check: a run in progress, a store with no run, and type errors', () =>
   symlinkSync(join(modules, 'typescript'), p.file('node_modules/typescript'), 'junction')
   assert.equal(p.ubq().code, 1)
   r = p.ubq('check')
-  assert.match(r.out, /^run \d+ had 1 type errors\. To see them: ubq failures \d+$/m)
+  assert.match(r.out, /^1 type errors\. To see them: ubq failures \d+$/m)
   assert.equal(r.last, 'fail: 1 type errors')
 })
 
