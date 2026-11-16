@@ -294,7 +294,8 @@ test('a run prints no note on code that no test ran; the summary of a step has t
   /** The note of the summary of a step, after a run of `files`. */
   const note = (...files: string[]): string | undefined => {
     rmSync(file, { force: true })
-    const r = spawnSync(process.execPath, [cli, ...files], {
+    // On Node, as p.ubq: a run of one file on Deno has no coverage.
+    const r = spawnSync('node', [cli, ...files], {
       cwd: p.dir,
       encoding: 'utf8',
       env: { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file },

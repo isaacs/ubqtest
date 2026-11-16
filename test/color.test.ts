@@ -22,11 +22,12 @@ const setup = () => {
     join(p.dir, 'b.test.ts'),
     "import { assert, test } from 'ubqtest'\ntest('b', () => assert.equal(1, 1))\ntest('later', { skip: 'not yet' }, () => {})\n",
   )
-  // stdout is a pipe: the preload makes it look like a terminal.
+  // stdout is a pipe: the preload makes it look like a terminal. On
+  // Node: Bun and Deno do not load a preload from NODE_OPTIONS.
   const tty = join(p.dir, 'tty.mjs')
   writeFileSync(tty, 'process.stdout.isTTY = true\n')
   const ubq = (env: NodeJS.ProcessEnv, ...args: string[]) =>
-    spawnSync(process.execPath, [cli, ...args], {
+    spawnSync('node', [cli, ...args], {
       cwd: p.dir,
       encoding: 'utf8',
       env: {
