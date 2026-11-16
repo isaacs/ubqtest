@@ -72,15 +72,11 @@ test('covers names the tests that ran a line', () => {
     'test/calc.test.ts > add',
     // The load of the module makes the arrow function on line 1.
     'test/calc.test.ts (while the file loads)',
-    '1 tests run src/calc.ts:1',
   ])
-  assert.deepEqual(ubq('covers', 'src/calc.ts:5').out, ['test/calc.test.ts > grade A', '1 tests run src/calc.ts:5'])
-  assert.deepEqual(ubq('covers', 'src/calc.ts:7').out, ['test/calc.test.ts > grade pass', '1 tests run src/calc.ts:7'])
-  assert.deepEqual(ubq('covers', 'src/calc.ts:8').out, ['0 tests run src/calc.ts:8'])
-  assert.deepEqual(ubq('covers', 'src/calc.ts:23').out, [
-    'test/calc.test.ts (while the file loads)',
-    '0 tests run src/calc.ts:23',
-  ])
+  assert.deepEqual(ubq('covers', 'src/calc.ts:5').out, ['test/calc.test.ts > grade A'])
+  assert.deepEqual(ubq('covers', 'src/calc.ts:7').out, ['test/calc.test.ts > grade pass'])
+  assert.deepEqual(ubq('covers', 'src/calc.ts:8').out, ['no test ran src/calc.ts:8'])
+  assert.deepEqual(ubq('covers', 'src/calc.ts:23').out, ['test/calc.test.ts (while the file loads)'])
 })
 
 test('show, failures, and sql read the store', () => {
@@ -95,7 +91,6 @@ test('a new run of a test replaces its coverage', () => {
     'test/calc.test.ts > add',
     // The load of the module makes the arrow function on line 1.
     'test/calc.test.ts (while the file loads)',
-    '1 tests run src/calc.ts:1',
   ])
   assert.deepEqual(ubq('sql', 'select count(distinct run) n from coverage').out, ['{"n":1}'])
 })

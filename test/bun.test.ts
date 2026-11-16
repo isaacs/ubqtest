@@ -136,14 +136,8 @@ describe('bun', () => {
       'src/calc.ts:18:8  function never(): number { (+3 lines)',
       '4 uncovered ranges in 1 of the 1 files that tests ran',
     ])
-    assert.deepEqual(sh('node', [cli, 'covers', 'src/calc.ts:5'], cov), [
-      'test/calc.test.ts > grade A',
-      '1 tests run src/calc.ts:5',
-    ])
-    assert.deepEqual(sh('node', [cli, 'covers', 'src/calc.ts:23'], cov), [
-      'test/calc.test.ts (while the file loads)',
-      '0 tests run src/calc.ts:23',
-    ])
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/calc.ts:5'], cov), ['test/calc.test.ts > grade A'])
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/calc.ts:23'], cov), ['test/calc.test.ts (while the file loads)'])
     rmSync(cov, { recursive: true })
   })
 
@@ -190,7 +184,6 @@ describe('bun', () => {
       'mock.ts > a mock reaches the modules that the module imports, and builtins',
       'mock.ts > a mock replaces a dependency in a new instance of the module',
       'mock.ts (while the file loads)',
-      '2 tests run src/word.ts:3',
     ])
     // In a child process.
     assert.equal(sh('bun', [cli, 'mock.ts', 'pass.ts'], p.dir).at(-1), 'fail: 2 failed, 7 passed, 1 skipped')
@@ -227,7 +220,7 @@ describe('bun', () => {
     }
     // Off by default: a plain program on Bun records no coverage.
     assert.equal(plain(), 'pass: 0 failed, 1 passed')
-    assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:4'], p.dir), ['0 tests run src/size.ts:4'])
+    assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:4'], p.dir), ['no test ran src/size.ts:4'])
     p.configure({ bunInspectorCoverage: true })
     // The data of the inspector is not the same in each version of
     // Bun, so the places, and the note of code that no test ran,
@@ -260,7 +253,6 @@ describe('bun', () => {
     assert.deepEqual(sh('bun', [cli, 'covers', 'src/view.tsx:12'], p.dir), [
       'view.tsx > a view of no items',
       'view.tsx > a view of two items',
-      '2 tests run src/view.tsx:12',
     ])
     writeFileSync(
       join(p.dir, 'plain.ts'),

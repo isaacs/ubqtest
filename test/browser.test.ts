@@ -203,12 +203,7 @@ test('minus', async () => {
     '1 uncovered ranges in src/app.js',
     '',
   ])
-  assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), [
-    'app.test.ts > minus',
-    'app.test.ts > title',
-    '2 tests run src/app.js:3',
-    '',
-  ])
+  assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), ['app.test.ts > minus', 'app.test.ts > title', ''])
   // A change to code that the pages ran selects the tests. A change
   // to code that no page ran selects none.
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a'))

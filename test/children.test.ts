@@ -77,19 +77,12 @@ test('a server that the test stops', async () => {
     "lib/server.ts:5:25  return res.end(greet('x'))",
     '3 uncovered ranges in 2 of the 3 files that tests ran',
   ])
-  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:4').out), [
-    'test/cli.test.ts > a child with a new environment',
-    '1 tests run lib/cli.ts:4',
-  ])
+  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:4').out), ['test/cli.test.ts > a child with a new environment'])
   assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), [
     'test/cli.test.ts > a child with a new environment',
     'test/cli.test.ts > the command greets',
-    '2 tests run lib/cli.ts:7',
   ])
-  assert.deepEqual(lines(p.ubq('covers', 'lib/server.ts:6').out), [
-    'test/cli.test.ts > a server that the test stops',
-    '1 tests run lib/server.ts:6',
-  ])
+  assert.deepEqual(lines(p.ubq('covers', 'lib/server.ts:6').out), ['test/cli.test.ts > a server that the test stops'])
   // A change to code that only a child runs selects the test of that child.
   writeFileSync(
     join(p.dir, 'lib/cli.ts'),
@@ -121,8 +114,5 @@ test('the command on bun', () => {
 `,
   )
   assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
-  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), [
-    'test/bun.test.ts > the command on bun',
-    '1 tests run lib/cli.ts:7',
-  ])
+  assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), ['test/bun.test.ts > the command on bun'])
 })

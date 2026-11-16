@@ -405,16 +405,21 @@ const main = async (args: string[]): Promise<number> => {
       const failed = d.changes.filter(c => c.to === 'fail').length
       const fixed = d.changes.filter(c => c.from === 'fail' && c.to === 'pass').length
       const other = d.changes.length - failed - fixed
-      const parts = [
-        `${failed} new failures`,
-        `${fixed} fixed`,
+      const changed = [
+        ...(failed ? [`${failed} new failures`] : []),
+        ...(fixed ? [`${fixed} fixed`] : []),
         ...(other ? [`${other} other changes`] : []),
         ...(d.newErrors.length ? [`${d.newErrors.length} new file errors`] : []),
-        `${d.same} the same`,
+        ...(d.goneErrors.length ? [`${d.goneErrors.length} file errors gone`] : []),
+      ]
+      const only = [
         ...(d.onlyA ? [`${d.onlyA} only in run ${a}`] : []),
         ...(d.onlyB ? [`${d.onlyB} only in run ${b}`] : []),
       ]
-      out(`run ${a} to run ${b}: ${parts.join(', ')}`)
+      // The count of tests with the same status is news only next to a change.
+      const parts =
+        changed.length || only.length ? [...changed, ...(d.same ? [`${d.same} the same`] : []), ...only] : []
+      out(`run ${a} to run ${b}: ${parts.length ? parts.join(', ') : 'no changes'}`)
       for (const run of [a!, b!]) if (runRow(db, run)!.code === null) out(`note: run ${run} did not end`)
       const bad = failed + d.newErrors.length
       if (bad) out(`details: ubq failures ${b}`)
@@ -543,7 +548,7 @@ const main = async (args: string[]): Promise<number> => {
       const c = covers(db, f, +m[2]!)
       for (const t of c.tests) out(t)
       for (const t of c.loads) out(`${t} (while the file loads)`)
-      out(`${c.tests.length} tests run ${f}:${m[2]}`)
+      if (!c.tests.length && !c.loads.length) out(`no test ran ${f}:${m[2]}`)
       return 0
     }
 

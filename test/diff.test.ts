@@ -37,11 +37,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
   assert.deepEqual(p.lines('--changed'), ['ubq: no changes, no new tests'])
   // The coverage of the tests that did not run has the places of
   // the new content.
-  assert.deepEqual(p.lines('covers', 'src/shape.ts:8'), [
-    'pass.ts > load',
-    'pass.ts > parse > unknown input',
-    '2 tests run src/shape.ts:8',
-  ])
+  assert.deepEqual(p.lines('covers', 'src/shape.ts:8'), ['pass.ts > load', 'pass.ts > parse > unknown input'])
   assert.deepEqual(p.lines('uncovered', 'src/shape.ts'), [
     'src/shape.ts:12:22  (): number => 1',
     '1 uncovered ranges in src/shape.ts',

@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, test } from 'ubqtest'
+import { assert, cleanup, test } from 'ubqtest'
 import { shuffle } from '../src/shuffle.ts'
 import { project } from './setup.ts'
 
@@ -71,19 +71,13 @@ test('diff shows the tests with a different status in two runs', () => {
   assert.deepEqual(lines(r.out), [
     'fail flip.ts > group > a (was pass in run 1)',
     '  expected values to be equal',
-    'run 1 to run 2: 1 new failures, 0 fixed, 2 the same, 6 only in run 1',
+    'run 1 to run 2: 1 new failures, 2 the same, 6 only in run 1',
     'details: ubq failures 2',
   ])
   const back = p.ubq('diff', '2', '1')
   assert.deepEqual(
     [back.code, lines(back.out)],
-    [
-      0,
-      [
-        'pass flip.ts > group > a (was fail in run 2)',
-        'run 2 to run 1: 0 new failures, 1 fixed, 2 the same, 6 only in run 1',
-      ],
-    ],
+    [0, ['pass flip.ts > group > a (was fail in run 2)', 'run 2 to run 1: 1 fixed, 2 the same, 6 only in run 1']],
   )
 
   // A failure of a test that did not run in the first run, and a file error.
@@ -99,14 +93,14 @@ test('diff shows the tests with a different status in two runs', () => {
         'ERROR pass.ts (no error in run 3)',
         'fail flip.ts > group > a (did not run in run 3)',
         '  expected values to be equal',
-        'run 3 to run 4: 1 new failures, 0 fixed, 1 new file errors, 6 the same, 3 only in run 4',
+        'run 3 to run 4: 1 new failures, 1 new file errors, 6 the same, 3 only in run 4',
         'details: ubq failures 4',
       ],
     ],
   )
   assert.deepEqual(lines(p.ubq('diff', '4', '3').out), [
     'no error pass.ts (was ERROR in run 4)',
-    'run 4 to run 3: 0 new failures, 0 fixed, 6 the same, 3 only in run 4',
+    'run 4 to run 3: 1 file errors gone, 6 the same, 3 only in run 4',
   ])
 
   const err = (...args: string[]) => [p.ubq('diff', ...args).code, p.ubq('diff', ...args).err]
@@ -387,4 +381,13 @@ test('the test files run in a random order that a seed repeats', () => {
     [4, 'ubq: --seed needs the number from a run, such as: ubq --seed 1234\n'],
   )
   rmSync(p.dir, { recursive: true })
+})
+
+test('diff: two runs with the same results', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(join(p.dir, 'a.test.ts'), "import { assert, test } from 'ubqtest'\ntest('a', () => assert(true))\n")
+  p.ubq('a.test.ts')
+  p.ubq('a.test.ts')
+  assert.deepEqual([p.ubq('diff').code, p.ubq('diff').out], [0, 'run 1 to run 2: no changes\n'])
 })

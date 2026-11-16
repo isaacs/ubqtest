@@ -66,7 +66,8 @@ for (const minify of [false, true])
       assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
       // The list has the code that the bundler removed. The built file is not in it.
       assert.deepEqual(p.uncovered(), LIST)
-      assert.deepEqual(p.ubq('covers', 'lib/math.ts:1').out.trimEnd().split('\n').at(-1), '1 tests run lib/math.ts:1')
+      // A test ran the line: the output names it.
+      assert.match(p.ubq('covers', 'lib/math.ts:1').out, /^\S+\.test\.ts > /m)
     },
   )
 

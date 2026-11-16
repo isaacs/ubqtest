@@ -81,7 +81,7 @@ test('later', { skip: 'not now' }, () => assert(true))
     'fail many.test.ts > broken (did not run in run 4)',
     '  expected values to be equal',
     'pass many.test.ts > later (was skip in run 4)',
-    'run 4 to run 5: 1 new failures, 0 fixed, 1 other changes, 0 the same, 1 only in run 5',
+    'run 4 to run 5: 1 new failures, 1 other changes, 1 only in run 5',
     'details: ubq failures 5',
   ])
   // A test of a file that did not load: the message names the error
@@ -153,10 +153,7 @@ test('much output', () => {
   writeFileSync(join(p.dir, 'spaced.test.ts'), "import { test } from 'ubqtest'\n  \ntest('s', () => {})")
   p.ubq('spaced.test.ts')
   assert.equal(p.ubq('covers', 'spaced.test.ts:2').err, 'ubq: spaced.test.ts:2 has no code\n')
-  assert.equal(
-    p.ubq('covers', 'spaced.test.ts:3').out,
-    'spaced.test.ts > s\nspaced.test.ts (while the file loads)\n1 tests run spaced.test.ts:3\n',
-  )
+  assert.equal(p.ubq('covers', 'spaced.test.ts:3').out, 'spaced.test.ts > s\nspaced.test.ts (while the file loads)\n')
 })
 
 test('a reader that closes the pipe early', async () => {

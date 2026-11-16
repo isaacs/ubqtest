@@ -62,10 +62,7 @@ test('an import of ./a.js finds the file ./a.ts', () => {
   // In the process of the runner, and in a child process.
   assert.equal(p.ubq('one.ts').last, 'pass: 0 failed, 1 passed')
   assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')
-  assert.equal(
-    p.ubq('covers', 'src/two.ts:1').out,
-    'one.ts > one\none.ts (while the file loads)\n1 tests run src/two.ts:1\n',
-  )
+  assert.equal(p.ubq('covers', 'src/two.ts:1').out, 'one.ts > one\none.ts (while the file loads)\n')
   // A file that does not exist with either name.
   writeFileSync(join(p.dir, 'src/two.ts'), "import './three.js'\n")
   assert.match(

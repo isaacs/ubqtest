@@ -110,7 +110,6 @@ test('mockImport gives a new module instance with mocked dependencies', async ()
     'mock.ts > a mock reaches the modules that the module imports, and builtins',
     'mock.ts > a mock replaces a dependency in a new instance of the module',
     'mock.ts (while the file loads)',
-    '2 tests run src/word.ts:3',
   ])
   // In a child process, and as a plain program.
   assert.equal(p.ubq('mock.ts', 'pass.ts').last, 'fail: 2 failed, 7 passed, 1 skipped')

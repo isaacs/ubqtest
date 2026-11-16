@@ -282,7 +282,6 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     'mock.ts > a mock reaches the modules that the module imports, and builtins',
     'mock.ts > a mock replaces a dependency in a new instance of the module',
     'mock.ts (while the file loads)',
-    '2 tests run src/word.ts:3',
     '',
   ])
   assert.deepEqual(await run(['node'], 'uncovered', 'src/shape.ts'), await run(deno, 'uncovered', 'src/shape.ts'))
@@ -313,7 +312,6 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   assert.deepEqual(await run(deno, 'covers', 'src/view.tsx:12'), [
     'view.tsx > a view of no items',
     'view.tsx > a view of two items',
-    '2 tests run src/view.tsx:12',
     '',
   ])
   assert.deepEqual(await run(deno, 'mutate', 'src/view.tsx'), [
