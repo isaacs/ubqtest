@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { fileURLToPath } from 'node:url'
-import { fixtures, project, remove, uncoveredNote } from './setup.ts'
+import { fixtures, project, remove } from './setup.ts'
 
 const cwd = `${fixtures}cov/`
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
@@ -57,7 +57,7 @@ test('a column in the text of a counter is the place where the counter went', ()
 test('a run with preload has full coverage', () => {
   reset()
   const r = run('node', '--import', 'ubqtest/preload', 'test/calc.test.ts')
-  assert.deepEqual(r, { code: 0, out: [uncoveredNote(4), 'pass: 0 failed, 5 passed (run 1)'], err: '' })
+  assert.deepEqual(r, { code: 0, out: ['pass: 0 failed, 5 passed (run 1)'], err: '' })
   assert.deepEqual(ubq('uncovered').out, [
     "src/calc.ts:8:3  return 'fail'",
     'src/calc.ts:12:17  (): string => { (+2 lines)',

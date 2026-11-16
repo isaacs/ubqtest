@@ -920,7 +920,7 @@ export const run = async (args: string[]): Promise<number> => {
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
   // The order of the files can be the cause of a failure.
   if (ordered.length > 1 && ([...status.values()].includes('fail') || errorFiles.size))
-    write(`file order: seed ${seed}. For the same order: ubq --seed ${seed} ...\n`)
+    write(`For the same test order, run: ubq --seed ${seed}\n`)
 
   // The store has the coverage of the run before the count.
   stored?.flush()

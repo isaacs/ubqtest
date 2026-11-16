@@ -9,7 +9,7 @@ import { assert, cleanup, describe, test } from 'ubqtest'
 import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
-import { addJsx, fixtures, project, resetStore, uncoveredNote } from './setup.ts'
+import { addJsx, fixtures, project, resetStore } from './setup.ts'
 
 // The load hook of the counters loads the parser with `require`,
 // while this file loads. A static import of the same module from
@@ -127,7 +127,6 @@ describe('bun', () => {
     cpSync(`${fixtures}cov/`, cov, { recursive: true, filter: path => !path.endsWith('.ubq') })
     resetStore(cov)
     assert.deepEqual(sh('bun', ['--preload', 'ubqtest/bun-preload', 'test/calc.test.ts'], cov), [
-      uncoveredNote(4),
       'pass: 0 failed, 5 passed',
     ])
     assert.deepEqual(sh('node', [cli, 'uncovered'], cov), [
@@ -239,7 +238,7 @@ describe('bun', () => {
       '{"file":"src/size.ts"}',
     ])
     // The runner uses counters, with or without the option.
-    assert.deepEqual(sh('bun', [cli, 'size.ts'], p.dir), [uncoveredNote(2), 'pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('bun', [cli, 'size.ts'], p.dir), ['pass: 0 failed, 1 passed'])
     assert.deepEqual(sh('node', [cli, 'uncovered', 'src/size.ts'], p.dir), [
       "src/size.ts:3:14  return 'big'",
       'src/size.ts:6:8  function never(): number { (+2 lines)',
@@ -251,7 +250,7 @@ describe('bun', () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
     addJsx(p.dir)
-    assert.deepEqual(sh('bun', [cli, 'view.tsx'], p.dir), [uncoveredNote(3), 'pass: 0 failed, 3 passed'])
+    assert.deepEqual(sh('bun', [cli, 'view.tsx'], p.dir), ['pass: 0 failed, 3 passed'])
     assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/view.tsx'], p.dir), [
       'src/view.tsx:2:32  (type: unknown, props: unknown) => ({ type, props })',
       'src/view.tsx:8:35  ? <b>many</b>',
@@ -267,7 +266,7 @@ describe('bun', () => {
       join(p.dir, 'plain.ts'),
       "import { assert, test } from 'ubqtest'\nimport { Plain } from './src/plain.js'\ntest('on', () => {\n  assert.equal(Plain(true).type, 'b')\n})\n",
     )
-    assert.deepEqual(sh('bun', [cli, 'plain.ts'], p.dir), [uncoveredNote(1), 'pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('bun', [cli, 'plain.ts'], p.dir), ['pass: 0 failed, 1 passed'])
     assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/plain.js'], p.dir), [
       'src/plain.js:1:44  : <i>off</i>',
       '1 uncovered ranges in src/plain.js',

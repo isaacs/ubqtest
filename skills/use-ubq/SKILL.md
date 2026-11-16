@@ -29,9 +29,7 @@ On Bun, the command is `bun node_modules/.bin/ubq`.
 
 1. `npx ubq guide`
 2. Write the test. Each name comes from `'ubqtest'`.
-3. `npx ubq <test file>`. A pass prints one line. A `note:` line
-   before it says that the files of the run have code that no
-   test ran: `npx ubq uncovered` lists it. A failure block
+3. `npx ubq <test file>`. A pass prints one line. A failure block
    has the place, the source line, the difference, and a `rerun:`
    command for that one test. Its `since` line names the lines that
    the test ran in its last pass and that changed after it: look

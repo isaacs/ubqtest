@@ -336,8 +336,7 @@ Two text sinks, as in D4:
 
 - **Compact** (default): nothing for a pass, one block for each
   failure (20 at most, then the count of the others and `ubq
-  failures <run>`), a note with the count of uncovered ranges in
-  the files of the run (if there are some), one summary line.
+  failures <run>`), one summary line.
 - **CI** (when `CI` is set): the same with no limit, plus console
   output, full diffs, hang reports, seed, and runtime for each
   failure.

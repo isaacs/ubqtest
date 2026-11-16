@@ -20,7 +20,7 @@ test('a test file that does not load is an error of the file, with the place', (
       ...r.out
         .replace(/ \(run \d+\)\n$/, '')
         .split('\n')
-        .filter(l => l && !l.startsWith('file order:')),
+        .filter(l => l && !l.startsWith('For the same test order')),
     ]
   }
   const bad = ['ERROR bad.ts', '  the test file did not load: Expression expected', '  at bad.ts:4:1', '  > })']

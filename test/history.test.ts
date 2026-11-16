@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, readdirSync, rmSync, writeFileSync } from '
 import { join } from 'node:path'
 import { assert, test } from 'ubqtest'
 import { shuffle } from '../src/shuffle.ts'
-import { project, uncoveredNote } from './setup.ts'
+import { project } from './setup.ts'
 
 /** Output lines, with the time of each run removed. */
 const lines = (out: string): string[] =>
@@ -143,7 +143,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
     '  rerun: ubq sometimes.ts:19',
     '',
     'repeat 7: 1 failed some times, 1 failed each time, 4 failed no times',
-    'file order: seed 5. For the same order: ubq --seed 5 ...',
+    'For the same test order, run: ubq --seed 5',
     'fail: 2 failed, 4 passed',
   ])
 
@@ -257,7 +257,6 @@ test('--baseline shows only the failures that the commit does not have', () => {
         "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
         '  two.test.ts > old failure',
         '  two.test.ts > was broken',
-        uncoveredNote(3),
         'fail: 2 failed, 2 passed (run 1)',
       ].map(l => l.replace('COMMIT', /\((\w+)\)/.exec(same.out)![1]!)),
     ],
@@ -374,7 +373,7 @@ test('the test files run in a random order that a seed repeats', () => {
   p.set('fail')
   const r = p.ubq('--seed', '77', 'flip.ts', 'pass.ts')
   assert.deepEqual(r.out.trimEnd().split('\n').slice(-3), [
-    'file order: seed 77. For the same order: ubq --seed 77 ...',
+    'For the same test order, run: ubq --seed 77',
     'skip pass.ts > not on this platform: needs a GPU',
     'fail: 1 failed, 7 passed, 1 skipped (run 1)',
   ])

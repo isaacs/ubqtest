@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright-core'
 import { assert, cleanup, test } from 'ubqtest'
 import { browser } from 'ubqtest/browser'
-import { project, remove, uncoveredNote } from './setup.ts'
+import { project, remove } from './setup.ts'
 
 // `ubq browser install` downloads the browser. CI runs it.
 const installed = existsSync(chromium.executablePath().replace(/chromium-(\d+).*/, 'chromium_headless_shell-$1'))
@@ -212,9 +212,8 @@ test('minus', async () => {
   // A change to code that the pages ran selects the tests. A change
   // to code that no page ran selects none.
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a'))
-  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 3), [
+  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 2), [
     'changed: src/app.js',
-    uncoveredNote(1),
     'pass: 0 failed, 2 passed (run 3)',
   ])
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a').replace("'never'", "'not one time'"))

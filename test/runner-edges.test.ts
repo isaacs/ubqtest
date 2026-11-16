@@ -278,7 +278,7 @@ test('the run record leaves out the preload that ubq adds for its test processes
   })
 })
 
-test('a run with code that no test ran names the command that lists it', () => {
+test('a run prints no note on code that no test ran; the summary of a step has the count', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   mkdirSync(join(p.dir, 'src'), { recursive: true })
@@ -290,26 +290,30 @@ test('a run with code that no test ran names the command that lists it', () => {
     join(p.dir, 'a.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { sign } from './src/sign.ts'\ntest('one', () => assert.equal(sign(2), 1))\n",
   )
-  const r = p.ubq('a.test.ts')
-  // The exit code does not change, and the summary stays last.
-  assert.equal(r.code, 0)
-  assert.deepEqual(r.out.trimEnd().split('\n').slice(-2), [
-    'note: 1 range of code in the files of this run ran in no test. To list it: ubq uncovered',
-    'pass: 0 failed, 1 passed (run 1)',
-  ])
+  const file = join(p.dir, 'summary.md')
+  /** The note of the summary of a step, after a run of `files`. */
+  const note = (...files: string[]): string | undefined => {
+    rmSync(file, { force: true })
+    const r = spawnSync(process.execPath, [cli, ...files], {
+      cwd: p.dir,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file },
+    })
+    assert.equal(r.stdout, `pass: 0 failed, ${files.length} passed (run ${r.stdout.match(/run (\d+)/)![1]})\n`)
+    return /^- .* ran in no test.*$/m.exec(readFileSync(file, 'utf8'))?.[0]
+  }
+  assert.equal(note('a.test.ts'), '- 1 ranges of code in the files of this run ran in no test: `ubq uncovered`')
   // With full coverage, there is no note.
   writeFileSync(
     join(p.dir, 'b.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { sign } from './src/sign.ts'\ntest('two', () => assert.equal(sign(-2), -1))\n",
   )
-  const all = p.ubq('a.test.ts', 'b.test.ts')
-  assert.equal(all.code, 0)
-  assert(!all.out.includes('note:'), all.out)
-  // The note leaves out build files and test helpers, as
+  assert.equal(note('a.test.ts', 'b.test.ts'), undefined)
+  // The count leaves out build files and test helpers, as
   // `ubq uncovered` does.
   p.configure({ helpers: ['lib/**'], build: ['src/**'] })
   writeFileSync(join(p.dir, 'c.test.ts'), PASS)
-  assert(!p.ubq('a.test.ts', 'c.test.ts').out.includes('note:'))
+  assert.equal(note('a.test.ts', 'c.test.ts'), undefined)
 })
 
 test('the store keeps the rows of the last 50 runs', () => {
