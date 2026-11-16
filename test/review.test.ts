@@ -84,7 +84,7 @@ test('ubq review: removed, skipped, and weaker tests, changed snapshots, and new
       '  + assert.equal(add(1, 2), 4)',
       'snapshot changed: test/math.test.ts > math > snap 1. To see it: git diff HASH -- ubq-snapshots/test/math.test.ts.snap',
       'not measured: lib/math.ts: hard to test',
-      'review: 5 changes to the tests for a person to look at, from the last commit',
+      'review: 5 changes to review, since the last commit',
       '',
     ].join('\n'),
   )
@@ -114,7 +114,7 @@ test('ubq review: changed assertions, conditional skips, a moved file, and names
       'assertions changed: test/m.test.ts > math > sub (test/m.test.ts:9)',
       '  - assert.equal(sub(3, 1), 2)',
       '  + assert.equal(sub(3, 1), 2.0)',
-      'review: 2 changes to the tests for a person to look at, from the last commit',
+      'review: 2 changes to review, since the last commit',
       '',
     ].join('\n'),
   )
@@ -158,7 +158,7 @@ test('ubq review: a removed test file, a removed snapshot, a group with a new na
       '  - assert(3)',
       '  - assert(4)',
       '  - and 1 more',
-      'review: 3 changes to the tests for a person to look at, from the last commit',
+      'review: 3 changes to review, since the last commit',
       '',
     ].join('\n'),
   )
@@ -186,7 +186,7 @@ test('ubq review --diff: from where the branch left the commit', () => {
   assert.equal(r.code, 1)
   assert.equal(
     r.out,
-    'removed: test/math.test.ts > math > neg (test/math.test.ts:9 in HASH)\nreview: 1 changes to the tests for a person to look at, from main\n',
+    'removed: test/math.test.ts > math > neg (test/math.test.ts:9 in HASH)\nreview: 1 changes to review, since main\n',
   )
 })
 
@@ -258,7 +258,7 @@ test('timeout only', { timeout: 100 }, () => assert(1))
       '  + assert(2)',
       'not measured: lib/staged.ts: (no reason)',
       'not measured: lib/new.ts: only on a Mac',
-      'review: 5 changes to the tests for a person to look at, from the last commit',
+      'review: 5 changes to review, since the last commit',
       '',
     ].join('\n'),
   )
@@ -290,7 +290,7 @@ test('ubq review: a test with a new name and its old assertions, and text that i
       'skipped: test/math.test.ts > math > sub of two (was math > sub) (test/math.test.ts:8), skip: later',
       'not measured: lib/math.ts: real',
       'note: code changed after the last run of its tests in lib/math.ts, so review does not know which tests run the changed lines. Run: ubq --changed',
-      'review: 3 changes to the tests for a person to look at, from the last commit',
+      'review: 3 changes to review, since the last commit',
       '',
     ].join('\n'),
   )

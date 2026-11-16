@@ -171,11 +171,7 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
   const { items, notes, from } = reviewItems(given)
   for (const item of items) for (const line of item) out(line)
   for (const note of notes) out(note)
-  out(
-    items.length
-      ? `review: ${items.length} changes to the tests for a person to look at, from ${from}`
-      : 'review: nothing to do',
-  )
+  out(items.length ? `review: ${items.length} changes to review, since ${from}` : 'review: nothing to do')
   return items.length ? 1 : 0
 }
 
