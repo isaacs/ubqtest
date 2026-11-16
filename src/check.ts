@@ -133,7 +133,7 @@ export const checkResult = (
   const result = summary.length
     ? `check: fail: ${summary.join(', ')}${last}`
     : `check: pass: the last result of each test is a pass, and is the result of the code as it is now` +
-      (commit ? ', and each changed line ran in a test' : '') +
+      (commit ? ', and each change ran in a test' : '') +
       last
   return { report, summary, result, ...(run !== undefined && { run }) }
 }

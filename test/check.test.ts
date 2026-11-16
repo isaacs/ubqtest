@@ -50,7 +50,7 @@ test('ubq check: no run, a pass, code that changed, and a run of the changed tes
   assert.equal(p.ubq().code, 0)
   r = p.ubq('check')
   assert.equal(r.code, 0)
-  assert.equal(r.last, `${PASS}, and each changed line ran in a test`)
+  assert.equal(r.last, `${PASS}, and each change ran in a test`)
 
   // The test ran the code that changed: its result is old.
   writeFileSync(p.file('lib/math.ts'), SRC.replace('a + b', 'b + a'))

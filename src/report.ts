@@ -29,7 +29,7 @@ export const report = (args: string[], out: (line: string) => void): number => {
       .all() as { file: string; n: number }[]
     store.close()
     const n = files.filter(f => existsSync(join(projectRoot(), f.file))).reduce((sum, f) => sum + f.n, 0)
-    const changed = diff !== undefined || headCommit() ? ', and each changed line ran in a test' : ''
+    const changed = diff !== undefined || headCommit() ? ', and each change ran in a test' : ''
     lines.push(`**pass**: ${n} tests pass on the code as it is now${changed}.`)
   } else {
     lines.push('### Tests', '', `**${verdict}**: ${why.join(': ')}`)

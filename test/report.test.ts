@@ -37,12 +37,12 @@ test('ubq report: a pass, and a change with a removed test and a failure', () =>
   assert.equal(p.ubq().code, 0)
   let r = p.ubq('report')
   assert.equal(r.code, 0)
-  assert.equal(r.out, '**pass**: 2 tests pass on the code as it is now, and each changed line ran in a test.\n')
+  assert.equal(r.out, '**pass**: 2 tests pass on the code as it is now, and each change ran in a test.\n')
   // A run of one test: the count has the last result of each test.
   assert.equal(p.ubq('test/math.test.ts:3').code, 0)
   assert.equal(
     p.ubq('report').out.split(':')[1],
-    ' 2 tests pass on the code as it is now, and each changed line ran in a test.\n',
+    ' 2 tests pass on the code as it is now, and each change ran in a test.\n',
   )
 
   writeFileSync(
