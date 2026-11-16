@@ -150,6 +150,19 @@ export const select = (args: string[]): Selected[] => {
 }
 
 /**
+ * The last result of each test. A run of some tests of a file stores
+ * only those tests, so each test has the result of its own last run.
+ * A test that is not in the last run of all of its file (a run with
+ * no tests not selected) is gone from the file.
+ */
+export const LAST_RESULTS = `with whole as (
+    select t.file, max(t.run) run from test t join run r on r.id = t.run
+    where r.unselected = 0 group by t.file),
+  last as (select id, max(run) run from test group by id)
+  select t.id, t.file, t.status from test t join last using (id, run)
+  left join whole using (file) where t.run >= coalesce(whole.run, 0)`
+
+/**
  * The tests that failed in the last run of their file, and the files
  * that had an error in their last run.
  */

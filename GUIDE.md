@@ -194,11 +194,11 @@ ubq report                 what the tests show about the change, as markdown
 ```
 
 `ubq report` is the end of the work: put its output at the end of
-your last message, or in the description of a pull request. It has
-the result of `ubq check`, with its problems, the counts of the last
-run, and the items of `ubq review` (in a git repository). A pass is
-short: it has no heading, and no line for an empty review. It runs
-no test, and its exit code is 0. `--diff=<commit>` is the commit of
+your last message, or in the description of a pull request. A pass is
+one line: the count of tests that pass on the code as it is now. A
+fail has the problems of `ubq check`. Both have the items of `ubq
+review`, if there are some (in a git repository). It runs no test,
+and its exit code is 0. `--diff=<commit>` is the commit of
 `check` and `review`.
 
 ```

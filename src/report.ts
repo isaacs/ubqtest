@@ -3,9 +3,11 @@
 // person reads it, and does not run a command.
 import { checkResult } from './check.ts'
 import { diffOption, headCommit } from './git.ts'
-import { runCounts, runRow } from './query.ts'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { projectRoot } from './project.ts'
 import { reviewItems } from './review.ts'
-import { UsageError } from './runner.ts'
+import { LAST_RESULTS, UsageError } from './runner.ts'
 import { openStore } from './store.ts'
 
 const block = (lines: string[]): string[] => ['', '```text', ...lines, '```']
@@ -16,25 +18,28 @@ export const report = (args: string[], out: (line: string) => void): number => {
   const diff = diffOption(rest)
   if (rest.length) throw new UsageError(`ubq report takes --diff=<commit>, not: ${rest.join(' ')}`)
   // The result: is the last result of the tests that of the code now?
-  // A pass has no heading, to keep it short.
+  // A pass is one line: the count of tests that pass.
   const check = checkResult(diff)
   const [, verdict, ...why] = check.result.split(': ')
-  const lines = verdict === 'pass' ? [] : ['### Tests', '']
-  lines.push(`**${verdict}**: ${why.join(': ')}`)
-  if (check.report.length) lines.push(...block(check.report))
-
-  // The last run, if it ended.
-  if (check.run !== undefined) {
+  const lines: string[] = []
+  if (verdict === 'pass') {
     const store = openStore()
-    const row = runRow(store.db, check.run)!
+    const files = store.db
+      .prepare(`select file, count(*) n from (${LAST_RESULTS}) where status = 'pass' group by file`)
+      .all() as { file: string; n: number }[]
     store.close()
-    if (row.code !== null) lines.push('', `- Last run: ${runCounts(row).join(', ')}.`)
+    const n = files.filter(f => existsSync(join(projectRoot(), f.file))).reduce((sum, f) => sum + f.n, 0)
+    const changed = diff !== undefined || headCommit() ? ', and each changed line ran in a test' : ''
+    lines.push(`**pass**: ${n} tests pass on the code as it is now${changed}.`)
+  } else {
+    lines.push('### Tests', '', `**${verdict}**: ${why.join(': ')}`)
+    if (check.report.length) lines.push(...block(check.report))
   }
 
   // The changes to the tests that a person must look at, if some.
   if (diff !== undefined || headCommit()) {
     const review = reviewItems(diff)
-    if (review.items.length) lines.push(`- Changes to the tests to look at: ${review.items.length}.`)
+    if (review.items.length) lines.push('', `- Changes to the tests to look at: ${review.items.length}.`)
     if (review.items.length || review.notes.length) lines.push(...block([...review.items.flat(), ...review.notes]))
   }
   for (const line of lines) out(line)

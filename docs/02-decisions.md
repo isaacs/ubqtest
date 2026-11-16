@@ -1679,14 +1679,17 @@ Idea 5 of the review of the project. A person asks an agent "how do
 you know that it works?", and the answer is often a sentence with no
 evidence. `ubq report` is the evidence, in a form to paste.
 
-- **Content.** A `### Tests` heading, only for a fail. The result
-  of `ubq check` in bold (`pass` or `fail`) with its text, and its
-  problems in a text block. The counts of the last run, if it ended.
-  In a git repository, the count of the items of `ubq review`, and
-  the items and notes in a text block.
-- **Short on a pass.** No line says that there is nothing to report,
-  and no line says where its data came from: the result line has the
-  number of the run.
+- **Content.** A pass is one line: `**pass**: 17 tests pass on the
+  code as it is now, and each changed line ran in a test.` The count
+  has the last result of each test, not the counts of the last run:
+  a run of some tests does not show how many tests pass. A fail has
+  a `### Tests` heading, the result of `ubq check` in bold with its
+  text, and its problems in a text block. In a git repository, the
+  count of the items of `ubq review`, and the items and notes in a
+  text block, if there are some.
+- **Only what the reader needs.** No line says that there is nothing
+  to report. No run number on a pass: a reader of a pull request
+  cannot look up a run in the store of the author.
 - **No new data.** It reuses `checkResult` and `reviewItems`, the
   code of the two commands. It runs no test.
 - **Exit code 0.** It is a report: `ubq check` is the command that

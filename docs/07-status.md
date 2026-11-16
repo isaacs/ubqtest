@@ -274,9 +274,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   errors, and the ranges of `ubq uncovered` are annotations at their
   lines.
 
-- **`ubq report`** (D72). The result of `ubq check`, the last run,
-  and the items of `ubq review`, as markdown for the last message of
-  an agent or a pull request.
+- **`ubq report`** (D72). The result of `ubq check`, and the items
+  of `ubq review`, as markdown for the last message of an agent or a
+  pull request. A pass is one line, with the count of tests that
+  pass.
 
 - **Summary of a step** (D73). With `GITHUB_STEP_SUMMARY`, a run
   adds its result and a table of its failures to the summary of the
