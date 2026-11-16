@@ -202,6 +202,10 @@ test('ubq review: notes on the store, and wrong arguments', () => {
   rmSync(p.file('.ubq'), { recursive: true })
   r = p.review()
   assert.match(r.out, /^note: no run is stored, so review does not know which tests run the changed code\. Run: ubq$/m)
+  // With no items, the note is the output: the review is not complete.
+  writeFileSync(p.file('test/math.test.ts'), TEST)
+  r = p.review()
+  assert.equal(r.out, 'note: no run is stored, so review does not know which tests run the changed code. Run: ubq\n')
 
   r = p.review('--diff=nope')
   assert.equal(r.code, 4)
