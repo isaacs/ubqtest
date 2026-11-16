@@ -206,11 +206,12 @@ const groups = new Set<number>()
  * `+pid` and `-pid` lines, and when its input closes, it kills the
  * groups that are left. It is in a process group of its own, so a
  * signal to the group of the runner does not stop it. Windows has
- * no process groups.
+ * no process groups. No `--` in the kill command: the kill of dash
+ * (the sh of Ubuntu) does not accept it.
  */
 let guard: ReturnType<typeof spawn> | undefined
 const GUARD =
-  '/^\\+/ { live[substr($0, 2)] = 1 } /^-/ { delete live[substr($0, 2)] } END { for (pid in live) system("kill -9 -- -" pid " 2>/dev/null") }'
+  '/^\\+/ { live[substr($0, 2)] = 1 } /^-/ { delete live[substr($0, 2)] } END { for (pid in live) system("kill -9 -" pid " 2>/dev/null") }'
 const tellGuard = (line: string): void => {
   if (process.platform === 'win32') return
   if (!guard) {
