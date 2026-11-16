@@ -57,19 +57,14 @@ test(
     assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran', NOTE])
     assert.deepEqual(p.run('bun'), ['pass: 0 failed, 1 passed'])
     // The run on Bun replaced the coverage of the test. The run on Node stays.
-    const both = ['0 uncovered ranges in 0 of the 1 files that tests ran', `coverage of: bun-${system}, node-${system}`]
+    const both = ['uncovered: none']
     assert.deepEqual(p.run('node', 'uncovered'), both)
     assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
     assert.deepEqual(p.run('node', 'uncovered'), both)
     // Coverage of a different content of a file does not count.
     appendFileSync(join(p.dir, 'lib/where.ts'), '// a change\n')
     assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
-    assert.deepEqual(p.run('node', 'uncovered'), [
-      BUN,
-      '1 uncovered ranges in 1 of the 1 files that tests ran',
-      `coverage of: bun-${system}, node-${system}`,
-      NOTE,
-    ])
+    assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered ranges in 1 of the 1 files that tests ran', NOTE])
   },
 )
 

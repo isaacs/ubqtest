@@ -73,7 +73,7 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   git('add', '.')
   git('commit', '-q', '-m', 'first')
   assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
-  assert.deepEqual(p.lines('uncovered', '--diff'), ['0 uncovered ranges in the changed lines of 0 files'])
+  assert.deepEqual(p.lines('uncovered', '--diff'), ['uncovered: none'])
 
   p.edit(
     "return { kind: 'square', side: 2 }",
@@ -94,12 +94,12 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   ])
   git('add', '.')
   git('commit', '-q', '-m', 'second')
-  assert.deepEqual(p.lines('uncovered', '--diff'), ['0 uncovered ranges in the changed lines of 0 files'])
+  assert.deepEqual(p.lines('uncovered', '--diff'), ['uncovered: none'])
   // A file with no change since the commit.
   assert.deepEqual(p.lines('mutate', '--diff', 'src/shape.ts'), ['mutate: 0 of 0 changes survived'])
   // A file that went away has no lines in the diff.
   rmSync(join(p.dir, 'src/new.ts'))
-  assert.deepEqual(p.lines('uncovered', '--diff'), ['0 uncovered ranges in the changed lines of 0 files'])
+  assert.deepEqual(p.lines('uncovered', '--diff'), ['uncovered: none'])
   writeFileSync(join(p.dir, 'src/new.ts'), 'export const fresh = 1\n')
   assert.deepEqual(p.lines('uncovered', '--diff=HEAD~1', 'src/shape.ts'), [
     "src/shape.ts:7:38  ? { kind: 'square', side: 3 }",

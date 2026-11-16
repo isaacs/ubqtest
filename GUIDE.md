@@ -587,8 +587,6 @@ jobs:
   or a `runs.db` file.
 - Coverage of a file counts only if the file has the same content
   as now. Make each store from the same commit.
-- `ubq uncovered` prints the environments, if there is more than
-  one: `coverage of: bun-darwin, node-linux`.
 - `ubq --changed` uses only the last run of each test.
 
 ## Tests that start a process

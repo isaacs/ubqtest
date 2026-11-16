@@ -5,7 +5,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
 import { isBuild, isHelper, UsageError } from './config.ts'
-import { ENV, fileHash, RUN_ENV } from './store.ts'
+import { fileHash, RUN_ENV } from './store.ts'
 
 type Span = [start: number, end: number]
 
@@ -86,20 +86,6 @@ const rangesOf = (db: DatabaseSync, file: string): { tfile: string; test: string
       )
       .all(file, fileHash(file)) as { tfile: string; test: string; ranges: string }[]
   ).map(r => ({ ...r, ranges: JSON.parse(r.ranges) as number[] }))
-
-/**
- * The environments whose coverage the store has: that of the last
- * run of each test, and those of `other_coverage`.
- */
-export const environments = (db: DatabaseSync): string[] =>
-  (
-    db
-      .prepare(
-        `select distinct ${ENV} as env from coverage c join run r on r.id = c.run
-         union select distinct env from other_coverage order by 1`,
-      )
-      .all() as { env: string }[]
-  ).map(r => r.env)
 
 /** True if the store has coverage of `file` as it is now, or coverage of the last run of a test. */
 export const hasCoverage = (db: DatabaseSync, file: string): boolean => rangesOf(db, file).length > 0

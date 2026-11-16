@@ -178,10 +178,7 @@ test('adds', () => {
     '4 uncovered ranges in 3 of the 3 files that tests ran',
   )
   p.configure({ helpers: ['test/**', 'lib/**'], build: ['scripts/**'] })
-  assert.deepEqual(uncovered(), [
-    0,
-    ['0 uncovered ranges in 0 of the 0 files that tests ran (2 test helpers and 1 build files are not in this list)'],
-  ])
+  assert.deepEqual(uncovered(), [0, ['uncovered: none']])
 })
 
 test('a "ubq: not measured:" comment with a reason takes a range out of the list', () => {

@@ -14,7 +14,6 @@ import {
   coveredFiles,
   covers,
   diffRuns,
-  environments,
   failures,
   fileErrors,
   filesOf,
@@ -507,7 +506,8 @@ const main = async (args: string[]): Promise<number> => {
       }
       for (const f of old) out(`${f}  the stored coverage is of a different content of this file. Run the tests again.`)
       for (const f of changed) out(`${f}  changed after the last run of its tests. Run them first: ubq --changed`)
-      if (diff) {
+      if (!total && !unloaded.length && !old.length && !changed.length) out('uncovered: none')
+      else if (diff) {
         const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
         out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
       } else if (rest[0]) out(`${total} uncovered ranges in ${files[0]}`)
@@ -520,9 +520,6 @@ const main = async (args: string[]): Promise<number> => {
               : ''),
         )
       if (notMeasured) out(`${notMeasured} ranges with a "ubq: not measured:" comment are not in this list`)
-      // The list is for the runs of more than one environment.
-      const envs = environments(db)
-      if (envs.length > 1) out(`coverage of: ${envs.join(', ')}`)
       // One run cannot run such code. The reader must know the way.
       if (elsewhere)
         out(
