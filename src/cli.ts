@@ -71,7 +71,7 @@ const USAGE = `usage:
   ubq '<test id>'            run one test, or all tests of a group
   ubq --failed               run the tests that failed in their last run
   ubq --changed              run the tests that ran code that has changed, and new test files
-  ubq --update <file or test id>...  run these tests and write their snapshots (assert.snapshot)
+  ubq --update [file or test id]...  run these tests, or all tests, and write their snapshots (assert.snapshot)
   ubq --seed <n> ...         run the test files in the order of an older run (the files run in a random order)
   ubq --repeat <n> ...       run the selected tests n times, and count the failures of each test
   ubq --max-time <ms> ...    stop the run after that time: each file that did not end is an error
@@ -89,9 +89,10 @@ const USAGE = `usage:
   ubq mutate --diff          a mutation check of the lines that differ from the last git commit (--diff=<commit>: from that commit)
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
   ubq server                 starts a background server that makes runs faster: it keeps test processes ready. ubq server stop stops it
+  ubq --version              the version of ubq
   ubq guide                  how to write and run tests, for the installed version
   ubq guide convert          how to move a project from a different test tool to ubq
-  ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
+  ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, bun:test, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
   ubq check                  checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each line that differs from the last git commit ran in a test (--diff=<commit>: from that commit). On a pass, it lists the changes to the tests to look at: put its output at the end of your last message. --hook: as the stop hook of a coding agent
@@ -155,6 +156,12 @@ const main = async (args: string[]): Promise<number> => {
     process.stderr.write(`note: "${command}" is a ubq command. To run the tests in ./${command}: ubq run ${command}\n`)
   if (command === 'help' || command === '--help' || command === '-h') {
     out(USAGE.trimEnd())
+    return 0
+  }
+  if (command === '--version') {
+    // package.json is at the package root. The bundle is there too.
+    const path = import.meta.url.endsWith('.ts') ? '../package.json' : './package.json'
+    out((JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as { version: string }).version)
     return 0
   }
   if (command === 'guide') {

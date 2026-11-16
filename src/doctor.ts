@@ -139,8 +139,9 @@ export const doctor = (out: (text: string) => void): number => {
     const about =
       'this project has tests of a Cloudflare Worker (a test file imports from \'cloudflare:\', or the project has the vitest plugin for Workers). They must run in the Workers runtime, which needs the "workers" key of the ubq configuration.'
     // `ubq convert` writes the key. A person who adds it by hand
-    // first does the work two times.
-    if (vitest) fix(`${about} Do not add it by hand: "ubq convert" writes it to package.json, from ${vitest.file}.`)
+    // first does the work two times. It is not a problem now.
+    if (vitest)
+      out(`note ${about} Do not add it by hand: "ubq convert" writes it to package.json, from ${vitest.file}.`)
     else
       fix(
         `${about} Add to "ubq" in package.json, and check the path of each wrangler config and the globs of its test files:\n${JSON.stringify({ workers: entries }, null, 2)}`,
@@ -186,13 +187,12 @@ export const doctor = (out: (text: string) => void): number => {
     }
     if (options) {
       const reasons = {
-        allowImportingTsExtensions: 'A test file imports a file with the .ts extension.',
+        allowImportingTsExtensions: 'The guides import files with the .ts extension.',
         erasableSyntaxOnly:
           'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
       }
-      const tsImport = sources.some(source => /from\s+['"]\.{1,2}\/[^'"]*\.[cm]?tsx?['"]/.test(source))
       const missing = (['allowImportingTsExtensions', 'erasableSyntaxOnly'] as const).filter(
-        key => options[key] !== true && (key === 'erasableSyntaxOnly' || tsImport),
+        key => options[key] !== true,
       )
       if (missing.length)
         fix(

@@ -103,7 +103,7 @@ describe('g', () => {
     '    assert.deepEqual(f(), { a: 1 })',
     '    assert.notEqual(f().a, 2)',
     '    assert(!(a || b))',
-    '    assert(![1].includes(2))',
+    '    assert.notContains([1], 2)',
     '    assert.throws(() => f(), /bad \\(x\\)/)',
     '    await assert.rejects(p, TypeError)',
     '    assert.equal(await p, 1)',
@@ -174,7 +174,7 @@ t.test('load', async t => {
   )
   const dry = p.ubq('convert', '--dry', 'old.ts')
   assert.deepEqual(dry.out.split('\n').slice(0, 2), [
-    'converted old.ts (tap): 9 changes, 0 TODO',
+    'to convert old.ts (tap): 9 changes, 0 TODO',
     'convert: 1 files to change, 0 TODO comments',
   ])
   assert.match(readFileSync(file, 'utf8'), /from 'tap'/)
@@ -222,15 +222,17 @@ describe('group', () => {
     expect(1.234).toBeCloseTo(1.23)
     expect(o).not.toHaveProperty('k')
     expect(o).toHaveProperty('a.b')
-    f.mockRestore()
     vi.restoreAllMocks()
+    expect(g.mock.calls.length).toBe(0)
+    f.mockRestore()
   })
 })
 `)
   assert(r)
   const todo = (text: string): string => `// TODO(ubq): ${text}`
-  const restore = todo(
-    'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
+  // ubq has no vi, and a spy of ubq has no mockRestore: no call stays.
+  const restored = todo(
+    'The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
   )
   assert.deepEqual(r.code, [
     "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
@@ -260,9 +262,54 @@ describe('group', () => {
         'ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
       ),
     "    expect(o).toHaveProperty('a.b')",
-    '    ' + restore,
-    '    f.mockRestore()',
+    '    ' + restored,
+    '    assert.equal(g.calls.length, 0)',
     '  })',
+    '})',
+  ])
+})
+
+test('vitest: a wrapped subject stays wrapped, and a spy body that moves keeps its indent', () => {
+  const r = convert(`import { expect, it, vi } from 'vitest'
+
+it('a', async () => {
+  const spy = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async (input, init) => {
+      const req = new Request(input, init)
+      return new Response(\`a
+    b\`)
+    })
+  spy.mockRestore()
+  expect(
+    parsePatch('x'),
+  ).toMatchObject([
+    { path: 'e' },
+  ])
+  expect(
+    await page.text(),
+  ).toContain('hello')
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code.slice(2), [
+    "test('a', async () => {",
+    "  const spy = spyOn(globalThis, 'fetch', async (input, init) => {",
+    '    const req = new Request(input, init)',
+    '    return new Response(`a',
+    '    b`)',
+    '  })',
+    '  // TODO(ubq): The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
+    '  assert.match(',
+    "    parsePatch('x'),",
+    '    [',
+    "      { path: 'e' },",
+    '    ],',
+    '  )',
+    '  assert.contains(',
+    '    await page.text(),',
+    "    'hello',",
+    '  )',
     '})',
   ])
 })
@@ -320,10 +367,10 @@ it('a', () => {
     "import { assert, test } from 'ubqtest'",
     "test('a', () => {",
     '  assert(!text.match(/re/))',
-    "  assert(row.tags.includes('x'))",
-    "  assert(rows[0]?.includes('x'))",
-    "  assert((a?.b)?.includes('x'))",
-    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    "  assert.contains(row.tags, 'x')",
+    "  assert.contains(rows[0], 'x')",
+    "  assert.contains(a?.b, 'x')",
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
     '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
     '  assert.match(last, { content: /a\\.b/ })',
     '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
@@ -425,13 +472,15 @@ export default defineConfig({
     },
     { config: 'second/wrangler.test.jsonc', include: ['second/test/**/*.test.ts'] },
   ]
-  // doctor says that the conversion writes the key.
+  // doctor says that the conversion writes the key. It is a note,
+  // not a problem.
   writeFileSync(join(p.dir, 'worker/test/a.test.ts'), "import { env } from 'cloudflare:test'\n" + old)
-  assert(
-    p
-      .ubq('doctor')
-      .out.includes('Do not add it by hand: "ubq convert" writes it to package.json, from vitest.config.ts.\n'),
+  const doctor = p.ubq('doctor')
+  assert.match(
+    doctor.out,
+    /\nnote this project has tests of a Cloudflare Worker .* Do not add it by hand: "ubq convert" writes it to package\.json, from vitest\.config\.ts\.\n/,
   )
+  assert.notContains(doctor.out, 'FIX  this project has tests of a Cloudflare Worker')
   writeFileSync(join(p.dir, 'worker/test/a.test.ts'), old)
 
   assert.deepEqual(p.ubq('convert', 'worker', 'second').out.split('\n').slice(2, -2), [
@@ -488,11 +537,11 @@ beforeEach(() => again())
   // A helper with no tests: its name is not a problem.
   writeFileSync(join(p.dir, 'old/helper.ts'), "import { vi } from 'vitest'\nexport const fake = () => vi.fn()\n")
   assert.deepEqual(p.ubq('convert', '--dry', 'old').out.split('\n'), [
-    'converted old/a.test.ts (vitest): 2 changes, 3 TODO',
+    'to convert old/a.test.ts (vitest): 2 changes, 3 TODO',
     '  old/a.test.ts:2  [1] ubq has no hooks.',
     '  old/a.test.ts:4  [2] Give the reason:',
     '  old/a.test.ts:6  [1] ubq has no hooks.',
-    'converted old/helper.ts (vitest): 2 changes, 0 TODO',
+    'to convert old/helper.ts (vitest): 2 changes, 0 TODO',
     'hints:',
     '  [1] ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
     "  [2] Give the reason: { skip: 'the reason' }.",
@@ -587,7 +636,7 @@ test('a Workers project with no vitest config, and one whose package.json is not
   assert(p.ubq('convert', 'w.test.ts').out.includes(`\nadd to "ubq" in package.json, from vitest.config.ts: ${key}\n`))
 })
 
-test('tap: the scripts test and snap of package.json become test and test:update', () => {
+test('tap: the scripts test and snap of package.json become ubq and ubq --update', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   mkdirSync(join(p.dir, 'test'))
@@ -596,28 +645,33 @@ test('tap: the scripts test and snap of package.json become test and test:update
     writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', scripts }, null, 2) + '\n')
   const scripts = () =>
     (JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts
-  const line = 'changed the scripts of package.json: "test": "ubq", "test:update": "ubq"'
+  const line = 'changed the scripts of package.json: "test": "ubq", "snap": "ubq --update"'
 
   // --dry changes no file.
   pkg({ lint: 'eslint', test: 'tap', snap: 'tap' })
   assert(
     p
       .ubq('convert', '--dry', 'test')
-      .out.includes(`\nto change the scripts of package.json: "test": "ubq", "test:update": "ubq"\n`),
+      .out.includes(`\nto change the scripts of package.json: "test": "ubq", "snap": "ubq --update"\n`),
   )
   assert.deepEqual(scripts(), { lint: 'eslint', test: 'tap', snap: 'tap' })
-  // The new script takes the place of the old one.
   assert(p.ubq('convert', 'test').out.includes(`\n${line}\n`))
   assert.deepEqual(Object.entries(scripts()), [
     ['lint', 'eslint'],
     ['test', 'ubq'],
-    ['test:update', 'ubq'],
+    ['snap', 'ubq --update'],
   ])
   // The name snapshot, and both names.
   writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
   pkg({ test: 'tap', snapshot: 'tap', snap: 'tap' })
-  assert(p.ubq('convert', 'test').out.includes(`\n${line}\n`))
-  assert.deepEqual(scripts(), { test: 'ubq', 'test:update': 'ubq' })
+  assert(
+    p
+      .ubq('convert', 'test')
+      .out.includes(
+        '\nchanged the scripts of package.json: "test": "ubq", "snap": "ubq --update", "snapshot": "ubq --update"\n',
+      ),
+  )
+  assert.deepEqual(scripts(), { test: 'ubq', snapshot: 'ubq --update', snap: 'ubq --update' })
   // Scripts with other commands do not change.
   writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
   pkg({ test: 'tap --coverage-report=text', snap: 'tap' })

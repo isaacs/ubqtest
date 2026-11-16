@@ -127,6 +127,8 @@ assert.equal(actual, expected, message?)       // asserts actual is typeof expec
 assert.notEqual(actual, expected, message?)
 assert.deepEqual(actual, expected, message?)
 assert.match(actual, pattern, message?)
+assert.contains(actual, expected, message?)
+assert.notContains(actual, expected, message?)
 assert.throws(fn, expected, message?)          // returns the Error
 await assert.rejects(promise, expected, message?)  // resolves to the Error
 await assert.eventually(fn, pattern, message?) // as match; calls fn until it matches, 2000 ms at most
@@ -141,6 +143,8 @@ assert.fail(message)                           // returns never
 | `notEqual` | not `Object.is(actual, expected)`. |
 | `deepEqual` | same structure, same values, same prototypes. The rules of `assert.deepStrictEqual` in Node. |
 | `match` | `actual` has the shape of `pattern`. See below. |
+| `contains` | the text `actual` has the text `expected` in it, or an element of the iterable `actual` is `expected` (by the rule of `Array.prototype.includes`). `null` and `undefined` fail. A failure shows the text, or the part of long text near the longest start of `expected` that it has. |
+| `notContains` | the opposite of `contains`. `null` and `undefined` fail. |
 | `throws` | `fn` throws an error that fits `expected`. |
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
 
@@ -191,11 +195,8 @@ older run saved (D31).
   the test: `parse > circle 1`.
 - A value with no saved text fails. A plain run never writes the
   file. `ubq --update <file>` or `ubq --update '<test id>'` runs
-  the named tests and writes their snapshots. `--update` with no
-  test is an error.
-- When npm starts ubq for the script `test:update`
-  (`npm_lifecycle_event`), `--update` is on, and a run of all
-  tests writes all snapshots (D59).
+  the named tests and writes their snapshots. `ubq --update` with
+  no test runs all tests and writes all snapshots (D76).
 - An update of one test keeps the entries of the other tests. An
   entry of a test that the file no longer has is removed.
 - The failure shows the lines that differ, and the command that

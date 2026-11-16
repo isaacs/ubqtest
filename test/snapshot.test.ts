@@ -1,9 +1,8 @@
 // Snapshots: assert.snapshot and ubq --update.
-import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, env, test } from 'ubqtest'
-import { cli, project } from './setup.ts'
+import { project } from './setup.ts'
 
 test('a snapshot fails until --update writes it, and then compares text', () => {
   const p = project()
@@ -114,16 +113,19 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
     [false, true, true],
   )
 
-  // An update needs the tests by name.
-  const usage =
-    "ubq: --update needs the tests whose snapshots it writes, and no other option: ubq --update <file>, or ubq --update '<test id>'\n"
+  // An update takes no other option.
+  const usage = "ubq: --update takes no other option: ubq --update, ubq --update <file>, or ubq --update '<test id>'\n"
   assert.deepEqual(
-    [p.ubq('--update').err, p.ubq('--update', '--failed').err, p.ubq('--update').code],
+    [
+      p.ubq('--update', '--failed').err,
+      p.ubq('--update', '--repeat', '2', 'snap.ts').err,
+      p.ubq('--update', '--failed').code,
+    ],
     [usage, usage, 4],
   )
 })
 
-test('the npm script test:update writes snapshots, of all tests if it names none', () => {
+test('ubq --update with no file writes the snapshots of all tests', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   writeFileSync(
@@ -134,31 +136,13 @@ test('the npm script test:update writes snapshots, of all tests if it names none
     join(p.dir, 'b.test.ts'),
     "import { assert, test } from 'ubqtest'\ntest('b', () => assert.snapshot('B'))\n",
   )
-  /** A run as npm starts it for the script `script`. */
-  const npm = (script: string, ...args: string[]) => {
-    const r = spawnSync('node', [cli, ...args], {
-      cwd: p.dir,
-      encoding: 'utf8',
-      env: { ...process.env, CI: '', npm_lifecycle_event: script },
-    })
-    return (r.stdout + r.stderr)
-      .replace(/ \(run \d+\)\n$/, '')
-      .trimEnd()
-      .split('\n')
-  }
-  // The script test does not write.
-  assert.equal(npm('test').at(-1), 'fail: 2 failed, 0 passed')
-  // test:update with a file writes the snapshots of that file.
-  assert.deepEqual(npm('test:update', 'a.test.ts'), [
-    'updated 1 snapshots: ubq-snapshots/a.test.ts.snap',
-    'pass: 0 failed, 1 passed',
-  ])
-  // With no file, it writes the snapshots of all tests.
-  assert.deepEqual(npm('test:update'), [
-    'updated 1 snapshots: ubq-snapshots/b.test.ts.snap',
-    'pass: 0 failed, 2 passed',
-  ])
-  assert.equal(npm('test').at(-1), 'pass: 0 failed, 2 passed')
-  // An option that does not go with an update is still an error.
-  assert.match(npm('test:update', '--failed')[0]!, /^ubq: --update needs the tests whose snapshots it writes/)
+  // A run with no --update does not write.
+  assert.equal(p.ubq().last, 'fail: 2 failed, 0 passed')
+  assert.equal(p.ubq('--update', 'a.test.ts').out.split('\n')[0], 'updated 1 snapshots: ubq-snapshots/a.test.ts.snap')
+  const all = p.ubq('--update')
+  assert.deepEqual(
+    [all.out.split('\n')[0], all.last],
+    ['updated 1 snapshots: ubq-snapshots/b.test.ts.snap', 'pass: 0 failed, 2 passed'],
+  )
+  assert.equal(p.ubq().last, 'pass: 0 failed, 2 passed')
 })

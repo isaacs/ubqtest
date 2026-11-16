@@ -371,6 +371,9 @@ fake time, which is hard to understand.
 
 ## D31. Snapshots: `assert.snapshot`, one file for each test file, explicit update (user, 2026-11-12)
 
+D76 changes this decision: `ubq --update` with no test writes all
+snapshots.
+
 `assert.snapshot(value)` compares with saved text. Each test file
 has one snapshot file, as in tap. Only `ubq --update` with the
 names of tests writes it.
@@ -1270,6 +1273,9 @@ cost is one more run only for such a change.
 
 ## D59. The npm script `test:update` writes snapshots (user, 2026-11-13)
 
+D76 replaces this decision: ubq does not read the name of the npm
+script.
+
 When `npm_lifecycle_event` is `test:update`, the run has
 `--update`. The guides suggest `"scripts": { "test": "ubq",
 "test:update": "ubq" }`. `ubq convert` changes the tap scripts
@@ -1764,3 +1770,36 @@ result faster in color.
   color. Red and cyan are different for more people.
 - **Not in data for a program.** GitHub annotations, the summary of
   a step, and the JSON of `ubq check --hook` have no color.
+
+## D76. `ubq --update` with no test writes all snapshots; no npm script switch (user, 2026-11-16)
+
+- **No switch.** ubq does not read `npm_lifecycle_event`. Two
+  scripts with the same command (`"test": "ubq"` and
+  `"test:update": "ubq"`) that do different work surprised an
+  agent. A project that wants a script for the update writes
+  `ubq --update` in it, with the name that it likes.
+- **`ubq --update` with no test** runs all tests and writes all
+  snapshots, as the `test:update` script did. With other options
+  (`--failed`, `--repeat`) it is still an error.
+- **`ubq convert`** changes the tap scripts `"snap": "tap"` and
+  `"snapshot": "tap"` to `"ubq --update"`, and keeps their names.
+
+## D77. `assert.contains` and `assert.notContains` (user, 2026-11-16)
+
+`assert(text.includes(x))` fails with "expected a truthy value, got
+false". The reader cannot see the text, and adds a `console.log`
+to see it. Agents asked for a better form two times.
+
+- **What.** `assert.contains(actual, expected)` passes if the text
+  `actual` has the text `expected` in it, or if an element of the
+  iterable `actual` is `expected` (the rule of
+  `Array.prototype.includes`). `assert.notContains` is the
+  opposite.
+- **The failure** shows the text or the elements. In text longer
+  than 400 characters, it shows the 400 characters near the
+  longest start of `expected` that the text has, and says where
+  they are.
+- **Types.** `null` and `undefined` are accepted, and fail. A
+  value from an index or an optional chain needs no `?.` or `!`.
+- **`ubq convert`** changes `toContain`, `not.toContain`, and
+  `toMatch` with text to these.

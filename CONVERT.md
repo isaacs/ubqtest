@@ -11,8 +11,7 @@ has the API and the rules of ubq.
    down the count of tests that pass, and each test that fails or
    is skipped. You compare with this at the end.
 2. **Install.** `npm install --save-dev ubqtest`. Then `npx ubq
-   doctor`, and do each `FIX` line. A line that says that `ubq
-   convert` does the work needs no action in this step.
+   doctor`, and do each `FIX` line. A `note` line needs no action.
 3. **Convert.** `npx ubq convert test` (give the folders and files
    that have tests). `--dry` shows the report and changes no file.
    The command changes the files in place. Make sure that `git
@@ -32,7 +31,7 @@ has the API and the rules of ubq.
    step 1, or you must know the reason for each difference. A
    test that passed before and is skipped or removed now is a
    defect of the conversion.
-7. **Clean up.** Set `"test": "ubq"` and `"test:update": "ubq"`
+7. **Clean up.** Set `"test": "ubq"`
    in the `scripts` of `package.json`. Remove the old test tool, its plugins, and its
    configuration (`.taprc`, `vitest.config.*`, `jest.config.*`,
    `.mocharc.*`, `c8` and `nyc` settings), and the entries for
@@ -66,8 +65,8 @@ project. It changes `package.json` in two cases:
   `workers` key of the ubq configuration, if the key is not there.
 - If the scripts are `"test": "tap"` and `"snap": "tap"` (or
   `"snapshot": "tap"`), they become `"test": "ubq"` and
-  `"test:update": "ubq"`. `npm run test:update` writes snapshots,
-  as `npm run snap` did with tap.
+  `"snap": "ubq --update"`. `npm run snap` writes snapshots, as it
+  did with tap.
 
 The report has one line for each TODO, with the number of a hint.
 The full text of each hint is below the files, one time.
@@ -157,9 +156,8 @@ Things to check by hand:
   them.
 - **Snapshots.** tap keeps them in `tap-snapshots/`. ubq keeps
   them in `ubq-snapshots/`, in a different form. When the tests
-  pass with the old tool, run `npx ubq --update <file>` for each
-  file with `assert.snapshot` (or `npm run test:update`), read the
-  new files, and remove `tap-snapshots/`.
+  pass with the old tool, run `npx ubq --update`, read the new
+  files, and remove `tap-snapshots/`.
 - **`t.skip`, `{ skip: true }`, `{ todo: true }`.** Give the
   reason as text: `test(name, { skip: 'needs a GPU' }, fn)`.
 - **Coverage settings.** tap fails a run with less than full
@@ -198,9 +196,11 @@ Things to check by hand:
 - **`before`, `after`, `beforeEach`, `afterEach`.** See "Hooks".
 - **`mock.timers`.** Use `fakeClock`.
 
-## vitest and jest
+## vitest, jest, and bun:test
 
-| vitest, jest | ubq |
+`bun:test` has the `expect` of jest. This table is for it too.
+
+| vitest, jest, bun:test | ubq |
 | --- | --- |
 | `it`, `test` | `test` |
 | `expect(a).toBe(b)` | `assert.equal(a, b)` |
@@ -208,8 +208,8 @@ Things to check by hand:
 | `expect(a).not.toBe(b)` | `assert.notEqual(a, b)` |
 | `toBeTruthy()`, `toBeFalsy()` | `assert(a)`, `assert(!a)` |
 | `toBeNull()`, `toBeUndefined()`, `toBeDefined()` | `assert.equal(a, null)`, `assert.equal(a, undefined)`, `assert.notEqual(a, undefined)` |
-| `toContain(b)`, `toHaveLength(n)` | `assert(a.includes(b))`, `assert.equal(a.length, n)` |
-| `toMatch(/re/)`, `toMatch('text')` | `assert.match(a, /re/)`, `assert(a.includes('text'))` |
+| `toContain(b)`, `not.toContain(b)`, `toHaveLength(n)` | `assert.contains(a, b)`, `assert.notContains(a, b)`, `assert.equal(a.length, n)` |
+| `toMatch(/re/)`, `toMatch('text')` | `assert.match(a, /re/)`, `assert.contains(a, 'text')` |
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
 | `toBeGreaterThan(b)` and the other comparisons | `assert(a > b)` |
@@ -268,12 +268,14 @@ Things to check by hand:
 - **`fn.mock.calls[0]`** is `fn.calls[0]?.args`.
   `fn.mock.results[0].value` is `fn.calls[0]?.result`.
 - **`vi.restoreAllMocks()`, `mockRestore()`.** A `spyOn` spy goes
-  back when its test ends. The command removes a hook that only
-  restores, and a call at the end of a test. If a helper of the
-  project gives a restore function (`restore = m.restore`, with
+  back when its test ends. ubq has no call that puts the method
+  back before that. The command removes a hook that only
+  restores, and each call. A call that is not at the end of a
+  test gets a TODO: if the code after it needs the real method,
+  move that code to a new test. If a helper of the project gives
+  a restore function (`restore = m.restore`, with
   `afterEach(() => restore())`), delete the hook and each
-  assignment. Remove the other calls. ubq has no call that puts
-  the method back before the test ends.
+  assignment.
 - **`vi.useFakeTimers()`, `vi.advanceTimersByTime(ms)`.**
   `const clock = fakeClock({ now: 0 })`, then `await
   clock.tick(ms)`. The clock goes back when the test ends.
@@ -296,7 +298,9 @@ Things to check by hand:
   and is not in `vars`: `migrate` does that work. If the project
   has a copy of its wrangler config for the tests, which leaves
   out `containers` or a service binding, the copy is not
-  necessary: ubq loads a config with them. If a setup file of the config only
+  necessary: ubq loads a config with them. A service binding to
+  a Worker that is not this one answers `fetch` with 503. A test
+  that checks that status can need a change. If a setup file of the config only
   applied D1 migrations, the command adds `await migrate('DB')`
   to each test file of that project, and says that the setup file
   can go. The command also changes these names of

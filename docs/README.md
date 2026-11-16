@@ -6,7 +6,7 @@ Read this file first. Open only the documents that the task needs.
 | --- | --- | --- |
 | `00-initial-prompt.md` | Project goals and constraints, from the user. | You need the reason for a design goal. |
 | `01-agent-ideation.md` | What agents need from a test tool: 12 problem areas, a priority list, risks, open questions. | You design a feature, an output format, or a CLI command. |
-| `02-decisions.md` | Decision records D1 to D75: coverage, strict rules, weaker-model guardrails, wire format, transport, isolation, Bun, speed goal, name (`ubq`), API shape, `testdir`. | Before you design or change anything. A decision there overrides an idea in `01`. |
+| `02-decisions.md` | Decision records D1 to D77: coverage, strict rules, weaker-model guardrails, wire format, transport, isolation, Bun, speed goal, name (`ubq`), API shape, `testdir`. | Before you design or change anything. A decision there overrides an idea in `01`. |
 | `03-measurements.md` | Measured costs: coverage, process start, other frameworks, prototype, transport, SQLite, hangs, runtime support, Bun coverage options. | You need a number, or you doubt a design choice. |
 | `04-architecture.md` | The architecture plan: parts, process model, events, coverage, store, selection, hangs, speed budget, build order, open questions. | You start any implementation work. |
 | `05-api.md` | The test file API (accepted): `test`, `describe`, `assert`, mocks, spies, fixtures, and what is absent on purpose. | You write a test, or you implement the core library. |
@@ -19,6 +19,7 @@ Read this file first. Open only the documents that the task needs.
 | `13-agent-feedback-0.0.4.md` | The second report of the same agent, on ubq 0.0.4: one of two Workers converted, and what stopped the other. | You work on Workers tests or on `ubq convert`. |
 | `14-agent-feedback-0.0.5.md` | The third report, on ubq 0.0.5: the conversion is complete, with a list of the hand work that a less able model can get wrong. | You work on `ubq convert` or `ubq doctor`. |
 | `15-agent-feedback-0.0.6.md` | The fourth report, on ubq 0.0.6: a smooth conversion, with polish for `ubq doctor`, the report of `ubq convert`, and the guide. | You work on `ubq convert` or `ubq doctor`. |
+| `16-agent-feedback-0.0.14.md` | A report on ubq 0.0.14: a vitest Workers project with 225 tests, converted. It led to `assert.contains` (D77), `ubq --update` with no test (D76), and fixes to the layout of `ubq convert`. | You work on `ubq convert`, `ubq doctor`, or assertions. |
 | `store.md` | The tables and columns of the store (`.ubq/runs.db`), with example queries for `ubq sql`. | You write a query for `ubq sql`, or you change the tables in `src/store.ts`. |
 | `api.md` | Each export of the package with its type and doc comment. Made by `npm run docs` from the type declarations. | You need the exact type of an export. Do not change it by hand. |
 | `09-questions.md` | Points that wait for a decision from the user, with options. | You look for work that is not blocked, or the user is present. |

@@ -66,6 +66,16 @@ export interface Assert {
    */
   match<T, const P extends Pattern<T>>(actual: T, pattern: P, message?: string): void
   /**
+   * Passes if the text `actual` has the text `expected` in it, or if
+   * an element of the iterable `actual` is `expected`. Fails on null
+   * and undefined.
+   */
+  contains(actual: string | null | undefined, expected: string, message?: string): void
+  contains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void
+  /** The opposite of `contains`. Fails on null and undefined. */
+  notContains(actual: string | null | undefined, expected: string, message?: string): void
+  notContains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void
+  /**
    * Passes if `fn` throws an error that fits `expected`: a RegExp
    * tests the message, a class tests `instanceof`, an object is a
    * `match` pattern. Returns the error.
@@ -194,6 +204,77 @@ const mustAwait = <T>(state: TestState | undefined, run: () => Promise<T>): Prom
   return result
 }
 
+/**
+ * The index of `expected` in the text or the iterable `actual`, or
+ * -1. Undefined if `actual` is not text and not an iterable.
+ */
+const find = (actual: unknown, expected: unknown): number | undefined => {
+  if (typeof actual === 'string') return actual.indexOf(String(expected))
+  if (actual == null || typeof (actual as Iterable<unknown>)[Symbol.iterator] !== 'function') return undefined
+  // The same test as Array.prototype.includes: NaN finds NaN.
+  return [...(actual as Iterable<unknown>)].findIndex(v => v === expected || (v !== v && expected !== expected))
+}
+
+const WINDOW = 400
+
+/** Long text shows only the part near `at`, so that a failure shows the place. */
+const excerpt = (text: string, at: number, note: string[]): string => {
+  if (text.length <= WINDOW) return show(text)
+  const from = Math.max(0, Math.min(at - WINDOW / 4, text.length - WINDOW))
+  note.push(`this is characters ${from} to ${from + WINDOW} of ${text.length}`)
+  return show(text.slice(from, from + WINDOW))
+}
+
+/** The failure of contains or notContains. */
+const containsFailure = (
+  state: TestState,
+  assertion: string,
+  actual: unknown,
+  expected: unknown,
+  at: number | undefined,
+  message: string | undefined,
+): never => {
+  if (at === undefined) return fail(state, assertion, `expected text or an iterable, got ${show(actual)}`, message)
+  const not = assertion === 'notContains'
+  const note: string[] = []
+  let shown = show(actual)
+  if (typeof actual === 'string') {
+    if (!not) {
+      // The longest start of the expected text that the text has.
+      const wanted = String(expected)
+      let length = 0
+      for (let hi = wanted.length; length < hi;) {
+        const mid = (length + hi + 1) >> 1
+        if (actual.includes(wanted.slice(0, mid))) length = mid
+        else hi = mid - 1
+      }
+      at = actual.indexOf(wanted.slice(0, length))
+      if (length) note.push(`the first ${length} characters of the expected text are at index ${at}`)
+    }
+    shown = excerpt(actual, at, note)
+  }
+  const text = typeof actual === 'string'
+  return fail(
+    state,
+    assertion,
+    text
+      ? `expected the text ${not ? 'not ' : ''}to contain the expected text${not ? `, it is at index ${at}` : ''}`
+      : `expected ${not ? 'no' : 'an'} element that is the expected value${not ? `, it is at index ${at}` : ''}`,
+    message,
+    {
+      diffs: [
+        {
+          path: '',
+          actual: shown,
+          expected: show(expected),
+          ...(note.length && { note: note.join('; ') }),
+        },
+      ],
+      more: 0,
+    },
+  )
+}
+
 const assertFn = (value: unknown, message?: string): void => {
   const state = begin()
   if (state && !value) fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message)
@@ -237,6 +318,16 @@ const methods = {
         actual,
         expected: pattern,
       })
+  },
+  contains(actual: unknown, expected: unknown, message?: string): void {
+    const state = begin()
+    const at = find(actual, expected)
+    if (state && !(at! >= 0)) containsFailure(state, 'contains', actual, expected, at, message)
+  },
+  notContains(actual: unknown, expected: unknown, message?: string): void {
+    const state = begin()
+    const at = find(actual, expected)
+    if (state && at !== -1) containsFailure(state, 'notContains', actual, expected, at, message)
   },
   throws(fn: () => unknown, expected: ErrorMatch, message?: string): Error {
     checkExpected('throws', expected)

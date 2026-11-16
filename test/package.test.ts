@@ -154,7 +154,7 @@ test('ubq skill, ubq convert, and ubq review from the package', () => {
   cleanup(() => remove(join(dir, 'v.test.ts')))
   assert.equal(
     sh('node', ubq, 'convert', '--dry', 'v.test.ts').lines[0],
-    'converted v.test.ts (vitest): 2 changes, 0 TODO',
+    'to convert v.test.ts (vitest): 2 changes, 0 TODO',
   )
 })
 
@@ -215,9 +215,11 @@ test('docs/api.md is current', () => {
   assert.deepEqual([r.status, r.stderr], [0, ''])
 })
 
-test('the guide and the doctor of the package', () => {
+test('the guide, the version, and the doctor of the package', () => {
   const ubq = join(built, 'cli.js')
   assert.equal(sh('node', ubq, 'guide').lines[0], '# ubq guide')
+  const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }
+  assert.deepEqual(sh('node', ubq, '--version').lines, [version])
   assert.equal(sh('node', ubq, 'doctor').lines.at(-1), 'doctor: 0 problems')
 })
 

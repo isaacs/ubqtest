@@ -68,13 +68,13 @@ $ npx ubq
 pass: 0 failed, 2 passed (run 1)
 ```
 
-Put these scripts in `package.json`:
+Put this script in `package.json`:
 
 ```json
-"scripts": { "test": "ubq", "test:update": "ubq" }
+"scripts": { "test": "ubq" }
 ```
 
-`npm test` runs the tests. `npm run test:update` runs them and
+`npm test` runs the tests. `npx ubq --update` runs them and
 writes the snapshots of `assert.snapshot`.
 
 A failure:

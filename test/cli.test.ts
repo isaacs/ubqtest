@@ -1,6 +1,6 @@
 // The command line: help, and the message for each wrong command.
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { cli, project } from './setup.ts'
@@ -16,6 +16,10 @@ test('help, and the error of each command with a wrong or absent argument', { ti
     const r = p.ubq(flag)
     assert.deepEqual([r.code, r.out.split('\n')[0], r.out.includes('\n  ubq uncovered [file]')], [0, 'usage:', true])
   }
+  const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+    version: string
+  }
+  assert.deepEqual([p.ubq('--version').code, p.ubq('--version').out], [0, `${version}\n`])
   // The help names each agent that `ubq skill <agent>` knows.
   assert.match(p.ubq('help').out, /named agent \(claude, cursor, gemini, copilot, codex, antigravity, agents\)\n/)
   // A command that reads the store, with no store.

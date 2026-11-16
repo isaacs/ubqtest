@@ -182,9 +182,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **Mutate reruns** (D58). A change that only a file error or a
   timeout killed runs again, and counts as killed only if it fails
   again.
-- **`npm run test:update`** (D59) writes snapshots. The guides
-  suggest the scripts `test` and `test:update`, and `ubq convert`
-  changes the tap scripts `snap` and `snapshot` to `test:update`.
+- **`ubq --update`** with no test writes all snapshots (D76).
+  `ubq convert` changes the tap scripts `snap` and `snapshot` to
+  `ubq --update`.
 - **Release job.** The `stage` job does not run the tests. The CI
   workflow runs them, and a maintainer approves the staged version
   only if CI passed.
@@ -286,6 +286,12 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **Color at a terminal** (D75). `FAIL`, `ERROR`, `TYPE`,
   `SURVIVED`, and `fail` are red, and `pass` is cyan. Not in CI, with
   `NO_COLOR`, or with `FORCE_COLOR=0`.
+
+- **`assert.contains` and `assert.notContains`** (D77). A failure
+  shows the text or the elements. `ubq convert` changes
+  `toContain` and `toMatch` with text to them.
+
+- **`ubq --version`** prints the version of the package.
 
 - **One error for a file that throws.** A test file that throws
   before its first test has its error, and no second error that

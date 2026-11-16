@@ -47,7 +47,7 @@ for (const f of values.framework!)
 
 /** What a project of each test tool has in package.json. */
 const PACKAGE: Record<Framework, object> = {
-  ubq: { scripts: { test: 'ubq', 'test:update': 'ubq' }, devDependencies: { ubqtest: '*' } },
+  ubq: { scripts: { test: 'ubq' }, devDependencies: { ubqtest: '*' } },
   vitest: { scripts: { test: 'vitest run' }, devDependencies: { vitest: '*' } },
   'node-test': { scripts: { test: 'node --test "test/**/*.test.ts"' } },
 }

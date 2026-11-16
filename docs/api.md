@@ -197,6 +197,16 @@ interface Assert {
      */
     match<T, const P extends Pattern<T>>(actual: T, pattern: P, message?: string): void;
     /**
+     * Passes if the text `actual` has the text `expected` in it, or if
+     * an element of the iterable `actual` is `expected`. Fails on null
+     * and undefined.
+     */
+    contains(actual: string | null | undefined, expected: string, message?: string): void;
+    contains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void;
+    /** The opposite of `contains`. Fails on null and undefined. */
+    notContains(actual: string | null | undefined, expected: string, message?: string): void;
+    notContains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void;
+    /**
      * Passes if `fn` throws an error that fits `expected`: a RegExp
      * tests the message, a class tests `instanceof`, an object is a
      * `match` pattern. Returns the error.

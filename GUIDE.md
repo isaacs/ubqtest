@@ -58,16 +58,15 @@ prints a note. `ubq run <paths>` treats each argument as a path,
 so `ubq run diff` runs the tests in the folder `diff`. `./diff`
 also works.
 
-Put these scripts in `package.json`:
+Put this script in `package.json`:
 
 ```json
-"scripts": { "test": "ubq", "test:update": "ubq" }
+"scripts": { "test": "ubq" }
 ```
 
-`npm test` runs the tests. `npm run test:update` runs them and
-writes their snapshots: ubq turns on `--update` when npm starts
-it for the script `test:update`. `npm run test:update -- <file>`
-writes only the snapshots of that file.
+`npm test` runs the tests. `ubq --update` runs them and writes
+their snapshots. `ubq --update <file>` writes only the snapshots
+of that file.
 
 Each run also runs the type checker, if the project has
 `tsconfig.json` and the `typescript` package. Each type error is a
@@ -281,6 +280,8 @@ assert.equal(actual, expected)     // Object.is
 assert.notEqual(actual, expected)
 assert.deepEqual(actual, expected) // strict: same structure, values, prototypes
 assert.match(actual, pattern)      // RegExp for a string, or a partial object
+assert.contains(actual, expected)  // text in text, or an element of an array, Set, or other iterable
+assert.notContains(actual, expected)
 assert.throws(fn, expected)        // expected is required. Returns the error.
 await assert.rejects(promise, expected)   // resolves to the error
 await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
@@ -342,9 +343,8 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   })
   ```
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
-  saved text fails. Only `ubq --update <file or test id>`, or `npm
-  run test:update` (see "Run"), writes them. Read the new text
-  before you commit it.
+  saved text fails. Only `ubq --update [file or test id]` writes
+  them. Read the new text before you commit it.
 
 ## Names that do not exist
 

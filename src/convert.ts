@@ -89,10 +89,7 @@ const MATCHERS: Record<string, Rule> = {
   // value has no undefined in it.
   toBeDefined: 'assert(<$0> !== undefined)',
   toBeNaN: 'assert(Number.isNaN($0))',
-  // `INCLUDES` is `?.includes` for a value from an index or from an
-  // optional chain: its type has undefined in it, and expect() took
-  // all types. For other values it is `.includes`.
-  toContain: 'assert(<$0>INCLUDES($1))',
+  toContain: 'assert.contains($0, $1)',
   toHaveLength: 'assert.equal(<$0>.length, $1)',
   toMatchObject: 'assert.match($0, $1)',
   toBeInstanceOf: 'assert(<$0> instanceof $1)',
@@ -118,7 +115,7 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBe: 'assert.notEqual($0, $1)',
   toEqual: 'assert(!isDeepEqual($0, $1))',
   toStrictEqual: 'assert(!isDeepEqual($0, $1))',
-  toContain: 'assert(!<$0>.includes($1))',
+  toContain: 'assert.notContains($0, $1)',
   toBeNull: 'assert.notEqual($0, null)',
   toBeUndefined: 'assert.notEqual($0, undefined)',
   toBeDefined: 'assert.equal($0, undefined)',
@@ -173,13 +170,15 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert(list.includes(x)), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
   throwsText:
     'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
   workers:
     "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
   restore:
     'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
+  restored:
+    'The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
@@ -353,6 +352,12 @@ export const convertSource = (
 
   // --- Helpers ---
   const lineStart = (at: number): number => source.lastIndexOf('\n', at - 1) + 1
+  const indentAt = (at: number): string => /^[ \t]*/.exec(source.slice(lineStart(at), at))![0]
+  /**
+   * Text that moved to a different column: each line that starts
+   * from `start` to `end` moves by `by` spaces.
+   */
+  const shifts: { start: number; end: number; by: number }[] = []
   /** The statement that has a node in it, from the path to the node. */
   const statementOf = (path: Node[]): Node => {
     for (let i = path.length - 1; i > 0; i--) {
@@ -378,14 +383,6 @@ export const convertSource = (
    */
   const rewrite = (node: Node, rule: string, args: Node[]): Node[] => {
     // A name for the parameter of a callback that the arguments do not use.
-    if (rule.includes('INCLUDES')) {
-      const subject = args[0]!
-      const optional =
-        (subject.type === 'MemberExpression' && subject.computed) ||
-        subject.type === 'ChainExpression' ||
-        text(subject).includes('?.')
-      rule = rule.replace('INCLUDES', optional ? '?.includes' : '.includes')
-    }
     if (rule.includes('ITEM'))
       rule = rule.replaceAll(
         'ITEM',
@@ -410,6 +407,25 @@ export const convertSource = (
     if (!parts.length) {
       replace(node.start, node.end, pieces[0]!)
       return []
+    }
+    // `expect(\n  a,\n).toBe(b)` keeps one argument on each line.
+    const indent = /\n([ \t]*)$/.exec(source.slice(node.start, parts[0]!.start))?.[1]
+    if (
+      indent !== undefined &&
+      pieces[0]!.endsWith('(') &&
+      pieces.at(-1) === ')' &&
+      pieces.slice(1, -1).every(piece => piece === ', ')
+    ) {
+      pieces[0] += `\n${indent}`
+      for (let i = 1; i < parts.length; i++) {
+        pieces[i] = `,\n${indent}`
+        shifts.push({
+          start: parts[i]!.start,
+          end: parts[i]!.end,
+          by: indent.length - indentAt(parts[i]!.start).length,
+        })
+      }
+      pieces[parts.length] = `,\n${indentAt(node.start)})`
     }
     replace(node.start, parts[0]!.start, pieces[0]!)
     for (let i = 1; i < parts.length; i++) replace(parts[i - 1]!.end, parts[i]!.start, pieces[i]!)
@@ -617,6 +633,13 @@ export const convertSource = (
     // `() => {}` with an object in it is a block.
     const [before, after] =
       method !== 'mockImplementation' && value.type === 'ObjectExpression' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
+    // `vi\n  .spyOn(o, 'k')\n  .mockImplementation(f)`: f moves to the line of `vi`.
+    if (lineStart(value.start) !== lineStart(callee.start))
+      shifts.push({
+        start: value.start,
+        end: value.end,
+        by: indentAt(callee.start).length - indentAt(value.start).length,
+      })
     replace(callee.start, callee.end, name)
     replace(inner.at(-1)?.end ?? callee.end, value.start, (inner.length ? ', ' : '(') + before)
     replace(value.end, node.end, after + ')')
@@ -874,8 +897,10 @@ export const convertSource = (
         used.add('spyOn')
         changes++
       } else if (restoresAll(node)) {
-        // ubq does this when each test ends.
-        if (!(inHook(path) || lastInFunction(path)) || !removeStatement(path)) todo(path, TODO.restore)
+        // ubq does this when each test ends. ubq has no call that
+        // does it before, so the call cannot stay.
+        if (!removeStatement(path)) todo(path, TODO.restore)
+        else if (!(inHook(path) || lastInFunction(path))) todo(path, TODO.restored)
         return []
       } else
         todo(
@@ -891,6 +916,10 @@ export const convertSource = (
     if (/^mock(Implementation|ReturnValue|ResolvedValue|RejectedValue|Reset|Clear|Restore)(Once)?$/.test(method)) {
       const found = spyChain(node, object, method)
       if (found) return found
+      if (method === 'mockRestore' && removeStatement(path)) {
+        if (!(inHook(path) || lastInFunction(path))) todo(path, TODO.restored)
+        return []
+      }
       todo(path, method === 'mockRestore' ? TODO.restore : TODO.spyImpl)
       return undefined
     }
@@ -925,7 +954,7 @@ export const convertSource = (
       if (args[0].type !== 'Literal' && args[0].type !== 'TemplateLiteral') {
         todo(
           path,
-          'toMatch takes text or a RegExp. For a RegExp: assert.match(value, pattern). For text: assert(value.includes(text)).',
+          'toMatch takes text or a RegExp. For a RegExp: assert.match(value, pattern). For text: assert.contains(value, text).',
         )
         return undefined
       }
@@ -937,7 +966,7 @@ export const convertSource = (
           ? not
             ? 'assert(!<$0>.match($1))'
             : 'assert.match($0, $1)'
-          : `assert(${not ? '!' : ''}<$0>.includes($1))`,
+          : `assert.${not ? 'notContains' : 'contains'}($0, $1)`,
         all,
       )
     }
@@ -1117,6 +1146,29 @@ export const convertSource = (
     replace(workersImport.start, workersImport.end, lines.join('\n') + before(workersImport))
     changes++
   }
+  if (shifts.length) {
+    // The text of a template literal is a value: it does not move.
+    const templates: Node[] = []
+    const find = (n: Node): void => {
+      if (n.type === 'TemplateLiteral') templates.push(n)
+      else for (const child of children(n)) find(child)
+    }
+    find(program)
+    const space = /[ \t]*/y
+    for (const { start, end, by } of shifts)
+      for (let at = source.indexOf('\n', start) + 1; at > 0 && at < end; at = source.indexOf('\n', at) + 1) {
+        space.lastIndex = at
+        const lead = space.exec(source)![0].length
+        const cut = Math.min(-by, lead)
+        if (
+          /^[\r\n]?$/.test(source.charAt(at + lead)) ||
+          templates.some(t => t.start < at && at < t.end) ||
+          edits.some(e => e.start < at + Math.max(cut, 1) && e.end > at)
+        )
+          continue
+        edits.push(by < 0 ? { start: at, end: at + cut, text: '' } : { start: at, end: at, text: ' '.repeat(by) })
+      }
+  }
   for (const [at, messages] of todos) {
     const from = lineStart(at)
     const indent = /^\s*/.exec(source.slice(from, at))![0]
@@ -1269,7 +1321,9 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     // A file with no tests is a helper. Its name is not a problem.
     if (!TEST_NAME.test(file) && /^\s*(test|describe)\(/m.test(result.code)) unnamed.push(file)
     if (/from\s+['"](cloudflare:|ubqtest\/workers)/.test(result.code)) workers++
-    out(`converted ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`)
+    out(
+      `${dry ? 'to convert' : 'converted'} ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`,
+    )
     // The text of a hint is long, and many places have the same
     // one. A place has the number of its hint and the first
     // sentence. The full text of each hint is below the files.
@@ -1333,7 +1387,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
   // tap writes snapshots when npm starts it for a script named snap
-  // or snapshot. ubq does so for the script test:update (D59).
+  // or snapshot. In ubq, --update does that.
   try {
     const pkgPath = join(root, 'package.json')
     const text = readFileSync(pkgPath, 'utf8')
@@ -1341,19 +1395,14 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     const scripts = pkg.scripts ?? {}
     const snap = ['snap', 'snapshot'].filter(key => scripts[key] === 'tap')
     if (scripts.test === 'tap' && snap.length) {
-      pkg.scripts = Object.fromEntries(
-        Object.entries(scripts).flatMap(([key, value]) =>
-          key === 'test'
-            ? [[key, 'ubq']]
-            : key === snap[0]
-              ? [['test:update', 'ubq']]
-              : snap.includes(key)
-                ? []
-                : [[key, value]],
-        ),
-      )
+      const to = { test: 'ubq', ...Object.fromEntries(snap.map(key => [key, 'ubq --update'])) }
+      pkg.scripts = { ...scripts, ...to }
       if (!dry) writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
-      out(`${dry ? 'to change' : 'changed'} the scripts of package.json: "test": "ubq", "test:update": "ubq"`)
+      out(
+        `${dry ? 'to change' : 'changed'} the scripts of package.json: ${Object.entries(to)
+          .map(([key, value]) => `"${key}": "${value}"`)
+          .join(', ')}`,
+      )
     }
   } catch {
     // No package.json that is JSON.

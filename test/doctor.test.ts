@@ -208,7 +208,10 @@ test(
     // options come last. A base can extend a different base.
     const erasable = 'FIX  tsconfig.json: set "erasableSyntaxOnly": true in compilerOptions.'
     writeFileSync(join(p.dir, 'base.json'), '{ "extends": "./base2", "compilerOptions": { "strict": true } }')
-    writeFileSync(join(p.dir, 'base2.json'), '{ "compilerOptions": { "erasableSyntaxOnly": true } }')
+    writeFileSync(
+      join(p.dir, 'base2.json'),
+      '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true } }',
+    )
     assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
     writeFileSync(
       join(p.dir, 'tsconfig.json'),
@@ -219,7 +222,7 @@ test(
     mkdirSync(join(p.dir, 'node_modules/@cfg/strict'), { recursive: true })
     writeFileSync(
       join(p.dir, 'node_modules/@cfg/strict/tsconfig.json'),
-      '{ "compilerOptions": { "erasableSyntaxOnly": false } }',
+      '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": false } }',
     )
     writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "@cfg/strict" }')
     assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
@@ -235,11 +238,12 @@ test(
     assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
     writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/strict/tsconfig.json", "@cfg/erasable"] }')
     assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
-    // No test file imports with the .ts extension: one option is necessary.
+    // No options: both are necessary, also when no test file imports
+    // with the .ts extension.
     writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
     assert.equal(
       find(doctor(), 'FIX  tsconfig'),
-      'FIX  tsconfig.json: set "erasableSyntaxOnly": true in compilerOptions. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+      'FIX  tsconfig.json: set "allowImportingTsExtensions": true and "erasableSyntaxOnly": true in compilerOptions. The guides import files with the .ts extension. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
     )
 
     // The project cannot import ubqtest. The link is a junction on Windows.
