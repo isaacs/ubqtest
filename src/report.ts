@@ -15,11 +15,11 @@ export const report = (args: string[], out: (line: string) => void): number => {
   const rest = [...args]
   const diff = diffOption(rest)
   if (rest.length) throw new UsageError(`ubq report takes --diff=<commit>, not: ${rest.join(' ')}`)
-  const lines = ['### Tests', '']
-
   // The result: is the last result of the tests that of the code now?
+  // A pass has no heading, to keep it short.
   const check = checkResult(diff)
   const [, verdict, ...why] = check.result.split(': ')
+  const lines = verdict === 'pass' ? [] : ['### Tests', '']
   lines.push(`**${verdict}**: ${why.join(': ')}`)
   if (check.report.length) lines.push(...block(check.report))
 
@@ -28,15 +28,13 @@ export const report = (args: string[], out: (line: string) => void): number => {
     const store = openStore()
     const row = runRow(store.db, check.run)!
     store.close()
-    if (row.code !== null) lines.push('', `- Last run (run ${row.id}): ${runCounts(row).join(', ')}.`)
+    if (row.code !== null) lines.push('', `- Last run: ${runCounts(row).join(', ')}.`)
   }
 
-  // The changes to the tests that a person must look at.
+  // The changes to the tests that a person must look at, if some.
   if (diff !== undefined || headCommit()) {
     const review = reviewItems(diff)
-    lines.push(
-      `- Changes to the tests to look at (\`ubq review\`, from ${review.from}): ${review.items.length || 'none'}.`,
-    )
+    if (review.items.length) lines.push(`- Changes to the tests to look at: ${review.items.length}.`)
     if (review.items.length || review.notes.length) lines.push(...block([...review.items.flat(), ...review.notes]))
   }
   for (const line of lines) out(line)

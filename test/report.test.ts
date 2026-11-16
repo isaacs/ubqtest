@@ -40,12 +40,9 @@ test('ubq report: a pass, and a change with a removed test and a failure', () =>
   assert.equal(
     r.out,
     [
-      '### Tests',
-      '',
       '**pass**: the last result of each test is a pass, and is the result of the code as it is now, and each changed line ran in a test (run 1)',
       '',
-      '- Last run (run 1): 0 failed, 2 passed.',
-      '- Changes to the tests to look at (`ubq review`, from the last commit): none.',
+      '- Last run: 0 failed, 2 passed.',
       '',
     ].join('\n'),
   )
@@ -69,8 +66,8 @@ test('ubq report: a pass, and a change with a removed test and a failure', () =>
       'After a fix, run: ubq --failed',
       '```',
       '',
-      '- Last run (run 2): 1 failed, 0 passed.',
-      '- Changes to the tests to look at (`ubq review`, from the last commit): 2.',
+      '- Last run: 1 failed, 0 passed.',
+      '- Changes to the tests to look at: 2.',
       '',
       '```text',
       'removed: test/math.test.ts > zero (test/math.test.ts:4 in HASH)',
@@ -89,7 +86,7 @@ test('ubq report: no store, no git, and a wrong argument', () => {
   assert.equal(r.out, '### Tests\n\n**fail**: no run\n\n```text\nno run is stored. Run the tests: ubq\n```\n')
   assert.equal(p.ubq('test/math.test.ts').code, 0)
   r = p.ubq('report')
-  assert.match(r.out, /^- Last run \(run 1\): 0 failed, 2 passed\.$/m)
+  assert.match(r.out, /^- Last run: 0 failed, 2 passed\.$/m)
   assert(!r.out.includes('ubq review'))
   r = p.ubq('report', 'now')
   assert.equal(r.code, 4)
