@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { fileURLToPath } from 'node:url'
-import { fixtures, project, uncoveredNote } from './setup.ts'
+import { fixtures, project, remove, uncoveredNote } from './setup.ts'
 
 const cwd = `${fixtures}cov/`
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url))
@@ -229,5 +229,22 @@ test('a "ubq: not measured:" comment with a reason takes a range out of the list
   assert.deepEqual(
     [changed.code, changed.out.split('\n')[0]],
     [1, 'lib/parts.ts  changed after the last run of its tests. Run them first: ubq --changed'],
+  )
+})
+
+test('code in .ubq, the folder of ubq state and of builds for tests, is not coverage', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  mkdirSync(join(p.dir, '.ubq/build'), { recursive: true })
+  writeFileSync(join(p.dir, '.ubq/build/one.js'), 'export const one = () => 1\n')
+  writeFileSync(join(p.dir, 'two.ts'), 'export const two = () => 2\n')
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { one } from './.ubq/build/one.js'\nimport { two } from './two.ts'\ntest('a', () => assert.equal(one() + two(), 3))\n",
+  )
+  assert.equal(p.ubq('a.test.ts').code, 0)
+  assert.deepEqual(
+    p.ubq('sql', 'select distinct file from coverage order by file').out,
+    '{"file":"a.test.ts"}\n{"file":"two.ts"}\n',
   )
 })

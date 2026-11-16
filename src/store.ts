@@ -413,9 +413,11 @@ export const openStore = (): Store => {
             break
           case 'coverage': {
             const file = event.tfile
-            for (const f of event.files)
-              addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges), keep(f.file))
-            const names = event.files.map(f => f.file)
+            // `.ubq` has the state of ubq, and builds that tests make:
+            // not code of the project.
+            const own = event.files.filter(f => !f.file.startsWith('.ubq/'))
+            for (const f of own) addCov.run(file, event.id ?? '', f.file, run, JSON.stringify(f.ranges), keep(f.file))
+            const names = own.map(f => f.file)
             if (event.id) setCode.run(codeOf(file, names), run, event.id)
             else {
               const files = new Map(names.map(f => [f, hashOf(f)]))
