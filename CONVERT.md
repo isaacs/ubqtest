@@ -397,17 +397,17 @@ Find the kind of the failure before you change a line.
 
 | The report says | The cause | Do this |
 | --- | --- | --- |
-| `the test ran no assertions` | The old tool passed a test with no check. | Add the assertion that the test name promises. If the test only checks that a call does not throw, assert on its result. |
-| `expected values to be deeply equal`, with a difference of type or prototype | The old assertion was loose. | Make the expected value exact, or use `assert.match`. |
-| `assert.rejects was not awaited` | The old tool waited for it. | Add `await`. |
-| `after the test ended: ...` | The test starts work and does not wait for it. | `await` the work. This was a defect in the old test. |
-| `the test changed the environment variable ...` | The test sets `process.env` and does not put it back. | `env({ NAME: 'value' })`. |
-| `the test did not end in 5000 ms`, with `still open: ...` | The test leaves a server, a timer, or a process open. | Close it with `cleanup`. The `HANG` block names the line that opened it. |
+| the test ran no assertions | The old tool passed a test with no check. | Add the assertion that the test name promises. If the test only checks that a call does not throw, assert on its result. |
+| expected values to be deeply equal (with a difference of type or prototype) | The old assertion was loose. | Make the expected value exact, or use `assert.match`. |
+| assert.rejects was not awaited | The old tool waited for it. | Add `await`. |
+| after the test ended: ... | The test starts work and does not wait for it. | `await` the work. This was a defect in the old test. |
+| the test changed the environment variable ... | The test sets `process.env` and does not put it back. | `env({ NAME: 'value' })`. |
+| the test did not end in 5000 ms, with `still open: ...` | The test leaves a server, a timer, or a process open. | Close it with `cleanup`. The `HANG` block names the line that opened it. |
 | `duplicate test name` | Two tests of one group have one name. | Make the names different. |
-| `the test file did not load` | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source". |
-| `the file registered no tests` | The file is a helper, not a test file. | Put it in `"exclude"`. |
+| the test file did not load | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source". |
+| the file registered no tests | The file is a helper, not a test file. | Put it in `"exclude"`. |
 | a `TYPE` block | The type checker runs with each run. | Correct the type. A mock must have the types of the real export. |
-| a `TYPE` block at a converted assertion, such as `Argument of type 'string \| undefined' is not assignable to parameter of type 'string'` | `expect()` took a value of each type. `assert` is strict: the actual value cannot be `undefined` where a method is called on it, and the expected value must have the type of the actual value (the parameter is `NoInfer<T>`). | Add `!` or `?.` to the actual value, or narrow it first with `assert(value)`. If the two types differ on purpose, write `assert.deepEqual<unknown>(a, b)`. |
+| a `TYPE` block at a converted assertion, such as "Argument of type 'string \| undefined' is not assignable to parameter of type 'string'" | `expect()` took a value of each type. `assert` is strict: the actual value cannot be `undefined` where a method is called on it, and the expected value must have the type of the actual value (the parameter is `NoInfer<T>`). | Add `!` or `?.` to the actual value, or narrow it first with `assert(value)`. If the two types differ on purpose, write `assert.deepEqual<unknown>(a, b)`. |
 
 A test that fails in ubq for one of the first six causes was not
 correct before: it passed for the wrong reason. Correct the test.
