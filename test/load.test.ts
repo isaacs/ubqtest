@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { projectRoot } from '../src/project.ts'
 import { loadFailure } from '../src/runner.ts'
-import { project } from './setup.ts'
+import { project, remove } from './setup.ts'
 
 test('a test file that does not load is an error of the file, with the place', () => {
   const p = project()
@@ -113,4 +113,17 @@ test('the place of a load error in a folder whose name has a space', () => {
     '  the test file did not load: Expression expected',
     '  at sub dir/a b.ts:4:1',
   ])
+})
+
+test('a file that throws before it has a test has one error, not a second one for no tests', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  writeFileSync(join(p.dir, 'throws.test.ts'), "import { test } from 'ubqtest'\nthrow new Error('boom')\n")
+  writeFileSync(join(p.dir, 'empty.test.ts'), "import 'ubqtest'\n")
+  const r = p.ubq('throws.test.ts', 'empty.test.ts')
+  assert.equal(r.last, 'fail: 2 errors, 0 failed, 0 passed')
+  assert.equal(r.out.match(/^ERROR throws\.test\.ts$/gm)?.length, 1)
+  assert(!/^ERROR throws\.test\.ts\n {2}the file registered no tests/m.test(r.out))
+  // A file with no test and no error still has the error for no tests.
+  assert.match(r.out, /^ERROR empty\.test\.ts\n {2}the file registered no tests$/m)
 })

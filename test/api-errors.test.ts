@@ -171,7 +171,7 @@ test('each wrong use of the test API has a report with the cause', { timeout: 60
     '  rerun: ubq stray.test.ts:2',
   )
   assert(!r.out.includes('late 2'))
-  assert.equal(r.last, 'fail: 12 errors, 7 failed, 6 passed')
+  assert.equal(r.last, 'fail: 7 errors, 7 failed, 6 passed')
 })
 
 const asserts = `import { assert, test } from 'ubqtest'
@@ -330,7 +330,7 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  at asserts.test.ts:39:12',
     "  > assert.match('a', /a/)",
   )
-  assert.equal(r.last, 'fail: 2 errors, 11 failed, 1 passed')
+  assert.equal(r.last, 'fail: 1 errors, 11 failed, 1 passed')
 })
 
 test('a snapshot file that cannot be written, two open timers, and a changed variable', { timeout: 60_000 }, () => {

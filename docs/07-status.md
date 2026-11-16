@@ -282,6 +282,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   adds its result and a table of its failures to the summary of the
   step.
 
+- **One error for a file that throws.** A test file that throws
+  before its first test has its error, and no second error that
+  says that it registered no tests.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

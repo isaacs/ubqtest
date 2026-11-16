@@ -521,6 +521,7 @@ const stray = (error: unknown): void => {
   // ubq: not measured: an assertion outside a test fails the file first
   if (error instanceof AssertionFailure) return
   start()
+  failedOutside = true
   emit({ type: 'file-error', file: file!, failure: errorFailure(error) })
 }
 process.on('uncaughtException', stray)
@@ -544,6 +545,9 @@ process.on('exit', code => {
   fileEnd()
 })
 
+/** True if an error that no test caught failed the file. */
+let failedOutside = false
+
 /** The process has no more work, so no more tests can arrive. */
 const noMoreWork = (): void => {
   // The process has no more work, but a test is open: its promise
@@ -557,7 +561,9 @@ const noMoreWork = (): void => {
   if (finished || draining || queue.length) return
   finished = true
   start()
-  if (!ids.size || unselected === ids.size)
+  // A file that failed before it had a test has its error already:
+  // "no tests" says nothing more.
+  if (ids.size ? unselected === ids.size : !failedOutside)
     emit({
       type: 'file-error',
       file: file!,

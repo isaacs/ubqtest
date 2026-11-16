@@ -115,7 +115,7 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const p = project()
   cleanup(() => remove(p.dir))
   const file = join(p.dir, 'summary.md')
-  // 21 failures, and a file that throws (2 errors): the table has 20 rows.
+  // 21 failures, and a file that throws: the table has 20 rows.
   writeFileSync(
     join(p.dir, 'a.test.ts'),
     "import { assert, test } from 'ubqtest'\n" +
@@ -141,14 +141,14 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
     })
   ubq('a.test.ts', 'b.test.ts')
   const md = readFileSync(file, 'utf8').split('\n')
-  assert.equal(md[0], '### ubq: fail: 2 errors, 21 failed, 0 passed (run 1)')
+  assert.equal(md[0], '### ubq: fail: 1 errors, 21 failed, 0 passed (run 1)')
   assert.equal(md[2], '| | Test or file | Failure | At | Run again |')
   assert.match(
     md[4]!,
     /^\| (FAIL \| a\.test\.ts > t\d\d \\\| x \| expected values to be equal \| a\.test\.ts:\d+:\d+ \| `ubq a\.test\.ts:\d+`|ERROR \| b\.test\.ts \| .*boom.* \| b\.test\.ts:2:\d+ \| `ubq b\.test\.ts`) \|$/,
   )
   assert.equal(md.filter(l => /^\| (FAIL|ERROR) /.test(l)).length, 20)
-  assert.equal(md[25], 'And 3 more. For all of them: `ubq failures 1`')
+  assert.equal(md[25], 'And 2 more. For all of them: `ubq failures 1`')
   // A pass, with code that no test ran: one more section.
   ubq('c.test.ts')
   const second = readFileSync(file, 'utf8').split('### ')[2]!
