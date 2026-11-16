@@ -718,9 +718,7 @@ export const run = async (args: string[]): Promise<number> => {
       files = affected
       if (!files.length) {
         process.stderr.write(
-          changed.length
-            ? `ubq: no test ran the code that changed in ${changed.join(', ')}\n`
-            : 'ubq: no changes, no new tests\n',
+          changed.length ? `ubq: no tests for changes in ${changed.join(', ')}\n` : 'ubq: no changes, no new tests\n',
         )
         return 2
       }

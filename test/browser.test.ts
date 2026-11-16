@@ -218,7 +218,7 @@ test('minus', async () => {
     'pass: 0 failed, 2 passed (run 3)',
   ])
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a').replace("'never'", "'not one time'"))
-  assert.equal(p.ubq('--changed').err, 'ubq: no test ran the code that changed in src/app.js\n')
+  assert.equal(p.ubq('--changed').err, 'ubq: no tests for changes in src/app.js\n')
 })
 
 test(

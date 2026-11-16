@@ -56,7 +56,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
   ])
   // A change in code that no test ran.
   p.edit('never = (): number => 1', 'never = (): number => 2')
-  assert.deepEqual(p.lines('--changed'), ['ubq: no test ran the code that changed in src/shape.ts'])
+  assert.deepEqual(p.lines('--changed'), ['ubq: no tests for changes in src/shape.ts'])
   assert.deepEqual(p.lines('uncovered', 'src/shape.ts')[0], 'src/shape.ts:12:22  (): number => 2')
   // Code that runs while the test file loads can change each test.
   p.edit('export const load', 'export const more = 1\nexport const load')
