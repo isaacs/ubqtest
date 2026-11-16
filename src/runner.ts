@@ -163,17 +163,15 @@ export const LAST_RESULTS = `with whole as (
   left join whole using (file) where t.run >= coalesce(whole.run, 0)`
 
 /**
- * The tests that failed in the last run of their file, and the files
- * that had an error in their last run.
+ * The tests whose last result is a fail, and the files that had an
+ * error in their last run.
  */
 export const selectFailed = (store: Store): Selected[] => {
   const byFile = new Map<string, Selected>()
-  const tests = store.db
-    .prepare(
-      `with last as (select file, max(run) run from test group by file)
-       select id, file from test join last using (file, run) where status = 'fail'`,
-    )
-    .all() as { id: string; file: string }[]
+  const tests = store.db.prepare(`select id, file from (${LAST_RESULTS}) where status = 'fail'`).all() as {
+    id: string
+    file: string
+  }[]
   for (const { id, file } of tests) {
     const e = byFile.get(file) ?? { file, lines: [], ids: [] }
     byFile.set(file, e)
