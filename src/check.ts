@@ -1,13 +1,15 @@
 // `ubq check`: is the last result of the tests the result of the
 // code as it is now? For an agent before it says that its work is
-// done, and for the stop hook of an agent (D67).
+// done, and for the stop hook of an agent (D67). On a pass, its
+// output is the evidence for the last message of the agent (D74).
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isBuild, isHelper } from './config.ts'
 import { changedLines, diffOption, headCommit } from './git.ts'
 import { projectRoot } from './project.ts'
 import { hasCoverage, lastRun, stale, typeErrors, uncovered, unloadedChanges } from './query.ts'
-import { selectChanged, selectFailed, UsageError } from './runner.ts'
+import { reviewItems } from './review.ts'
+import { LAST_RESULTS, selectChanged, selectFailed, UsageError } from './runner.ts'
 import { runsInProgress } from './status.ts'
 import { fileHash, openStore, stateDir } from './store.ts'
 
@@ -18,7 +20,7 @@ const list = (items: string[]): string =>
   items.slice(0, SHOWN).join(', ') + (items.length > SHOWN ? `, and ${items.length - SHOWN} more` : '')
 
 /** The problems, one paragraph each. Empty if there are none. */
-const problems = (commit: string | undefined): { report: string[]; summary: string[]; run?: number } => {
+const problems = (commit: string | undefined): { report: string[]; summary: string[]; passed?: number } => {
   const report: string[] = []
   const summary: string[] = []
   const running = runsInProgress()
@@ -112,7 +114,12 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
         summary.push(`${unloaded.length} changed files that no test loads`)
       }
     }
-    return { report, summary, run }
+    if (summary.length) return { report, summary }
+    const counts = db
+      .prepare(`select file, count(*) n from (${LAST_RESULTS}) where status = 'pass' group by file`)
+      .all() as { file: string; n: number }[]
+    const passed = counts.filter(c => existsSync(join(projectRoot(), c.file))).reduce((sum, c) => sum + c.n, 0)
+    return { report, summary, passed }
   } finally {
     store.close()
   }
@@ -120,26 +127,19 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
 
 /**
  * The problems that `ubq check` finds, from the lines that differ
- * from `diff` (default: the last commit, if the project is in git),
- * and its last line.
+ * from `commit` (undefined with no git), and its last line.
  */
-export const checkResult = (
-  diff: string | undefined,
-): { report: string[]; summary: string[]; result: string; run?: number } => {
-  // With no git, there is no diff to check.
-  const commit = diff ?? (headCommit() ? 'HEAD' : undefined)
-  const { report, summary, run } = problems(commit)
-  const last = run === undefined ? '' : ` (run ${run})`
+const checkResult = (commit: string | undefined): { report: string[]; summary: string[]; result: string } => {
+  const { report, summary, passed } = problems(commit)
   const result = summary.length
-    ? `check: fail: ${summary.join(', ')}${last}`
-    : `check: pass: the last result of each test is a pass, and is the result of the code as it is now` +
-      (commit ? ', and each change ran in a test' : '') +
-      last
-  return { report, summary, result, ...(run !== undefined && { run }) }
+    ? `fail: ${summary.join(', ')}`
+    : `pass: ${passed} tests pass on the code as it is now${commit ? ', and each change ran in a test' : ''}.`
+  return { report, summary, result }
 }
 
 /**
- * Prints the problems, and returns 1 if there are some. With
+ * Prints the problems, and returns 1 if there are some. On a pass, it
+ * prints the changes to the tests that a person must look at. With
  * `--hook`, it is the stop hook of a coding agent: it writes a JSON
  * decision to stdout, and returns 0.
  */
@@ -149,9 +149,13 @@ export const check = (args: string[], out: (line: string) => void): number => {
   const diff = diffOption(rest)
   const other = rest.filter(a => a !== '--hook')
   if (other.length) throw new UsageError(`ubq check takes --diff=<commit> and --hook, not: ${other.join(' ')}`)
-  const { report, summary, result } = checkResult(diff)
+  // With no git, there is no diff to check.
+  const commit = diff ?? (headCommit() ? 'HEAD' : undefined)
+  const { report, summary, result } = checkResult(commit)
   if (!hook) {
     for (const part of report) out(part)
+    const items = !summary.length && commit ? reviewItems(diff).items : []
+    if (items.length) out(['Changes to the tests to look at:', ...items.flat()].join('\n'))
     out(result)
     return summary.length ? 1 : 0
   }

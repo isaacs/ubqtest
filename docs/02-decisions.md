@@ -1675,6 +1675,8 @@ changes, not the log of a job.
 
 ## D72. `ubq report`: what the tests show, as markdown (user, 2026-11-15)
 
+D74 replaces this decision: `ubq check` prints the evidence.
+
 Idea 5 of the review of the project. A person asks an agent "how do
 you know that it works?", and the answer is often a sentence with no
 evidence. `ubq report` is the evidence, in a form to paste.
@@ -1719,3 +1721,27 @@ the result there with no scroll through a log.
   text.
 - **The write** appends to the file, and a write that fails does not
   change the result of the run.
+
+## D74. `ubq check` prints the evidence; no `ubq report` (user, 2026-11-16)
+
+D72 made `ubq report`, which printed the result of `ubq check` and
+the items of `ubq review`. An agent ran `check`, then `report`. On a
+fail, `report` was the output of `check` under a heading. On a pass,
+the two said the same thing in different words. Fewer ways to do one
+thing is a goal of the project: agents and people make fewer
+mistakes, and take fewer shortcuts.
+
+- **One command.** `ubq check` does the work of both. There is no
+  `ubq report`.
+- **A pass.** The changes to the tests to look at, if there are
+  some, then the last line: `pass: 17 tests pass on the code as it
+  is now, and each change ran in a test.` The count has the last
+  result of each test. The exit code is 0. The agent ends its last
+  message with this output.
+- **A fail.** The problems, each with its command, then `fail: ...`.
+  The exit code is 1. There is nothing to paste: the work is not
+  done.
+- **Only what the reader needs.** No run number (a reader of a pull
+  request cannot look it up), no counts of the last run, and no line
+  that says there is nothing to report.
+- **`--hook`.** As before. On a pass it prints nothing.

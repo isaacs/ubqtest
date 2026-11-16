@@ -184,22 +184,16 @@ ubq check --diff=<commit> the same, with the lines that differ from that commit 
   git repository.
 
 Each problem is a line that names the command to run. The last
-line is the result: `check: pass: ...` or `check: fail: 2 failed
-tests, 1 test files to run again (run 9)`. A result of `ubq` that
-is older than your last change is not a result of your change.
-Run `ubq check` before you tell the user that the tests pass.
+line is the result: `fail: 2 failed tests, 1 test files to run
+again`, or `pass: 17 tests pass on the code as it is now, and each
+change ran in a test.` A result of `ubq` that is older than your
+last change is not a result of your change. Run `ubq check` before
+you tell the user that the tests pass.
 
-```
-ubq report                 what the tests show about the change, as markdown
-```
-
-`ubq report` is the end of the work: put its output at the end of
-your last message, or in the description of a pull request. A pass is
-one line: the count of tests that pass on the code as it is now. A
-fail has the problems of `ubq check`. Both have the items of `ubq
-review`, if there are some (in a git repository). It runs no test,
-and its exit code is 0. `--diff=<commit>` is the commit of
-`check` and `review`.
+On a pass, `ubq check` also lists the changes to the tests that a
+person must look at (the items of `ubq review`, in a git
+repository). This output is the end of the work: put it at the end
+of your last message, or in the description of a pull request.
 
 ```
 ubq review                 the changes to the tests that a person must look at

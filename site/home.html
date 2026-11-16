@@ -83,7 +83,7 @@ FAIL test/parse.test.ts &gt; parse &gt; circle
 fail: 1 failed, 1 passed (run 2)</code></pre>
 <pre class="plain"><code>$ npx ubq test/parse.test.ts:6
 pass: 0 failed, 1 passed (run 3)</code></pre>
-<pre class="plain"><code>$ npx ubq report
+<pre class="plain"><code>$ npx ubq check
 pass: 287 tests pass on the code as it
 is now, and each change ran in a test.</code></pre>
       <p class="center"><small>That is all the output. There is no more to scroll past.</small></p>
@@ -182,7 +182,7 @@ describe('parse', () =&gt; {
 <pre class="md"><code>Tests use ubq (ubqtest package). Before you write or
 run tests, read `npx ubq guide`. Run `npx ubq --changed` after a change, then
 `npx ubq uncovered --diff`. Before you say that the work is done, run
-`npx ubq check`. End your report with the output of `npx ubq report`.</code></pre>
+`npx ubq check`, and end your report with its output.</code></pre>
       <p>Or write <a href="skill/">a skill</a> to the project: <code>npx ubq skill</code>. For Claude Code, it also adds a stop hook: the agent cannot end its turn while <code>ubq check</code> finds a problem.</p>
     </div>
   </div>
