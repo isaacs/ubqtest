@@ -247,8 +247,8 @@ const typescript = (code: string, link?: (name: string) => string | undefined): 
 /** Output of ubq, with a `span` for the first word of a report line. */
 const terminal = (code: string): string =>
   escape(code)
-    .replace(/^(FAIL|ERROR|TYPE|SURVIVED|fail:)/gm, '<span class="bad">$1</span>')
-    .replace(/^(pass:)/gm, '<span class="good">$1</span>')
+    .replace(/^(FAIL|ERROR|TYPE|SURVIVED|fail)(:?)/gm, '<span class="bad">$1</span>$2')
+    .replace(/^(pass):/gm, '<span class="good">$1</span>:')
     .replace(/^(\$ )(.*)$/gm, '<span class="c">$1</span><span class="cmd">$2</span>')
 
 const code = (text: string, lang = '', link?: (name: string) => string | undefined): string =>
