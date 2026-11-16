@@ -2,7 +2,7 @@
   "name": "ubq",
   "displayName": "ubq",
   "description": "The results of ubq test runs in the editor: the code that no test ran, the failures, and the tests that ran each line.",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "publisher": "ubqtest",
   "license": "BlueOak-1.0.0",
   "repository": {
