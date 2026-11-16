@@ -494,7 +494,7 @@ export interface Change {
   id: string
   /** Undefined if the test did not run in that run. */
   from: TestRow['status'] | undefined
-  to: TestRow['status'] | undefined
+  to: TestRow['status']
   /** The failure in run `b`. */
   failure: Failure | null
 }

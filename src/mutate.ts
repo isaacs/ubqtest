@@ -8,6 +8,7 @@ import { createRequire } from 'node:module'
 import { availableParallelism } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
+import { paint } from './color.ts'
 import { isBuild, isHelper, UsageError } from './config.ts'
 import { changedLines, diffOption } from './git.ts'
 import type { Mutant } from './instrument.ts'
@@ -197,7 +198,7 @@ export const mutate = async (db: DatabaseSync, args: string[], out: (text: strin
     const count = [...tests.values()].reduce((n, ids) => n + (ids.length || 1), 0)
     const named = closest(job)
     const more = count > named.length ? ` For all of them: ubq covers ${file}:${mutant.line}` : ''
-    out(`SURVIVED ${file}:${mutant.line}:${mutant.column}`)
+    out(`${paint('SURVIVED')} ${file}:${mutant.line}:${mutant.column}`)
     out(`  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`)
     out(`  with ${mutant.from} changed to ${mutant.text || 'nothing'}, no test failed`)
     out(`  tests that run this code (${count}), the closest first: ${named.join(', ')}.${more}`)

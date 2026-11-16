@@ -397,9 +397,9 @@ const main = async (args: string[]): Promise<number> => {
         }
       if (a === b) throw new UsageError(`ubq diff needs two different runs, not run ${a} two times`)
       const d = diffRuns(db, a!, b!)
-      for (const file of d.newErrors) out(`ERROR ${file} (no error in run ${a})`)
+      for (const file of d.newErrors) out(`${paint('ERROR')} ${file} (no error in run ${a})`)
       for (const c of d.changes) {
-        out(`${c.to} ${c.id} (${c.from ? `was ${c.from}` : 'did not run'} in run ${a})`)
+        out(`${paint(c.to)} ${c.id} (${c.from ? `was ${c.from}` : 'did not run'} in run ${a})`)
         if (c.failure) out(`  ${c.failure.message.split('\n')[0]}`)
       }
       for (const file of d.goneErrors) out(`no error ${file} (was ERROR in run ${a})`)

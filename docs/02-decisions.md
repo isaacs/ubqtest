@@ -1751,13 +1751,15 @@ mistakes, and take fewer shortcuts.
 A person who reads the output of a run at a terminal finds the
 result faster in color.
 
-- **When.** stdout is a terminal (`isTTY`), and `CI` is not set. An
-  agent, a pipe, a file, and a CI log get no color.
-- **What.** `FAIL` at the head of a failure block and `fail` in a
-  result line are red (`\x1b[40;31m`). `pass` in a result line is
-  cyan (`\x1b[40;36m`). The result lines are those of a run, of `ubq
-  failures`, and of `ubq check`, and the status of `ubq show` and
-  `ubq history`.
+- **When.** stdout is a terminal (`isTTY`), `CI` is not set,
+  `NO_COLOR` is not set, and `FORCE_COLOR` is not `0`. An agent, a
+  pipe, a file, and a CI log get no color.
+- **What.** Red (`\x1b[40;31m`): `FAIL`, `ERROR`, and `TYPE` at the
+  head of a block, `SURVIVED` of `ubq mutate`, and `fail`. Cyan
+  (`\x1b[40;36m`): `pass`. These are the words that the site colors.
+  They are in the result lines of a run, of `ubq failures`, and of
+  `ubq check`, the status of `ubq show`, `ubq history`, and `ubq
+  diff`, and the new file errors of `ubq diff`.
 - **Not green.** Many people see red and green as near the same
   color. Red and cyan are different for more people.
 - **Not in data for a program.** GitHub annotations, the summary of

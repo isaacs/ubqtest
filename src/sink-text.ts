@@ -77,7 +77,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   }
 
   const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat, kept: string[] = []): void => {
-    const lines = [head.replace(/^FAIL /, `${paint('FAIL')} `), indent(failure.message)]
+    const lines = [head.replace(/^\S+/, paint), indent(failure.message)]
     if (repeat) lines.splice(1, 0, rate(repeat, id === undefined ? 'error' : 'failure'))
     if (failure.at) {
       lines.push(`  at ${loc(failure.at)}`)
