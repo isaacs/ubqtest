@@ -115,15 +115,13 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const p = project()
   cleanup(() => remove(p.dir))
   const file = join(p.dir, 'summary.md')
-  // 21 failures, and a file that throws: the table has 20 rows. Each
-  // body is a block: Bun gives no place for a failure in a body that
-  // is one expression.
+  // 21 failures, and a file that throws: the table has 20 rows.
   writeFileSync(
     join(p.dir, 'a.test.ts'),
     "import { assert, test } from 'ubqtest'\n" +
       Array.from(
         { length: 21 },
-        (_, i) => `test('t${String(i).padStart(2, '0')} | x', () => {\n  assert.equal(${i}, -1)\n})\n`,
+        (_, i) => `test('t${String(i).padStart(2, '0')} | x', () => assert.equal(${i}, -1))\n`,
       ).join(''),
   )
   writeFileSync(join(p.dir, 'b.test.ts'), "import { test } from 'ubqtest'\nthrow new Error('boom')\n")

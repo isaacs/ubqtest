@@ -86,6 +86,8 @@ run in parallel. Events of one file keep their order.
    `package.json` above the working directory.
 9. **Stacks hold user frames only.** Frames from the tool, the
    runtime, and `node_modules` are removed in the test process.
+   A failure of a test with no user frame has the place of its
+   `test()` call as `at`.
 10. **A stream that ends with no `file-end` means that the process
     died.** The `exit` event from the runner role has the code and
     the signal.

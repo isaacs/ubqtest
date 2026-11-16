@@ -400,7 +400,10 @@ const runOne = async (entry: Entry): Promise<void> => {
     status: state.failure ? 'fail' : 'pass',
     ms,
     asserts: state.asserts,
-    ...(state.failure && { failure: state.failure }),
+    // A failure with no place of its own has the place of its test()
+    // call: a value that is not an error has no stack, and Bun gives
+    // no place for a failure in a body that is one expression.
+    ...(state.failure && { failure: { ...(entry.at && { at: entry.at }), ...state.failure } }),
     ...(state.kept.length && { kept: state.kept }),
   })
   await cover(entry.id)

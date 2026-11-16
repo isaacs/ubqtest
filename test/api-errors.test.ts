@@ -131,7 +131,15 @@ test('each wrong use of the test API has a report with the cause', { timeout: 60
     '  at late.test.ts:5:1',
     "  > test('second', () => assert(true))",
   )
-  has('FAIL misc.test.ts > throws a value that is not an error', '  threw text', '  rerun: ubq misc.test.ts:6')
+  // A value that is not an error has no stack: the place is that of
+  // the test() call.
+  has(
+    'FAIL misc.test.ts > throws a value that is not an error',
+    '  threw text',
+    '  at misc.test.ts:6:1',
+    "  > test('throws a value that is not an error', () => {",
+    '  rerun: ubq misc.test.ts:6',
+  )
   has(
     'FAIL misc.test.ts > a cleanup function with an assertion that fails',
     '  expected values to be equal',

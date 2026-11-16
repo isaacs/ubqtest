@@ -320,8 +320,9 @@ Core and runner:
 - Bun gives different columns for some frames, and no place for an
   assertion in a timer callback.
 - Bun gives no place for a failure in a test whose body is one
-  expression: `test('x', () => assert.equal(1, 2))`. A body in
-  braces gets its place.
+  expression: `test('x', () => assert.equal(1, 2))`. The failure
+  then has the place of the `test()` call, as a failure with no
+  stack does.
 - Bun on macOS cannot open a WAL database read-only if it has no
   `-shm` file ("unable to open database file"). `ubq lsp` and the
   tests do not open the store read-only. `src/baseline.ts` and

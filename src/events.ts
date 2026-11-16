@@ -32,7 +32,10 @@ export interface Failure {
   kind: FailureKind
   /** One line that states what went wrong. */
   message: string
-  /** Where the failure is in user code. Absent if no user frame exists. */
+  /**
+   * Where the failure is in user code. For a test with no user
+   * frame, the `test()` call. Absent if neither is known.
+   */
   at?: Location
   /** Stack frames in user code only, innermost first. */
   stack?: Location[]
