@@ -144,6 +144,12 @@ const PAGES: Page[] = [
     group: 'design',
   },
 ]
+/**
+ * The ID of a design decision. `D1` is also the database of
+ * Cloudflare, so it is an ID only next to other IDs or before `)`.
+ */
+const DECISION = /(?:D(?!1\b)\d+\b|D1(?=\)|, D\d|,? (?:to|and) D\d))/
+
 const HOME: Page = { name: 'Home', source: 'README.md', slug: 'index' }
 const DOCS: Page = { name: 'Docs', source: 'docs/README.md', slug: 'docs' }
 const bySource = new Map<string, string>([HOME, DOCS, ...PAGES].map(p => [p.source, p.slug]))
@@ -302,9 +308,9 @@ const render = (page: Page, markdown: string): { html: string; title: string } =
       {
         name: 'decision',
         level: 'inline',
-        start: (src: string) => /\bD\d+\b/.exec(src)?.index,
+        start: (src: string) => new RegExp(`\\b${DECISION.source}`).exec(src)?.index,
         tokenizer: (src: string) => {
-          const m = /^D\d+\b/.exec(src)
+          const m = new RegExp(`^${DECISION.source}`).exec(src)
           return m && decisions.has(m[0]) ? { type: 'decision', raw: m[0] } : undefined
         },
         renderer: ({ raw }) =>

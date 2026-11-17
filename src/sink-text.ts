@@ -165,7 +165,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
           message: `${event.code}: ${event.message}`,
           ...(event.at && { at: event.at }),
         })
-        if (++typeErrors <= TYPE_ERRORS)
+        if (++typeErrors <= TYPE_ERRORS || all)
           block(`TYPE ${event.at?.file ?? '(no file)'}`, {
             kind: 'error',
             message: `${event.code}: ${event.message}`,
@@ -177,8 +177,10 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
           write(
             `and ${failures - FAILURES} more failures.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
           )
-        if (typeErrors > TYPE_ERRORS)
-          write(`and ${typeErrors - TYPE_ERRORS} more type errors. For all of them: npx tsc --noEmit\n`)
+        if (typeErrors > TYPE_ERRORS && !all)
+          write(
+            `and ${typeErrors - TYPE_ERRORS} more type errors.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
+          )
         if (event.otherTypes)
           write(
             `note: ${event.otherTypes} type errors are in files that this run did not use. They are not part of this result. A run of all tests reports them: ubq\n`,

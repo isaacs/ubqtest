@@ -120,9 +120,10 @@ then the cause is outside the code, such as a data file, a
 snapshot, the environment, the time, or the order of the tests.
 `ubq --repeat 10 '<test id>'` tells if the test is flaky.
 
-A run prints 20 failure blocks at most. Then one line gives the
-count of the others: `and 3 more failures. For all of them: ubq
-failures 8`. In CI (`CI` is set), each block prints.
+A run prints 20 failure blocks at most, and 20 type error blocks
+at most. Then one line gives the count of the others: `and 3 more
+failures. For all of them: ubq failures 8`. In CI (`CI` is set),
+each failure block prints.
 
 At a terminal, `FAIL`, `ERROR`, `TYPE`, `SURVIVED`, and `fail` are
 red, and `pass` is cyan. There is no color in a pipe or a file, in

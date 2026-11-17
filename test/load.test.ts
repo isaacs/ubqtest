@@ -47,6 +47,16 @@ test('a test file that does not load is an error of the file, with the place', (
   assert.deepEqual(again.slice(again.indexOf(bad[0]!), again.indexOf(bad[0]!) + 4), bad)
 })
 
+test('a hook of an other test tool gets a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(join(p.dir, 'hook.ts'), "import { test } from 'ubqtest'\nafterEach(() => {})\ntest('x', () => {})\n")
+  assert.contains(
+    p.ubq('hook.ts').out,
+    'ReferenceError: afterEach is not defined. ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test. ubq convert leaves a TODO(ubq) at each hook.\n  at hook.ts:2:1',
+  )
+})
+
 test('an import of ./a.js finds the file ./a.ts', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))

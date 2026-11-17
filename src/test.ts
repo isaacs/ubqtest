@@ -191,15 +191,23 @@ const start = (): void => {
   })
 }
 
+/** A hook of an other test tool, such as one that `ubq convert` left with a TODO. */
+const HOOK = /^(before|after)(Each|All)? is not defined$/
+
 const errorFailure = (error: unknown): Failure => {
   if (error instanceof AssertionFailure) return error.failure
   const isError = error instanceof Error
   const stack = userFrames(isError ? error.stack : undefined)
+  // A message can have color codes of a terminal.
+  const text = isError ? error.message.replace(/\x1b\[[\d;]*m/g, '') : ''
   return {
     kind: 'error',
-    message:
-      // A message can have color codes of a terminal.
-      isError ? `${error.name}: ${error.message.replace(/\x1b\[[\d;]*m/g, '')}` : `threw ${String(error)}`,
+    message: isError
+      ? `${error.name}: ${text}` +
+        (error.name === 'ReferenceError' && HOOK.test(text)
+          ? '. ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test. ubq convert leaves a TODO(ubq) at each hook.'
+          : '')
+      : `threw ${String(error)}`,
     ...(stack[0] && { at: stack[0], stack }),
   }
 }

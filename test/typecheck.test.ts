@@ -99,9 +99,18 @@ test('passes at run time', () => {
   const consts = Array.from({ length: 22 }, (_, i) => `const n${i}: number = 'x'`).join('\n')
   writeFileSync(join(p.dir, 'typed.test.ts'), `${consts}\n`)
   const many = p.ubq().out
+  const run = /\(run (\d+)\)\n$/.exec(many)?.[1]
   assert.deepEqual(
     [many.split('\n').filter(l => l.startsWith('TYPE ')).length, many.match(/^and \d+ more.*$/m)?.[0]],
-    [20, 'and 2 more type errors. For all of them: npx tsc --noEmit'],
+    [20, `and 2 more type errors. For all of them: ubq failures ${run}`],
+  )
+  // ubq failures shows all of them.
+  assert.equal(
+    p
+      .ubq('failures')
+      .out.split('\n')
+      .filter(l => l.startsWith('TYPE ')).length,
+    22,
   )
   // An error with no file.
   writeFileSync(
