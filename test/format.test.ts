@@ -93,6 +93,51 @@ test('diffDeep gives the path to each difference', () => {
   assert.deepEqual(diffs({ name: 'abc' }, { name: /^a/ }, true), [])
 })
 
+test('a function in a pattern is a predicate for the value at its place', () => {
+  const diffs = (a: unknown, e: unknown, partial = true): string[] =>
+    diffDeep(a, e, partial).diffs.map(d => `${d.path}: ${d.actual} / ${d.expected} (${d.note})`)
+  const isNumber = (v: unknown) => typeof v === 'number'
+  const falsy = 'the function in the pattern returned a falsy value'
+  // The text of the function is the text that the runtime has. It
+  // has no coverage counter.
+  const text = String(isNumber)
+    .replace(/__ubqc\[\d+\]\+\+,\s*/, '')
+    .replace(/\s+/g, ' ')
+  assert.match(text, /^\(v ?\) => \(?typeof v === ['"]number['"]\)?$/)
+  assert.deepEqual(diffs({ id: 7, list: ['a', 2] }, { id: isNumber, list: ['a', isNumber] }), [])
+  assert.deepEqual(diffs(7, isNumber), [])
+  assert.deepEqual(diffs({ at: { id: 'x' }, list: [1, 'b'] }, { at: { id: isNumber }, list: [1, isNumber] }), [
+    `.at.id: 'x' / ${text} (${falsy})`,
+    `.list[1]: 'b' / ${text} (${falsy})`,
+  ])
+  // A key that the value does not have gives undefined.
+  assert.deepEqual(diffs({}, { id: isNumber }), [`.id: undefined / ${text} (${falsy})`])
+  assert.deepEqual(diffs({}, { id: (v: unknown) => v === undefined }), [])
+  // The same function is equal, and no call of it occurs.
+  const never = () => {
+    throw new Error('called')
+  }
+  assert.deepEqual(diffs({ fn: never }, { fn: never }), [])
+  // A function that throws, and a class, which is not a predicate.
+  assert.deepEqual(diffs({ n: null }, { n: (v: { length: number }) => v.length > 1 }).length, 1)
+  assert.match(
+    diffs({ n: null }, { n: (v: { length: number }) => v.length > 1 })[0]!,
+    /the function in the pattern threw: .*null/,
+  )
+  assert.match(diffs({ u: new URL('http://a') }, { u: URL })[0]!, /the function in the pattern threw: /)
+  // The text of a long function is cut, on one line.
+  const long = (v: unknown) =>
+    v === 'a text that is long enough to make the source of this function more than two hundred characters' ||
+    v === 'a second text that is long enough to make the source of this function more than two hundred characters'
+  assert.match(diffs(1, long)[0]!, /^: 1 \/ \(v ?\) => \(?v === ['"]a text[^\n]{170,180}\.\.\. \(/)
+  // Only in a pattern: deepEqual compares two functions as values.
+  assert.equal(diffs({ id: 7 }, { id: isNumber }, false).length, 1)
+  // The types: the parameter gets the type of the value.
+  const value: { id: number; name: string; tags: string[] } = { id: 1, name: 'a', tags: ['x'] }
+  assert.match(value, { id: v => v > 0, name: (v: unknown) => typeof v === 'string', tags: [v => v.length === 1] })
+  assert.match(value, v => v.tags.length === 1)
+})
+
 test('the report has 8 differences at most, and the count of the others', () => {
   const a = Array.from({ length: 12 }, (_, i) => i)
   const e = Array.from({ length: 12 }, (_, i) => i + 100)

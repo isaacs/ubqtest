@@ -17,7 +17,7 @@ const { parse, children }: typeof import('../src/instrument.ts') = process.versi
 
 /** The TODO text for a matcher of expect. */
 const MATCHER =
-  'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.'
+  "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object."
 
 /** The lines of a TODO comment. */
 const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
@@ -401,6 +401,54 @@ it('a', () => {
   ])
 })
 
+test('vitest: any and anything in a pattern become functions', () => {
+  const source = `import { expect, it } from 'vitest'
+it('a', () => {
+  expect(x).toMatchObject({
+    a: expect.any(Number),
+    b: [expect.any(String), expect.any(Boolean), expect.any(Function), expect.any(BigInt), expect.any(Symbol)],
+    c: { d: expect.any(Object), e: expect.any(Array), f: expect.any(URL), g: expect.any(ns.Thing) },
+    h: expect.anything(),
+  })
+  expect(() => f()).toThrow({ code: expect.any(Number) })
+  expect(() => f()).toThrow(expect.any(Error))
+  expect(x).toMatchObject(expect.any(Object))
+  expect(x).toMatchObject({ a: expect.any(v), b: expect.any(), c: expect.any('text'), d: expect.anything(1) })
+  expect(x).toEqual({ a: expect.any(Number), b: expect.anything() })
+})
+`
+  const r = convert(source)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, test } from 'ubqtest'",
+    "test('a', () => {",
+    '  assert.match(x, {',
+    "    a: (v: unknown) => typeof v === 'number',",
+    "    b: [(v: unknown) => typeof v === 'string', (v: unknown) => typeof v === 'boolean', (v: unknown) => typeof v === 'function', (v: unknown) => typeof v === 'bigint', (v: unknown) => typeof v === 'symbol'],",
+    "    c: { d: (v: unknown) => typeof v === 'object', e: (v: unknown) => Array.isArray(v), f: (v: unknown) => v instanceof URL, g: (v: unknown) => v instanceof ns.Thing },",
+    '    h: (v: unknown) => v != null,',
+    '  })',
+    "  assert.throws(() => f(), { code: (v: unknown) => typeof v === 'number' })",
+    // At the top level of the expected value, a function is a class.
+    ...todo(MATCHER, '  '),
+    '  assert.throws(() => f(), expect.any(Error))',
+    ...todo(MATCHER, '  '),
+    '  assert.match(x, expect.any(Object))',
+    // A class with the name of the parameter, and wrong arguments.
+    ...todo(MATCHER, '  '),
+    "  assert.match(x, { a: expect.any(v), b: expect.any(), c: expect.any('text'), d: expect.anything(1) })",
+    // deepEqual compares a function as a value.
+    ...todo(MATCHER, '  '),
+    '  assert.deepEqual(x, { a: expect.any(Number), b: expect.anything() })',
+    '})',
+  ])
+  // A JavaScript file gets no type.
+  assert.deepEqual(convert(source, 'a.test.js')?.code.slice(2, 4), [
+    '  assert.match(x, {',
+    "    a: v => typeof v === 'number',",
+  ])
+})
+
 test('vitest: rejects, checks of many calls of one spy, optional chains, and stringContaining', () => {
   const r = convert(`import { expect, it, vi } from 'vitest'
 it('a', async () => {
@@ -499,10 +547,16 @@ it('a', async () => {
   await expect(fail()).rejects.toMatchObject({ message: expect.stringContaining('x') })
   const event: { list?: number[] } = { list: [1, 2] }
   expect(event?.list).toHaveLength(2)
+  expect({ id: 1, at: new Date(), tags: ['a'], more: 1 }).toMatchObject({
+    id: expect.any(Number),
+    at: expect.any(Date),
+    tags: [expect.any(String)],
+    more: expect.anything(),
+  })
 })
 `,
   )
-  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 9 changes, 0 TODO')
+  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 14 changes, 0 TODO')
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
 })
 

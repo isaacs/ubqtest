@@ -403,7 +403,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     config.
   - Loops for `it.each` and `describe.each` (D84), and a TODO for
     a tagged template table.
-  - Not done from this report: a predicate in a pattern (Q23).
+  - A function in an `assert.match` pattern is a predicate (D85).
+    `ubq convert` changes `expect.any` and `expect.anything` in a
+    pattern.
 
 - **Snapshot files with CRLF line ends.** Git on Windows can check
   a snapshot file out with CRLF line ends. ubq then found no

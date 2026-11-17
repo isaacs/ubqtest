@@ -306,7 +306,17 @@ Things to check by hand:
   on the spy that the mock has.
 - **`expect.any`, `expect.objectContaining`, `expect.anything`.**
   `assert.match` with a partial object does the work of
-  `objectContaining`. For `any(String)`, assert on `typeof`.
+  `objectContaining`. A function in a pattern does the work of
+  `any` and `anything`. In a pattern (`toMatchObject`, an object
+  for `toThrow`), the command writes it: `expect.any(Number)`
+  becomes `(v: unknown) => typeof v === 'number'`,
+  `expect.any(URL)` becomes `(v: unknown) => v instanceof URL`,
+  and `expect.anything()` becomes `(v: unknown) => v != null`.
+  In an exact comparison (`toEqual`, `toHaveBeenCalledWith`) the
+  matcher stays, with a TODO: `assert.deepEqual` compares a
+  function as a value. Change that assertion to `assert.match`
+  with the functions. It permits keys that the pattern does not
+  have.
   `expect.stringContaining('text')` becomes a RegExp only in a
   pattern (`toMatchObject`, `toThrow`). In an exact comparison
   (`toEqual`, `toHaveBeenCalledWith`) it stays, with a TODO: a

@@ -1961,3 +1961,39 @@ about 500 `setup()` calls.
 - Hooks keep the TODO. The change is certain only for few forms,
   and a group of tests that share state is a design that the agent
   must look at.
+
+## D85. A function in a pattern is a predicate (user, 2026-11-17)
+
+Q23. vitest has `expect.any(Number)` and `expect.anything()` at
+any depth of an expected value. The sentry corpus has 270 and 46
+of them, and each of the eight agents wrote a helper for them.
+
+- In a pattern of `assert.match`, `assert.eventually`, and the
+  object form of `assert.throws` and `assert.rejects`, a function
+  gets the value at its place. The value matches if the function
+  returns a truthy value.
+- If the function and the value are the same function, they
+  match, and the function does not run.
+- A key that the value does not have gives `undefined` to the
+  function.
+- A failure shows the path, the value, and the text of the
+  function, with no coverage counters. If the function throws,
+  the failure shows the message of the error.
+- At the top level of `expected` in `throws` and `rejects`, a
+  function is a class, as before.
+- `assert.deepEqual` does not change.
+- `ubq convert` changes `expect.any(X)` and `expect.anything()` in
+  a pattern. In an exact comparison they keep the TODO: a change
+  to `assert.match` permits more keys, and the agent must decide
+  it.
+- No `any(Number)` export and no `assert.typeof`. `assert.equal(
+  typeof x, 'string')` reads as well as `assert.typeof(x,
+  'string')`. An export for each common case is a second way to
+  do one thing. It can come later, on top of the function, if
+  agents find the function hard to use.
+
+## D86. No command that runs each runtime (user, 2026-11-17)
+
+Q17. A person runs `ubq` on each runtime, CI makes the matrix,
+and `ubq merge` joins the coverage. A `--runtimes` option waits
+until a user asks for it.

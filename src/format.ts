@@ -1,5 +1,6 @@
 // Values as text, and the differences between two values.
 import { inspect, isDeepStrictEqual } from 'node:util'
+import { COUNTER_NAME } from './counters.ts'
 
 const MAX_TEXT = 4000
 const MAX_DIFFS = 8
@@ -86,11 +87,13 @@ export const diffEqual = (actual: unknown, expected: unknown): Diff => {
 const key = (k: string): string => (/^[A-Za-z_$][\w$]*$/.test(k) ? `.${k}` : `[${JSON.stringify(k)}]`)
 
 const MISSING = '(missing)'
+const COUNTER = new RegExp(`${COUNTER_NAME}\\[\\d+\\]\\+\\+[;,]?\\s*`, 'g')
 
 /**
  * The differences that make two values not deeply equal. If `partial`
  * is true, `expected` is a pattern for `assert.match`: extra keys in
- * `actual` are fine, and a RegExp tests a string.
+ * `actual` are fine, a RegExp tests a string, and a function is a
+ * predicate for the value at its place.
  */
 export const diffDeep = (actual: unknown, expected: unknown, partial = false): { diffs: Diff[]; more: number } => {
   const diffs: Diff[] = []
@@ -105,6 +108,18 @@ export const diffDeep = (actual: unknown, expected: unknown, partial = false): {
     if (partial && e instanceof RegExp && typeof a === 'string') {
       if (!e.test(a)) add(path, show(a), show(e))
       return
+    }
+    if (partial && typeof e === 'function') {
+      // The text of the function, with no coverage counters.
+      const text = String(e).replace(COUNTER, '').replace(/\s+/g, ' ')
+      const expected = text.length > 200 ? `${text.slice(0, 200)}...` : text
+      let note = 'the function in the pattern returned a falsy value'
+      try {
+        if ((e as (value: unknown) => unknown)(a)) return
+      } catch (error) {
+        note = `the function in the pattern threw: ${error instanceof Error ? error.message : show(error)}`
+      }
+      return add(path, show(a), expected, note)
     }
     if (typeof a !== 'object' || typeof e !== 'object' || a === null || e === null) {
       const d = diffEqual(a, e)
@@ -129,7 +144,7 @@ export const diffDeep = (actual: unknown, expected: unknown, partial = false): {
       const eo = e as Record<string, unknown>
       const keys = partial ? Object.keys(eo) : [...new Set([...Object.keys(ao), ...Object.keys(eo)])].sort()
       for (const k of keys) {
-        if (!(k in ao)) add(path + key(k), MISSING, show(eo[k]))
+        if (!(k in ao) && !(partial && typeof eo[k] === 'function')) add(path + key(k), MISSING, show(eo[k]))
         else if (!(k in eo)) add(path + key(k), show(ao[k]), MISSING)
         else walk(ao[k], eo[k], path + key(k))
       }

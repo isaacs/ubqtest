@@ -184,7 +184,7 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
   assertions:
     'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
   throwsText:
@@ -1285,6 +1285,25 @@ export const convertSource = (
         replace(node.start, first.start, '')
         messageRegExp(first)
         replace(first.end, node.end, '')
+        changes++
+        return []
+      }
+      // In a pattern, a function is a predicate for the value.
+      const kind = first && args.length === 1 && /^(Identifier|MemberExpression)$/.test(first.type) ? text(first) : ''
+      const check =
+        method === 'anything' && !args.length
+          ? 'v != null'
+          : method !== 'any' || !kind || mentions(first!, 'v')
+            ? undefined
+            : /^(Number|String|Boolean|Function|BigInt|Symbol|Object)$/.test(kind)
+              ? `typeof v === '${kind.toLowerCase()}'`
+              : kind === 'Array'
+                ? 'Array.isArray(v)'
+                : `v instanceof ${kind}`
+      // The expected value of assert.throws is not a pattern at
+      // its top level: a function there is a class.
+      if (check && !negated && path.at(-2)!.type !== 'CallExpression' && inPattern(path)) {
+        replace(node.start, node.end, `${/\.[cm]?tsx?$/.test(file) ? '(v: unknown)' : 'v'} => ${check}`)
         changes++
         return []
       }

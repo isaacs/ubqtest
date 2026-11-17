@@ -158,11 +158,27 @@ assert.fail(message)                           // returns never
   key in the value. Extra keys in the value are fine.
 - An array matches an array of the same length, element by
   element.
-- Any other value matches by `Object.is`.
+- A function is a predicate. It gets the value at its place, and
+  the value matches if the function returns a truthy value. It
+  does the work of "any number" or "any `URL`". A key that the
+  value does not have gives `undefined`. A failure shows the
+  path, the value, and the text of the function.
+- Any other value matches by `Object.is`. This includes a
+  function that is the value itself: the predicate runs only if
+  the two are different.
 
 ```ts
 assert.match(res, { status: 200, body: { user: { name: /^a/ } } })
+assert.match(user, {
+  id: (v: unknown) => typeof v === 'number',
+  home: (v: unknown) => v instanceof URL,
+  tags: [(v: string) => v.length > 0],
+})
 ```
+
+`deepEqual` has no predicate: it compares a function as a value.
+At the top level of `expected` in `throws` and `rejects`, a
+function is a class (D85).
 
 This keeps expected values short when the full object is large.
 

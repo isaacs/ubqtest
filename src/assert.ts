@@ -75,8 +75,11 @@ type Wide<T, E> = E extends string
  * literal as the actual value gets its wide type.
  */
 type Narrowed<T, E> = unknown extends T ? E : Extract<T, Wide<T, E>>
-/** A partial shape: listed keys must match, and a RegExp tests a string. */
-export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>>
+/**
+ * A partial shape: listed keys must match, a RegExp tests a string,
+ * and a function is a predicate for the value at its place.
+ */
+export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | ((value: T) => unknown)
 
 export interface Assert {
   /** Passes if `value` is truthy. Narrows the type of `value`. */
@@ -94,7 +97,10 @@ export interface Assert {
   /**
    * Passes if `actual` has the shape of `pattern`. Each key in the
    * pattern must match. Extra keys in `actual` are fine. A RegExp
-   * tests a string.
+   * tests a string. A function in the pattern gets the value at
+   * its place, and the value matches if the function returns a
+   * truthy value: `{ id: (v: unknown) => typeof v === 'number' }`.
+   * A key that `actual` does not have gives `undefined`.
    */
   match<T, const P extends Pattern<T>>(actual: T, pattern: P, message?: string): void
   /**

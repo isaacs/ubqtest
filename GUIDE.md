@@ -284,7 +284,7 @@ assert(value, message?)            // truthy. Narrows the type.
 assert.equal(actual, expected)     // Object.is
 assert.notEqual(actual, expected)
 assert.deepEqual(actual, expected) // strict: same structure, values, prototypes
-assert.match(actual, pattern)      // RegExp for a string, or a partial object
+assert.match(actual, pattern)      // a partial object. A RegExp tests a string. A function tests a value: { id: (v: unknown) => typeof v === 'number' }
 assert.contains(actual, expected)  // text in text, or an element of an array, Set, or other iterable
 assert.notContains(actual, expected)
 assert.throws(fn, expected)        // expected is required. Returns the error.
