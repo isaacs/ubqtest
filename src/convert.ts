@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 import { config, UsageError } from './config.ts'
 import { restorePlan } from './convert-restore.ts'
 import type { Node } from './instrument.ts'
+import { OLD_TOOL } from './doctor.ts'
 import { projectRoot, rel } from './project.ts'
 import { setupMigrations, vitestWorkers } from './vitest-config.ts'
 
@@ -1350,9 +1351,6 @@ const FORMATTERS: [pkg: string, command: string][] = [
 
 /** A file of types. */
 const TYPES = /\.d\.[cm]?ts$/
-/** A name of a test tool that a project removes after the change to ubq. */
-const OLD_TOOL =
-  /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|mocha)\1/
 
 /** `ubq convert <files or folders>`. Prints the report with `out`. Returns the exit code. */
 export const convertCommand = (args: string[], out: (text: string) => void): number => {

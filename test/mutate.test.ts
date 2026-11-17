@@ -220,11 +220,15 @@ test('a change that removes a "!", in code that runs while the test file loads',
     "import { assert, test } from 'ubqtest'\nimport { ON } from './lib/c.ts'\ntest('t', () => assert(typeof ON === 'boolean'))\n",
   )
   p.ubq('c.test.ts')
-  assert.deepEqual(p.ubq('mutate', 'lib/c.ts').out.split('\n').slice(0, 4), [
+  const out = p.ubq('mutate', 'lib/c.ts').out
+  // No test is named, so no line says to add to the first test.
+  assert(!out.includes('first test'))
+  assert.deepEqual(out.split('\n').slice(0, 5), [
     'SURVIVED lib/c.ts:1:19',
     '  > export const ON = !false',
     '  with ! changed to nothing, no test failed',
-    '  tests that run this code (1), the closest first: the tests of c.test.ts.',
+    '  test files that run this code while they load, outside of a test: c.test.ts. Call it in a test, and assert on the result.',
+    '',
   ])
 })
 

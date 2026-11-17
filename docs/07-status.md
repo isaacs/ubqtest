@@ -331,6 +331,18 @@ All entries are from 2026-11-11 to 2026-11-14.
   failed on a tap file with only top-level assertions. The word is
   now an import assertion only on the line of the import.
 
+- **From the feedback on 0.0.16 (a tap project with tshy).**
+  - A test file that ends before it loads ubqtest gets a message
+    that says so.
+  - `ubq doctor` names test files that do not import ubqtest and
+    that import an old test tool or nothing, such as a snapshot
+    file of tap.
+  - For a tsconfig that makes JavaScript files, `ubq doctor` also
+    asks for `rewriteRelativeImportExtensions`.
+  - `--help` after a command prints the help.
+  - `ubq mutate` names a test file that runs the changed code
+    while it loads on its own line.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

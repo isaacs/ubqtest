@@ -24,7 +24,10 @@ test('a lone file that loads ubqtest, then throws or exits', () => {
   writeFileSync(join(p.dir, 'exits.test.ts'), "import { test } from 'ubqtest'\ntest('t', () => {})\nprocess.exit(5)\n")
   // With no import of ubqtest, the child process reports the exit.
   writeFileSync(join(p.dir, 'plain.test.ts'), 'process.exit()\n')
-  assert.match(p.ubq('plain.test.ts').out, /^  the test process ended before the file did \(exit code 0\)$/m)
+  assert.match(
+    p.ubq('plain.test.ts').out,
+    /^  the test process ended before the file loaded ubqtest \(exit code 0\)\. A test file must import 'ubqtest'\.$/m,
+  )
   const exits = p.ubq('exits.test.ts')
   assert.deepEqual(
     [exits.code, exits.out.split('\n').slice(0, 2)],
@@ -43,7 +46,7 @@ test('a run of files with only skipped tests, and an early end with stderr', () 
   const early = p.ubq('a.test.ts', 'b.test.ts')
   assert.match(
     early.out,
-    /^ERROR b\.test\.ts\n  the test process ended before the file did \(exit code 3\)\n  a message\n/m,
+    /^ERROR b\.test\.ts\n  the test process ended before the file loaded ubqtest \(exit code 3\)\. A test file must import 'ubqtest'\.\n  a message\n/m,
   )
   // --failed runs all of a file with an error.
   writeFileSync(join(p.dir, 'b.test.ts'), PASS)

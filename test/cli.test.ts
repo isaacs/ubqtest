@@ -12,8 +12,9 @@ test('help, and the error of each command with a wrong or absent argument', { ti
     const r = p.ubq(...args)
     return [r.code, r.err.trim()]
   }
-  for (const flag of ['help', '--help', '-h']) {
-    const r = p.ubq(flag)
+  // A command with --help prints the help, and does not run.
+  for (const flag of [['help'], ['--help'], ['-h'], ['doctor', '--help'], ['run', 'a.test.ts', '-h']]) {
+    const r = p.ubq(...flag)
     assert.deepEqual([r.code, r.out.split('\n')[0], r.out.includes('\n  ubq uncovered [file]')], [0, 'usage:', true])
   }
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
@@ -116,19 +117,31 @@ test('a file that ends the process, cut output, and a run of only skipped tests'
   const exits = p.ubq('exits.test.ts')
   assert.deepEqual(
     [exits.code, exits.out.split('\n').slice(0, 2)],
-    [1, ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 3)']],
+    [
+      1,
+      [
+        'ERROR exits.test.ts',
+        "  the test process ended before the file loaded ubqtest (exit code 3). A test file must import 'ubqtest'.",
+      ],
+    ],
   )
   // An error with no place.
   assert.equal(
     p.ubq('show', 'exits.test.ts > t').err,
-    'ubq: no stored result for test: exits.test.ts > t\n  exits.test.ts had an error in run 1: the test process ended before the file did (exit code 3)\n',
+    "ubq: no stored result for test: exits.test.ts > t\n  exits.test.ts had an error in run 1: the test process ended before the file loaded ubqtest (exit code 3). A test file must import 'ubqtest'.\n",
   )
   // No import of ubqtest, and no exit: the runner reports it too.
   writeFileSync(join(p.dir, 'exits.test.ts'), 'void 0\n')
   const plain = p.ubq('exits.test.ts')
   assert.deepEqual(
     [plain.code, plain.out.split('\n').slice(0, 2)],
-    [1, ['ERROR exits.test.ts', '  the test process ended before the file did (exit code 0)']],
+    [
+      1,
+      [
+        'ERROR exits.test.ts',
+        "  the test process ended before the file loaded ubqtest (exit code 0). A test file must import 'ubqtest'.",
+      ],
+    ],
   )
   writeFileSync(
     join(p.dir, 'noisy.test.ts'),

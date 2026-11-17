@@ -149,15 +149,16 @@ const COMMANDS = [
 
 const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
+  // `ubq <command> --help` prints the help of all commands.
+  if (command === 'help' || args.includes('--help') || args.includes('-h')) {
+    out(USAGE.trimEnd())
+    return 0
+  }
   // `ubq run` takes only paths and options, so that a folder with
   // the name of a command can run.
   if (command === 'run') return run(rest)
   if (command && COMMANDS.includes(command) && existsSync(command))
     process.stderr.write(`note: "${command}" is a ubq command. To run the tests in ./${command}: ubq run ${command}\n`)
-  if (command === 'help' || command === '--help' || command === '-h') {
-    out(USAGE.trimEnd())
-    return 0
-  }
   if (command === '--version') {
     // package.json is at the package root. The bundle is there too.
     const path = import.meta.url.endsWith('.ts') ? '../package.json' : './package.json'

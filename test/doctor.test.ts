@@ -42,18 +42,36 @@ test('doctor states the fix for each problem of the setup', () => {
   )
 
   p.configure({ include: ['*.ts'] })
+  // Files with no import, such as the snapshot files of tap.
+  const names = ['s1', 's2', 's3', 's4', 's5', 's6'].map(name => `${name}.ts`)
+  for (const name of names) writeFileSync(join(p.dir, name), 'exports[`a`] = 1\n')
+  assert.equal(
+    doctor().lines[2],
+    'FIX  6 test files do not import ubqtest: s1.ts, s2.ts, s3.ts, s4.ts, s5.ts, and 1 more. Convert each test file: ubq convert <file>. Remove each file that is not a test file, or add it to "ubq": { "exclude": [...] } in package.json.',
+  )
+  for (const name of names) rmSync(join(p.dir, name))
   writeFileSync(
     join(p.dir, 'tsconfig.json'),
     '{ // comment\n  "compilerOptions": { "strict": true, "erasableSyntaxOnly": true, },\n}',
   )
+  // A tsconfig that makes JavaScript files also needs the option
+  // that changes the extension of an import.
+  assert.match(
+    doctor().lines[2]!,
+    /^FIX  tsconfig\.json: set "allowImportingTsExtensions": true and "rewriteRelativeImportExtensions": true in compilerOptions\. .* tsc then changes the \.ts extension of an import to \.js\./,
+  )
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "compilerOptions": { "noEmit": true, "erasableSyntaxOnly": true } }')
   assert.match(doctor().lines[2]!, /^FIX  tsconfig\.json: set "allowImportingTsExtensions": true in compilerOptions\./)
   writeFileSync(
     join(p.dir, 'tsconfig.json'),
-    '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true } }',
+    '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "rewriteRelativeImportExtensions": true } }',
   )
   assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
 
   writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:test'\n")
+  // The file still imports the old tool.
+  assert.match(doctor().lines[2]!, /^FIX  1 test files do not import ubqtest: worker\.ts\. Convert each test file/)
+  writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:workers'\n")
   // With no vitest config: one entry for each wrangler config, as JSON on its own lines.
   assert.match(
     doctor().lines[2]!,
@@ -210,7 +228,7 @@ test(
     writeFileSync(join(p.dir, 'base.json'), '{ "extends": "./base2", "compilerOptions": { "strict": true } }')
     writeFileSync(
       join(p.dir, 'base2.json'),
-      '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true } }',
+      '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "emitDeclarationOnly": true } }',
     )
     assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
     writeFileSync(
@@ -222,7 +240,7 @@ test(
     mkdirSync(join(p.dir, 'node_modules/@cfg/strict'), { recursive: true })
     writeFileSync(
       join(p.dir, 'node_modules/@cfg/strict/tsconfig.json'),
-      '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": false } }',
+      '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": false, "noEmit": true } }',
     )
     writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "@cfg/strict" }')
     assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
@@ -243,7 +261,7 @@ test(
     writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
     assert.equal(
       find(doctor(), 'FIX  tsconfig'),
-      'FIX  tsconfig.json: set "allowImportingTsExtensions": true and "erasableSyntaxOnly": true in compilerOptions. The guides import files with the .ts extension. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+      'FIX  tsconfig.json: set "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, and "rewriteRelativeImportExtensions": true in compilerOptions. The guides import files with the .ts extension. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties). This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
     )
 
     // The project cannot import ubqtest. The link is a junction on Windows.

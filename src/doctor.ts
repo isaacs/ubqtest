@@ -11,6 +11,10 @@ import { vitestWorkers } from './vitest-config.ts'
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
 
+/** A name of a test tool that a project removes after the change to ubq. */
+export const OLD_TOOL =
+  /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|mocha)\1/
+
 /** `// ...` and `/* ... *\/` comments, and commas before `}` or `]`. */
 const plainJson = (text: string): string =>
   text
@@ -86,6 +90,16 @@ export const doctor = (out: (text: string) => void): number => {
   }
 
   const sources = tests.map(file => readFileSync(join(root, file), 'utf8'))
+  // A file with no import can have no tests, such as a snapshot file
+  // of tap. A file can also get ubqtest through a helper.
+  const other = tests.filter(
+    (_, i) =>
+      !sources[i]!.includes('ubqtest') && (OLD_TOOL.test(sources[i]!) || !/\b(import|require)\b/.test(sources[i]!)),
+  )
+  if (other.length)
+    fix(
+      `${other.length} test files do not import ubqtest: ${other.slice(0, 5).join(', ')}${other.length > 5 ? `, and ${other.length - 5} more` : ''}. Convert each test file: ubq convert <file>. Remove each file that is not a test file, or add it to "ubq": { "exclude": [...] } in package.json.`,
+    )
 
   let workersPool = false
   try {
@@ -190,13 +204,20 @@ export const doctor = (out: (text: string) => void): number => {
         allowImportingTsExtensions: 'The guides import files with the .ts extension.',
         erasableSyntaxOnly:
           'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+        rewriteRelativeImportExtensions:
+          'This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
       }
-      const missing = (['allowImportingTsExtensions', 'erasableSyntaxOnly'] as const).filter(
-        key => options[key] !== true,
-      )
+      const emits = options.noEmit !== true && options.emitDeclarationOnly !== true
+      const missing = (
+        [
+          'allowImportingTsExtensions',
+          'erasableSyntaxOnly',
+          ...(emits ? (['rewriteRelativeImportExtensions'] as const) : []),
+        ] as const
+      ).filter(key => options[key] !== true)
       if (missing.length)
         fix(
-          `tsconfig.json: set ${missing.map(key => `"${key}": true`).join(' and ')} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
+          `tsconfig.json: set ${new Intl.ListFormat('en').format(missing.map(key => `"${key}": true`))} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
         )
       else ok('tsconfig.json')
     }

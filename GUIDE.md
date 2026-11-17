@@ -85,7 +85,9 @@ node_modules/.bin/ubq`.
 
 The last line of the output is the summary: `pass: 0 failed, 12
 passed (run 7)` or `fail: 2 failed, 10 passed (run 8)`. Passed
-tests print nothing.
+tests print nothing. After a selection, `N not selected` counts the
+tests that did not run in the files that ran. It does not count
+the tests of files that did not run.
 
 A run does not list code that no test ran. `ubq uncovered` lists
 it, and `ubq check` names the changed lines that no test ran. To
@@ -819,7 +821,10 @@ Node 24 or later, or Bun, or Deno. TypeScript runs with no build
 step, so the code must use only syntax that can be erased: no
 `enum`, no `namespace`, no parameter properties. In
 `tsconfig.json`, set `"allowImportingTsExtensions": true`,
-`"noEmit": true`, and `"erasableSyntaxOnly": true`.
+`"noEmit": true`, and `"erasableSyntaxOnly": true`. If the project
+builds JavaScript from that tsconfig (for example with tshy), set
+`"rewriteRelativeImportExtensions": true` in place of `"noEmit"`.
+It needs TypeScript 5.7 or later.
 
 Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.

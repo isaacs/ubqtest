@@ -185,26 +185,31 @@ export const mutate = async (db: DatabaseSync, args: string[], out: (text: strin
     const own = (id: string): number => (stem(id.slice(0, id.indexOf(' > '))) === stem(file) ? 0 : 1)
     ids.sort((a, b) => own(a) - own(b) || reach.get(a)! - reach.get(b)! || a.localeCompare(b))
     // Each test has the line of its call.
-    const named = ids
+    return ids
       .slice(0, NAMED)
       .map(id => `${id} (${id.slice(0, id.indexOf(' > '))}:${(last.get(id) as { line: number }).line})`)
-    // Code that runs while a test file loads: no one test runs it.
-    for (const [tfile, list] of tests) if (!list.length && named.length < NAMED) named.push(`the tests of ${tfile}`)
-    return named
   }
+  let named = false
   for (const job of survivors) {
     const { file, mutant, tests } = job
     const source = readFileSync(join(root, file), 'utf8').split('\n')[mutant.line - 1]!.trim()
-    const count = [...tests.values()].reduce((n, ids) => n + (ids.length || 1), 0)
-    const named = closest(job)
-    const more = count > named.length ? ` For all of them: ubq covers ${file}:${mutant.line}` : ''
+    const count = [...tests.values()].flat().length
+    const closer = closest(job)
+    const more = count > closer.length ? ` For all of them: ubq covers ${file}:${mutant.line}` : ''
+    // Code that runs while a test file loads: no one test runs it.
+    const loads = [...tests].filter(([, ids]) => !ids.length).map(([tfile]) => tfile)
     out(`${paint('SURVIVED')} ${file}:${mutant.line}:${mutant.column}`)
     out(`  > ${source.length > 100 ? source.slice(0, 100) + '…' : source}`)
     out(`  with ${mutant.from} changed to ${mutant.text || 'nothing'}, no test failed`)
-    out(`  tests that run this code (${count}), the closest first: ${named.join(', ')}.${more}`)
+    if (closer.length) out(`  tests that run this code (${count}), the closest first: ${closer.join(', ')}.${more}`)
+    if (loads.length)
+      out(
+        `  test files that run this code while they load, outside of a test: ${loads.join(', ')}. Call it in a test, and assert on the result.`,
+      )
+    named ||= closer.length > 0
     out('')
   }
-  if (survivors.length)
+  if (named)
     out('For each change: add an assertion that the change breaks to the first test, or a new test next to it.')
   const parts = [`${survivors.length} of ${jobs.length} changes survived`]
   if (uncovered) parts.push(`${uncovered} more are in code that no passing test runs (ubq uncovered)`)

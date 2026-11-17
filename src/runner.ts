@@ -614,7 +614,11 @@ export const runFile = async (
           failure: {
             kind: 'error',
             message:
-              `the test process ended before the file did (${signal ?? `exit code ${code}`})` +
+              // With no event, the library did not load: an exit
+              // of the library itself sends events.
+              (started || signal
+                ? `the test process ended before the file did (${signal ?? `exit code ${code}`})`
+                : `the test process ended before the file loaded ubqtest (exit code ${code}). A test file must import 'ubqtest'.`) +
               (open ? `, in test: ${open}` : '') +
               (stderr.trim() ? `\n${stderr.trim().split('\n').slice(-12).join('\n')}` : ''),
           },

@@ -1648,11 +1648,13 @@ lines, the closest first.
   a small test of the function is the place for a new assertion.
   Then by ID.
 - **Code that runs while a file loads** has no one test: the block
-  names `the tests of <file>`.
+  names each such test file on its own line, and says to call the
+  code in a test.
 - **More tests** than the block names: `ubq covers <file>:<line>`
   lists all.
 - One line after the blocks says what to do: add an assertion that
   the change breaks to the first test, or a new test next to it.
+  With no test named in any block, the line is not there.
 
 ## D71. Annotations in GitHub Actions (user, 2026-11-15)
 
