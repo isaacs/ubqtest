@@ -1,4 +1,4 @@
-// Fixtures: `cleanup`, `env`, `testdir`. A fixture sets something
+// Fixtures: `cleanup`, `env`, `stub`, `testdir`. A fixture sets something
 // up, and removes it when its test ends. See docs/05-api.md,
 // section 7.
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -57,6 +57,32 @@ export const env = (vars: Record<string, string | undefined>): void => {
   for (const [name, value] of Object.entries(vars))
     if (value === undefined) delete process.env[name]
     else process.env[name] = value
+}
+
+/**
+ * Sets `object[key]` to `value`. The old property comes back when
+ * the test ends: its value or its getter, or no property if the
+ * object had none of its own. For a function, `spyOn` also records
+ * the calls.
+ *
+ * ```ts
+ * stub(globalThis, 'navigator', { userAgent: 'test' })
+ * ```
+ */
+export const stub = <T extends object, K extends PropertyKey>(
+  object: T,
+  key: K,
+  value: K extends keyof T ? T[K] : unknown,
+): void => {
+  const target = object as Record<PropertyKey, unknown>
+  const own = Object.getOwnPropertyDescriptor(object, key)
+  add('stub', () => {
+    if (own) Object.defineProperty(object, key, own)
+    else delete target[key]
+  })
+  if (own && !own.configurable)
+    throw new TypeError(`stub: ${String(key)} cannot be changed: the property of the object is not configurable`)
+  Object.defineProperty(object, key, { value, configurable: true, writable: true, enumerable: own?.enumerable ?? true })
 }
 
 /** File names with their content. A nested object is a folder. */

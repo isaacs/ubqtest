@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q22 is D80. The answer to Q25 is D81.
+is D66. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -97,28 +97,6 @@ The agent would pick 2. The converter can then change
 'number'`. Note: today a function in a pattern compares by
 identity, so 2 changes a rule. A pattern that has a real function
 as an expected value would need `assert.equal` for it.
-
-## Q24. A replacement of a global value (5 of 8)
-
-`vi.stubGlobal(name, value)` sets a global until the test ends.
-The corpus has 34 uses. `spyOn(globalThis, 'fetch', impl)` covers
-a function. For a value that is not a function (`navigator`,
-`process`, `performance`), each agent wrote a helper with
-`Object.defineProperty` and `cleanup`. One file used it 54 times.
-
-Options:
-
-1. No change. The convert guide shows the recipe with `cleanup`.
-   (The hint of the converter already has it.)
-2. `stub(object, key, value)`: sets the value, and puts back the
-   old property, or removes it, when the test ends. It works for
-   `globalThis` and for each other object. `env()` stays for
-   `process.env`.
-
-The agent would pick 2: the put-back is easy to get wrong (a
-property that did not exist, a property with a getter), and a
-missed put-back is a leak to the next test of the file. D60 says
-to wait for a real project, and this report is one.
 
 ## Q26. Two changes of `ubq convert` that are not always certain (7 of 8, 8 of 8)
 

@@ -397,8 +397,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     load error, and of TS1294 tell the agent to ask the person:
     change the syntax, Bun, or a build.
   - `clock.set(time)` (D81).
-  - Not done from this report: a predicate in a pattern (Q23),
-    `stub` (Q24), a value for a `define` of vite (Q21), and loops
+  - `stub(object, key, value)` (D82). `ubq convert` changes
+    `vi.stubGlobal` and `vi.stubEnv`.
+  - Not done from this report: a predicate in a pattern (Q23), a value for a `define` of vite (Q21), and loops
     for `it.each` (Q26).
 
 - **Snapshot files with CRLF line ends.** Git on Windows can check

@@ -243,10 +243,9 @@ const VI: Record<string, string> = {
   runOnlyPendingTimersAsync: 'Use await clock.runAll(), with the clock of fakeClock().',
   useRealTimers:
     'Delete this call. The clock of fakeClock() ends when its test ends. To end it before that: clock.restore().',
-  stubGlobal:
-    "For a function: spyOn(globalThis, 'name', impl). For another value: const old = globalThis.name; globalThis.name = value; cleanup(() => { globalThis.name = old }).",
+  stubGlobal: "Use stub(globalThis, 'name', value). It puts the old value back when the test ends.",
   stubEnv: "Use env({ NAME: 'value' }). It puts the variable back when the test ends.",
-  unstubAllGlobals: 'Delete this call, if spyOn or cleanup() puts back each value.',
+  unstubAllGlobals: 'Delete this call. stub() puts back each value when the test ends.',
   unstubAllEnvs: 'Delete this call. env() puts back each variable when the test ends.',
   waitFor:
     'Use await assert.eventually(() => value, pattern). It calls the function until its value matches the pattern, for 2000 ms at most.',
@@ -1135,6 +1134,19 @@ export const convertSource = (
         }
         replace(callee.start, callee.end, 'spyOn')
         used.add('spyOn')
+        changes++
+      } else if (method === 'stubGlobal' && args.length === 2 && args[0]!.type !== 'SpreadElement') {
+        replace(callee.start, args[0]!.start, 'stub(globalThis, ')
+        used.add('stub')
+        changes++
+      } else if (method === 'stubEnv' && args.length === 2 && args[0]!.type !== 'SpreadElement') {
+        const [name, value] = args as [Node, Node]
+        const plain = name.type === 'Literal' && /^[A-Za-z_$][\w$]*$/.test(String(name.value))
+        replace(callee.start, name.start, plain ? 'env({ ' : 'env({ [')
+        if (plain) replace(name.start, name.end, String(name.value))
+        replace(name.end, value.start, plain ? ': ' : ']: ')
+        replace(value.end, node.end, ' })')
+        used.add('env')
         changes++
       } else if (restoresAll(node)) {
         // ubq does this when each test ends. ubq has no call that

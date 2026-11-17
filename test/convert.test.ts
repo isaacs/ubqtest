@@ -529,6 +529,9 @@ it('a', () => {
   vi.useRealTimers()
   vi.waitFor(() => 1)
   vi.stubEnv('A', '1')
+  vi.stubEnv(name, '1')
+  vi.stubGlobal('navigator', { userAgent: 'x' })
+  vi.unstubAllGlobals()
   vi.getTimerCount()
 })
 describe.each([1])('g %s', n => {})
@@ -537,7 +540,7 @@ describe.runIf(a)('c', () => {})
 `)
   assert(r)
   assert.deepEqual(r.code, [
-    "import { assert, describe, isDeepEqual, test } from 'ubqtest'",
+    "import { assert, describe, env, isDeepEqual, stub, test } from 'ubqtest'",
     "test('a', () => {",
     '  assert(s.calls.length > 0)',
     '  assert.equal(s.calls.length, 2)',
@@ -597,8 +600,11 @@ describe.runIf(a)('c', () => {})
       '  ',
     ),
     '  vi.waitFor(() => 1)',
-    ...todo("Use env({ NAME: 'value' }). It puts the variable back when the test ends.", '  '),
-    "  vi.stubEnv('A', '1')",
+    "  env({ A: '1' })",
+    "  env({ [name]: '1' })",
+    "  stub(globalThis, 'navigator', { userAgent: 'x' })",
+    ...todo('Delete this call. stub() puts back each value when the test ends.', '  '),
+    '  vi.unstubAllGlobals()',
     ...todo(
       'Use fakeClock: const clock = fakeClock(), then await clock.tick(ms). The clock ends when its test ends.',
       '  ',
@@ -616,7 +622,7 @@ describe.runIf(a)('c', () => {})
   ])
 })
 
-test('vitest: the converted forms of the calls of a spy pass', () => {
+test('vitest: the converted forms of the calls of a spy, of stubGlobal, and of stubEnv pass', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   writeFileSync(
@@ -640,11 +646,19 @@ it('a', () => {
   expect(one).toHaveBeenCalledExactlyOnceWith()
   expect('t').toBeTypeOf('string')
   expect(1).not.toBeTypeOf('string')
+  vi.stubGlobal('ubqConverted', 1)
+  vi.stubEnv('UBQ_CONVERTED', 'yes')
+  expect((globalThis as { ubqConverted?: number }).ubqConverted).toBe(1)
+  expect(process.env.UBQ_CONVERTED).toBe('yes')
+})
+it('b', () => {
+  expect((globalThis as { ubqConverted?: number }).ubqConverted).toBe(undefined)
+  expect(process.env.UBQ_CONVERTED).toBe(undefined)
 })
 `,
   )
-  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 15 changes, 0 TODO')
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 22 changes, 0 TODO')
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 2 passed')
 })
 
 test('vitest: a spy of a module namespace, and a spy assertion on a real import', () => {

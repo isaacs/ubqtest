@@ -65,6 +65,21 @@ The old values come back when the test ends.
 const env: (vars: Record<string, string | undefined>) => void;
 ```
 
+### `stub`
+
+Sets `object[key]` to `value`. The old property comes back when
+the test ends: its value or its getter, or no property if the
+object had none of its own. For a function, `spyOn` also records
+the calls.
+
+```ts
+stub(globalThis, 'navigator', { userAgent: 'test' })
+```
+
+```ts
+const stub: <T extends object, K extends PropertyKey>(object: T, key: K, value: K extends keyof T ? T[K] : unknown) => void;
+```
+
 ### `mockImport`
 
 Loads a new instance of a module. In that instance, and in the

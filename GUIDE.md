@@ -302,6 +302,7 @@ await mockImport(() => import('../src/a.ts'), [
 
 testdir({ 'a.txt': 'hi', sub: { 'b.json': '{}' } })  // a new folder, returns its path
 env({ NAME: 'value', OTHER: undefined })             // set or delete, until the test ends
+stub(globalThis, 'navigator', value)                 // set a property, until the test ends
 cleanup(() => server.close())                        // runs when the test ends
 const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), await clock.runAll(), clock.set(time)
 ```

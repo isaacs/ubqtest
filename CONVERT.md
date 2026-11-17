@@ -404,11 +404,13 @@ Things to check by hand:
   spy at the top level of the file keeps its calls from test to
   test: make it in the test or in a setup function. To forget the
   calls of a spy in a test: `s.calls.length = 0`.
-- **`vi.stubGlobal(name, value)`.** For a function:
-  `spyOn(globalThis, 'fetch', impl)`. For another value, keep the
-  old value, set the new one, and put it back with `cleanup()`.
-  `vi.stubEnv(name, value)` is `env({ [name]: value })`. Delete
-  `vi.unstubAllGlobals()` and `vi.unstubAllEnvs()`.
+- **`vi.stubGlobal(name, value)`.** `ubq convert` makes it
+  `stub(globalThis, name, value)`, and `vi.stubEnv(name, value)`
+  `env({ [name]: value })`. Both put the old value back when the
+  test ends. Delete `vi.unstubAllGlobals()` and
+  `vi.unstubAllEnvs()`. If the type checker reports a fake value
+  with too few properties, cast it: `{ userAgent: 'x' } as
+  Navigator`.
 - **`vi.waitFor(fn)`, `vi.waitUntil(fn)`.** `await
   assert.eventually(() => value, pattern)`.
 - **`vi.resetModules()` with a dynamic import.** `await

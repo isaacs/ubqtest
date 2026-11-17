@@ -318,6 +318,7 @@ for the removal.
 ```ts
 testdir(files?: Files): string     // a new folder, removed at test end
 env(vars: Record<string, string | undefined>): void   // set or delete, put back at test end
+stub(object, key, value): void                       // set a property, put back at test end
 cleanup(fn: () => void | Promise<void>): void         // run fn at test end
 ```
 
@@ -335,6 +336,12 @@ cleanup(fn: () => void | Promise<void>): void         // run fn at test end
   `.ubq/.gitignore`, and one `.ubq/` line in a project
   `.gitignore` also covers it. The folder is in the project, so
   git worktrees do not collide.
+- `stub(globalThis, 'navigator', value)` sets a property of an
+  object. The old property comes back when the test ends: its
+  value or its getter, or no property if the object had none of
+  its own. The value has the type of the property, if the object
+  type has the key. For a function, `spyOn` also records the
+  calls. A property that is not configurable throws.
 - `cleanup` functions run in reverse order. An error in one fails
   the test.
 - A fixture call outside a test (at the top level of the file)

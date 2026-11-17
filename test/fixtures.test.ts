@@ -1,8 +1,8 @@
-// Fixtures, spies, and module mocks: cleanup, env, testdir, spy,
-// spyOn, mockImport.
+// Fixtures, spies, and module mocks: cleanup, env, stub, testdir,
+// spy, spyOn, mockImport.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, cleanup, env, isDeepEqual, mockImport, spy, spyOn, test, testdir } from 'ubqtest'
+import { assert, cleanup, env, isDeepEqual, mockImport, spy, spyOn, stub, test, testdir } from 'ubqtest'
 import { project } from './setup.ts'
 
 test('fixtures end with their test, and a failed test keeps its testdir', () => {
@@ -46,6 +46,36 @@ test('fixtures end with their test, and a failed test keeps its testdir', () => 
   assert.match(p.ubq('failures').out, /\n  testdir: \.ubq\/testdir\/fix\.ts\/a-failure-keeps-the-folder\n/)
   // The same results with many files, in a child process.
   assert.equal(p.ubq('fix.ts', 'pass.ts').last, 'fail: 3 failed, 9 passed, 1 skipped')
+})
+
+test('stub sets a property, and the old one comes back when the test ends', () => {
+  class Base {
+    get inherited() {
+      return 'base'
+    }
+  }
+  const object = new Base() as Base & { plain: number; getter: string; fixed: number; added?: string }
+  object.plain = 1
+  Object.defineProperty(object, 'getter', { get: () => 'real', enumerable: false, configurable: true })
+  Object.defineProperty(object, 'fixed', { value: 1, configurable: false })
+  // A cleanup runs after the cleanups that the test adds later.
+  cleanup(() => {
+    const own = (key: string) => Object.getOwnPropertyDescriptor(object, key)
+    assert.deepEqual(
+      [object.plain, object.getter, object.inherited, 'added' in object, own('inherited'), own('getter')?.enumerable],
+      [1, 'real', 'base', false, undefined, false],
+    )
+    assert.equal((globalThis as { ubqStub?: number }).ubqStub, undefined)
+  })
+  stub(object, 'plain', 2)
+  stub(object, 'getter', 'stubbed')
+  stub(object, 'inherited', 'own')
+  stub(object, 'added', 'new')
+  stub(globalThis, 'ubqStub', 3)
+  assert.deepEqual([object.plain, object.getter, object.inherited, object.added], [2, 'stubbed', 'own', 'new'])
+  assert.equal((globalThis as { ubqStub?: number }).ubqStub, 3)
+  assert.throws(() => stub(object, 'fixed', 2), /stub: fixed cannot be changed/)
+  assert.equal(object.fixed, 1)
 })
 
 test('testdir makes a folder that has the name of the test', () => {

@@ -1884,3 +1884,24 @@ back in time.
   time does not make a timer wait longer, and a time forward does
   not run a timer. Only `tick` and `runAll` run timers.
 - The converter hint for `setSystemTime` names `clock.set`.
+
+## D82. `stub(object, key, value)` (user, 2026-11-17)
+
+Q24. `vi.stubGlobal(name, value)` sets a global until the test
+ends. Agents wrote their own helper with `Object.defineProperty`
+and `cleanup`. A put-back is easy to get wrong: a property that
+did not exist, a getter, or a property of the prototype.
+
+- `stub(object, key, value)` sets an own property that is
+  writable and configurable. When the test ends, the old own
+  property comes back as it was, or the property is deleted if the
+  object had no own property. Outside a test, the change lasts
+  until the file ends, as with the other fixtures.
+- A property that is not configurable throws.
+- The value has the type of the property if the object type has
+  the key, and `unknown` if not. A fake with too few properties is
+  then a type error, and the test casts it.
+- `env()` stays for `process.env`.
+- `ubq convert` changes `vi.stubGlobal(name, value)` to
+  `stub(globalThis, name, value)`, and `vi.stubEnv(name, value)`
+  to `env({ name: value })`.
