@@ -30,3 +30,164 @@ Options:
 
 The agent would pick 2 only if users ask for it. Its cost is
 three times the run.
+
+Q21 to Q26 come from `19-sonnet-feedback-0.0.16.md`: a conversion
+of 167 vitest files of sentry-javascript `packages/core` by eight
+agents on a smaller model. "N of 8" is the count of agents that
+hit the problem.
+
+## Q21. Values that a build tool puts in the source (8 of 8)
+
+The vite config of the project has `define: { __DEBUG_BUILD__:
+true }`. Vite puts the value in place of the name. With ubq, the
+source throws `ReferenceError: __DEBUG_BUILD__ is not defined`
+when it loads. Each agent set the value in its own way:
+`globalThis.__DEBUG_BUILD__ = true` in a loader of `NODE_OPTIONS`
+(6 agents), a Bun `--preload` (1), or `BUN_OPTIONS="--define
+__DEBUG_BUILD__=true"` (1). A different vite plugin of the
+project removes blocks of the source (5 of 8 noticed it, 1
+needed it).
+
+Options:
+
+1. No config. `ubq convert` reads `define` of the vite config and
+   prints a note with a recipe: a module that sets each value on
+   `globalThis`, which each test file imports first.
+2. A `define` key in the `ubq` key of `package.json`: names and
+   JSON values. The preload sets each one on `globalThis` before
+   the test file loads. `ubq convert` writes the key from the
+   vite config, as it writes `workers`.
+3. A `preload` key: a list of modules that the runner loads before
+   each test file. More general, and it also covers other setup,
+   but it is a second place for the setup of a test, and the setup
+   is then not in the test file (`05-api.md`, section 2).
+4. As 2, and the hook also puts the value in place of the name in
+   the source, as vite does. A global is not the same: `typeof
+   __DEBUG_BUILD__` and dead code differ. This costs a parse of
+   each project file.
+
+The agent would pick 2. It is one way, it needs no code in the
+project, and the converter can write it. A transform of the
+source, as in 4 and in the vite plugin, is out of scope.
+
+## Q22. Syntax that Node cannot run (8 of 8)
+
+Two source files have parameter properties
+(`constructor(private x: number)`). Node removes types and makes
+no other change, so the source does not load on Node. D79 made
+`ubq doctor` name such files and say to use Bun. Each agent could
+not change the source, so 6 of 8 wrote a loader with esbuild or
+`typescript`, and 2 used Bun.
+
+Options:
+
+1. Keep D79: change the syntax, or run on Bun.
+2. On Node, the runner adds `--experimental-transform-types` to
+   each test process when `ubq doctor` would find such a file.
+   Node then changes the syntax itself. It is experimental, Node
+   refuses it in `NODE_OPTIONS` (the runner would pass it as an
+   argument), and its effect on the counters and on source
+   positions is not checked.
+3. As 2, with no check: always on.
+
+The agent would check 2 first: does the counters hook get the
+source before the change, and do the stack places stay correct?
+If both hold, 2. If not, 1.
+
+## Q23. "Any value of a type" in a pattern (8 of 8)
+
+vitest has `expect.any(Number)`, `expect.anything()`, and
+`expect.stringMatching` at any depth of an expected value. ubq
+has `assert.match` with a RegExp for a string, and nothing for "a
+number" or "a function". The corpus has 270 `expect.any` and 46
+`expect.anything`. Each agent wrote a helper of 30 to 45 lines,
+each different, and some copied it into two files.
+
+Options:
+
+1. No change. The guide shows two assertions: `assert.match` for
+   the keys with known values, and `assert.equal(typeof x.n,
+   'number')` for the others.
+2. A function in a pattern of `assert.match` is a predicate: `{
+   id: (v: unknown) => typeof v === 'number' }`. A failure shows
+   the key, the value, and the text of the function. One rule, no
+   new names.
+3. Exports for the common cases: `assert.match(x, { id: any(Number)
+   })`, `anything()`. Closer to vitest, so the converter can change
+   them with no TODO. More names, and a second way next to 2.
+
+The agent would pick 2. The converter can then change
+`expect.any(Number)` in a pattern to `(v: unknown) => typeof v ===
+'number'`. Note: today a function in a pattern compares by
+identity, so 2 changes a rule. A pattern that has a real function
+as an expected value would need `assert.equal` for it.
+
+## Q24. A replacement of a global value (5 of 8)
+
+`vi.stubGlobal(name, value)` sets a global until the test ends.
+The corpus has 34 uses. `spyOn(globalThis, 'fetch', impl)` covers
+a function. For a value that is not a function (`navigator`,
+`process`, `performance`), each agent wrote a helper with
+`Object.defineProperty` and `cleanup`. One file used it 54 times.
+
+Options:
+
+1. No change. The convert guide shows the recipe with `cleanup`.
+   (The hint of the converter already has it.)
+2. `stub(object, key, value)`: sets the value, and puts back the
+   old property, or removes it, when the test ends. It works for
+   `globalThis` and for each other object. `env()` stays for
+   `process.env`.
+
+The agent would pick 2: the put-back is easy to get wrong (a
+property that did not exist, a property with a getter), and a
+missed put-back is a leak to the next test of the file. D60 says
+to wait for a real project, and this report is one.
+
+## Q25. Set the time of a fake clock (2 of 8, 38 uses in one file)
+
+`vi.setSystemTime(t)` changes `Date.now()` in a test, also back in
+time, and runs no timer. `fakeClock({ now })` sets the time only at
+the start, and `tick` only moves forward and runs timers. One
+agent called `restore()` and `fakeClock({ now })` again for each
+change. Another put `spyOn(Date, 'now', ...)` on top of the clock.
+A test that stubbed `performance` and then made a clock lost the
+stub's `now`.
+
+Options:
+
+1. No change.
+2. `clock.set(time)`: sets the time of `Date` and of
+   `performance.now()`, forward or back, and runs no timer. A timer
+   keeps its due time, so a time back in time makes it wait longer.
+
+The agent would pick 2. It is one method on the existing object.
+
+## Q26. Two changes of `ubq convert` that are not always certain (7 of 8, 8 of 8)
+
+- **`it.each` and `describe.each`.** The agents wrote about 200
+  loops by hand or with scripts. A table of arrays
+  (`it.each([[1, 2], [3, 4]])('%s', (a, b) => ...)`) can become
+  `for (const [a, b] of [[1, 2], [3, 4]]) test(...)`. The name is
+  hard: `%s`, `%j`, `$name`, and `%#` need a template literal, and
+  two rows can give one name (`ubq` fails on a duplicate name).
+- **Hooks.** The agents added about 500 `setup()` calls by hand. A
+  `beforeEach` whose body only assigns to `let` variables of its
+  `describe` could become a `setup` function, with a call at the
+  start of each test of the group, and the variables stay where
+  they are. A test that forgets the call runs with old state, with
+  no error.
+
+Options for each:
+
+1. Keep the TODO.
+2. Change the simple forms (a table of literals with `%s`, `%d`,
+   `%i`, `$name`, or a `beforeEach` with only assignments), add
+   the index to a name when two rows give one name, and keep the
+   TODO for each other form.
+
+The agent would pick 2 for `each`: the change is certain for the
+simple forms, and the converted names can be checked. For hooks,
+the agent would pick 1. The change is certain only for few forms,
+and a group of tests that share state is a design that the agent
+should look at.

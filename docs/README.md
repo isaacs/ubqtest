@@ -25,7 +25,7 @@ Read this file first. Open only the documents that the task needs.
 | `19-sonnet-feedback-0.0.16.md` | A report on ubq 0.0.16 from a smaller model: 167 vitest files of a large project (sentry-javascript `packages/core`), converted by eight agents. It led to imports with no extension (D78), the doctor check for syntax that Node cannot run (D79), and fixes to `ubq convert` for `rejects`, spies of a module namespace, checks of many calls, and optional chains. | You work on `ubq convert`, `ubq doctor`, module resolution, or the types of `assert` and `spy`. |
 | `store.md` | The tables and columns of the store (`.ubq/runs.db`), with example queries for `ubq sql`. | You write a query for `ubq sql`, or you change the tables in `src/store.ts`. |
 | `api.md` | Each export of the package with its type and doc comment. Made by `npm run docs` from the type declarations. | You need the exact type of an export. Do not change it by hand. |
-| `09-questions.md` | Points that wait for a decision from the user, with options. | You look for work that is not blocked, or the user is present. |
+| `09-questions.md` | Points that wait for a decision from the user, with options. Q21 to Q26 are from the 0.0.16 vitest conversion. | You look for work that is not blocked, or the user is present. |
 
 Measurement scripts are in `experiments/` (see its `README.md`).
 Agent evals, with ubq, vitest, and `node:test`, are in `evals/` (see
