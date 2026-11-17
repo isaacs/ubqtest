@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -57,38 +57,21 @@ Options:
 3. Exports for the common cases: `assert.match(x, { id: any(Number)
    })`, `anything()`. Closer to vitest, so the converter can change
    them with no TODO. More names, and a second way next to 2.
+4. `assert.typeof(value, 'string')`, which also narrows the type.
+   It checks one value. Only 9 of the 270 `expect.any` are the
+   whole expected value. The other 261 are a placeholder in an
+   object, an array, or the arguments of a call, such as
+   `toHaveBeenCalledWith({ id: expect.any(Number), name: 'x' })`.
+   With only 4, each of those becomes several assertions. And 50
+   of the 270 are classes (`URL`, `Error`), which `typeof` cannot
+   check. 4 can come in addition to 2 or 3, for one value at the
+   top level.
+
+The user asked about 4 (2026-11-17), and then saw the case of a
+placeholder in a deep pattern. Not decided.
 
 The agent would pick 2. The converter can then change
 `expect.any(Number)` in a pattern to `(v: unknown) => typeof v ===
 'number'`. Note: today a function in a pattern compares by
 identity, so 2 changes a rule. A pattern that has a real function
 as an expected value would need `assert.equal` for it.
-
-## Q26. Two changes of `ubq convert` that are not always certain (7 of 8, 8 of 8)
-
-- **`it.each` and `describe.each`.** The agents wrote about 200
-  loops by hand or with scripts. A table of arrays
-  (`it.each([[1, 2], [3, 4]])('%s', (a, b) => ...)`) can become
-  `for (const [a, b] of [[1, 2], [3, 4]]) test(...)`. The name is
-  hard: `%s`, `%j`, `$name`, and `%#` need a template literal, and
-  two rows can give one name (`ubq` fails on a duplicate name).
-- **Hooks.** The agents added about 500 `setup()` calls by hand. A
-  `beforeEach` whose body only assigns to `let` variables of its
-  `describe` could become a `setup` function, with a call at the
-  start of each test of the group, and the variables stay where
-  they are. A test that forgets the call runs with old state, with
-  no error.
-
-Options for each:
-
-1. Keep the TODO.
-2. Change the simple forms (a table of literals with `%s`, `%d`,
-   `%i`, `$name`, or a `beforeEach` with only assignments), add
-   the index to a name when two rows give one name, and keep the
-   TODO for each other form.
-
-The agent would pick 2 for `each`: the change is certain for the
-simple forms, and the converted names can be checked. For hooks,
-the agent would pick 1. The change is certain only for few forms,
-and a group of tests that share state is a design that the agent
-should look at.

@@ -646,6 +646,164 @@ export const convertSource = (
     return close > open ? [open, close + 1] : undefined
   }
 
+  /**
+   * `it.each(table)(name, fn)` as `for (const row of table)
+   * test(name, fn)`, if the change is certain. Each value that the
+   * name uses must be a literal, so that the command knows each
+   * name. If two rows give one name, the index goes into the name.
+   */
+  const eachLoop = (node: Node, path: Node[], base: string): boolean => {
+    const outer = path.at(-2)
+    const statement = path.at(-3)
+    const table = (node.arguments as Node[])[0]
+    if (
+      outer?.type !== 'CallExpression' ||
+      outer.callee !== node ||
+      statement?.type !== 'ExpressionStatement' ||
+      statement.expression !== outer ||
+      (node.arguments as Node[]).length !== 1 ||
+      table?.type !== 'ArrayExpression'
+    )
+      return false
+    const [title, fn, ...more] = outer.arguments as Node[]
+    const rows = table.elements as (Node | null)[]
+    if (!title || !fn || more.length || !FUNCTION.has(fn.type) || !rows.length) return false
+    const words =
+      title.type === 'Literal' && typeof title.value === 'string'
+        ? title.value
+        : title.type === 'TemplateLiteral' && !(title.expressions as Node[]).length
+          ? ((title.quasis as Node[])[0]!.value as { cooked: string }).cooked
+          : undefined
+    const params = fn.params as (Node & { typeAnnotation?: Node; name?: string })[]
+    if (words === undefined || !params.length || rows.some(row => !row || row.type === 'SpreadElement')) return false
+    // The value of a literal, as the name shows it.
+    const shown = (value: Node | undefined): string | undefined => {
+      if (value?.type === 'Literal' && !value.regex && !value.bigint) return String(value.value)
+      if (value?.type === 'UnaryExpression' && value.operator === '-' && (value.argument as Node).type === 'Literal')
+        return `-${String((value.argument as Node).value)}`
+      if (nameOf(value) === 'undefined') return 'undefined'
+      return undefined
+    }
+    const mode = rows.every(row => row!.type === 'ArrayExpression')
+      ? 'array'
+      : rows.every(row => row!.type === 'ObjectExpression')
+        ? 'object'
+        : rows.every(row => row!.type !== 'ArrayExpression' && row!.type !== 'ObjectExpression')
+          ? 'value'
+          : undefined
+    if (!mode || (mode !== 'array' && params.length > 1)) return false
+    const [param] = params as [(typeof params)[0]]
+    // The text of the name, and a function that gives the name of a row.
+    let template = ''
+    const parts: ((row: Node, index: number) => string | undefined)[] = []
+    let index = false
+    let arg = 0
+    const FORMAT = /%[sdifj%#]|\$#|\$([A-Za-z_$][\w$]*)(\.\w)?|%[oOc]/g
+    let at = 0
+    for (const m of words.matchAll(FORMAT)) {
+      const literal = words.slice(at, m.index)
+      template += literal.replace(/[`\\]|\$\{/g, c => '\\' + c)
+      parts.push(() => literal)
+      at = m.index + m[0].length
+      const spec = m[0]
+      if (spec === '%%') {
+        template += '%'
+        parts.push(() => '%')
+      } else if (spec === '%#' || spec === '$#') {
+        index = true
+        template += '${i}'
+        parts.push((_, i) => String(i))
+      } else if (spec.startsWith('$')) {
+        if (mode !== 'object') {
+          template += spec.replace('$', '\\$')
+          parts.push(() => spec)
+          continue
+        }
+        const key = m[1]!
+        if (m[2]) return false
+        let name: string
+        if (nameOf(param)) name = `${nameOf(param)}.${key}`
+        else if (
+          param.type === 'ObjectPattern' &&
+          (param.properties as Node[]).some(p => p.type === 'Property' && p.shorthand && nameOf(p.key as Node) === key)
+        )
+          name = key
+        else return false
+        template += '${' + name + '}'
+        parts.push(row =>
+          shown(
+            (row.properties as Node[]).find(
+              p => p.type === 'Property' && !p.computed && (nameOf(p.key as Node) ?? (p.key as Node).value) === key,
+            )?.value as Node | undefined,
+          ),
+        )
+      } else {
+        if (mode === 'object' || /%[oOc]/.test(spec)) return false
+        const n = arg++
+        const target = mode === 'array' ? params[n] : n === 0 ? param : undefined
+        if (!nameOf(target)) return false
+        const json = spec === '%j'
+        template += json ? '${JSON.stringify(' + nameOf(target) + ')}' : '${' + nameOf(target) + '}'
+        parts.push(row => {
+          const value = mode === 'array' ? (row.elements as Node[])[n] : row
+          return json && value?.type === 'Literal' ? JSON.stringify(value.value) : shown(value)
+        })
+      }
+    }
+    const tail = words.slice(at)
+    template += tail.replace(/[`\\]|\$\{/g, c => '\\' + c)
+    parts.push(() => tail)
+    const names = rows.map((row, i) => parts.map(part => part(row!, i)))
+    if (names.some(list => list.includes(undefined))) return false
+    const joined = names.map(list => list.join(''))
+    if (new Set(joined).size < joined.length) {
+      index = true
+      template += ' (${i})'
+    }
+    // The types of the parameters go on the table.
+    const typed = params.filter(p => p.typeAnnotation)
+    if (typed.length && typed.length !== params.length) return false
+    const typeText = (p: (typeof params)[0]): string => text(p.typeAnnotation!.typeAnnotation as Node)
+    const optional = (p: (typeof params)[0]): boolean => !!p.optional
+    const cast = !typed.length
+      ? ''
+      : ` as ${
+          mode === 'array'
+            ? `[${params.map(p => typeText(p) + (optional(p) ? '?' : '')).join(', ')}]`
+            : optional(param)
+              ? `(${typeText(param)} | undefined)`
+              : typeText(param)
+        }[]`
+    if (
+      params.some(p => p.type !== 'Identifier' && p.type !== 'ObjectPattern') ||
+      (mode === 'array' && params.some(p => !nameOf(p)))
+    )
+      return false
+    const bare = (p: (typeof params)[0]): string =>
+      source.slice(p.start, p.typeAnnotation ? p.typeAnnotation.start : p.end).replace(/\??\s*$/, '')
+    const binding = mode === 'array' ? `[${params.map(bare).join(', ')}]` : bare(param)
+    // The table cannot read a name of the loop: `for (const a of [a])`
+    // throws. The index must not hide a name of the test.
+    const read = new Set<string>()
+    const find = (n: Node): void => {
+      if (n.type === 'Identifier') read.add(nameOf(n)!)
+      for (const child of children(n))
+        if (
+          !((n.type === 'Property' || n.type === 'MemberExpression') && !n.computed && child === (n.key ?? n.property))
+        )
+          find(child)
+    }
+    find(table)
+    const bound = binding.match(/[A-Za-z_$][\w$]*/g)!
+    if (bound.some(name => read.has(name)) || (index && mentions(fn, 'i'))) return false
+    const wrap = cast && index
+    replace(node.start, table.start, `for (const ${index ? `[i, ${binding}]` : binding} of ${wrap ? '(' : ''}`)
+    replace(table.end, title.end, `${cast}${wrap ? ')' : ''}${index ? '.entries()' : ''}) ${base}(\`${template}\``)
+    const span = paramSpan(fn)!
+    replace(span[0], span[1], '()')
+    return true
+  }
+
   /** True if `name` is in the text of a node, as a word. */
   const mentions = (node: Node, name: string): boolean =>
     new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`).test(text(node))
@@ -974,6 +1132,14 @@ export const convertSource = (
       // mock.timers.enable() of node:test
       else if (roleOf(node.object as Node) === 'mock' && nameOf(node.property as Node) === 'timers')
         todo(path, TODO.timers)
+    } else if (node.type === 'TaggedTemplateExpression') {
+      // it.each`a | b`
+      const tag = node.tag as Node
+      const owner = tag.type === 'MemberExpression' ? roleOf(tag.object as Node) : undefined
+      if ((owner === 'test' || owner === 'describe') && nameOf(tag.property as Node) === 'each') {
+        todo(path, owner === 'describe' ? TODO.eachGroup : TODO.each)
+        used.add(owner)
+      }
     } else if (node.type === 'Identifier' && roleOf(node) === 'tap') {
       // helper(t, value)
       const parent = path.at(-2)
@@ -1082,6 +1248,10 @@ export const convertSource = (
       } else if (method === 'todo' && args.length === 1) {
         replace(callee.start, callee.end, base)
         edits.push({ start: args[0]!.end, end: args[0]!.end, text: ", { skip: 'todo' }, () => {}" })
+      } else if (method === 'each' && eachLoop(node, path, base)) {
+        used.add(base)
+        changes++
+        return []
       } else {
         todo(
           path,

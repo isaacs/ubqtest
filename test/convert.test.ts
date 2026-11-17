@@ -535,6 +535,7 @@ it('a', () => {
   vi.getTimerCount()
 })
 describe.each([1])('g %s', n => {})
+describe.each(rows)('h %s', n => {})
 it.skipIf(a)('b', () => {})
 describe.runIf(a)('c', () => {})
 `)
@@ -611,10 +612,11 @@ describe.runIf(a)('c', () => {})
     ),
     '  vi.getTimerCount()',
     '})',
+    'for (const n of [1]) describe(`g ${n}`, () => {})',
     ...todo(
       'Use a for loop around describe(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object.',
     ),
-    "describe.each([1])('g %s', n => {})",
+    "describe.each(rows)('h %s', n => {})",
     ...todo("Use an option of test(): { skip: condition && 'the reason' }."),
     "it.skipIf(a)('b', () => {})",
     ...todo("Use an option of describe(): { skip: !condition && 'the reason' }."),
@@ -1307,4 +1309,188 @@ test('vitest: convert writes the define values of the vite config, and the tests
     define: { __DEBUG_BUILD__: true },
   })
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+  // The key is there: no line.
+  assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [])
+  // A package.json that is not JSON: the command prints the key.
+  writeFileSync(join(p.dir, 'package.json'), '{')
+  assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [
+    'add to "ubq" in package.json: "define": {"__DEBUG_BUILD__":true}',
+    note,
+  ])
+})
+
+test('vitest: a table of each becomes a for loop, if each name is certain', () => {
+  const r = convert(`import { describe, expect, it } from 'vitest'
+it.each([[1, 2, 3], [2, 3, 5]])('%i + %i is %d', (a, b, sum) => {
+  expect(a + b).toBe(sum)
+})
+it.each([{ a: 'x', n: 1 }, { a: 'y', n: 2 }])('$a is $n, %%', ({ a, n }) => {
+  expect(a).toBeTruthy()
+})
+it.each([{ a: 'x' }, { a: 'x' }])('row $a', row => {
+  expect(row.a).toBe('x')
+})
+it.each([1, 2])('no value', async n => {
+  expect(n).toBeTruthy()
+})
+it.each(['a\`b', null, undefined, -1])(\`%s #%# $x \\\${y}\`, value => {
+  expect(value).not.toBe(2)
+})
+it.each([[1, 'a']])('typed %j', (n: number, s?: string) => {
+  expect(s).toBe('a')
+})
+it.each([1])('one %s', (n?: number) => {
+  expect(s).toBe('a')
+})
+it.each([{ n: 1 }, { n: 1 }])('typed', ({ n }: { n: number }) => {
+  expect(n).toBe(1)
+})
+describe.each\`a\n\${1}\`('$a', ({ a }) => {})
+describe.each([[1], [2]])('group %s', n => {
+  it('in', () => {
+    expect(n).toBeTruthy()
+  })
+})
+it.each([[x]])('%s', x => {})
+it.each([[1]])('%s %s', a => {})
+it.each([[1, {}]])('%s %s', (a, b) => {})
+it.each([{ a: 1 }])('%s', row => {})
+it.each([{ a: { b: 1 } }])('$a.b', row => {})
+it.each([{ a: 1 }])('$a', ({ a: b }) => {})
+it.each([[1], 2])('%s', a => {})
+it.each([[1]])('%o', a => {})
+it.each([[1, 2]])('%s', (a, b: number) => {})
+it.each([[1]])('%s', ([a]) => {})
+it.each([1, 1])('%s', i => {})
+it.each([1])(name, a => {})
+it.each([1])('%s', () => {})
+it.each\`a\n\${1}\`('$a', ({ a }) => {})
+it.each([1])('x', a => {}, 1000)
+it.each([1])('%s %s', a => {})
+it.each([1])('x', (a = 1) => {})
+tag\`x\`
+it.each([[o.a], [o['b']]])('a\`b %#', c => {})
+it.each([{ 'k': 1 }])('$k', row => {})
+`)
+  assert(r)
+  const each =
+    'Use a for loop around test(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object: %s of an object is [object Object].'
+  assert.deepEqual(r.code, [
+    "import { assert, describe, test } from 'ubqtest'",
+    'for (const [a, b, sum] of [[1, 2, 3], [2, 3, 5]]) test(`${a} + ${b} is ${sum}`, () => {',
+    '  assert.equal(a + b, sum)',
+    '})',
+    "for (const { a, n } of [{ a: 'x', n: 1 }, { a: 'y', n: 2 }]) test(`${a} is ${n}, %`, () => {",
+    '  assert(a)',
+    '})',
+    "for (const [i, row] of [{ a: 'x' }, { a: 'x' }].entries()) test(`row ${row.a} (${i})`, () => {",
+    "  assert.equal(row.a, 'x')",
+    '})',
+    'for (const [i, n] of [1, 2].entries()) test(`no value (${i})`, async () => {',
+    '  assert(n)',
+    '})',
+    "for (const [i, value] of ['a`b', null, undefined, -1].entries()) test(`${value} #${i} \\$x \\${y}`, () => {",
+    '  assert.notEqual(value, 2)',
+    '})',
+    "for (const [n, s] of [[1, 'a']] as [number, string?][]) test(`typed ${JSON.stringify(n)}`, () => {",
+    "  assert.equal(s, 'a')",
+    '})',
+    'for (const n of [1] as (number | undefined)[]) test(`one ${n}`, () => {',
+    "  assert.equal(s, 'a')",
+    '})',
+    'for (const [i, { n }] of ([{ n: 1 }, { n: 1 }] as { n: number }[]).entries()) test(`typed (${i})`, () => {',
+    '  assert.equal(n, 1)',
+    '})',
+    ...todo(
+      'Use a for loop around describe(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object.',
+    ),
+    'describe.each`a',
+    "${1}`('$a', ({ a }) => {})",
+    'for (const [n] of [[1], [2]]) describe(`group ${n}`, () => {',
+    "  test('in', () => {",
+    '    assert(n)',
+    '  })',
+    '})',
+    ...todo(each),
+    "it.each([[x]])('%s', x => {})",
+    ...todo(each),
+    "it.each([[1]])('%s %s', a => {})",
+    ...todo(each),
+    "it.each([[1, {}]])('%s %s', (a, b) => {})",
+    ...todo(each),
+    "it.each([{ a: 1 }])('%s', row => {})",
+    ...todo(each),
+    "it.each([{ a: { b: 1 } }])('$a.b', row => {})",
+    ...todo(each),
+    "it.each([{ a: 1 }])('$a', ({ a: b }) => {})",
+    ...todo(each),
+    "it.each([[1], 2])('%s', a => {})",
+    ...todo(each),
+    "it.each([[1]])('%o', a => {})",
+    ...todo(each),
+    "it.each([[1, 2]])('%s', (a, b: number) => {})",
+    ...todo(each),
+    "it.each([[1]])('%s', ([a]) => {})",
+    ...todo(each),
+    "it.each([1, 1])('%s', i => {})",
+    ...todo(each),
+    'it.each([1])(name, a => {})',
+    ...todo(each),
+    "it.each([1])('%s', () => {})",
+    ...todo(each),
+    'it.each`a',
+    "${1}`('$a', ({ a }) => {})",
+    ...todo(each),
+    "it.each([1])('x', a => {}, 1000)",
+    ...todo(each),
+    "it.each([1])('%s %s', a => {})",
+    ...todo(each),
+    "it.each([1])('x', (a = 1) => {})",
+    'tag`x`',
+    "for (const [i, [c]] of [[o.a], [o['b']]].entries()) test(`a\\`b ${i}`, () => {})",
+    "for (const row of [{ 'k': 1 }]) test(`${row.k}`, () => {})",
+  ])
+})
+
+test('vitest: the loops from each run, with a different name for each row', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    `import { describe, expect, it } from 'vitest'
+it.each([[1, 2, 3], [2, 3, 5]])('%i + %i is %d', (a, b, sum) => {
+  expect(a + b).toBe(sum)
+})
+it.each([{ a: 'x' }, { a: 'x' }])('row $a', ({ a }) => {
+  expect(a).toBe('x')
+})
+it.each([1, 2])('%# no value', n => {
+  expect(n).toBeTruthy()
+})
+describe.each([['a'], ['b']])('group %s', s => {
+  it('in', () => {
+    expect(s.length).toBe(1)
+  })
+})
+`,
+  )
+  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 10 changes, 0 TODO')
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 8 passed')
+  assert.deepEqual(
+    p
+      .ubq('sql', 'select id from test order by line, id')
+      .out.trim()
+      .split('\n')
+      .map(line => JSON.parse(line).id),
+    [
+      'old.ts > 1 + 2 is 3',
+      'old.ts > 2 + 3 is 5',
+      'old.ts > row x (0)',
+      'old.ts > row x (1)',
+      'old.ts > 0 no value',
+      'old.ts > 1 no value',
+      'old.ts > group a > in',
+      'old.ts > group b > in',
+    ],
+  )
 })

@@ -1933,3 +1933,31 @@ loaded. Each of 8 agents set the value in its own way: a loader in
   different file, and has no `define`, gets a note.
 - Browser tests and Workers do not use the key: vite and wrangler
   have their own `define`.
+
+## D84. `ubq convert` makes loops of `each`, and keeps the TODO for hooks (user, 2026-11-17)
+
+Q26. The agents wrote about 200 loops for `it.each` by hand, and
+about 500 `setup()` calls.
+
+- `it.each(table)(name, fn)` and `describe.each` become `for
+  (const row of table) test(name, fn)` when the change is certain:
+  - The table is an array literal of arrays, of objects, or of
+    single values (not mixed).
+  - The function has parameters that are names, or one object
+    pattern with shorthand keys for the object table.
+  - Each value that the name uses is a literal, so that the
+    command knows each name. `%s`, `%d`, `%i`, `%f`, `%j`, `%%`,
+    `%#`, `$#`, and `$key` work. `%o`, `%O`, `%c`, and `$a.b` keep
+    the TODO.
+  - If two rows give one name, the command adds the index.
+  - The table reads no name of the loop, and the index `i` hides
+    no name of the test.
+  - The types of the parameters become a cast of the table. A
+    function with types on only some parameters keeps the TODO.
+- The names of the converted tests do not match the names of
+  vitest. They are different for each row, and they show the
+  values.
+- A tagged template table (``it.each`a | b` ``) gets the TODO.
+- Hooks keep the TODO. The change is certain only for few forms,
+  and a group of tests that share state is a design that the agent
+  must look at.

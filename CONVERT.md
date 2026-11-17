@@ -320,11 +320,18 @@ Things to check by hand:
 - **`expect.arrayContaining` of literals.** The command writes
   `assert.contains(list, x)` for each literal, when `list` is a
   name or a path of names (`res.names`).
-- **`it.each(table)`.** A `for` loop around `test()`. Each test
-  name must be different: put the value in the name. `%s` of an
-  object is `[object Object]`, and `%j` of `NaN` and of `null` are
-  both `null`: use `JSON.stringify(value)`, or the index.
+- **`it.each(table)`.** A `for` loop around `test()`.
   `describe.each(table)` is a `for` loop around `describe()`.
+  `ubq convert` makes the loop when the table is an array of
+  arrays, of objects, or of single values, and each value that the
+  name uses (`%s`, `%d`, `%i`, `%j`, `$key`) is a literal. `%#` and
+  `$#` become the index. If two rows give one name, the command
+  adds the index: `row x (0)`. The types of the parameters go on
+  the table: `as [number, string][]`. For each other form, the
+  command writes a TODO. Then each test name must be different:
+  put the value in the name. `%s` of an object is `[object
+  Object]`, and `%j` of `NaN` and of `null` are both `null`: use
+  `JSON.stringify(value)`, or the index.
 - **`it.skipIf(condition)`, `it.runIf(condition)`.** An option:
   `test(name, { skip: condition && 'the reason' }, fn)`. For
   `runIf`: `!condition`.
