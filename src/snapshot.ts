@@ -36,8 +36,10 @@ export const snapshotText = (value: unknown): string =>
 //   exports[`group > name 1`] = `
 //   text
 //   `
-const escape = (text: string): string => text.replace(/[`\\]|\$\{/g, m => '\\' + m)
-const unescape = (text: string): string => text.replace(/\\([`\\]|\$\{)/g, '$1')
+// A CR of a value is `\r` in the file. Git can check the file out
+// with CRLF line ends on Windows: a CR in the file is not from ubq.
+const escape = (text: string): string => text.replace(/[`\\]|\$\{|\r/g, m => (m === '\r' ? '\\r' : '\\' + m))
+const unescape = (text: string): string => text.replace(/\\([`\\r]|\$\{)/g, (_, c: string) => (c === 'r' ? '\r' : c))
 const ENTRY = /exports\[`((?:[^`\\]|\\.)*)`\] = `\n((?:[^`\\]|\\.)*)\n`\n/gs
 
 let file: string | undefined
@@ -50,7 +52,7 @@ const counts = new Map<string, number>()
 
 /** The entries of the text of a snapshot file: key, then text. */
 export const snapshotEntries = (text: string): Map<string, string> =>
-  new Map([...text.matchAll(ENTRY)].map(m => [unescape(m[1]!), unescape(m[2]!)]))
+  new Map([...text.replaceAll('\r\n', '\n').matchAll(ENTRY)].map(m => [unescape(m[1]!), unescape(m[2]!)]))
 
 const load = (testFile: string): void => {
   if (file !== undefined) return

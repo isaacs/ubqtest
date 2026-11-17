@@ -380,6 +380,13 @@ All entries are from 2026-11-11 to 2026-11-14.
     the fake clock, a value for a `define` of vite, loops for
     `it.each`, and the hint texts.
 
+- **Snapshot files with CRLF line ends.** Git on Windows can check
+  a snapshot file out with CRLF line ends. ubq then found no
+  entries, and each `assert.snapshot` failed. ubq now reads such a
+  file. A CR of a value is `\r` in the file. A snapshot of an
+  older version with a CR and LF in a value fails one time: run
+  `ubq --update`.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

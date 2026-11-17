@@ -125,6 +125,31 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
   )
 })
 
+test('a snapshot file with CRLF line ends, and a value with a CR', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'crlf.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('t', () => {\n  assert.snapshot('a\\r\\nb\\rc \\\\r')\n  assert.snapshot('one\\ntwo')\n})\n",
+  )
+  const snap = join(p.dir, 'ubq-snapshots/crlf.ts.snap')
+  assert.equal(p.ubq('--update', 'crlf.ts').last, 'pass: 0 failed, 1 passed')
+  // A CR of a value is an escape in the file.
+  const text = readFileSync(snap, 'utf8')
+  assert.equal(text.split('exports[`t 1`] = `\n')[1]?.split('\n`\n')[0], 'a\\r\nb\\rc \\\\r')
+  assert.equal(p.ubq('crlf.ts').last, 'pass: 0 failed, 1 passed')
+  // Git on Windows can check the file out with CRLF line ends.
+  writeFileSync(snap, text.replaceAll('\n', '\r\n'))
+  assert.equal(p.ubq('crlf.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(
+    p
+      .ubq('--update', 'crlf.ts')
+      .out.split('\n')[0]
+      ?.replace(/ \(run \d+\)$/, ''),
+    'pass: 0 failed, 1 passed',
+  )
+})
+
 test('ubq --update with no file writes the snapshots of all tests', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))

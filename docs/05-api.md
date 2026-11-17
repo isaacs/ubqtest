@@ -193,6 +193,9 @@ older run saved (D31).
   `ubq-snapshots/<test file path>.snap`. Commit it. The key of an
   entry is the names of the test and the number of the call in
   the test: `parse > circle 1`.
+- The file has LF line ends, and a CR of a value is `\r` in it.
+  A file that git checked out with CRLF line ends on Windows has
+  the same entries.
 - A value with no saved text fails. A plain run never writes the
   file. `ubq --update <file>` or `ubq --update '<test id>'` runs
   the named tests and writes their snapshots. `ubq --update` with
