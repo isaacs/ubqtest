@@ -297,6 +297,19 @@ All entries are from 2026-11-11 to 2026-11-14.
   before its first test has its error, and no second error that
   says that it registered no tests.
 
+- **Convert, from the feedback on 0.0.15.**
+  - TODO comments wrap at 75 characters.
+  - When the expected value of an assertion starts on its own
+    line, each argument goes on its own line.
+  - `expect.arrayContaining` of literals becomes one
+    `assert.contains` for each literal.
+  - The report gives the command of the formatter of the project,
+    names the files that still import the old tool, and has a note
+    for each key of `miniflare` other than `bindings`.
+
+- **A hint for a hook.** A file that calls `afterEach` (or another
+  hook of an other tool) fails with a hint that ubq has no hooks.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

@@ -196,6 +196,24 @@ const TODO = {
   resolves: 'A test needs an assertion. Await the promise and assert on its value.',
 } as const
 
+/** The width of a line of a TODO comment, unless the indent is deep. */
+const WIDTH = 75
+
+/** A `TODO(ubq)` comment, in lines of WIDTH characters at most. */
+export const todoComment = (indent: string, message: string): string => {
+  const width = Math.max(WIDTH, indent.length + 40)
+  const lines: string[] = []
+  let line = `${indent}// TODO(ubq):`
+  for (const word of message.split(' ')) {
+    if (line.length + 1 + word.length > width && line.length > indent.length + 3) {
+      lines.push(line)
+      line = `${indent}//`
+    }
+    line += ` ${word}`
+  }
+  return [...lines, line].join('\n') + '\n'
+}
+
 const SIMPLE = new Set([
   'Identifier',
   'MemberExpression',
@@ -375,6 +393,11 @@ export const convertSource = (
     node?.type === 'Identifier' ? roles.get((node as unknown as { name: string }).name) : undefined
   const nameOf = (node: Node | undefined): string | undefined =>
     node?.type === 'Identifier' ? (node as unknown as { name: string }).name : undefined
+  /** A name, or a path of names such as `a.b.c`. */
+  const plainPath = (node: Node): boolean =>
+    node.type === 'Identifier' ||
+    node.type === 'ThisExpression' ||
+    (node.type === 'MemberExpression' && !node.computed && plainPath(node.object as Node))
 
   /**
    * Changes a call to the text of a rule. The arguments that the
@@ -408,8 +431,11 @@ export const convertSource = (
       replace(node.start, node.end, pieces[0]!)
       return []
     }
-    // `expect(\n  a,\n).toBe(b)` keeps one argument on each line.
-    const indent = /\n([ \t]*)$/.exec(source.slice(node.start, parts[0]!.start))?.[1]
+    // `expect(\n  a,\n).toBe(b)` and `expect(a).toBe(\n  b,\n)` put
+    // each argument on its own line.
+    const indent = parts
+      .map((part, i) => /\n([ \t]*)$/.exec(source.slice(i ? parts[i - 1]!.end : node.start, part.start))?.[1])
+      .find(found => found !== undefined)
     if (
       indent !== undefined &&
       pieces[0]!.endsWith('(') &&
@@ -417,13 +443,10 @@ export const convertSource = (
       pieces.slice(1, -1).every(piece => piece === ', ')
     ) {
       pieces[0] += `\n${indent}`
-      for (let i = 1; i < parts.length; i++) {
-        pieces[i] = `,\n${indent}`
-        shifts.push({
-          start: parts[i]!.start,
-          end: parts[i]!.end,
-          by: indent.length - indentAt(parts[i]!.start).length,
-        })
+      for (let i = 0; i < parts.length; i++) {
+        if (i) pieces[i] = `,\n${indent}`
+        const by = indent.length - indentAt(parts[i]!.start).length
+        if (by) shifts.push({ start: parts[i]!.start, end: parts[i]!.end, by })
       }
       pieces[parts.length] = `,\n${indentAt(node.start)})`
     }
@@ -949,6 +972,37 @@ export const convertSource = (
       )
       return undefined
     }
+    // expect(list).toEqual(expect.arrayContaining(['a', 'b'])) is one
+    // assert.contains for each element. The list must give the same
+    // value each time that the code reads it.
+    const contained = args[0]
+    const sample = (contained?.arguments as Node[] | undefined)?.[0]
+    if (
+      (method === 'toEqual' || method === 'toStrictEqual') &&
+      !not &&
+      !promise &&
+      args.length === 1 &&
+      contained!.type === 'CallExpression' &&
+      (contained!.callee as Node).type === 'MemberExpression' &&
+      roleOf((contained!.callee as Node).object as Node) === 'expect' &&
+      nameOf((contained!.callee as Node).property as Node) === 'arrayContaining' &&
+      sample?.type === 'ArrayExpression' &&
+      (sample.elements as (Node | null)[]).length &&
+      (sample.elements as (Node | null)[]).every(e => e?.type === 'Literal' && !(e as { regex?: unknown }).regex) &&
+      plainPath(subject) &&
+      (statementOf(path) as { expression?: Node }).expression === node
+    ) {
+      changes++
+      used.add('assert')
+      replace(
+        node.start,
+        node.end,
+        (sample.elements as Node[])
+          .map(e => `assert.contains(${text(subject)}, ${text(e)})`)
+          .join(`\n${indentAt(node.start)}`),
+      )
+      return []
+    }
     if (method === 'toMatch' && args[0]) {
       // A value can be text or a RegExp, and the two have different forms.
       if (args[0].type !== 'Literal' && args[0].type !== 'TemplateLiteral') {
@@ -1172,7 +1226,7 @@ export const convertSource = (
   for (const [at, messages] of todos) {
     const from = lineStart(at)
     const indent = /^\s*/.exec(source.slice(from, at))![0]
-    edits.push({ start: from, end: from, text: [...messages].map(m => `${indent}// TODO(ubq): ${m}\n`).join('') })
+    edits.push({ start: from, end: from, text: [...messages].map(m => todoComment(indent, m)).join('') })
   }
 
   // Text that is put in comes before a change at the same place.
@@ -1226,9 +1280,18 @@ export const convertSource = (
   // The new text must be code.
   parse(code, file)
   const found: Converted['todos'] = []
-  code.split('\n').forEach((text, i) => {
+  const all = code.split('\n')
+  all.forEach((text, i) => {
     const m = /\/\/ TODO\(ubq\): (.*)$/.exec(text) ?? /'TODO\(ubq\): (the reason)'/.exec(text)
-    if (m && text.trim().startsWith('//')) found.push({ line: i + 1, text: m[1]! })
+    if (!m || !text.trim().startsWith('//')) return
+    // The next lines of a comment that todoComment wrapped.
+    let message = m[1]!
+    for (let j = i + 1; j < all.length; j++) {
+      const more = /^\s*\/\/ (?!TODO\(ubq\))(.*)$/.exec(all[j]!)
+      if (!more) break
+      message += ` ${more[1]}`
+    }
+    found.push({ line: i + 1, text: message })
   })
   return { code, framework, changes: changes + removed.length, todos: found }
 }
@@ -1237,6 +1300,19 @@ export const convertSource = (
 const CODE = /(?<!\.d)\.([cm]?[jt]s|[jt]sx)$/
 /** The default name of a test file. */
 const TEST_NAME = /\.test\.([cm]?[jt]s|[jt]sx)$/
+/** The command that formats files, for each formatter package. */
+const FORMATTERS: [pkg: string, command: string][] = [
+  ['prettier', 'npx prettier --write'],
+  ['oxfmt', 'npx oxfmt'],
+  ['@biomejs/biome', 'npx biome format --write'],
+  ['dprint', 'npx dprint fmt'],
+]
+
+/** A file of types. */
+const TYPES = /\.d\.[cm]?ts$/
+/** A name of a test tool that a project removes after the change to ubq. */
+const OLD_TOOL =
+  /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|mocha)\1/
 
 /** `ubq convert <files or folders>`. Prints the report with `out`. Returns the exit code. */
 export const convertCommand = (args: string[], out: (text: string) => void): number => {
@@ -1248,6 +1324,8 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     )
   const { parse, children } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
   const files: string[] = []
+  /** Files of types, such as `env.d.ts`, in the folders. */
+  const types: string[] = []
   for (const path of paths) {
     const full = resolve(path)
     let folder: boolean
@@ -1259,7 +1337,9 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     if (!folder) files.push(full)
     else
       for (const name of readdirSync(full, { recursive: true }) as string[])
-        if (CODE.test(name) && !/(^|[\\/])(node_modules|\.[^\\/]+)[\\/]/.test(name)) files.push(join(full, name))
+        if (/(^|[\\/])(node_modules|\.[^\\/]+)[\\/]/.test(name)) continue
+        else if (CODE.test(name)) files.push(join(full, name))
+        else if (TYPES.test(name)) types.push(join(full, name))
   }
   // A project of the vitest plugin for Workers: its vitest config
   // has what the `workers` key of the ubq configuration needs.
@@ -1301,6 +1381,9 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   let failed = 0
   const unnamed: string[] = []
   let workers = 0
+  const written: string[] = []
+  /** Files that still name a test tool that the project removes. */
+  const old: string[] = []
   for (const path of files.sort()) {
     const file = rel(path)
     let result: Converted | undefined
@@ -1315,8 +1398,10 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       unknown.push(file)
       continue
     }
+    if (OLD_TOOL.test(result.code)) old.push(file)
     changed++
     todos += result.todos.length
+    written.push(file)
     if (!dry) writeFileSync(path, result.code)
     // A file with no tests is a helper. Its name is not a problem.
     if (!TEST_NAME.test(file) && /^\s*(test|describe)\(/m.test(result.code)) unnamed.push(file)
@@ -1351,6 +1436,17 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       `note: ${unnamed.length} of these files have tests, and do not have a name that ubq runs (*.test.ts): ${unnamed.slice(0, 5).join(', ')}${unnamed.length > 5 ? ', ...' : ''}. Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
   }
+  for (const path of [...unknown.map(file => resolve(root, file)), ...types])
+    try {
+      // A note below says to remove a setup file that only applied migrations.
+      if (!spent.includes(rel(path)) && OLD_TOOL.test(readFileSync(path, 'utf8'))) old.push(rel(path))
+    } catch {
+      // ubq: not measured: the command read each of these files
+    }
+  if (old.length && changed)
+    out(
+      `note: these files still name the old test tool: ${old.sort().join(', ')}. Change them before you remove that tool.`,
+    )
   for (const note of setupNotes) out(note)
   if (spent.length && changed)
     out(
@@ -1404,6 +1500,15 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
           .join(', ')}`,
       )
     }
+  } catch {
+    // No package.json that is JSON.
+  }
+  // The changes keep the code correct, not its format.
+  try {
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Record<string, Record<string, string>>
+    const format = FORMATTERS.find(([name]) => pkg.devDependencies?.[name] ?? pkg.dependencies?.[name])?.[1]
+    if (format && written.length && !dry)
+      out(`note: this command does not format the code. To format the changed files: ${format} ${written.join(' ')}`)
   } catch {
     // No package.json that is JSON.
   }

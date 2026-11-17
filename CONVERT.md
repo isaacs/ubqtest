@@ -12,11 +12,16 @@ has the API and the rules of ubq.
    is skipped. You compare with this at the end.
 2. **Install.** `npm install --save-dev ubqtest`. Then `npx ubq
    doctor`, and do each `FIX` line. A `note` line needs no action.
+   Commit these changes: step 3 needs a clean `git status`.
 3. **Convert.** `npx ubq convert test` (give the folders and files
    that have tests). `--dry` shows the report and changes no file.
    The command changes the files in place. Make sure that `git
    status` is clean before it, so that `git diff` shows the
-   changes. It is safe to run the command again on one file.
+   changes. It is safe to run the command again on one file. The
+   command keeps the code correct, but it does not format it. If
+   the project has a formatter (prettier, oxfmt, biome, or
+   dprint), the report gives the command that formats the
+   changed files.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. It makes only the changes
    that are correct in each case, so a TODO can be easy to do by
@@ -35,8 +40,9 @@ has the API and the rules of ubq.
    in the `scripts` of `package.json`. Remove the old test tool, its plugins, and its
    configuration (`.taprc`, `vitest.config.*`, `jest.config.*`,
    `.mocharc.*`, `c8` and `nyc` settings), and the entries for
-   the old tool in `types` of `tsconfig.json`. Change the test
-   command of CI. The folder `.ubq/` has the run store, and git ignores it
+   the old tool in `types` of `tsconfig.json`. The report of step
+   3 names the files that still import the old tool, such as an
+   `env.d.ts`: change them first. Change the test command of CI. The folder `.ubq/` has the run store, and git ignores it
    with no setup. Commit `ubq-snapshots/`.
 
 Do not change the source of the project to make a test pass,
@@ -242,6 +248,9 @@ Things to check by hand:
   `isDeepEqual` gives true or false by the rules of
   `assert.deepEqual`. Use it also for `expect.arrayContaining`
   with objects.
+- **`expect.arrayContaining` of literals.** The command writes
+  `assert.contains(list, x)` for each literal, when `list` is a
+  name or a path of names (`res.names`).
 - **`it.each(table)`.** A `for` loop around `test()`. Each test
   name must be different: put the value in the name.
 - **`.only`.** The command removes it. ubq runs one test from the
@@ -293,7 +302,9 @@ Things to check by hand:
   entry for each project of the config, with its wrangler config,
   its test files, and the plain values of `miniflare.bindings` as
   `vars`. Read the notes that it prints: a value that is not plain
-  must go into `vars` by hand. A binding for the D1 migrations
+  must go into `vars` by hand. Each other key of `miniflare`
+  (such as `serviceBindings`) gets a note: ubq uses the wrangler
+  config for them. A binding for the D1 migrations
   (`TEST_MIGRATIONS: await readD1Migrations(...)`) gets no note
   and is not in `vars`: `migrate` does that work. If the project
   has a copy of its wrangler config for the tests, which leaves

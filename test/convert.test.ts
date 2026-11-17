@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
-import { convertSource } from '../src/convert.ts'
+import { convertSource, todoComment } from '../src/convert.ts'
 import { project } from './setup.ts'
 
 // The load hook of the counters loads the parser with `require`,
@@ -68,12 +68,13 @@ t.equal(1, 1)
     '    assert(m)',
     '  })',
     '})',
-    '// TODO(ubq): ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
+    '// TODO(ubq): ubq has no hooks. Make a setup function and call it in each',
+    '// test. Use cleanup() for the work after a test.',
     't.beforeEach(() => {})',
     '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
     'assert.equal(1, 1)',
   ])
-  assert.deepEqual([r.framework, r.todos.map(t => t.line)], ['tap', [21, 23]])
+  assert.deepEqual([r.framework, r.todos.map(t => t.line)], ['tap', [21, 24]])
 })
 
 test('vitest: expect, not, promises, spies, skip, a time limit', () => {
@@ -109,7 +110,8 @@ describe('g', () => {
     '    assert.equal(await p, 1)',
     '    const s = spy(() => 1)',
     '    assert.deepEqual(s.calls.at(-1)?.args, [1, 2])',
-    '    // TODO(ubq): ubq has no toSatisfy. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+    '    // TODO(ubq): ubq has no toSatisfy. Write an assertion with assert,',
+    '    // assert.equal, assert.deepEqual, or assert.match.',
     '    expect(f()).toSatisfy(ok)',
     '  })',
     "  // TODO(ubq): Give the reason: { skip: 'the reason' }.",
@@ -229,23 +231,25 @@ describe('group', () => {
 })
 `)
   assert(r)
-  const todo = (text: string): string => `// TODO(ubq): ${text}`
+  const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
   // ubq has no vi, and a spy of ubq has no mockRestore: no call stays.
-  const restored = todo(
-    'The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
-  )
+  const restored = (indent: string): string[] =>
+    todo(
+      'The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
+      indent,
+    )
   assert.deepEqual(r.code, [
     "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
     '',
     '{ await migrate() }',
-    todo('ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.'),
+    ...todo('ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.'),
     'afterAll(() => close())',
     '',
     "describe('group', () => {",
-    '  ' +
-      todo(
-        'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
-      ),
+    ...todo(
+      'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+      '  ',
+    ),
     '  beforeAll(async () => { await row() })',
     "  test('a', () => {",
     "    const f = spyOn(globalThis, 'fetch', impl)",
@@ -257,12 +261,12 @@ describe('group', () => {
     "    assert.deepEqual(f.calls[0].args, ['u'])",
     '    assert(Math.abs(1.234 - 1.23) < 0.005)',
     "    assert(!(Reflect.has(Object(o), 'k')))",
-    '    ' +
-      todo(
-        'ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
-      ),
+    ...todo(
+      'ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+      '    ',
+    ),
     "    expect(o).toHaveProperty('a.b')",
-    '    ' + restored,
+    ...restored('    '),
     '    assert.equal(g.calls.length, 0)',
     '  })',
     '})',
@@ -299,7 +303,10 @@ it('a', async () => {
     '    return new Response(`a',
     '    b`)',
     '  })',
-    '  // TODO(ubq): The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
+    '  // TODO(ubq): The convert command removed a call here that put spies',
+    '  // back. A spyOn spy goes back when its test ends, not before, and a',
+    '  // second spyOn on a key replaces the first. If the code after this place',
+    '  // needs the real method, move that code to a new test.',
     '  assert.match(',
     "    parsePatch('x'),",
     '    [',
@@ -331,7 +338,9 @@ it('responds', async () => {
 `)
   assert(r)
   assert.deepEqual(r.code, [
-    "// TODO(ubq): ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
+    "// TODO(ubq): ubq has no 'cloudflare:test'. 'ubqtest/workers' has",
+    '// executionContext, scheduledController, and migrate. Write the test',
+    '// without the other names.',
     "import { env } from 'cloudflare:workers'",
     "import { executionContext, migrate, scheduledController } from 'ubqtest/workers'",
     "import { SELF } from 'cloudflare:test'",
@@ -370,10 +379,17 @@ it('a', () => {
     "  assert.contains(row.tags, 'x')",
     "  assert.contains(rows[0], 'x')",
     "  assert.contains(a?.b, 'x')",
-    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. For any(String), assert on',
+    '  // typeof. For arrayContaining, assert on each element:',
+    '  // assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object.',
     '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
     '  assert.match(last, { content: /a\\.b/ })',
-    '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
+    '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs',
+    '  // an Error class, a RegExp, or a partial object. If this value is a',
+    '  // string, make a RegExp from it.',
     '  assert.throws(() => f(), message)',
     '  assert.throws(() => f(), TypeError)',
     '})',
@@ -404,9 +420,17 @@ it('a', async () => {
     "import { assert, test } from 'ubqtest'",
     '',
     'let restore = () => {}',
-    '// TODO(ubq): If this only puts spies back, delete it, each assignment to restore, and each call of restore() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first. If it does other work: ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
+    '// TODO(ubq): If this only puts spies back, delete it, each assignment to',
+    '// restore, and each call of restore() or of the function that was',
+    '// assigned. Then remove that function from the helper that gives it. A',
+    '// spyOn spy goes back when its test ends, and a second spyOn on a key',
+    '// replaces the first. If it does other work: ubq has no hooks. Make a',
+    '// setup function and call it in each test. Use cleanup() for the work',
+    '// after a test.',
     'afterEach(() => restore())',
-    '// TODO(ubq): ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
+    '// TODO(ubq): ubq has no hooks. Put this code at the top level of the file,',
+    '// with await. It runs at this place, not later: put it after the',
+    '// declarations that it uses.',
     'beforeAll(async () => {',
     '  await insert(repo)',
     '})',
@@ -539,8 +563,8 @@ beforeEach(() => again())
   assert.deepEqual(p.ubq('convert', '--dry', 'old').out.split('\n'), [
     'to convert old/a.test.ts (vitest): 2 changes, 3 TODO',
     '  old/a.test.ts:2  [1] ubq has no hooks.',
-    '  old/a.test.ts:4  [2] Give the reason:',
-    '  old/a.test.ts:6  [1] ubq has no hooks.',
+    '  old/a.test.ts:5  [2] Give the reason:',
+    '  old/a.test.ts:7  [1] ubq has no hooks.',
     'to convert old/helper.ts (vitest): 2 changes, 0 TODO',
     'hints:',
     '  [1] ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
@@ -549,6 +573,41 @@ beforeEach(() => again())
     'note: this command makes only the changes that are correct in each case. A TODO can be easy to do by hand: the command leaves it if the change is not safe for each program that has that form.',
     'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
     '',
+  ])
+})
+
+test('the report names the files that still name the old tool, and the command of the formatter', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'old'))
+  writeFileSync(join(p.dir, 'old/a.test.ts'), "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n")
+  writeFileSync(
+    join(p.dir, 'old/env.d.ts'),
+    "import type { D1Migration } from '@cloudflare/vitest-pool-workers'\nexport type M = D1Migration\n",
+  )
+  writeFileSync(join(p.dir, 'old/setup.ts'), "import 'jest'\n")
+  writeFileSync(join(p.dir, 'old/other.d.ts'), 'export type N = number\n')
+  // ubq has no SELF: the import stays, with a TODO.
+  writeFileSync(
+    join(p.dir, 'old/w.test.ts'),
+    "import { SELF } from 'cloudflare:test'\nimport { it } from 'vitest'\nit('a', () => SELF)\n",
+  )
+  // The command does not look in node_modules.
+  mkdirSync(join(p.dir, 'old/node_modules/x'), { recursive: true })
+  writeFileSync(join(p.dir, 'old/node_modules/x/index.d.ts'), "import 'vitest'\n")
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', devDependencies: { prettier: '3' } }))
+  const notes = (...args: string[]): string[] =>
+    p
+      .ubq('convert', ...args)
+      .out.split('\n')
+      .filter(line => /^note: (these|this command does not)/.test(line))
+  const old =
+    'note: these files still name the old test tool: old/env.d.ts, old/setup.ts, old/w.test.ts. Change them before you remove that tool.'
+  // With --dry, no file changes: there is nothing to format.
+  assert.deepEqual(notes('--dry', 'old'), [old])
+  assert.deepEqual(notes('old'), [
+    old,
+    'note: this command does not format the code. To format the changed files: npx prettier --write old/a.test.ts old/w.test.ts',
   ])
 })
 

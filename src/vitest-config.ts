@@ -118,6 +118,17 @@ export const vitestWorkers = (
               )
           }
         }
+        // The other options of miniflare: ubq uses the wrangler config.
+        for (const property of miniflare?.type === 'ObjectExpression' ? (miniflare.properties as Node[]) : []) {
+          const key = keyOf(property)
+          if (key === 'bindings') continue
+          notes.push(
+            `${key === undefined ? 'a computed key of miniflare' : `miniflare.${key}`} in ${file} is not in the ubq configuration. ubq uses the wrangler config.` +
+              (key === 'serviceBindings'
+                ? ' A service binding to a Worker that is not this one answers fetch with 503. To test code that uses the service, give the handler an env object with your own value for that binding.'
+                : ''),
+          )
+        }
         if (!config)
           notes.push(
             `no wrangler.configPath in ${file} for this project. Give the path of the wrangler config in "config".`,
