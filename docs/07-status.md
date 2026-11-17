@@ -380,9 +380,21 @@ All entries are from 2026-11-11 to 2026-11-14.
     still narrows a literal union and `T | undefined`. `spy()` with
     no implementation takes any arguments and fits each function
     type.
+  - Convert hints: a text for each timer function of `vi`, for
+    `clearAllMocks`, `mockClear`, `stubGlobal`, `stubEnv`,
+    `waitFor`, `mocked`, `hoisted`, `resetModules`,
+    `importActual`, `expect.assertions`, `describe.each`,
+    `skipIf` and `runIf`, `not.toThrow`, `toHaveProperty` with a
+    path, and `toMatchInlineSnapshot`. The hint of `vi.mock`
+    spreads the real module.
+  - Convert forms: `toBeCalled` and the other names of matchers,
+    `toHaveBeenNthCalledWith` with a number,
+    `toHaveBeenCalledExactlyOnceWith`, `not.toHaveBeenCalled`,
+    `not.toHaveBeenCalledWith`, and `toBeTypeOf`. A `test.each`
+    or `describe.each` with a TODO keeps its name in the import.
   - Not done from this report: a predicate in a pattern, `stubGlobal`, a way to set
-    the fake clock, a value for a `define` of vite, loops for
-    `it.each`, and the hint texts.
+    the fake clock, a value for a `define` of vite, and loops for
+    `it.each`.
 
 - **Snapshot files with CRLF line ends.** Git on Windows can check
   a snapshot file out with CRLF line ends. ubq then found no
@@ -560,8 +572,6 @@ Convert:
   name hides the import.
 - A type that names the old tool (`ReturnType<typeof vi.fn>`,
   `Mock`) stays, with no TODO.
-- `toBeCalled`, `toBeCalledWith`, and `toBeCalledTimes` (other
-  names for `toHaveBeenCalled...`) get a TODO, not a change.
 
 Browser:
 

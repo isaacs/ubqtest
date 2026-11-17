@@ -112,6 +112,15 @@ const MATCHERS: Record<string, Rule> = {
   // `Object()`: the value can be undefined, and expect() took that.
   toHaveProperty: { 2: 'assert(Reflect.has(Object($0), $1))' },
   toContainEqual: 'assert(<$0>.some(ITEM => isDeepEqual(ITEM, $1)))',
+  toBeTypeOf: 'assert.equal(typeof <$0>, $1)',
+}
+/** Other names of jest and vitest for a matcher. */
+const ALIAS: Record<string, string> = {
+  toBeCalled: 'toHaveBeenCalled',
+  toBeCalledTimes: 'toHaveBeenCalledTimes',
+  toBeCalledWith: 'toHaveBeenCalledWith',
+  lastCalledWith: 'toHaveBeenLastCalledWith',
+  nthCalledWith: 'toHaveBeenNthCalledWith',
 }
 /** With `.not`. A matcher that is not here and makes `assert(x)` becomes `assert(!(x))`. */
 const NOT_MATCHERS: Record<string, Rule> = {
@@ -124,6 +133,8 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBeDefined: 'assert.equal($0, undefined)',
   toBeTruthy: 'assert(!<$0>)',
   toBeFalsy: 'assert($0)',
+  toHaveBeenCalled: 'assert.equal(<$0>.calls.length, 0)',
+  toBeTypeOf: 'assert.notEqual(typeof <$0>, $1)',
 }
 
 /** `t.name(a, b)` of tap: `$0` is `a`. A message after the last argument goes into a comment. */
@@ -173,7 +184,9 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+  assertions:
+    'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
   throwsText:
     'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
   workers:
@@ -194,16 +207,60 @@ const TODO = {
   skip: "Give the reason: { skip: 'the reason' }.",
   context: 'ubq has no test object. Use the functions of ubqtest in place of the parameter of this test function.',
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
-  mock: "Use mockImport: await mockImport(() => import('../src/a.ts'), [[() => import('../src/dep.ts'), { fn }]]). It gives a new instance of a.ts.",
+  mock: "Use mockImport in each test that needs the mock: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { ...(await import('<the dependency>')), fn: spy(impl) }]]). The paths are from this test file. The mock replaces the dependency in each project module of the new instance. Each call gives a new instance.",
   spyImpl:
-    'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). A call is spy.calls[i]: { args, result, error }.',
-  timers: 'Use fakeClock: const clock = fakeClock({ now: 0 }), then await clock.tick(ms).',
-  each: 'Use a for loop around test().',
+    'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). For a result that changes, the implementation reads a variable: let result = 1; const s = spy(() => result). For a different result in each call: spy(() => results.shift()). A call is spy.calls[i]: { args, result, error }.',
+  spyClear:
+    'To forget the calls of a spy: s.calls.length = 0. A spy that a test makes has no calls from other tests: then delete this call.',
+  timers: 'Use fakeClock: const clock = fakeClock(), then await clock.tick(ms). The clock ends when its test ends.',
+  each: 'Use a for loop around test(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object: %s of an object is [object Object].',
+  eachGroup:
+    'Use a for loop around describe(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object.',
+  notThrow:
+    'Call the function, then assert on its result. For a function with no result, assert on what it changed, or on the calls of a spy.',
+  inline:
+    'ubq has no inline snapshot. For a string, compare it with the text: assert.equal(value, `text`). For another value: assert.snapshot(value), then ubq --update <file>, and check that the new snapshot has the old text.',
+  path: "toHaveProperty('a.b') is a path of keys: assert('b' in x.a). For one key with a dot in its name, assert('a.b' in x). Use assert(!(...)) for not.",
   only: 'ubq has no .only. Run one test with: ubq <file>:<line>.',
   resolves: 'A test needs an assertion. Await the promise and assert on its value.',
   rejects:
     'assert.rejects gives the value that the promise rejects with: const error = await assert.rejects(promise, Error). Then assert on it: assert.equal(error, expected). The second argument is an error class, a RegExp for the message, or a partial object.',
 } as const
+
+/** The TODO text for a function of `vi` or `jest`. */
+const VI: Record<string, string> = {
+  clearAllMocks: TODO.spyClear,
+  resetAllMocks: TODO.spyClear,
+  useFakeTimers:
+    'Use fakeClock: const clock = fakeClock(). It replaces the timers and Date until the test ends. Make it in the test that uses it: if this is in a hook, make the clock in a setup function that each test calls.',
+  setSystemTime:
+    'Give the time to the clock when you make it: fakeClock({ now: time }). Later, await clock.tick(ms) moves the time and runs the timers that are due.',
+  advanceTimersByTime: 'Use await clock.tick(ms), with the clock of fakeClock().',
+  advanceTimersByTimeAsync: 'Use await clock.tick(ms), with the clock of fakeClock().',
+  runAllTimers: 'Use await clock.runAll(), with the clock of fakeClock().',
+  runAllTimersAsync: 'Use await clock.runAll(), with the clock of fakeClock().',
+  runOnlyPendingTimers: 'Use await clock.runAll(), with the clock of fakeClock().',
+  runOnlyPendingTimersAsync: 'Use await clock.runAll(), with the clock of fakeClock().',
+  useRealTimers:
+    'Delete this call. The clock of fakeClock() ends when its test ends. To end it before that: clock.restore().',
+  stubGlobal:
+    "For a function: spyOn(globalThis, 'name', impl). For another value: const old = globalThis.name; globalThis.name = value; cleanup(() => { globalThis.name = old }).",
+  stubEnv: "Use env({ NAME: 'value' }). It puts the variable back when the test ends.",
+  unstubAllGlobals: 'Delete this call, if spyOn or cleanup() puts back each value.',
+  unstubAllEnvs: 'Delete this call. env() puts back each variable when the test ends.',
+  waitFor:
+    'Use await assert.eventually(() => value, pattern). It calls the function until its value matches the pattern, for 2000 ms at most.',
+  waitUntil:
+    'Use await assert.eventually(() => value, pattern). It calls the function until its value matches the pattern, for 2000 ms at most.',
+  mocked:
+    'vi.mocked(x) only changes the type of x. If x is a spy, use x. If x is an import that vi.mock replaced, make a spy, and give it to mockImport in place of the export.',
+  hoisted:
+    'ubq has no hoisting. Make these values at the top level of the file, before the code that uses them, or in the test.',
+  resetModules:
+    "Use mockImport(() => import('<the module>'), []) in the test. It gives a new instance of the module, and of the project modules that it imports.",
+  importActual:
+    "Use await import('<the module>'). In a mock of mockImport, spread it: { ...(await import('<the module>')), fn }.",
+}
 
 /** The width of a line of a TODO comment, unless the indent is deep. */
 const WIDTH = 75
@@ -723,7 +780,7 @@ export const convertSource = (
         const base = callee?.type === 'MemberExpression' ? (callee.object as Node) : undefined
         if (
           base?.type === 'CallExpression' &&
-          nameOf(callee!.property as Node) === 'toHaveBeenCalledWith' &&
+          [nameOf(callee!.property as Node)].some(n => n && (ALIAS[n] ?? n) === 'toHaveBeenCalledWith') &&
           roleOf(base.callee as Node) === 'expect' &&
           (base.arguments as Node[])[0]
         ) {
@@ -1001,8 +1058,9 @@ export const convertSource = (
     }
     if (callee.type !== 'MemberExpression' || callee.computed) return undefined
     const object = callee.object as Node
-    const method = nameOf(callee.property as Node)
-    if (!method) return undefined
+    const named = nameOf(callee.property as Node)
+    if (!named) return undefined
+    const method = ALIAS[named] ?? named
     // expect.not.stringContaining('text') is a matcher of expect too.
     const negated =
       object.type === 'MemberExpression' &&
@@ -1026,7 +1084,18 @@ export const convertSource = (
         replace(callee.start, callee.end, base)
         edits.push({ start: args[0]!.end, end: args[0]!.end, text: ", { skip: 'todo' }, () => {}" })
       } else {
-        todo(path, method === 'each' ? TODO.each : `ubq has no ${base}.${method}.`)
+        todo(
+          path,
+          method === 'each'
+            ? base === 'describe'
+              ? TODO.eachGroup
+              : TODO.each
+            : method === 'runIf' || method === 'skipIf'
+              ? `Use an option of ${base}(): { skip: ${method === 'runIf' ? '!' : ''}condition && 'the reason' }.`
+              : `ubq has no ${base}.${method}.`,
+        )
+        // The name stays in the code, and the change of the TODO uses it.
+        used.add(base)
         return undefined
       }
       used.add(base)
@@ -1050,7 +1119,7 @@ export const convertSource = (
         changes++
         return []
       }
-      todo(path, TODO.matcher)
+      todo(path, method === 'assertions' || method === 'hasAssertions' ? TODO.assertions : TODO.matcher)
       return undefined
     }
     if (owner === 'vi' || owner === 'mock') {
@@ -1076,11 +1145,12 @@ export const convertSource = (
       } else
         todo(
           path,
-          /mock|Mock|module/.test(method)
-            ? TODO.mock
-            : /[Tt]imer|Time/.test(method)
-              ? TODO.timers
-              : `ubq has no ${nameOf(object)}.${method}.`,
+          VI[method] ??
+            (/mock|Mock|module/.test(method)
+              ? TODO.mock
+              : /[Tt]imer|Time/.test(method)
+                ? TODO.timers
+                : `ubq has no ${nameOf(object)}.${method}.`),
         )
       return undefined
     }
@@ -1090,7 +1160,7 @@ export const convertSource = (
       const found = real ? undefined : spyChain(node, object, method)
       if (found || real) return found
       if (method !== 'mockRestore') {
-        todo(path, TODO.spyImpl)
+        todo(path, /^mock(Clear|Reset)$/.test(method) ? TODO.spyClear : TODO.spyImpl)
         return undefined
       }
       // `{ restore: () => spy.mockRestore() }`: a helper gives the
@@ -1133,7 +1203,13 @@ export const convertSource = (
     const fail = (): undefined => {
       todo(
         path,
-        `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`,
+        method === 'toThrow' && not && !promise
+          ? TODO.notThrow
+          : method === 'toMatchInlineSnapshot'
+            ? TODO.inline
+            : method === 'toHaveProperty'
+              ? TODO.path
+              : `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`,
       )
       return undefined
     }
@@ -1193,7 +1269,39 @@ export const convertSource = (
       const real = realImport(subject)
       if (real) todo(path, real)
     }
-    if (method === 'toHaveBeenCalledWith' && !not && !promise && calledWithCount(subject, path) > 1) {
+    if (method === 'toHaveBeenNthCalledWith' && !not && !promise) {
+      const n = args[0]
+      if (n?.type !== 'Literal' || typeof n.value !== 'number' || !Number.isInteger(n.value) || n.value < 1)
+        return fail()
+      changes++
+      used.add('assert')
+      replace(node.start, subject.start, 'assert.deepEqual(')
+      if (args.length === 1) replace(subject.end, node.end, `.calls[${n.value - 1}]?.args, [])`)
+      else {
+        replace(subject.end, args[1]!.start, `.calls[${n.value - 1}]?.args, [`)
+        replace(args.at(-1)!.end, node.end, '])')
+      }
+      return [subject, ...args.slice(1)]
+    }
+    if (
+      method === 'toHaveBeenCalledExactlyOnceWith' &&
+      !not &&
+      !promise &&
+      plainPath(subject) &&
+      path.at(-2)?.type === 'ExpressionStatement'
+    ) {
+      changes++
+      used.add('assert')
+      const head = `assert.equal(${text(subject)}.calls.length, 1)\n${indentAt(node.start)}assert.deepEqual(`
+      replace(node.start, subject.start, head)
+      if (!args.length) replace(subject.end, node.end, '.calls[0]?.args, [])')
+      else {
+        replace(subject.end, args[0]!.start, '.calls[0]?.args, [')
+        replace(args.at(-1)!.end, node.end, '])')
+      }
+      return all
+    }
+    if (method === 'toHaveBeenCalledWith' && !promise && (not || calledWithCount(subject, path) > 1)) {
       // jest and vitest pass if any call had the arguments. With one
       // check of a spy, the last call is the call. With more, each
       // check is for a different call.
@@ -1202,7 +1310,7 @@ export const convertSource = (
       const head = `${wrap ? ')' : ''}.calls.some(${name} => isDeepEqual(${name}.args, [`
       changes++
       used.add('assert').add('isDeepEqual')
-      replace(node.start, subject.start, wrap ? 'assert((' : 'assert(')
+      replace(node.start, subject.start, (not ? 'assert(!' : 'assert(') + (wrap ? '(' : ''))
       if (!args.length) replace(subject.end, node.end, `${head}])))`)
       else {
         replace(subject.end, args[0]!.start, head)

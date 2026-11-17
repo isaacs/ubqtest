@@ -253,7 +253,13 @@ Things to check by hand:
 | `await expect(p).rejects.toBeInstanceOf(C)`, `rejects.toMatchObject(o)` | `await assert.rejects(p, C)`, `await assert.rejects(p, o)` |
 | `await expect(p).resolves.toEqual(b)` | `assert.deepEqual(await p, b)` |
 | `toHaveBeenCalled()`, `toHaveBeenCalledTimes(n)` | `assert(s.calls.length > 0)`, `assert.equal(s.calls.length, n)` |
+| `not.toHaveBeenCalled()` | `assert.equal(s.calls.length, 0)` |
 | `toHaveBeenCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
+| `not.toHaveBeenCalledWith(...args)` | `assert(!s.calls.some(call => isDeepEqual(call.args, [...args])))` |
+| `toHaveBeenNthCalledWith(2, ...args)` | `assert.deepEqual(s.calls[1]?.args, [...args])` |
+| `toHaveBeenCalledExactlyOnceWith(...args)` | `assert.equal(s.calls.length, 1)`, then `assert.deepEqual(s.calls[0]?.args, [...args])` |
+| `toBeCalled`, `toBeCalledTimes`, `toBeCalledWith`, `lastCalledWith`, `nthCalledWith` | as `toHaveBeenCalled` and the others |
+| `toBeTypeOf('string')` | `assert.equal(typeof a, 'string')` |
 | `toMatchSnapshot()` | `assert.snapshot(a)` |
 | `vi.fn(impl)`, `jest.fn(impl)` | `spy(impl)` |
 | `vi.spyOn(object, key)` | `spyOn(object, key)` |
@@ -304,7 +310,27 @@ Things to check by hand:
   `assert.contains(list, x)` for each literal, when `list` is a
   name or a path of names (`res.names`).
 - **`it.each(table)`.** A `for` loop around `test()`. Each test
-  name must be different: put the value in the name.
+  name must be different: put the value in the name. `%s` of an
+  object is `[object Object]`, and `%j` of `NaN` and of `null` are
+  both `null`: use `JSON.stringify(value)`, or the index.
+  `describe.each(table)` is a `for` loop around `describe()`.
+- **`it.skipIf(condition)`, `it.runIf(condition)`.** An option:
+  `test(name, { skip: condition && 'the reason' }, fn)`. For
+  `runIf`: `!condition`.
+- **`expect.assertions(n)`, `expect.hasAssertions()`.** Delete
+  them. A test with no assertion fails. If an assertion is in a
+  callback, make the test wait for the callback: wrap it in a
+  promise, await it, then assert on the values.
+- **`not.toThrow()`.** Call the function, then assert on its
+  result. For a function with no result, assert on what it
+  changed, or on the calls of a spy.
+- **`toHaveProperty('a.b')`** is a path of keys:
+  `assert('b' in x.a)`. A key with no dot becomes
+  `assert(Reflect.has(Object(x), 'k'))`.
+- **`toMatchInlineSnapshot(text)`.** ubq has no inline snapshot.
+  For a string, `assert.equal(value, text)`. For another value,
+  `assert.snapshot(value)`, then `ubq --update <file>`: check that
+  the new snapshot has the old text.
 - **`.only`.** The command removes it. ubq runs one test from the
   command line.
 - **`vi.mock(path)`, `jest.mock(path)`.** These change the module
@@ -319,6 +345,20 @@ Things to check by hand:
 
   The test then uses `checkout` from that instance, not from the
   import at the top of the file.
+
+  - The mock must have each export of the dependency that the
+    code under test imports. To change only some, spread the real
+    module: `{ ...(await import('../src/payment.ts')), charge }`.
+  - The mock replaces the dependency in each project module that
+    the new instance imports, at each depth.
+  - Each call gives a new instance of the module under test and of
+    the project modules that it imports. A class or an object of
+    that instance is not the one of the import at the top of the
+    file: `instanceof` with the class of the top import is false.
+    To spy on a module that the code shares, such as a logger, put
+    that module in the list too.
+  - `vi.mocked(x)` only changes the type of `x`. Use the spy that
+    you gave to the mock.
 - **`mockReturnValue`, `mockResolvedValue`, `mockImplementation`.**
   A spy gets its implementation when it is made: `spy(() => 1)`,
   `spy(async () => value)`. The command converts a call that is
@@ -341,9 +381,36 @@ Things to check by hand:
   removes the variable, the hook, and each assignment. It removes
   the function from the helper if no other code of the run reads
   it. Else a TODO stays at the hook or at the function.
-- **`vi.useFakeTimers()`, `vi.advanceTimersByTime(ms)`.**
-  `const clock = fakeClock({ now: 0 })`, then `await
-  clock.tick(ms)`. The clock goes back when the test ends.
+- **Fake timers.** Make the clock in the test that uses it, or
+  in a setup function that each test calls. The clock goes back
+  when the test ends.
+
+  | vitest | ubq |
+  | --- | --- |
+  | `vi.useFakeTimers()` | `const clock = fakeClock()` |
+  | `vi.setSystemTime(t)` at the start | `fakeClock({ now: t })` |
+  | `vi.advanceTimersByTime(ms)`, `advanceTimersByTimeAsync` | `await clock.tick(ms)` |
+  | `vi.runAllTimers()`, `runOnlyPendingTimers`, and their async forms | `await clock.runAll()` |
+  | `vi.useRealTimers()` | delete it, or `clock.restore()` before the end of the test |
+
+  `fakeClock()` starts at the real time. `fakeClock({ now: 0 })`
+  starts at 0, and code that subtracts from `Date.now()` then gets
+  a value below 0.
+- **`vi.clearAllMocks()`, `vi.resetAllMocks()`, `mockClear()`.**
+  A spy that a test makes is new in each test: delete the call. A
+  spy at the top level of the file keeps its calls from test to
+  test: make it in the test or in a setup function. To forget the
+  calls of a spy in a test: `s.calls.length = 0`.
+- **`vi.stubGlobal(name, value)`.** For a function:
+  `spyOn(globalThis, 'fetch', impl)`. For another value, keep the
+  old value, set the new one, and put it back with `cleanup()`.
+  `vi.stubEnv(name, value)` is `env({ [name]: value })`. Delete
+  `vi.unstubAllGlobals()` and `vi.unstubAllEnvs()`.
+- **`vi.waitFor(fn)`, `vi.waitUntil(fn)`.** `await
+  assert.eventually(() => value, pattern)`.
+- **`vi.resetModules()` with a dynamic import.** `await
+  mockImport(() => import('../src/a.ts'), [])` gives a new
+  instance of the module.
 - **`beforeEach` and the other hooks.** See "Hooks".
 - **Globals.** jest gives `describe`, `it`, and `expect` with no
   import. ubq has no globals. The command adds the import.

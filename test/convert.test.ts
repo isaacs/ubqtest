@@ -15,6 +15,13 @@ const { parse, children }: typeof import('../src/instrument.ts') = process.versi
   ? await import('../src/instrument.ts')
   : createRequire(import.meta.url)('../src/instrument.ts')
 
+/** The TODO text for a matcher of expect. */
+const MATCHER =
+  'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.'
+
+/** The lines of a TODO comment. */
+const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
+
 const convert = (source: string, file = 'a.ts') => {
   const r = convertSource(source, file, parse, children)
   return r && { ...r, code: r.code.trimEnd().split('\n') }
@@ -232,7 +239,6 @@ describe('group', () => {
 })
 `)
   assert(r)
-  const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
   // ubq has no vi, and a spy of ubq has no mockRestore: no call stays.
   const restored = (indent: string): string[] =>
     todo(
@@ -263,7 +269,7 @@ describe('group', () => {
     '    assert(Math.abs(1.234 - 1.23) < 0.005)',
     "    assert(!(Reflect.has(Object(o), 'k')))",
     ...todo(
-      'ubq has no toHaveProperty. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+      "toHaveProperty('a.b') is a path of keys: assert('b' in x.a). For one key with a dot in its name, assert('a.b' in x). Use assert(!(...)) for not.",
       '    ',
     ),
     "    expect(o).toHaveProperty('a.b')",
@@ -381,20 +387,10 @@ it('a', () => {
     "  assert.contains(row.tags, 'x')",
     "  assert.contains(rows[0], 'x')",
     "  assert.contains(a?.b, 'x')",
-    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
-    '  // the work of objectContaining, and a RegExp does the work of',
-    '  // stringContaining and stringMatching. For any(String), assert on',
-    '  // typeof. For arrayContaining, assert on each element:',
-    '  // assert.contains(list, x), or assert(list.some(item =>',
-    '  // isDeepEqual(item, x))) for an object.',
+    ...todo(MATCHER, '  '),
     '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
     '  assert.match(last, { content: /a\\.b/ })',
-    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
-    '  // the work of objectContaining, and a RegExp does the work of',
-    '  // stringContaining and stringMatching. For any(String), assert on',
-    '  // typeof. For arrayContaining, assert on each element:',
-    '  // assert.contains(list, x), or assert(list.some(item =>',
-    '  // isDeepEqual(item, x))) for an object.',
+    ...todo(MATCHER, '  '),
     "  assert.match(last, { content: expect.not.stringContaining('c') })",
     '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs',
     '  // an Error class, a RegExp, or a partial object. If this value is a',
@@ -464,12 +460,7 @@ expect(fn).toHaveBeenCalledWith('a')
     '  assert.equal(event.exception?.values.length, 2)',
     '  assert(event.exception?.values.some(item => isDeepEqual(item, { a: 1 })))',
     // A RegExp tests a string only in a pattern.
-    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
-    '  // the work of objectContaining, and a RegExp does the work of',
-    '  // stringContaining and stringMatching. For any(String), assert on',
-    '  // typeof. For arrayContaining, assert on each element:',
-    '  // assert.contains(list, x), or assert(list.some(item =>',
-    '  // isDeepEqual(item, x))) for an object.',
+    ...todo(MATCHER, '  '),
     "  assert.deepEqual(fn.calls.at(-1)?.args, [expect.stringContaining('x')])",
     '  assert.throws(() => f(), /x/)',
     // An object with a cast is an object, not a block.
@@ -484,12 +475,7 @@ expect(fn).toHaveBeenCalledWith('a')
     "  assert.deepEqual(fn.calls.at(-1)?.args, ['a'])",
     '})',
     // Not in the arguments of a matcher.
-    ...todoComment(
-      '',
-      'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
-    )
-      .trimEnd()
-      .split('\n'),
+    ...todoComment('', MATCHER).trimEnd().split('\n'),
     "const part = expect.stringContaining('x')",
     // Code that is in no function: the checks of the whole file count.
     "assert(fn.calls.some(call => isDeepEqual(call.args, ['a'])))",
@@ -517,6 +503,147 @@ it('a', async () => {
 `,
   )
   assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 9 changes, 0 TODO')
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+})
+
+test('vitest: other names of matchers, the nth call, exactly one call, typeof, and the hints', () => {
+  const r = convert(`import { describe, expect, it, vi } from 'vitest'
+it('a', () => {
+  expect(s).toBeCalled()
+  expect(s).toBeCalledTimes(2)
+  expect(s).lastCalledWith(1)
+  expect(s).toHaveBeenNthCalledWith(2, 'b', 3)
+  expect(s).nthCalledWith(1)
+  expect(s).toHaveBeenNthCalledWith(n, 1)
+  expect(s).toHaveBeenCalledExactlyOnceWith('a')
+  expect(s()).toHaveBeenCalledExactlyOnceWith('a')
+  expect(s).not.toHaveBeenCalled()
+  expect(s).not.toBeCalledWith(1, 2)
+  expect(x).toBeTypeOf('string')
+  expect(x).not.toBeTypeOf('number')
+  expect(() => f()).not.toThrow()
+  expect(x).toMatchInlineSnapshot('1')
+  expect.assertions(2)
+  s.mockClear()
+  vi.clearAllMocks()
+  vi.useRealTimers()
+  vi.waitFor(() => 1)
+  vi.stubEnv('A', '1')
+  vi.getTimerCount()
+})
+describe.each([1])('g %s', n => {})
+it.skipIf(a)('b', () => {})
+describe.runIf(a)('c', () => {})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, describe, isDeepEqual, test } from 'ubqtest'",
+    "test('a', () => {",
+    '  assert(s.calls.length > 0)',
+    '  assert.equal(s.calls.length, 2)',
+    '  assert.deepEqual(s.calls.at(-1)?.args, [1])',
+    "  assert.deepEqual(s.calls[1]?.args, ['b', 3])",
+    '  assert.deepEqual(s.calls[0]?.args, [])',
+    // The index is not a number in the code.
+    ...todo(
+      'ubq has no toHaveBeenNthCalledWith. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+      '  ',
+    ),
+    '  expect(s).toHaveBeenNthCalledWith(n, 1)',
+    '  assert.equal(s.calls.length, 1)',
+    "  assert.deepEqual(s.calls[0]?.args, ['a'])",
+    // The subject would run two times.
+    ...todo(
+      'ubq has no toHaveBeenCalledExactlyOnceWith. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.',
+      '  ',
+    ),
+    "  expect(s()).toHaveBeenCalledExactlyOnceWith('a')",
+    '  assert.equal(s.calls.length, 0)',
+    '  assert(!s.calls.some(call => isDeepEqual(call.args, [1, 2])))',
+    "  assert.equal(typeof x, 'string')",
+    "  assert.notEqual(typeof x, 'number')",
+    ...todo(
+      'Call the function, then assert on its result. For a function with no result, assert on what it changed, or on the calls of a spy.',
+      '  ',
+    ),
+    '  expect(() => f()).not.toThrow()',
+    ...todo(
+      'ubq has no inline snapshot. For a string, compare it with the text: assert.equal(value, `text`). For another value: assert.snapshot(value), then ubq --update <file>, and check that the new snapshot has the old text.',
+      '  ',
+    ),
+    "  expect(x).toMatchInlineSnapshot('1')",
+    ...todo(
+      'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
+      '  ',
+    ),
+    '  expect.assertions(2)',
+    ...todo(
+      'To forget the calls of a spy: s.calls.length = 0. A spy that a test makes has no calls from other tests: then delete this call.',
+      '  ',
+    ),
+    '  s.mockClear()',
+    ...todo(
+      'To forget the calls of a spy: s.calls.length = 0. A spy that a test makes has no calls from other tests: then delete this call.',
+      '  ',
+    ),
+    '  vi.clearAllMocks()',
+    ...todo(
+      'Delete this call. The clock of fakeClock() ends when its test ends. To end it before that: clock.restore().',
+      '  ',
+    ),
+    '  vi.useRealTimers()',
+    ...todo(
+      'Use await assert.eventually(() => value, pattern). It calls the function until its value matches the pattern, for 2000 ms at most.',
+      '  ',
+    ),
+    '  vi.waitFor(() => 1)',
+    ...todo("Use env({ NAME: 'value' }). It puts the variable back when the test ends.", '  '),
+    "  vi.stubEnv('A', '1')",
+    ...todo(
+      'Use fakeClock: const clock = fakeClock(), then await clock.tick(ms). The clock ends when its test ends.',
+      '  ',
+    ),
+    '  vi.getTimerCount()',
+    '})',
+    ...todo(
+      'Use a for loop around describe(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object.',
+    ),
+    "describe.each([1])('g %s', n => {})",
+    ...todo("Use an option of test(): { skip: condition && 'the reason' }."),
+    "it.skipIf(a)('b', () => {})",
+    ...todo("Use an option of describe(): { skip: !condition && 'the reason' }."),
+    "describe.runIf(a)('c', () => {})",
+  ])
+})
+
+test('vitest: the converted forms of the calls of a spy pass', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    `import { expect, it, vi } from 'vitest'
+it('a', () => {
+  const s = vi.fn()
+  const never = vi.fn()
+  s('a', 1)
+  s('b')
+  expect(s).toBeCalled()
+  expect(s).toBeCalledTimes(2)
+  expect(s).toHaveBeenNthCalledWith(1, 'a', 1)
+  expect(s).nthCalledWith(2, 'b')
+  expect(s).not.toBeCalledWith('c')
+  expect(never).not.toHaveBeenCalled()
+  never('x')
+  expect(never).toHaveBeenCalledExactlyOnceWith('x')
+  const one = vi.fn()
+  one()
+  expect(one).toHaveBeenCalledExactlyOnceWith()
+  expect('t').toBeTypeOf('string')
+  expect(1).not.toBeTypeOf('string')
+})
+`,
+  )
+  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 15 changes, 0 TODO')
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
 })
 
