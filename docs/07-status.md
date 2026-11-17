@@ -310,6 +310,10 @@ All entries are from 2026-11-11 to 2026-11-14.
     `afterEach(() => restore())`) goes away, in the test files and
     in the helper, when all of its files are in the run.
 
+- **Types on the API page.** `docs/api.md` also lists each type
+  that the API uses and the package does not export, such as `Test`
+  and `ErrorMatch`.
+
 - **A hint for a type error in an expected value.** A type error in
   the expected value of `assert.equal`, `assert.notEqual`, or
   `assert.deepEqual` has a `hint:` line: the value must have the

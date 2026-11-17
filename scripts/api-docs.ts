@@ -3,7 +3,7 @@
 //   node scripts/api-docs.ts            writes the file (needs `npm run build`)
 //   node scripts/api-docs.ts --check    exit code 1 if the file is not current
 //   node scripts/api-docs.ts --check <folder>   the declarations are in that folder
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -82,6 +82,25 @@ for (const m of index.matchAll(/^export \{([^}]*)\} from '\.\/(\w[\w-]*)\.(?:ts|
 for (const item of items('index.d.ts').values()) values.push(item)
 for (const item of items('browser.d.ts').values()) values.push(item)
 for (const item of items('workers.d.ts').values()) values.push(item)
+
+// The types that the items use and that the package does not
+// export, such as `Test`: the reader needs them too.
+const declared = new Map<string, Item>()
+for (const file of readdirSync(types).sort())
+  if (file.endsWith('.d.ts')) for (const [name, item] of items(file)) if (!declared.has(name)) declared.set(name, item)
+const listed = new Set([...values, ...typeItems].map(item => item.name))
+const queue = [...values, ...typeItems]
+for (let item = queue.shift(); item; item = queue.shift()) {
+  // Not the words of a comment or of text in quotes.
+  const code = item.code.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '')
+  for (const [name] of code.matchAll(/\b[A-Z]\w*\b/g)) {
+    const found = declared.get(name)
+    if (!found || listed.has(name)) continue
+    listed.add(name)
+    typeItems.push(found)
+    queue.push(found)
+  }
+}
 
 const section = (item: Item): string =>
   [`### \`${item.name}\``, '', ...(item.comment ? [item.comment, ''] : []), '```ts', item.code, '```', ''].join('\n')

@@ -628,7 +628,7 @@ test('the command prints its version', () => {
 
 The test file runs in workerd, the runtime of Workers, with the
 local bindings of the wrangler config (D1, R2, KV, Durable
-Objects, vars). The project must have `wrangler`. Tell ubq which
+Objects, Workflows, vars). The project must have `wrangler`. Tell ubq which
 test files are Workers tests, in `package.json`:
 
 ```json
@@ -709,6 +709,9 @@ faster, and the first run after an edit about 45 ms. `--repeat`
 is about 3 times faster. The commands,
 the output, and the exit codes do not change. It stops after 30
 minutes with no use, or with `ubq server stop`. It is optional.
+The test processes that it keeps ready are Node processes. A
+Workers test file starts its own workerd, so the server does not
+make it faster.
 
 ## Editors
 

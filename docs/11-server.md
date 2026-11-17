@@ -10,6 +10,8 @@
    file (`src/warm.ts`). A runner that finds the server asks it
    for a process for each test file. With no server, or with no
    process for the request, the runner starts the process itself.
+   A Workers test file does not use these processes: the runner
+   starts its host process, which starts workerd.
 2. **It makes the counters of a file when the file changes.** It
    watches the project folder. For a changed source file it
    writes the cache entry of the counters, with the source with

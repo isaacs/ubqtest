@@ -344,3 +344,102 @@ interface TestOptions {
     timeout?: number;
 }
 ```
+
+### `CleanupFn`
+
+`limit` is a time limit in milliseconds, in place of the default one.
+
+```ts
+type CleanupFn = (() => void | Promise<void>) & {
+    limit?: number;
+};
+```
+
+### `Loader`
+
+```ts
+type Loader<M> = () => Promise<M>;
+```
+
+### `AnyFn`
+
+```ts
+type AnyFn = (...args: any[]) => any;
+```
+
+### `MethodKeys`
+
+The keys of `T` whose values are functions.
+
+```ts
+type MethodKeys<T> = {
+    [K in keyof T]-?: T[K] extends AnyFn ? K : never;
+}[keyof T];
+```
+
+### `Describe`
+
+```ts
+interface Describe {
+    (name: string, fn: () => void): void;
+    (name: string, options: TestOptions, fn: () => void): void;
+}
+```
+
+### `Test`
+
+```ts
+interface Test {
+    (name: string, fn: TestFn): void;
+    (name: string, options: TestOptions, fn: TestFn): void;
+    skip: Hint<'Use test(name, { skip: "reason" }, fn)'>;
+    todo: Hint<'Use test(name, { skip: "todo: reason" }, fn)'>;
+    only: Hint<'ubq has no .only. Select tests on the command line: ubq <file>:<line>'>;
+    each: Hint<'Use a for loop around test()'>;
+}
+```
+
+### `ErrorMatch`
+
+```ts
+type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>;
+```
+
+### `Hint`
+
+A property that cannot be called. The compile error prints this
+type, so the type parameter is the text of the fix.
+
+```ts
+type Hint<S extends string> = {
+    readonly [K in S]: never;
+};
+```
+
+### `Prim`
+
+```ts
+type Prim<T> = T extends string ? T | RegExp : T;
+```
+
+### `Obj`
+
+```ts
+type Obj<O> = [O] extends [never] ? never : [O] extends [readonly unknown[]] ? {
+    [K in keyof O]: Pattern<O[K]>;
+} : {
+    [K in Keys<O>]?: Pattern<Val<O, K>>;
+};
+```
+
+### `Keys`
+
+```ts
+type Keys<T> = T extends unknown ? keyof T : never;
+```
+
+### `Val`
+
+```ts
+type Val<T, K> = T extends unknown ? (K extends keyof T ? T[K] : never) : never;
+```
