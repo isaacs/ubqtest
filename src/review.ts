@@ -11,6 +11,7 @@ import { isBuild, isHelper, UsageError } from './config.ts'
 import { changedLines, diffOption } from './git.ts'
 import type { Node } from './instrument.ts'
 import { projectRoot } from './project.ts'
+import { lineDiff } from './since.ts'
 import { stale, testFiles, testsOfLines } from './query.ts'
 import { snapshotEntries } from './snapshot.ts'
 import { openStore } from './store.ts'
@@ -265,19 +266,27 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
 
     // The configuration can leave tests out.
     if (name === 'package.json') {
-      const key = (text: string | undefined): string => {
+      const key = (text: string | undefined): string[] => {
         try {
-          return JSON.stringify(JSON.parse(text!).ubq) ?? '(none)'
+          return (JSON.stringify(JSON.parse(text!).ubq, null, 2) ?? '(none)').split('\n')
         } catch {
-          return '(not JSON)'
+          return ['(not JSON)']
         }
       }
-      if (key(textBefore) !== key(textNow))
-        items.push([
-          `configuration: the "ubq" key of package.json changed`,
-          `  - ${key(textBefore)}`,
-          `  + ${key(textNow)}`,
-        ])
+      const was = key(textBefore)
+      const is = key(textNow)
+      const hunks = lineDiff(was, is)
+      if (!hunks.length) continue
+      // Each line of the key, as in a diff.
+      const lines = ['configuration: the "ubq" key of package.json changed (- before, + now)']
+      let i = 0
+      for (const [from, to, newFrom, newTo] of hunks) {
+        for (; i < from; i++) lines.push(`    ${was[i]}`)
+        for (; i < to; i++) lines.push(`  - ${was[i]}`)
+        for (let j = newFrom; j < newTo; j++) lines.push(`  + ${is[j]}`)
+      }
+      for (; i < was.length; i++) lines.push(`    ${was[i]}`)
+      items.push(lines)
       continue
     }
 

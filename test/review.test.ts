@@ -149,9 +149,13 @@ test('ubq review: a removed test file, a removed snapshot, a group with a new na
   assert.equal(
     r.out,
     [
-      'configuration: the "ubq" key of package.json changed',
+      'configuration: the "ubq" key of package.json changed (- before, + now)',
       '  - (none)',
-      '  + {"exclude":["test/math.test.ts"]}',
+      '  + {',
+      '  +   "exclude": [',
+      '  +     "test/math.test.ts"',
+      '  +   ]',
+      '  + }',
       'removed: test/math.test.ts > math > snap (test/math.test.ts:11 in HASH)',
       'fewer assertions: test/other.test.ts > one (test/other.test.ts:2), 5 before, 1 now',
       '  - assert(2)',
@@ -169,6 +173,35 @@ test('ubq review: a removed test file, a removed snapshot, a group with a new na
   assert.match(r.out, /^snapshot removed: test\/math\.test\.ts > math > snap 1$/m)
   assert.match(r.out, /^removed: test\/math\.test\.ts > math > add \(test\/math\.test\.ts:4 in HASH\)$/m)
   assert.match(r.out, /^review: 8 changes/m)
+})
+
+test('ubq review: a change in the ubq key shows each line of the key', () => {
+  const p = setup()
+  const pkg = (ubq: unknown): void => writeFileSync(p.file('package.json'), JSON.stringify({ type: 'module', ubq }))
+  pkg({ exclude: ['a.ts'], timeout: 100 })
+  p.git('commit', '-q', '-am', 'config')
+  // A change outside the key is not a change to review.
+  writeFileSync(
+    p.file('package.json'),
+    JSON.stringify({ type: 'module', name: 'x', ubq: { exclude: ['a.ts'], timeout: 100 } }),
+  )
+  assert.notContains(p.review().out, 'configuration')
+  pkg({ exclude: ['b.ts'], timeout: 100 })
+  assert.equal(
+    p.review().out,
+    [
+      'configuration: the "ubq" key of package.json changed (- before, + now)',
+      '    {',
+      '      "exclude": [',
+      '  -     "a.ts"',
+      '  +     "b.ts"',
+      '      ],',
+      '      "timeout": 100',
+      '    }',
+      'review: 1 changes to review, since the last commit',
+      '',
+    ].join('\n'),
+  )
 })
 
 test('ubq review --diff: from where the branch left the commit', () => {
@@ -253,7 +286,7 @@ test('timeout only', { timeout: 100 }, () => assert(1))
   assert.equal(
     r.out,
     [
-      'configuration: the "ubq" key of package.json changed',
+      'configuration: the "ubq" key of package.json changed (- before, + now)',
       '  - (none)',
       '  + (not JSON)',
       'skipped: test/forms.test.ts > timeout only (test/forms.test.ts:6), skip: now',

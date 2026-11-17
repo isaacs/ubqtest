@@ -310,7 +310,9 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   of the actual value. If the type checker refuses a comparison,
   make the value exact (`value!`, or narrow it with
   `assert(value)`). To compare two different types on purpose:
-  `assert.deepEqual<unknown>(a, b)`.
+  `assert.deepEqual<unknown>(a, b)`, or `assert.equal<unknown,
+  unknown>(a, b)`. A type error in the expected value has a
+  `hint:` line that says so.
 - The test function gets `{ signal }`. The signal aborts at the
   time limit. Pass it to `fetch` and to child processes.
 - `skip` is the reason, as text: `{ skip: 'needs a GPU' }`. A

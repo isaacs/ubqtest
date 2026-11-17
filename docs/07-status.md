@@ -310,6 +310,14 @@ All entries are from 2026-11-11 to 2026-11-14.
     `afterEach(() => restore())`) goes away, in the test files and
     in the helper, when all of its files are in the run.
 
+- **A hint for a type error in an expected value.** A type error in
+  the expected value of `assert.equal`, `assert.notEqual`, or
+  `assert.deepEqual` has a `hint:` line: the value must have the
+  type of the actual value.
+
+- **The `ubq` key in `ubq check`.** A change to the key shows each
+  line of the key as indented JSON, with `-` and `+` lines.
+
 - **A hint for a hook.** A file that calls `afterEach` (or another
   hook of an other tool) fails with a hint that ubq has no hooks.
 

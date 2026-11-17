@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
+import { expectedOf } from '../src/typecheck.ts'
 import { project } from './setup.ts'
 
 const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
@@ -183,4 +184,48 @@ test('a TypeScript with no native program, and a native program that does not st
   const broken = p.ubq('pass.ts')
   assert.deepEqual([broken.code, broken.out.split('\n')[0]], [1, 'TYPE (no file)'])
   assert.match(broken.out, /^  ubq: the type checker did not start: /m)
+})
+
+test('the place of a type error in the expected value of an assertion', () => {
+  // The place is the character after `^`.
+  const at = (code: string): string | undefined => expectedOf(code.replace('^', ''), code.indexOf('^'))
+  assert.equal(at('assert.equal(a, ^b)'), 'equal')
+  assert.equal(at('assert.deepEqual<{ a: 1 }>(f(a, b), { k: [1, { j: 2 }], v: ^b })'), 'deepEqual')
+  assert.equal(at('assert.notEqual(a, [1, ^b])'), 'notEqual')
+  // The actual value, an argument of an other call, and code that is not in a call.
+  assert.equal(at('assert.equal(^a, b)'), undefined)
+  assert.equal(at('assert.equal(a, f(x, ^y))'), undefined)
+  assert.equal(at('other(a, ^b)'), undefined)
+  assert.equal(at('const a: number = ^b'), undefined)
+})
+
+test('a type error in the expected value of an assertion has a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const name of ['typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({ compilerOptions: { strict: true, noEmit: true, types: ['node'] }, include: ['hint.test.ts'] }),
+  )
+  writeFileSync(
+    join(p.dir, 'hint.test.ts'),
+    `import { assert, test } from 'ubqtest'
+const f = (a: string | null, b: string | undefined): void => {
+  assert.equal(a, b)
+  assert.deepEqual({ v: a }, { v: b })
+}
+test('t', () => f('x', 'x'))
+`,
+  )
+  const hints = p
+    .ubq('hint.test.ts')
+    .out.split('\n')
+    .filter(line => line.startsWith('  hint: ') || line.startsWith('  at '))
+  assert.deepEqual(hints, [
+    '  hint: this is the expected value of assert.equal. It must have the type of the actual value. To compare two different types on purpose: assert.equal<unknown, unknown>(a, b)',
+    '  at hint.test.ts:3:19',
+    '  hint: this is the expected value of assert.deepEqual. It must have the type of the actual value. To compare two different types on purpose: assert.deepEqual<unknown>(a, b)',
+    '  at hint.test.ts:4:32',
+  ])
 })

@@ -46,6 +46,31 @@ const compiler = (root: string): string[] | undefined => {
 const ERROR = /^(?:(.+)\((\d+),(\d+)\): )?error (TS\d+): (.*)$/
 
 /**
+ * The method of an assertion, if `at` (from 0) is in its expected
+ * value: `assert.deepEqual(actual, <here>)`. The scan goes back out
+ * of each object and array literal to the call. Text in strings is
+ * not known to the scan.
+ */
+export const expectedOf = (source: string, at: number): string | undefined => {
+  let depth = 0
+  let second = false
+  for (let i = at - 1; i >= 0; i--) {
+    const c = source[i]!
+    if (c === ')' || c === ']' || c === '}') depth++
+    else if (c === '[' || c === '{') {
+      if (depth) depth--
+      // Out of a literal: a comma in it is not one of the call.
+      else second = false
+    } else if (c === '(') {
+      if (depth) depth--
+      else
+        return second ? /\bassert\.(equal|notEqual|deepEqual)(<[^>]*>)?\s*$/.exec(source.slice(0, i))?.[1] : undefined
+    } else if (c === ',' && !depth) second = true
+  }
+  return undefined
+}
+
+/**
  * The folders with a `tsconfig.json` that have a test file of the
  * run in them: the project root, and each folder from a test file
  * up to the root. A project with a second program in a folder (a
@@ -101,6 +126,17 @@ const check = (
     const errors: TypeCheckError[] = []
     child.on('error', error => done(failed(error)))
     child.on('close', () => {
+      const sources = new Map<string, string | undefined>()
+      const read = (file: string): string | undefined => {
+        if (!sources.has(file))
+          try {
+            sources.set(file, readFileSync(resolve(root, file), 'utf8'))
+          } catch {
+            // ubq: not measured: tsc names files that exist
+            sources.set(file, undefined)
+          }
+        return sources.get(file)
+      }
       for (const line of text.split('\n')) {
         const m = ERROR.exec(line)
         if (m)
@@ -112,6 +148,17 @@ const check = (
           })
         // More lines of the same message have an indent.
         else if (line.startsWith(' ') && errors.length) errors.at(-1)!.message += '\n' + line.trim()
+      }
+      // The expected value of an assertion has the type of the
+      // actual value. The message of tsc names only a "parameter".
+      for (const error of errors) {
+        const source = error.at && read(error.at.file)
+        if (!source) continue
+        let at = 0
+        for (let line = 1; line < error.at!.line; line++) at = source.indexOf('\n', at) + 1
+        const method = expectedOf(source, at + error.at!.column - 1)
+        if (method)
+          error.message += `\nhint: this is the expected value of assert.${method}. It must have the type of the actual value. To compare two different types on purpose: assert.${method}<${method === 'equal' ? 'unknown, unknown' : 'unknown'}>(a, b)`
       }
       done(errors)
     })
