@@ -287,10 +287,11 @@ Built in `src/mock.ts`. Node and Deno use the hooks of
   imports by their text: `from '...'`, `import '...'`,
   `import('...')`. An `import()` with a path that is not a string
   literal gets the real module.
-- A mock loader of a package or a builtin loads the real module
-  one time. Bun has no resolve hook for them. The library reads
-  the name from the text of the loader, and finds the package from
-  the project root.
+- A mock loader of a package, of a builtin, or of a relative path
+  with no extension loads the real module one time. Bun calls no
+  resolve hook for them. The library reads the name from the text
+  of the loader, and finds the module from the folder of the file
+  that called `mockImport`.
 - The error for a mock that lacks an export names the file by its
   path from the project root (`src/db.ts`), not as the code under
   test wrote it (`./db.ts`).

@@ -2,7 +2,7 @@
 // snapshots: `node --import ubqtest/counters-preload test/foo.ts`.
 // A load hook adds counters to each project file.
 // See docs/03-measurements.md, section 12.
-import { existsSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { announce } from './child-coverage.ts'
@@ -10,36 +10,58 @@ import { startCounters } from './counter-collector.ts'
 import { withCounters } from './load-hook.ts'
 
 const deno = !!process.versions.deno
+/** The codes of an import or a require that names no file, or names a folder. */
+const NOT_FOUND = new Set(['ERR_MODULE_NOT_FOUND', 'ERR_UNSUPPORTED_DIR_IMPORT', 'MODULE_NOT_FOUND'])
 
 // TypeScript source often imports `./a.js` for the file `./a.ts`:
-// that is the name of the file after a build. Node and Deno look
-// for the file with the name as it is written.
+// that is the name of the file after a build. Source for a bundler
+// imports `./a` for the file `./a.ts`, and `./dir` for the file
+// `./dir/index.ts`. Node and Deno look for the file with the name
+// as it is written.
 const SOURCE: Record<string, string[]> = {
   '.js': ['.ts', '.tsx'],
   '.mjs': ['.mts'],
   '.cjs': ['.cts'],
   '.jsx': ['.tsx'],
 }
+const ENDS = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.jsx', '.cjs', '.json']
+/** The other names of a relative import that names no file, in the order of the search. */
+const names = (specifier: string): string[] => {
+  const ext = /\.[cm]?jsx?$/.exec(specifier)?.[0]
+  const dir = specifier.replace(/\/$/, '')
+  return [
+    ...((ext && SOURCE[ext]) || []).map(source => specifier.slice(0, -ext!.length) + source),
+    ...ENDS.map(end => specifier + end),
+    ...ENDS.map(end => `${dir}/index${end}`),
+  ]
+}
+const isFile = (url: string): boolean => {
+  try {
+    return !url.startsWith('file:') || statSync(fileURLToPath(url)).isFile()
+    // ubq: not measured: only Deno gives the URL of a file that does not exist
+  } catch {
+    return false
+  }
+}
 registerHooks({
   resolve(specifier, context, next) {
-    const ext = /^\.\.?\/.*(\.[cm]?jsx?)$/.exec(specifier)?.[1]
-    if (!ext) return next(specifier, context)
+    if (!/^\.\.?(\/|$)/.test(specifier)) return next(specifier, context)
     let result: ReturnType<typeof next> | undefined
     let missing: unknown
     try {
       result = next(specifier, context)
-      // Deno gives the URL of a file that does not exist.
-      if (!deno || !result.url.startsWith('file:') || existsSync(fileURLToPath(result.url))) return result
+      // Deno gives the URL of a file that does not exist, or of a folder.
+      if (!deno || isFile(result.url)) return result
     } catch (error) {
       // ubq: not measured: this module loads before the counters start
-      if ((error as NodeJS.ErrnoException).code !== 'ERR_MODULE_NOT_FOUND') throw error
+      if (!NOT_FOUND.has((error as NodeJS.ErrnoException).code!)) throw error
       missing = error
     }
-    for (const source of SOURCE[ext]!) {
+    for (const name of names(specifier)) {
       try {
-        const found = next(specifier.slice(0, -ext.length) + source, context)
+        const found = next(name, context)
         // ubq: not measured: this module loads before the counters start
-        if (!deno || existsSync(fileURLToPath(found.url))) return found
+        if (!deno || isFile(found.url)) return found
       } catch {
         // Not this name.
       }

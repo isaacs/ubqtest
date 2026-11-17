@@ -201,6 +201,8 @@ const TODO = {
   each: 'Use a for loop around test().',
   only: 'ubq has no .only. Run one test with: ubq <file>:<line>.',
   resolves: 'A test needs an assertion. Await the promise and assert on its value.',
+  rejects:
+    'assert.rejects gives the value that the promise rejects with: const error = await assert.rejects(promise, Error). Then assert on it: assert.equal(error, expected). The second argument is an error class, a RegExp for the message, or a partial object.',
 } as const
 
 /** The width of a line of a TODO comment, unless the indent is deep. */
@@ -230,6 +232,8 @@ const SIMPLE = new Set([
   'TemplateLiteral',
   'ThisExpression',
   'ArrayExpression',
+  // `a?.b`: parentheses end the chain, and `(a?.b).length` throws.
+  'ChainExpression',
 ])
 
 const FUNCTION = new Set(['ArrowFunctionExpression', 'FunctionExpression'])
@@ -306,6 +310,12 @@ export const convertSource = (
   /** Names to import from `ubqtest/workers`. */
   const workersUsed = new Set<string>()
   const known = (module: string): boolean => module in FRAMEWORKS || ASSERT_MODULES.has(module)
+  /** `import * as name` of a module that is not a test tool: the name, then the module. */
+  const namespaces = new Map<string, string>()
+  /** The other imported names of such modules. */
+  const imported = new Map<string, string>()
+  /** The modules that the file replaces with `vi.mock` or `jest.mock`. */
+  const mocked = new Set([...source.matchAll(/\b(?:vi|jest)\.(?:mock|doMock)\(\s*(['"])([^'"\n]+)\1/g)].map(m => m[2]!))
   let other: string | undefined
   for (const node of program.body as Node[]) {
     if (node.type === 'ImportDeclaration') {
@@ -329,7 +339,14 @@ export const convertSource = (
         continue
       }
       if (module in NOT_CONVERTED) other = NOT_CONVERTED[module]
-      if (!known(module)) continue
+      if (!known(module)) {
+        for (const s of node.specifiers as Node[])
+          (s.type === 'ImportNamespaceSpecifier' ? namespaces : imported).set(
+            (s.local as { name: string }).name,
+            module,
+          )
+        continue
+      }
       if (FRAMEWORKS[module]) framework = FRAMEWORKS[module]
       removed.push(node)
       for (const s of node.specifiers as Node[]) {
@@ -661,6 +678,83 @@ export const convertSource = (
     path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
 
   /**
+   * The TODO text for `vi.spyOn(ns, 'k')`, where `ns` is `import *
+   * as ns`. The exports of a module cannot change, so the spy of
+   * ubq cannot replace one.
+   */
+  const namespaceSpy = (node: Node): string | undefined => {
+    const callee = node.type === 'CallExpression' ? (node.callee as Node) : undefined
+    if (callee?.type !== 'MemberExpression' || callee.computed) return undefined
+    const owner = roleOf(callee.object as Node)
+    const maker = nameOf(callee.property as Node)
+    if (!(owner === 'vi' && maker === 'spyOn') && !(owner === 'mock' && maker === 'method')) return undefined
+    const [object, key] = node.arguments as Node[]
+    const name = nameOf(object)
+    const module = namespaces.get(name!)
+    if (!module) return undefined
+    const k = key?.type === 'Literal' && typeof key.value === 'string' ? key.value : 'name'
+    return `spyOn cannot replace an export of a module: ${name} is the module '${module}', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('${module}'), { ...${name}, ${k}: spy(impl) }]]). Then call the code of subject, not of the import at the top of the file, and assert on the spy.`
+  }
+  /**
+   * The TODO text for a spy assertion on a name that is an import
+   * of the project, where the file replaces that module: the name
+   * is the real export, not a spy.
+   */
+  const realImport = (subject: Node): string | undefined => {
+    const name = nameOf(subject)
+    const module = name === undefined ? undefined : imported.get(name)
+    const real =
+      module !== undefined
+        ? mocked.has(module) || [...namespaces.values()].includes(module)
+        : subject.type === 'MemberExpression' && !subject.computed && namespaces.has(nameOf(subject.object as Node)!)
+    return real
+      ? `${text(subject)} is the real export of its module, not a spy. Make a spy, give it to mockImport in place of the export, and assert on that spy.`
+      : undefined
+  }
+  /** The count of `expect(subject).toHaveBeenCalledWith(...)` in each function, by the text of the subject. */
+  const calledWith = new Map<Node, Map<string, number>>()
+  const calledWithCount = (subject: Node, path: Node[]): number => {
+    const fn = path.findLast(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') ?? program
+    let counts = calledWith.get(fn)
+    if (!counts) {
+      calledWith.set(fn, (counts = new Map()))
+      const find = (n: Node): void => {
+        const callee = n.type === 'CallExpression' ? (n.callee as Node) : undefined
+        const base = callee?.type === 'MemberExpression' ? (callee.object as Node) : undefined
+        if (
+          base?.type === 'CallExpression' &&
+          nameOf(callee!.property as Node) === 'toHaveBeenCalledWith' &&
+          roleOf(base.callee as Node) === 'expect' &&
+          (base.arguments as Node[])[0]
+        ) {
+          const key = text((base.arguments as Node[])[0]!)
+          counts!.set(key, (counts!.get(key) ?? 0) + 1)
+        }
+        for (const child of children(n)) find(child)
+      }
+      find(fn)
+    }
+    return counts.get(text(subject))!
+  }
+  /**
+   * True if a matcher of `expect` in the arguments of a call is in
+   * a pattern: the call becomes `assert.match`, `assert.throws`, or
+   * `assert.rejects`, where a RegExp tests a string.
+   */
+  const inPattern = (path: Node[]): boolean => {
+    for (let i = path.length - 2; i >= 0; i--) {
+      const callee = path[i]!.type === 'CallExpression' ? (path[i]!.callee as Node) : undefined
+      if (callee?.type !== 'MemberExpression') continue
+      let base = callee.object as Node
+      while (base.type === 'MemberExpression' && /^(not|resolves|rejects)$/.test(String(nameOf(base.property as Node))))
+        base = base.object as Node
+      if (base.type === 'CallExpression' && roleOf(base.callee as Node) === 'expect')
+        return /^(toMatchObject|toThrow|toThrowError)$/.test(String(nameOf(callee.property as Node)))
+    }
+    return false
+  }
+
+  /**
    * `vi.spyOn(o, 'k').mockImplementation(f)` becomes
    * `spyOn(o, 'k', f)`. `vi.fn().mockReturnValue(v)` becomes
    * `spy(() => v)`. Returns the nodes to walk next.
@@ -690,9 +784,9 @@ export const convertSource = (
             ? 'spyOn'
             : undefined
     if (!name) return undefined
-    // `() => {}` with an object in it is a block.
+    // `() => {}` with an object in it is a block, also for `{} as T`.
     const [before, after] =
-      method !== 'mockImplementation' && value.type === 'ObjectExpression' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
+      method !== 'mockImplementation' && source[value.start] === '{' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
     // `vi\n  .spyOn(o, 'k')\n  .mockImplementation(f)`: f moves to the line of `vi`.
     if (lineStart(value.start) !== lineStart(callee.start))
       shifts.push({
@@ -727,7 +821,8 @@ export const convertSource = (
       const optional = next?.type === 'MemberExpression' && next.object === outer && next.optional
       edits.push({ start: outer.end, end: outer.end, text: optional ? '?.args' : '.args' })
     }
-    replace((node.object as Node).end, calls.end, '.calls')
+    // From the name `mock`: the object can end with a `)`.
+    replace((node.property as Node).start, calls.end, 'calls')
     changes++
     return true
   }
@@ -908,7 +1003,12 @@ export const convertSource = (
     const object = callee.object as Node
     const method = nameOf(callee.property as Node)
     if (!method) return undefined
-    const owner = roleOf(object)
+    // expect.not.stringContaining('text') is a matcher of expect too.
+    const negated =
+      object.type === 'MemberExpression' &&
+      nameOf(object.property as Node) === 'not' &&
+      roleOf(object.object as Node) === 'expect'
+    const owner = negated ? 'expect' : roleOf(object)
 
     if (owner === 'tap') return tapCall(node, path, method)
     if (owner === 'assert') return assertCall(node, path, method)
@@ -940,7 +1040,9 @@ export const convertSource = (
         method === 'stringContaining' &&
         args.length === 1 &&
         first?.type === 'Literal' &&
-        typeof first.value === 'string'
+        typeof first.value === 'string' &&
+        !negated &&
+        inPattern(path)
       ) {
         replace(node.start, first.start, '')
         messageRegExp(first)
@@ -957,6 +1059,11 @@ export const convertSource = (
         used.add('spy')
         changes++
       } else if (method === 'spyOn' || (owner === 'mock' && method === 'method')) {
+        const real = namespaceSpy(node)
+        if (real) {
+          todo(path, real)
+          return undefined
+        }
         replace(callee.start, callee.end, 'spyOn')
         used.add('spyOn')
         changes++
@@ -978,8 +1085,10 @@ export const convertSource = (
       return undefined
     }
     if (/^mock(Implementation|ReturnValue|ResolvedValue|RejectedValue|Reset|Clear|Restore)(Once)?$/.test(method)) {
-      const found = spyChain(node, object, method)
-      if (found) return found
+      // The walk gives the TODO to the `spyOn` call of a namespace.
+      const real = namespaceSpy(object)
+      const found = real ? undefined : spyChain(node, object, method)
+      if (found || real) return found
       if (method !== 'mockRestore') {
         todo(path, TODO.spyImpl)
         return undefined
@@ -1080,6 +1189,27 @@ export const convertSource = (
         all,
       )
     }
+    if (/^toHaveBeen|^toBeCalled/.test(method)) {
+      const real = realImport(subject)
+      if (real) todo(path, real)
+    }
+    if (method === 'toHaveBeenCalledWith' && !not && !promise && calledWithCount(subject, path) > 1) {
+      // jest and vitest pass if any call had the arguments. With one
+      // check of a spy, the last call is the call. With more, each
+      // check is for a different call.
+      const name = ['call', 'entry', 'one'].find(n => !all.some(arg => mentions(arg, n))) ?? '_call'
+      const wrap = !SIMPLE.has(subject.type)
+      const head = `${wrap ? ')' : ''}.calls.some(${name} => isDeepEqual(${name}.args, [`
+      changes++
+      used.add('assert').add('isDeepEqual')
+      replace(node.start, subject.start, wrap ? 'assert((' : 'assert(')
+      if (!args.length) replace(subject.end, node.end, `${head}])))`)
+      else {
+        replace(subject.end, args[0]!.start, head)
+        replace(args.at(-1)!.end, node.end, '])))')
+      }
+      return all
+    }
     if (/^toHaveBeen(Last)?CalledWith$/.test(method) && !not && !promise) {
       // The arguments of the last call.
       changes++
@@ -1096,6 +1226,15 @@ export const convertSource = (
       messageRegExp(args[0])
       awaited(node, path)
       return rewrite(node, args.length ? 'assert.rejects($0, $1)' : 'assert.rejects($0, Error)', all)
+    }
+    if (promise === 'rejects') {
+      // The promise has no value to await: `await` throws its error.
+      if (!not && (method === 'toBeInstanceOf' || method === 'toMatchObject') && args.length === 1) {
+        awaited(node, path)
+        return rewrite(node, 'assert.rejects($0, $1)', all)
+      }
+      todo(path, TODO.rejects)
+      return undefined
     }
     // A name with a path ('a.b') is not one key.
     if (method === 'toHaveProperty' && !/^(['"])[\w$-]+\1$/.test(args[0] ? text(args[0]) : '')) return fail()
@@ -1336,7 +1475,17 @@ export const convertSource = (
     changes++
   }
   // The new text must be code.
-  parse(code, file)
+  try {
+    parse(code, file)
+  } catch (error) {
+    // ubq: not measured: no known input makes text that is not code
+    const { message } = error as Error
+    // The place is in the new text, not in the file.
+    const line = code.split('\n')[+(/\((\d+):\d+\)$/.exec(message)?.[1] ?? 0) - 1]
+    throw new Error(
+      `the command made text that is not code (${message.replace(/ \(\d+:\d+\)$/, '')}) from the statement that became: ${line?.trim()}. The file did not change. Convert this file by hand.`,
+    )
+  }
   const found: Converted['todos'] = []
   const all = code.split('\n')
   all.forEach((text, i) => {

@@ -2,9 +2,10 @@
 // dependencies replaced. See docs/05-api.md, section 6.
 import { readFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { SOURCE } from './counters.ts'
 import { projectRoot, rel } from './project.ts'
+import { callSite } from './stack.ts'
 import { notInWorkerd } from './workerd.ts'
 
 // The part of the Bun API that this file uses.
@@ -128,12 +129,14 @@ const registerBun = (): void => {
 }
 
 /**
- * On Bun, the path of the package or builtin that a loader imports.
- * Bun has no resolve hook for them.
+ * On Bun, the path of the module that a loader imports, for an
+ * import that the resolve hook of Bun does not get: a package, a
+ * builtin, or a relative path with no extension. `from` is the
+ * folder of the file that has the loader.
  */
-const bare = (load: Loader<unknown>): string | undefined => {
+const bare = (load: Loader<unknown>, from: string): string | undefined => {
   const m = /import\((['"])([^'"]+)\1\)/.exec(String(load))
-  return m ? Bun.resolveSync(m[2]!, projectRoot()) : undefined
+  return m ? Bun.resolveSync(m[2]!, from) : undefined
 }
 
 const register = (): void => {
@@ -192,6 +195,9 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
 ): Promise<M> => {
   notInWorkerd('mockImport')
   register()
+  // After an `await`, the stack does not have the caller.
+  const site = bun ? callSite() : undefined
+  const from = site ? dirname(join(projectRoot(), site.file)) : projectRoot()
   const id = String(++count)
   const deps = new Map<string, Record<string, unknown>>()
   table.set(id, deps)
@@ -208,7 +214,7 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
     }
     let url = named.url
     await loaded
-    if (!url && bun) url = bare(load)
+    if (!url && bun) url = bare(load, from)
     if (!url) throw new TypeError(`a mock loader ${SHAPE}`)
     deps.set(url, exports)
   }
@@ -221,7 +227,7 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
     pending = undefined
   }
   if (missed) {
-    const path = bun ? bare(subject) : undefined
+    const path = bun ? bare(subject, from) : undefined
     if (!path) throw new TypeError(`the first argument of mockImport ${SHAPE}`)
     // ubq: not measured: no test mocks a package on Bun
     await loaded

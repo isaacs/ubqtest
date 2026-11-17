@@ -368,6 +368,7 @@ it('a', () => {
   expect(a?.b).toContain('x')
   expect(res.json()).toEqual({ count: expect.any(Number) })
   expect(last).toMatchObject({ content: expect.stringContaining('a.b') })
+  expect(last).toMatchObject({ content: expect.not.stringContaining('c') })
   expect(() => f()).toThrow(message)
   expect(() => f()).toThrow(TypeError)
 })
@@ -388,6 +389,13 @@ it('a', () => {
     '  // isDeepEqual(item, x))) for an object.',
     '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
     '  assert.match(last, { content: /a\\.b/ })',
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. For any(String), assert on',
+    '  // typeof. For arrayContaining, assert on each element:',
+    '  // assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object.',
+    "  assert.match(last, { content: expect.not.stringContaining('c') })",
     '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs',
     '  // an Error class, a RegExp, or a partial object. If this value is a',
     '  // string, make a RegExp from it.',
@@ -395,6 +403,183 @@ it('a', () => {
     '  assert.throws(() => f(), TypeError)',
     '})',
   ])
+})
+
+test('vitest: rejects, checks of many calls of one spy, optional chains, and stringContaining', () => {
+  const r = convert(`import { expect, it, vi } from 'vitest'
+it('a', async () => {
+  const fn = vi.fn()
+  expect(fn).toHaveBeenCalledWith('a')
+  expect(fn).toHaveBeenCalledWith('b', call)
+  expect(fn).toHaveBeenLastCalledWith('b')
+  expect(a ?? b).toHaveBeenCalledWith()
+  expect(a ?? b).toHaveBeenCalledWith(1)
+  expect(other).toHaveBeenCalledWith('a')
+  await expect(p).rejects.toBe(error)
+  await expect(p).rejects.toBeInstanceOf(TypeError)
+  expect(p).rejects.toMatchObject({ message: expect.stringContaining('x') })
+  await expect(p).rejects.not.toBeInstanceOf(TypeError)
+  expect(event.exception?.values).toHaveLength(2)
+  expect(event.exception?.values).toContainEqual({ a: 1 })
+  expect(fn).toHaveBeenLastCalledWith(expect.stringContaining('x'))
+  expect(() => f()).toThrow(expect.stringContaining('x'))
+  const made = vi.fn().mockReturnValue({ a: 1 } as T)
+  expect((list[0]?.fn as Mock).mock.calls.length).toBe(1)
+  expect(made).toHaveBeenCalledWith(call, entry, one)
+  expect(made).toHaveBeenCalledWith(2)
+})
+it('b', () => {
+  expect(fn).toHaveBeenCalledWith('a')
+})
+const part = expect.stringContaining('x')
+expect(fn).toHaveBeenCalledWith('a')
+`)
+  assert(r)
+  const rejects = todoComment(
+    '  ',
+    'assert.rejects gives the value that the promise rejects with: const error = await assert.rejects(promise, Error). Then assert on it: assert.equal(error, expected). The second argument is an error class, a RegExp for the message, or a partial object.',
+  )
+    .trimEnd()
+    .split('\n')
+  assert.deepEqual(r.code, [
+    "import { assert, isDeepEqual, spy, test } from 'ubqtest'",
+    "test('a', async () => {",
+    '  const fn = spy()',
+    // Two checks of one spy in one function: any call, as in vitest.
+    "  assert(fn.calls.some(call => isDeepEqual(call.args, ['a'])))",
+    // The arguments use the name `call`.
+    "  assert(fn.calls.some(entry => isDeepEqual(entry.args, ['b', call])))",
+    "  assert.deepEqual(fn.calls.at(-1)?.args, ['b'])",
+    '  assert((a ?? b).calls.some(call => isDeepEqual(call.args, [])))',
+    '  assert((a ?? b).calls.some(call => isDeepEqual(call.args, [1])))',
+    // One check: the last call.
+    "  assert.deepEqual(other.calls.at(-1)?.args, ['a'])",
+    ...rejects,
+    '  await expect(p).rejects.toBe(error)',
+    '  await assert.rejects(p, TypeError)',
+    '  await assert.rejects(p, { message: /x/ })',
+    ...rejects,
+    '  await expect(p).rejects.not.toBeInstanceOf(TypeError)',
+    // Parentheses end an optional chain.
+    '  assert.equal(event.exception?.values.length, 2)',
+    '  assert(event.exception?.values.some(item => isDeepEqual(item, { a: 1 })))',
+    // A RegExp tests a string only in a pattern.
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. For any(String), assert on',
+    '  // typeof. For arrayContaining, assert on each element:',
+    '  // assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object.',
+    "  assert.deepEqual(fn.calls.at(-1)?.args, [expect.stringContaining('x')])",
+    '  assert.throws(() => f(), /x/)',
+    // An object with a cast is an object, not a block.
+    '  const made = spy(() => ({ a: 1 } as T))',
+    // The `)` of a cast stays.
+    '  assert.equal((list[0]?.fn as Mock).calls.length, 1)',
+    // The arguments use each name for the call.
+    '  assert(made.calls.some(_call => isDeepEqual(_call.args, [call, entry, one])))',
+    '  assert(made.calls.some(call => isDeepEqual(call.args, [2])))',
+    '})',
+    "test('b', () => {",
+    "  assert.deepEqual(fn.calls.at(-1)?.args, ['a'])",
+    '})',
+    // Not in the arguments of a matcher.
+    ...todoComment(
+      '',
+      'ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. For any(String), assert on typeof. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    )
+      .trimEnd()
+      .split('\n'),
+    "const part = expect.stringContaining('x')",
+    // Code that is in no function: the checks of the whole file count.
+    "assert(fn.calls.some(call => isDeepEqual(call.args, ['a'])))",
+  ])
+})
+
+test('vitest: the converted checks of rejects, of many calls, and of an optional chain pass', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    `import { expect, it, vi } from 'vitest'
+it('a', async () => {
+  const fn = vi.fn()
+  fn('a')
+  fn('b')
+  expect(fn).toHaveBeenCalledWith('a')
+  expect(fn).toHaveBeenCalledWith('b')
+  const fail = () => Promise.reject(new TypeError('no x'))
+  await expect(fail()).rejects.toBeInstanceOf(TypeError)
+  await expect(fail()).rejects.toMatchObject({ message: expect.stringContaining('x') })
+  const event: { list?: number[] } = { list: [1, 2] }
+  expect(event?.list).toHaveLength(2)
+})
+`,
+  )
+  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 9 changes, 0 TODO')
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+})
+
+test('vitest: a spy of a module namespace, and a spy assertion on a real import', () => {
+  const r = convert(`import { expect, it, vi } from 'vitest'
+import * as time from '../src/time'
+import { now } from '../src/time'
+import { send } from '../src/send'
+import { read } from '../src/read'
+import { helper } from './helper'
+import { debug } from '../src/debug'
+
+vi.mock('../src/send')
+it('a', () => {
+  vi.spyOn(time, 'now').mockReturnValue(1)
+  const s = vi.spyOn(time, key)
+  vi.spyOn(debug, 'error')
+  expect(now).toHaveBeenCalledTimes(1)
+  expect(time.now).toHaveBeenCalledWith(2)
+  expect(send).toHaveBeenCalled()
+  expect(read).toHaveBeenCalled()
+  expect(helper.fn).toHaveBeenCalled()
+  expect(s).toHaveBeenCalled()
+  expect(now).toBe(time.now)
+})
+`)
+  assert(r)
+  const real = (name: string): string[] =>
+    todoComment(
+      '  ',
+      `${name} is the real export of its module, not a spy. Make a spy, give it to mockImport in place of the export, and assert on that spy.`,
+    )
+      .trimEnd()
+      .split('\n')
+  const namespace = (key: string): string[] =>
+    todoComment(
+      '  ',
+      `spyOn cannot replace an export of a module: time is the module '../src/time', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('../src/time'), { ...time, ${key}: spy(impl) }]]). Then call the code of subject, not of the import at the top of the file, and assert on the spy.`,
+    )
+      .trimEnd()
+      .split('\n')
+  assert.deepEqual(r.code.slice(r.code.indexOf("test('a', () => {") + 1, -1), [
+    // The call stays as it is: the name `vi` has no import now.
+    ...namespace('now'),
+    "  vi.spyOn(time, 'now').mockReturnValue(1)",
+    ...namespace('name'),
+    '  const s = vi.spyOn(time, key)',
+    // An object that is not a module.
+    "  spyOn(debug, 'error')",
+    ...real('now'),
+    '  assert.equal(now.calls.length, 1)',
+    ...real('time.now'),
+    '  assert.deepEqual(time.now.calls.at(-1)?.args, [2])',
+    // The file replaces the module with vi.mock.
+    ...real('send'),
+    '  assert(send.calls.length > 0)',
+    // A module that the file does not replace can export a spy.
+    '  assert(read.calls.length > 0)',
+    '  assert(helper.fn.calls.length > 0)',
+    '  assert(s.calls.length > 0)',
+    '  assert.equal(now, time.now)',
+  ])
+  assert.equal(r.code[0], "import { assert, spyOn, test } from 'ubqtest'")
 })
 
 test('vitest: a hook at the top level that uses a later name, a restore hook, and resolves', () => {

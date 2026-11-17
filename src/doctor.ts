@@ -2,8 +2,10 @@
 // for each problem.
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+// Not a named import: Bun does not have the function that removes types.
+import * as nodeModule from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { type Config, config } from './config.ts'
+import { type Config, config, isBuild } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError } from './runner.ts'
 import { vitestWorkers } from './vitest-config.ts'
@@ -175,9 +177,11 @@ export const doctor = (out: (text: string) => void): number => {
     }
   }
 
+  const code = globSync('**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx}', { cwd: root, exclude: skip }).map(file =>
+    file.split('\\').join('/'),
+  )
   // Files that look like test files, and that `ubq` does not run.
-  const stray = globSync('**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx}', { cwd: root, exclude: skip })
-    .map(file => file.split('\\').join('/'))
+  const stray = code
     .filter(file => {
       if (tests.includes(file)) return false
       const source = readFileSync(join(root, file), 'utf8')
@@ -190,6 +194,30 @@ export const doctor = (out: (text: string) => void): number => {
       `${stray.length} files have tests, and "ubq" with no arguments does not run them: ${stray.slice(0, 5).join(', ')}${more}. Give each one a name that ends in .test.ts, or add them to "ubq": { "include": [...] } in package.json.`,
     )
   }
+
+  // Node removes the types of a file and makes no other change.
+  // Bun has no function that does only that, and runs each syntax.
+  const strip = nodeModule.stripTypeScriptTypes
+  const hard: string[] = []
+  if (strip) {
+    // Node prints a warning the first time that a program removes types.
+    const emitWarning = process.emitWarning
+    process.emitWarning = () => {}
+    for (const file of code) {
+      if (!/(?<!\.d)\.[cm]?ts$/.test(file)) continue
+      try {
+        if (isBuild(file)) continue
+        strip(readFileSync(join(root, file), 'utf8'))
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX') hard.push(file)
+      }
+    }
+    process.emitWarning = emitWarning
+  }
+  if (hard.length)
+    fix(
+      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${hard.slice(0, 5).join(', ')}${hard.length > 5 ? `, and ${hard.length - 5} more` : ''}. Node runs only syntax that it can erase. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js. A project that runs its tests on Bun does not set "erasableSyntaxOnly" in tsconfig.json.`,
+    )
 
   const tsconfig = join(root, 'tsconfig.json')
   if (existsSync(tsconfig)) {
@@ -211,7 +239,8 @@ export const doctor = (out: (text: string) => void): number => {
       const missing = (
         [
           'allowImportingTsExtensions',
-          'erasableSyntaxOnly',
+          // Not for a project that must run on Bun.
+          ...(v.bun || hard.length ? [] : (['erasableSyntaxOnly'] as const)),
           ...(emits ? (['rewriteRelativeImportExtensions'] as const) : []),
         ] as const
       ).filter(key => options[key] !== true)

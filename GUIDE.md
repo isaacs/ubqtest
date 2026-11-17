@@ -37,7 +37,9 @@ describe('parse', () => {
   folder of the project.
 - Import each function from `'ubqtest'`. There are no globals.
 - Import source files with their extension: `'../src/parse.ts'`.
-  Under `ubq`, `'../src/parse.js'` also finds `parse.ts`.
+  Under `ubq`, `'../src/parse.js'` and `'../src/parse'` also find
+  `parse.ts`, and `'../src'` finds `src/index.ts`. Source that
+  imports files with no extension needs no change.
 - A test file needs no build step and no configuration.
 
 ## Run
@@ -81,7 +83,7 @@ Each run also runs the type checker, if the project has
   in one line, and does not fail for them.
 
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
-node_modules/.bin/ubq`.
+node_modules/ubqtest/cli.js`.
 
 The last line of the output is the summary: `pass: 0 failed, 12
 passed (run 7)` or `fail: 2 failed, 10 passed (run 8)`. Passed
@@ -548,9 +550,9 @@ On one machine, run the tests on each runtime. The second run
 does not remove the coverage of the first:
 
 ```
-npx ubq                        on Node
-bun node_modules/.bin/ubq      on Bun
-npx ubq uncovered              code that no runtime ran
+npx ubq                           on Node
+bun node_modules/ubqtest/cli.js   on Bun
+npx ubq uncovered                 code that no runtime ran
 ```
 
 For other systems, each CI job keeps its store, and one job
@@ -825,6 +827,11 @@ step, so the code must use only syntax that can be erased: no
 builds JavaScript from that tsconfig (for example with tshy), set
 `"rewriteRelativeImportExtensions": true` in place of `"noEmit"`.
 It needs TypeScript 5.7 or later.
+
+Bun runs syntax that cannot be erased. If the source of a project
+has such syntax, `ubq doctor` names the files. Such a project runs
+its tests on Bun (`bun node_modules/ubqtest/cli.js`), and does not
+set `"erasableSyntaxOnly"`.
 
 Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.

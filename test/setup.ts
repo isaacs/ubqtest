@@ -105,6 +105,35 @@ export const project = () => {
 }
 
 /**
+ * Adds source that imports a file with no extension (`./two`) and a
+ * folder (`./dir`), and its test file (`one.ts`), to a project.
+ */
+export const addBare = (dir: string): void => {
+  mkdirSync(join(dir, 'src/dir'))
+  writeFileSync(
+    join(dir, 'src/one.ts'),
+    "import { two } from './two'\nimport { three } from './dir'\nexport const one = (): number => three() - two()\n",
+  )
+  writeFileSync(join(dir, 'src/two.ts'), 'export const two = (): number => 2\n')
+  writeFileSync(join(dir, 'src/dir/index.ts'), 'export const three = (): number => 3\n')
+  writeFileSync(
+    join(dir, 'one.ts'),
+    [
+      "import { assert, mockImport, test } from 'ubqtest'",
+      "import { one } from './src/one'",
+      "test('one', () => {",
+      '  assert.equal(one(), 1)',
+      '})',
+      "test('mock', async () => {",
+      "  const mocked = await mockImport(() => import('./src/one'), [[() => import('./src/dir'), { three: () => 5 }]])",
+      '  assert.equal(mocked.one(), 3)',
+      '})',
+      '',
+    ].join('\n'),
+  )
+}
+
+/**
  * Adds a JSX component (`src/view.tsx`) and its test file
  * (`view.tsx`) to a project. Bun and Deno can run them.
  */

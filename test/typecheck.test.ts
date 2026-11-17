@@ -229,3 +229,30 @@ test('t', () => f('x', 'x'))
     '  at hint.test.ts:4:32',
   ])
 })
+
+test('a type error for syntax that Node cannot run has a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const name of ['typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, erasableSyntaxOnly: true, types: ['node'] },
+      include: ['enum.test.ts'],
+    }),
+  )
+  writeFileSync(
+    join(p.dir, 'enum.test.ts'),
+    "import { assert, test } from 'ubqtest'\nenum E {\n  A,\n}\ntest('t', () => assert.equal(E.A, 0))\n",
+  )
+  const lines = p.ubq('enum.test.ts').out.split('\n')
+  const at = lines.indexOf('TYPE enum.test.ts')
+  assert.deepEqual(lines.slice(at, at + 5), [
+    'TYPE enum.test.ts',
+    "  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    '  hint: Node cannot run this syntax. Change it, or run the tests on Bun (bun node_modules/ubqtest/cli.js) and remove "erasableSyntaxOnly" from the tsconfig.',
+    '  at enum.test.ts:2:6',
+    '  > enum E {',
+  ])
+})

@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { projectRoot } from '../src/project.ts'
 import { loadFailure } from '../src/runner.ts'
-import { project, remove } from './setup.ts'
+import { addBare, project, remove } from './setup.ts'
 
 test('a test file that does not load is an error of the file, with the place', () => {
   const p = project()
@@ -83,10 +83,42 @@ test('an import of ./a.js finds the file ./a.ts', () => {
   writeFileSync(join(p.dir, 'src/two.ts'), 'export enum Two {\n  A,\n}\nexport const two = (): number => 2\n')
   assert.deepEqual(p.ubq('one.ts').out.split('\n').slice(0, 4), [
     'ERROR one.ts',
-    '  the test file did not load: TypeScript enum is not supported in strip-only mode. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq',
+    '  the test file did not load: TypeScript enum is not supported in strip-only mode. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js',
     '  at src/two.ts:1:1',
     '  > export enum Two {',
   ])
+})
+
+test('an import with no extension finds the file, and an import of a folder finds its index file', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  addBare(p.dir)
+  // In the process of the runner, and in a child process.
+  assert.equal(p.ubq('one.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 0 failed, 7 passed, 1 skipped')
+  // Also in the new instance of a mock.
+  assert.equal(p.ubq('covers', 'src/two.ts:1').out, 'one.ts > mock\none.ts > one\none.ts (while the file loads)\n')
+  // `require` too, also for the name of the file after a build.
+  writeFileSync(
+    join(p.dir, 'req.cts'),
+    [
+      "const { assert, test } = require('ubqtest')",
+      "const { two } = require('./src/two')",
+      "const { three } = require('./src/dir')",
+      "test('req', () => {",
+      '  assert.equal(three() - two(), 1)',
+      "  assert.equal(require('./src/two.js').two, two)",
+      '})',
+      '',
+    ].join('\n'),
+  )
+  assert.equal(p.ubq('req.cts').last, 'pass: 0 failed, 1 passed')
+  // A name with no file: the report has the name as it is written.
+  writeFileSync(join(p.dir, 'src/two.ts'), "import './three'\n")
+  assert.match(
+    p.ubq('one.ts').out,
+    /the test file did not load: Cannot find module 'src\/three' imported from src\/two.ts/,
+  )
 })
 
 test('the place of a load error in a folder whose name has a space', () => {

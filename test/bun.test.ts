@@ -9,7 +9,7 @@ import { assert, cleanup, describe, test } from 'ubqtest'
 import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
-import { addJsx, fixtures, project, resetStore } from './setup.ts'
+import { addBare, addJsx, fixtures, project, resetStore } from './setup.ts'
 
 // The load hook of the counters loads the parser with `require`,
 // while this file loads. A static import of the same module from
@@ -187,6 +187,25 @@ describe('bun', () => {
     ])
     // In a child process.
     assert.equal(sh('bun', [cli, 'mock.ts', 'pass.ts'], p.dir).at(-1), 'fail: 2 failed, 7 passed, 1 skipped')
+  })
+
+  test('a mock loader with no extension, and with the name of a folder', { skip }, () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    addBare(p.dir)
+    assert.deepEqual(sh('bun', [cli, 'one.ts'], p.dir), ['pass: 0 failed, 2 passed'])
+  })
+
+  test('doctor on Bun does not ask for erasableSyntaxOnly', { skip }, () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    p.configure({ include: ['*.ts'] })
+    writeFileSync(
+      join(p.dir, 'tsconfig.json'),
+      '{ "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true } }',
+    )
+    assert.deepEqual(sh('bun', [cli, 'doctor'], p.dir).slice(-2), ['ok   tsconfig.json', 'doctor: 0 problems'])
+    assert.match(sh('node', [cli, 'doctor'], p.dir).at(-2)!, /^FIX  tsconfig\.json: set "erasableSyntaxOnly": true/)
   })
 
   test('the inspector of a plain program gives places in the source, from a guess', { skip }, () => {

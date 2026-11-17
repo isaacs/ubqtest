@@ -1805,3 +1805,57 @@ to see it. Agents asked for a better form two times.
   value from an index or an optional chain needs no `?.` or `!`.
 - **`ubq convert`** changes `toContain`, `not.toContain`, and
   `toMatch` with text to these.
+
+## D78. An import with no extension finds the file, and an import of a folder finds its index file (user, 2026-11-17)
+
+An addition to D42. Source for a bundler imports `./a` for the
+file `./a.ts`, and `./dir` for the file `./dir/index.ts`. Bun
+finds these files. Node and Deno do not. In a conversion of a
+large vitest project (`19-sonnet-feedback-0.0.16.md`), no test
+file loaded on Node: six agents each wrote a loader of their own
+and set it with `NODE_OPTIONS`, and two ran the tests on Bun for
+this reason only.
+
+- **The rule.** If a relative import or `require` names no file,
+  or names a folder, the resolve hook of the preload tries these
+  names, in this order: the source name of a JavaScript name
+  (D42), the name with `.ts`, `.tsx`, `.mts`, `.js`, `.mjs`,
+  `.jsx`, `.cjs`, or `.json`, then `index` with each of these
+  extensions in the folder of that name. This is the search of
+  the Workers host (`src/workers-host.ts`).
+- **Cost.** The hook does this work only for a name that has no
+  file. A project that writes the extensions pays nothing.
+- **`mockImport` on Bun.** Bun calls no resolve hook for a
+  relative path with no extension. The library reads the path
+  from the text of the loader, and finds the file from the folder
+  of the file that called `mockImport`.
+- A test file that runs as a plain program on Node has no
+  preload, as in D42.
+
+**Reason.** D42: a project that moves to ubq must not have to
+change each import of its source first. An agent that has to make
+a loader makes a different one each time, and some of them are
+wrong.
+
+## D79. `ubq doctor` names the files with syntax that Node cannot run (agent, 2026-11-17)
+
+From the same report. `ubq doctor` asked for `erasableSyntaxOnly`
+on each runtime. The project had two source files with parameter
+properties, so it ran its tests on Bun. The option then made the
+type checker report those two files in each run, and each run
+ended with `fail`.
+
+- `ubq doctor` on Node reads each TypeScript file of the project
+  that is not a declaration file or a build file (D55) with the
+  function of Node that removes types. A file that the function
+  refuses is in a `FIX` line, which gives the choice: change the
+  syntax, or run the tests on Bun.
+- `ubq doctor` does not ask for `erasableSyntaxOnly` if it found
+  such a file, or if it runs on Bun.
+- The type error TS1294 has a `hint:` line with the same choice.
+- The command for Bun in each message and guide is `bun
+  node_modules/ubqtest/cli.js`. With pnpm, `node_modules/.bin/ubq`
+  is a shell script, and Bun cannot run it.
+
+**Not decided:** a way to run such syntax on Node (the
+`--experimental-transform-types` option of Node).

@@ -99,17 +99,23 @@ names, do one of these:
 
 ## Imports of the source
 
-- A test can import `'../src/parse.js'` when the file is
-  `parse.ts`. ubq finds the `.ts` file.
+- A test can import `'../src/parse.js'` or `'../src/parse'` when
+  the file is `parse.ts`, and `'../src'` when the file is
+  `src/index.ts`. ubq finds the file. The source of the project can
+  import files in the same way. Do not change these imports, and
+  do not write a loader for them.
 - A test that imports the build output (`'../dist/index.js'`)
   works only after a build. Import the source (`'../src/index.ts'`):
   then a run needs no build, and coverage has the source lines.
 - Node runs TypeScript with the types removed, and no other
   change. Source with `enum`, `namespace`, or a parameter property
   (`constructor(private x: number)`) does not load. `ubq doctor`
-  checks `erasableSyntaxOnly`. If the project has such syntax, tell
-  the user: the choice is to change that syntax or to run the
-  tests on Bun (`bun node_modules/.bin/ubq`).
+  names the files that have such syntax. If the project has such
+  syntax, tell the user: the choice is to change that syntax or to
+  run the tests on Bun (`bun node_modules/ubqtest/cli.js`). A
+  project that runs its tests on Bun does not set
+  `erasableSyntaxOnly` in its tsconfig: with that option, the type
+  checker reports the syntax in each run.
 
 ## tap
 
@@ -244,6 +250,7 @@ Things to check by hand:
 | `toBeGreaterThan(b)` and the other comparisons | `assert(a > b)` |
 | `expect(fn).toThrow(x)` | `assert.throws(fn, x)` (a text becomes a RegExp) |
 | `await expect(p).rejects.toThrow(x)` | `await assert.rejects(p, x)` |
+| `await expect(p).rejects.toBeInstanceOf(C)`, `rejects.toMatchObject(o)` | `await assert.rejects(p, C)`, `await assert.rejects(p, o)` |
 | `await expect(p).resolves.toEqual(b)` | `assert.deepEqual(await p, b)` |
 | `toHaveBeenCalled()`, `toHaveBeenCalledTimes(n)` | `assert(s.calls.length > 0)`, `assert.equal(s.calls.length, n)` |
 | `toHaveBeenCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
@@ -260,12 +267,34 @@ Things to check by hand:
   `undefined` and ignores the class. `assert.deepEqual` is
   strict. Use the exact value, or `assert.match` for some keys.
 - **`toHaveBeenCalledWith`.** jest passes if any call had the
-  arguments. The converted line checks the last call. If the call
-  is not the last one, use
-  `assert(s.calls.some(c => ...))` or the index of the call.
+  arguments. With one such check of a spy in a function, the
+  converted line checks the last call. If the call is not the last
+  one, use the index of the call, or the form for any call. With
+  two or more checks of one spy in a function, the command writes
+  the form for any call:
+  `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))`.
+- **`rejects` with a matcher that is not in the table**
+  (`rejects.toBe(error)`, `rejects.toEqual(...)`). The command
+  writes a TODO. `assert.rejects` gives the value that the promise
+  rejects with: `const error = await assert.rejects(p, Error)`,
+  then `assert.equal(error, expected)`.
+- **`vi.spyOn(module, 'name')`, where `module` is `import * as
+  module`.** The exports of a module cannot change, so `spyOn`
+  cannot replace one. The command leaves the call with a TODO.
+  Use `mockImport` (see `vi.mock` below). The mock must have each
+  export that the code under test imports, so spread the real
+  module: `{ ...module, name: spy(impl) }`. A converted assertion
+  on a name of such a module (`assert(name.calls.length > 0)`)
+  gets a TODO too: the name is the real export, not a spy. Assert
+  on the spy that the mock has.
 - **`expect.any`, `expect.objectContaining`, `expect.anything`.**
   `assert.match` with a partial object does the work of
   `objectContaining`. For `any(String)`, assert on `typeof`.
+  `expect.stringContaining('text')` becomes a RegExp only in a
+  pattern (`toMatchObject`, `toThrow`). In an exact comparison
+  (`toEqual`, `toHaveBeenCalledWith`) it stays, with a TODO: a
+  RegExp is not equal to a string there. Assert on that value by
+  itself: `assert.contains(s.calls.at(-1)?.args[0], 'text')`.
 - **`toContainEqual(b)`.** The command writes
   `assert(list.some(item => isDeepEqual(item, b)))`.
   `isDeepEqual` gives true or false by the rules of

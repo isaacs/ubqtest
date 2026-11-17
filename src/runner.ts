@@ -402,7 +402,7 @@ export const loadFailure = (text: string): Failure | undefined => {
       `the test file did not load: ${error[1]}` +
       // Node removes types and makes no other change.
       (/strip-only mode/.test(error[1]!)
-        ? '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/.bin/ubq'
+        ? '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js'
         : ''),
     ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
   }

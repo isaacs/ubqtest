@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { addJsx, project, remove } from './setup.ts'
+import { addBare, addJsx, project, remove } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-')))
@@ -298,6 +298,10 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.js'\ntest('one', () => {\n  assert.equal(one(), 1)\n})\n",
   )
   assert.deepEqual(await run(deno, 'one.ts'), ['pass: 0 failed, 1 passed', ''])
+  // An import of `./two` finds `./two.ts`, and an import of a folder
+  // finds its index file, as on Node.
+  addBare(p.dir)
+  assert.deepEqual(await run(deno, 'one.ts'), ['pass: 0 failed, 2 passed', ''])
   // Deno compiles JSX before a load hook sees the file. The
   // counters go into its JavaScript, and its source map gives the
   // places in the source.

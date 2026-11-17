@@ -67,6 +67,33 @@ test('doctor states the fix for each problem of the setup', () => {
     '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "rewriteRelativeImportExtensions": true } }',
   )
   assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
+  // Syntax that Node cannot run. The project then needs Bun, and
+  // its tsconfig does not need the option that refuses the syntax.
+  const hard = ['hard', 'h2', 'h3', 'h4', 'h5', 'h6'].map(name => `src/${name}.ts`)
+  for (const file of hard) writeFileSync(join(p.dir, file), 'export enum E {\n  A,\n}\n')
+  p.configure({ include: ['*.ts'], build: hard.slice(1) })
+  writeFileSync(join(p.dir, 'src/types.d.ts'), 'export enum D {\n  A,\n}\n')
+  const full = readFileSync(join(p.dir, 'tsconfig.json'), 'utf8')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    '{ "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true } }',
+  )
+  assert.deepEqual(doctor().lines.slice(2), [
+    'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): src/hard.ts. Node runs only syntax that it can erase. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js. A project that runs its tests on Bun does not set "erasableSyntaxOnly" in tsconfig.json.',
+    'ok   tsconfig.json',
+    'doctor: 1 problems',
+  ])
+  // A build tool is not code that a test loads.
+  p.configure({ include: ['*.ts'], build: hard })
+  assert.match(doctor().lines[2]!, /^FIX  tsconfig\.json: set "erasableSyntaxOnly": true in compilerOptions\./)
+  p.configure({ include: ['*.ts'] })
+  assert.match(
+    doctor().lines[2]!,
+    /^FIX  6 files have TypeScript syntax that Node cannot run \(enum, namespace, or a parameter property\): src\/h2\.ts, src\/h3\.ts, src\/h4\.ts, src\/h5\.ts, src\/h6\.ts, and 1 more\. /,
+  )
+  for (const file of hard) rmSync(join(p.dir, file))
+  rmSync(join(p.dir, 'src/types.d.ts'))
+  writeFileSync(join(p.dir, 'tsconfig.json'), full)
 
   writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:test'\n")
   // The file still imports the old tool.

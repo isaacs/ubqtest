@@ -349,6 +349,37 @@ All entries are from 2026-11-11 to 2026-11-14.
   - CONVERT.md: when a tap test runs, empty test names, packages
     that the old tool brought, and the Node version of CI.
 
+- **From the feedback on 0.0.16 (a large vitest project,
+  `19-sonnet-feedback-0.0.16.md`).**
+  - An import with no extension finds its file, and an import of
+    a folder finds its index file, on Node and Deno (D78). A mock
+    loader with such a path works on Bun.
+  - `ubq doctor` names the files with syntax that Node cannot
+    run, and does not ask for `erasableSyntaxOnly` for a project
+    that needs Bun (D79). TS1294 has a hint. The command for Bun
+    is `bun node_modules/ubqtest/cli.js`.
+  - `ubq convert`:
+    - `rejects.toBeInstanceOf` and `rejects.toMatchObject` become
+      `assert.rejects`. Each other matcher after `rejects` gets a
+      TODO. Before, the result was `await` on the promise, which
+      throws.
+    - `vi.spyOn` on an `import * as` name stays, with a TODO that
+      has the `mockImport` call. A spy assertion on a name of
+      such a module, or of a module with `vi.mock`, gets a TODO.
+    - Two or more `toHaveBeenCalledWith` checks of one spy in a
+      function become checks of any call.
+    - `expect.stringContaining` becomes a RegExp only in a
+      pattern. `expect.not.*` gets a TODO.
+    - An optional chain gets no parentheses: `a?.b.length`.
+    - `mockReturnValue({ ... } as T)` and `(s as Mock).mock.calls`
+      gave text that was not code, and the file was not
+      converted. The message for such a case now says that the
+      place is in the new text.
+  - Not done from this report: the types of `assert.equal` and
+    `spy()`, a predicate in a pattern, `stubGlobal`, a way to set
+    the fake clock, a value for a `define` of vite, loops for
+    `it.each`, and the hint texts.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with
@@ -514,6 +545,12 @@ Convert:
   `expect.arrayContaining` stay hand work.
 - No sentence in the output for a project helper that returns a
   restore function.
+- `const spy = vi.fn()` becomes `const spy = spy()`: the local
+  name hides the import.
+- A type that names the old tool (`ReturnType<typeof vi.fn>`,
+  `Mock`) stays, with no TODO.
+- `toBeCalled`, `toBeCalledWith`, and `toBeCalledTimes` (other
+  names for `toHaveBeenCalled...`) get a TODO, not a change.
 
 Browser:
 

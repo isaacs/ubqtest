@@ -152,6 +152,10 @@ const check = (
       // The expected value of an assertion has the type of the
       // actual value. The message of tsc names only a "parameter".
       for (const error of errors) {
+        // The option that reports this syntax is for Node.
+        if (error.code === 'TS1294')
+          error.message +=
+            '\nhint: Node cannot run this syntax. Change it, or run the tests on Bun (bun node_modules/ubqtest/cli.js) and remove "erasableSyntaxOnly" from the tsconfig.'
         const source = error.at && read(error.at.file)
         if (!source) continue
         let at = 0
