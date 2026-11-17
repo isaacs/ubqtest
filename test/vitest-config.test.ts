@@ -169,4 +169,16 @@ test('the define values of the vite and vitest configs', () => {
       'the value of LATER in the define of vite.config.ts is not a plain value. Add it to "define" by hand.',
     ],
   })
+  // A plugin can change the source, and ubq has no plugins.
+  writeFileSync(
+    join(dir, 'vitest.config.ts'),
+    'export default { plugins: [], projects: [{ plugins: [cloudflareTest({})] }] }',
+  )
+  writeFileSync(join(dir, 'vite.config.ts'), 'export default { plugins: [strip()], test: {} }')
+  assert.deepEqual(viteDefine(dir, parse, children), {
+    define: {},
+    notes: [
+      'vite.config.ts has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.',
+    ],
+  })
 })

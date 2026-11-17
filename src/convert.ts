@@ -225,6 +225,12 @@ const TODO = {
   resolves: 'A test needs an assertion. Await the promise and assert on its value.',
   rejects:
     'assert.rejects gives the value that the promise rejects with: const error = await assert.rejects(promise, Error). Then assert on it: assert.equal(error, expected). The second argument is an error class, a RegExp for the message, or a partial object.',
+  require:
+    "An ES module has no require. Use an import statement, await import('name'), or createRequire(import.meta.url) of node:module.",
+  enum: 'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
+  parameterProperty:
+    'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
+  dom: 'This file asks for a DOM environment. ubq has none. Tell the user about this file.',
 } as const
 
 /** The TODO text for a function of `vi` or `jest`. */
@@ -859,6 +865,15 @@ export const convertSource = (
    * that the file declares below it, and that name has no value yet
    * at this place.
    */
+  // A file with an import is an ES module, on each runtime.
+  const esm = (program.body as Node[]).some(n => n.type === 'ImportDeclaration')
+  const META = new Map([
+    ['__dirname', 'import.meta.dirname'],
+    ['__filename', 'import.meta.filename'],
+  ])
+  /** True if the file makes its own value with this name. */
+  const declares = (name: string): boolean =>
+    new RegExp(`\\b(const|let|var|function)\\s+${name}\\b|\\b${name}\\s*=[^=]`).test(source)
   const topLevelBlock = (node: Node, path: Node[]): Node | undefined => {
     const statement = path.at(-2)
     const args = node.arguments as Node[]
@@ -884,7 +899,7 @@ export const convertSource = (
       for (const name of head.match(/[A-Za-z_$][\w$]*/g) ?? []) if (mentions(body, name)) return undefined
     }
     replace(node.start, body.start, '')
-    replace(body.end, node.end, '')
+    replace(body.end, statement.end, '')
     changes++
     return body
   }
@@ -1118,10 +1133,36 @@ export const convertSource = (
     }
     path = [...path, node]
     let next: Node[] | undefined
+    const parent = path.at(-2)
+    if (esm && node.type === 'CallExpression') {
+      const callee = node.callee as Node
+      if (
+        nameOf(callee.type === 'MemberExpression' ? (callee.object as Node) : callee) === 'require' &&
+        !declares('require')
+      )
+        todo(path, TODO.require)
+    }
+    if (node.type === 'TSEnumDeclaration' && !node.declare) todo(path, TODO.enum)
+    if (node.type === 'TSParameterProperty') todo(path, TODO.parameterProperty)
+    const meta = esm && META.get(nameOf(node) ?? '')
+    if (meta && !declares(nameOf(node)!)) {
+      // { __dirname } has the name as its key and as its value.
+      if (parent?.type === 'Property' && parent.shorthand) {
+        if (parent.key === node) replace(node.start, node.end, `${nameOf(node)}: ${meta}`)
+        changes++
+      } else if (
+        !(
+          (parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
+          (parent?.type === 'Property' && parent.key === node && !parent.computed)
+        )
+      ) {
+        replace(node.start, node.end, meta)
+        changes++
+      }
+    }
     if (node.type === 'CallExpression') next = call(node, path)
     else if (node.type === 'MemberExpression') {
       // spy.mock.calls of jest and vitest
-      const parent = path.at(-2)
       if (
         nameOf(node.property as Node) === 'mock' &&
         parent?.type === 'MemberExpression' &&
@@ -1312,6 +1353,12 @@ export const convertSource = (
     }
     if (owner === 'vi' || owner === 'mock') {
       if (method === 'fn') {
+        // `const s = vi.fn() as T` hides the type of the spy, and
+        // then `s.calls` is a type error.
+        let outer = node
+        let i = path.length - 2
+        while (path[i]?.type === 'TSAsExpression') outer = path[i--]!
+        if (outer !== node && path[i]?.type === 'VariableDeclarator') replace(node.end, outer.end, '')
         replace(callee.start, callee.end, 'spy')
         used.add('spy')
         changes++
@@ -1668,6 +1715,8 @@ export const convertSource = (
     return rewrite(node, use, args)
   }
 
+  const first = (program.body as Node[])[0]
+  if (first && /@(vitest|jest)-environment\s+(jsdom|happy-dom)\b/.test(source)) todo([program, first], TODO.dom)
   walk(program, [])
 
   // --- The import of ubqtest, in place of the old imports ---

@@ -127,6 +127,21 @@ names, do one of these:
   vite or vitest config at the project root. If that config gets
   `define` from a different file, the command prints a note: then
   add the key by hand. Do not write a loader or a preload for it.
+- ubq has no plugins: it runs each source file as it is. If a
+  vite config has a plugin that changes the code that the tests
+  run (it removes a block, or adds an import), `ubq convert`
+  prints a note. Tell the user about it.
+- A test file is an ES module. `ubq convert` changes `__dirname`
+  and `__filename` to `import.meta.dirname` and
+  `import.meta.filename`. It writes a TODO for `require(...)`,
+  for an `enum`, and for a parameter property in a test file.
+  Change these in the test file: this is not the source of the
+  project.
+- In a package with no `"type": "module"`, Node prints the
+  warning `MODULE_TYPELESS_PACKAGE_JSON` for each test file. The
+  tests run. Do not add `"type": "module"` to stop the warning:
+  it changes how the package loads for its users. Tell the user
+  about it.
 
 ## tap
 
@@ -447,7 +462,9 @@ Things to check by hand:
   import. ubq has no globals. The command adds the import.
 - **A DOM (jsdom, happy-dom), a custom environment, a
   transform.** ubq has none. Tell the user about each test file
-  that needs one.
+  that needs one. The command writes a TODO in a file with an
+  `@vitest-environment` or `@jest-environment` comment for jsdom
+  or happy-dom.
 - **A Cloudflare Worker (`cloudflare:test`,
   `@cloudflare/vitest-pool-workers`).** These tests run in the
   Workers runtime with ubq too. Read "Tests of a Cloudflare

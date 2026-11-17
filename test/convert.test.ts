@@ -449,6 +449,63 @@ it('a', () => {
   ])
 })
 
+test('vitest: code that an ES module on Node cannot run', () => {
+  const r = convert(`/** @vitest-environment jsdom */
+import { beforeAll, expect, it, vi } from 'vitest'
+const enum A { X }
+declare enum B { Y }
+class C { constructor(public v: string) {} }
+const d = __dirname, o = { __filename, __dirname: 1, x: o.__dirname }, r = require('x'), q = require.resolve('y')
+const s = vi.fn(() => 1) as Foo
+const u = vi.fn() as unknown as Bar
+call(vi.fn() as Foo)
+beforeAll(() => {
+  start()
+});
+it('a', () => { expect(s).toHaveBeenCalled() })
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    '/** @vitest-environment jsdom */',
+    ...todo('This file asks for a DOM environment. ubq has none. Tell the user about this file.'),
+    "import { assert, spy, test } from 'ubqtest'",
+    ...todo(
+      'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
+    ),
+    'const enum A { X }',
+    'declare enum B { Y }',
+    ...todo(
+      'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
+    ),
+    'class C { constructor(public v: string) {} }',
+    ...todo(
+      "An ES module has no require. Use an import statement, await import('name'), or createRequire(import.meta.url) of node:module.",
+    ),
+    "const d = import.meta.dirname, o = { __filename: import.meta.filename, __dirname: 1, x: o.__dirname }, r = require('x'), q = require.resolve('y')",
+    // A cast of a spy in a declaration hides its type.
+    'const s = spy(() => 1)',
+    'const u = spy()',
+    'call(spy() as Foo)',
+    // A block needs no `;`.
+    '{',
+    '  start()',
+    '}',
+    "test('a', () => { assert(s.calls.length > 0) })",
+  ])
+  // A file that makes its own values keeps them.
+  const own = convert(`import { createRequire } from 'node:module'
+import { expect, it } from 'vitest'
+const require = createRequire(import.meta.url)
+const __dirname = '.'
+it('a', () => { expect(require('x')).toBe(__dirname) })
+`)
+  assert.deepEqual(own?.code.slice(2), [
+    'const require = createRequire(import.meta.url)',
+    "const __dirname = '.'",
+    "test('a', () => { assert.equal(require('x'), __dirname) })",
+  ])
+})
+
 test('vitest: rejects, checks of many calls of one spy, optional chains, and stringContaining', () => {
   const r = convert(`import { expect, it, vi } from 'vitest'
 it('a', async () => {

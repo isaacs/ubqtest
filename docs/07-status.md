@@ -403,6 +403,12 @@ All entries are from 2026-11-11 to 2026-11-14.
     config.
   - Loops for `it.each` and `describe.each` (D84), and a TODO for
     a tagged template table.
+  - `ubq convert`: `__dirname` and `__filename` become
+    `import.meta.dirname` and `import.meta.filename`. A TODO for
+    `require`, an `enum`, a parameter property, and a jsdom
+    comment. A top-level `beforeAll` block has no `;` after it.
+    `const s = vi.fn() as T` loses the cast. A note for a vite
+    config with plugins.
   - A function in an `assert.match` pattern is a predicate (D85).
     `ubq convert` changes `expect.any` and `expect.anything` in a
     pattern.

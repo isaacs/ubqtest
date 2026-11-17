@@ -177,8 +177,14 @@ export const viteDefine = (
       continue
     }
     let spread = false
+    let plugins = false
     const walk = (node: Node): void => {
       if (node.type === 'SpreadElement' && (node.argument as Node).type === 'Identifier') spread = true
+      const list = node.type === 'ObjectExpression' ? get(node, 'plugins') : undefined
+      // ubq does the work of the Workers plugin.
+      const known = (e: Node | null): boolean =>
+        e?.type === 'CallExpression' && (e.callee as Node & { name?: string }).name === 'cloudflareTest'
+      if (list && !(list.type === 'ArrayExpression' && (list.elements as (Node | null)[]).every(known))) plugins = true
       const values = node.type === 'ObjectExpression' ? get(node, 'define') : undefined
       if (values?.type === 'ObjectExpression') {
         found = true
@@ -210,6 +216,10 @@ export const viteDefine = (
       for (const child of children(node)) walk(child)
     }
     walk(program)
+    if (plugins)
+      notes.push(
+        `${file} has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.`,
+      )
     if (spread && !found)
       notes.push(
         `${file} spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.`,
