@@ -325,6 +325,12 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **A hint for a hook.** A file that calls `afterEach` (or another
   hook of an other tool) fails with a hint that ubq has no hooks.
 
+- **`assert` after an import.** The parser read `assert` at the
+  start of the line after an `import` as an import assertion. A
+  source file of that form had no coverage, and `ubq convert`
+  failed on a tap file with only top-level assertions. The word is
+  now an import assertion only on the line of the import.
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

@@ -107,3 +107,17 @@ test('a body with only a directive, and no `;` after it', async () => {
     assert.match(changed.code, /"use strict";/)
   }
 })
+
+test('assert at the start of the line after an import is a statement', async () => {
+  const { parse } = await import('../src/instrument.ts')
+  for (const file of ['a.ts', 'a.tsx']) {
+    const body = parse("import assert from 'node:assert'\nassert(true)\n", file).body as { type: string }[]
+    assert.deepEqual(
+      body.map(n => n.type),
+      ['ImportDeclaration', 'ExpressionStatement'],
+    )
+  }
+  // On the line of the import, it is an import assertion.
+  const body = parse("import a from './a.json' assert { type: 'json' }\n", 'a.ts').body as { type: string }[]
+  assert.equal(body.length, 1)
+})

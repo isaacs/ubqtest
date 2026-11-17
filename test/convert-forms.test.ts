@@ -778,6 +778,17 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     ],
     ['DB', 'LOGS'],
   ],
+  [
+    'a tap file with only top-level assertions',
+    'a.ts',
+    ["import t from 'tap'", '', 't.equal(1, 1)'],
+    [
+      "import { assert } from 'ubqtest'",
+      '',
+      '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
+      'assert.equal(1, 1)',
+    ],
+  ],
 ]
 
 for (const [name, file, source, result, migrate] of cases)

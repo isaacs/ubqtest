@@ -49,10 +49,26 @@ export interface Node {
   [key: string]: unknown
 }
 
-const parser = Parser.extend(tsPlugin() as never)
+// The plugin reads `assert` at the start of the line after an
+// import as an import assertion. The word must be on the line of
+// the import: on the next line, it starts a statement.
+const ownLine = (Base: never) =>
+  class extends (Base as new (...args: never[]) => {
+    input: string
+    lastTokEnd: number
+    start: number
+    value: unknown
+    parseMaybeImportAttributes(node: unknown): void
+  }) {
+    parseMaybeImportAttributes(node: unknown): void {
+      if (this.value === 'assert' && /[\n\r\u2028\u2029]/.test(this.input.slice(this.lastTokEnd, this.start))) return
+      super.parseMaybeImportAttributes(node)
+    }
+  }
+const parser = Parser.extend(tsPlugin() as never, ownLine as never)
 // In a `.tsx` or `.jsx` file, `<` can start an element. In a `.ts`
 // file, it can start a type assertion.
-const jsxParser = Parser.extend(tsPlugin({ jsx: true }) as never)
+const jsxParser = Parser.extend(tsPlugin({ jsx: true }) as never, ownLine as never)
 const JSX = /\.[jt]sx$/
 
 /**
