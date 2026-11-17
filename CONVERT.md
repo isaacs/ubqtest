@@ -12,12 +12,12 @@ has the API and the rules of ubq.
    is skipped. You compare with this at the end.
 2. **Install.** `npm install --save-dev ubqtest`. Then `npx ubq
    doctor`, and do each `FIX` line. A `note` line needs no action.
-   Commit these changes: step 3 needs a clean `git status`.
+   If the user permits it, commit these changes, so that `git
+   diff` in step 3 shows only the changes of the command.
 3. **Convert.** `npx ubq convert test` (give the folders and files
    that have tests). `--dry` shows the report and changes no file.
-   The command changes the files in place. Make sure that `git
-   status` is clean before it, so that `git diff` shows the
-   changes. It is safe to run the command again on one file. The
+   The command changes the files in place. If `git status` is
+   clean before it, `git diff` shows only its changes. It is safe to run the command again on one file. The
    command keeps the code correct, but it does not format it. If
    the project has a formatter (prettier, oxfmt, biome, or
    dprint), the report gives the command that formats the
@@ -28,7 +28,9 @@ has the API and the rules of ubq.
    hand: you can see what the code around it does, and the command
    cannot. `grep -rn 'TODO(ubq)'
    test` lists them. The sections below tell how to do each kind.
-   Remove the comment when its statement is done.
+   Remove the comment when its statement is done. Move code, and
+   do not type it again: a string can have characters that you
+   cannot see.
 5. **Run.** `npx ubq`. Do one failure at a time: `npx ubq
    <file>:<line>` runs one test. Read "Failures after the
    conversion" below before you change a test.
@@ -42,7 +44,12 @@ has the API and the rules of ubq.
    `.mocharc.*`, `c8` and `nyc` settings), and the entries for
    the old tool in `types` of `tsconfig.json`. The report of step
    3 names the files that still import the old tool, such as an
-   `env.d.ts`: change them first. Change the test command of CI. The folder `.ubq/` has the run store, and git ignores it
+   `env.d.ts`: change them first. The old tool can bring packages
+   that the project uses, such as `@types/node` or `typescript`:
+   after you remove it, make sure that the build and the type
+   check still work. Change the test command of CI. ubq needs
+   Node 24 or later: remove older versions from the CI matrix, and
+   tell the user. The folder `.ubq/` has the run store, and git ignores it
    with no setup. Commit `ubq-snapshots/`.
 
 Do not change the source of the project to make a test pass,
@@ -145,6 +152,18 @@ Things to check by hand:
   test.
 - **Assertions at the top level of the file.** Put them in a
   `test('name', () => { ... })`.
+- **When a test runs.** A tap subtest ran at its place in the
+  file. A ubq test runs after the whole file loaded. A test that
+  reads a variable that the file changes later sees the last
+  value. Copy the value when you call `test()`: `const f =
+  [...files]`.
+- **A message that names the case.** ubq assertions have no
+  message. A text message becomes a comment. A message that an
+  expression makes, often in a loop, gets a TODO: make one test
+  for each case, with the case in the name of the test.
+- **`t.fail` in a loop, then `t.pass`.** Collect the wrong values
+  in a list in the loop, and `assert.deepEqual(wrong, [])` after
+  it. `assert(true)` cannot fail.
 - **`t.plan(n)`.** A plan made sure that callbacks ran. With
   `async` and `await`, the test function waits for them. If the
   test has a callback API, wrap it in a promise and `await` it.
@@ -163,12 +182,16 @@ Things to check by hand:
 - **Snapshots.** tap keeps them in `tap-snapshots/`. ubq keeps
   them in `ubq-snapshots/`, in a different form. When the tests
   pass with the old tool, run `npx ubq --update`, read the new
-  files, and remove `tap-snapshots/`.
+  files, and remove `tap-snapshots/`. Until then, `ubq doctor`
+  names its files: their names end in `.test.cjs`.
 - **`t.skip`, `{ skip: true }`, `{ todo: true }`.** Give the
   reason as text: `test(name, { skip: 'needs a GPU' }, fn)`.
 - **Coverage settings.** tap fails a run with less than full
   coverage. ubq has no such limit. `npx ubq uncovered` lists the
-  code that no test ran.
+  code that no test ran. ubq does not read `c8 ignore` or
+  `istanbul ignore` comments, and the report of `ubq convert`
+  names them. At each range that no test can run, write `// ubq:
+  not measured: <reason>`.
 - **A fixture or helper that uses `t`.** A helper function that
   gets `t` as an argument must import `assert` from `ubqtest` and
   must not get `t`.
@@ -423,6 +446,8 @@ Find the kind of the failure before you change a line.
 | the test changed the environment variable ... | The test sets `process.env` and does not put it back. | `env({ NAME: 'value' })`. |
 | the test did not end in 5000 ms, with `still open: ...` | The test leaves a server, a timer, or a process open. | Close it with `cleanup`. The `HANG` block names the line that opened it. |
 | `duplicate test name` | Two tests of one group have one name. | Make the names different. |
+| test name must be a string that is not empty | tap permits an empty name. | Give each test a name. A name from data can be empty, or two can be the same: use `JSON.stringify(value)`, and add ` #2` to a repeat. |
+| the test process ended before the file loaded ubqtest | The file still imports the old tool, or it is not a test file, such as a snapshot file of tap. | Convert it, or put it in `"exclude"`. |
 | the test file did not load | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source". |
 | the file registered no tests | The file is a helper, not a test file. | Put it in `"exclude"`. |
 | a `TYPE` block | The type checker runs with each run. | Correct the type. A mock must have the types of the real export. |

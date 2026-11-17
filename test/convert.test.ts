@@ -1,4 +1,5 @@
 // `ubq convert`: test files of a different test tool, as ubq tests.
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -609,6 +610,47 @@ test('the report names the files that still name the old tool, and the command o
     old,
     'note: this command does not format the code. To format the changed files: npx prettier --write old/a.test.ts old/w.test.ts',
   ])
+})
+
+test('the report names c8 and istanbul comments, and a file with only top-level assertions', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  spawnSync('git', ['init', '-q'], { cwd: p.dir })
+  mkdirSync(join(p.dir, 'src'), { recursive: true })
+  mkdirSync(join(p.dir, 'old'))
+  mkdirSync(join(p.dir, 'dist'))
+  writeFileSync(
+    join(p.dir, 'src/a.ts'),
+    [
+      '/* c8 ignore start */',
+      'a()',
+      '/* c8 ignore stop */',
+      '// istanbul ignore next',
+      'b()',
+      '/* v8 ignore next */',
+      '/* c8 ignore next */',
+      '/* istanbul ignore else */',
+      '/* c8 ignore next 2 */',
+      '',
+    ].join('\n'),
+  )
+  // git ignores dist, and does not have the file that is gone.
+  writeFileSync(join(p.dir, '.gitignore'), 'dist\n')
+  writeFileSync(join(p.dir, 'dist/a.js'), '/* c8 ignore next */\n')
+  writeFileSync(join(p.dir, 'src/gone.ts'), '/* c8 ignore next */\n')
+  spawnSync('git', ['add', 'src/gone.ts'], { cwd: p.dir })
+  rmSync(join(p.dir, 'src/gone.ts'))
+  writeFileSync(join(p.dir, 'old/top.ts'), "import t from 'tap'\n\nt.equal(1, 1)\n")
+  assert.deepEqual(
+    p
+      .ubq('convert', '--dry', 'old')
+      .out.split('\n')
+      .filter(line => line.startsWith('note: 1 of') || line.startsWith('note: ubq does not')),
+    [
+      'note: 1 of these files have tests, and do not have a name that ubq runs (*.test.ts): old/top.ts. Rename them, or add to package.json: "ubq": { "include": ["old/**/*.ts"] }. Use "exclude" for files in that folder that are not test files.',
+      'note: ubq does not read c8 or istanbul ignore comments: src/a.ts:1, src/a.ts:4, src/a.ts:6, src/a.ts:7, src/a.ts:8, and 1 more. At each range that no test can run, write: // ubq: not measured: <reason>',
+    ],
+  )
 })
 
 test(

@@ -6,7 +6,8 @@
 // The changes are text edits at positions of the syntax tree. An
 // argument of a call keeps its text, so a rule for a call and a
 // rule for a call in its arguments do not touch the same text.
-import { globSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, globSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { config, UsageError } from './config.ts'
@@ -184,6 +185,10 @@ const TODO = {
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
+  message:
+    'ubq assertions have no message, and this one was not text. If it named the case, put the case in the name of a test: call test() in the loop, one test for each case.',
+  failLoop:
+    'assert.fail ends the test at the first wrong value. To see all of them, collect the wrong values in a list in the loop, and assert.deepEqual(wrong, []) after the loop.',
   passed:
     'ubq has no test object to pass to a function. Remove this argument, and the parameter of the function. The function imports assert from ubqtest.',
   skip: "Give the reason: { skip: 'the reason' }.",
@@ -228,6 +233,7 @@ const SIMPLE = new Set([
 ])
 
 const FUNCTION = new Set(['ArrowFunctionExpression', 'FunctionExpression'])
+const LOOP = /^(For|ForIn|ForOf|While|DoWhile)Statement$/
 
 /**
  * Converts the text of one test file. Returns undefined if the file
@@ -500,13 +506,22 @@ export const convertSource = (
 
   /** The message of an assertion, as a comment at the end of the line. */
   const messageComment = (node: Node, message: Node | undefined, path: Node[]): void => {
-    if (message?.type !== 'Literal' || typeof message.value !== 'string') return
+    if (!message || message.type === 'ObjectExpression') return
+    const text =
+      message.type === 'TemplateLiteral' && !(message.expressions as Node[]).length
+        ? (message.quasis as unknown as { value: { cooked: string } }[])[0]!.value.cooked
+        : message.value
+    // An expression made the message, often from the values of a loop.
+    if (typeof text !== 'string') return todo(path, TODO.message)
     if (path.at(-2)?.type !== 'ExpressionStatement') return
     const end = source.indexOf('\n', node.end)
     const rest = source.slice(node.end, end < 0 ? source.length : end)
-    if (/^\s*;?\s*$/.test(rest) && !message.value.includes('\n'))
-      edits.push({ start: node.end + rest.length, end: node.end + rest.length, text: ` // ${message.value}` })
+    if (/^\s*;?\s*$/.test(rest) && !text.includes('\n'))
+      edits.push({ start: node.end + rest.length, end: node.end + rest.length, text: ` // ${text}` })
   }
+  /** True if the node is in a loop of its function. */
+  const inLoop = (path: Node[]): boolean =>
+    path.findLastIndex(n => LOOP.test(n.type)) > path.findLastIndex(n => n.type.includes('Function'))
 
   /** Removes a statement, with its line if it is alone on the line. */
   const removeLine = (stmt: Node): void => {
@@ -1121,6 +1136,7 @@ export const convertSource = (
     const count = rule.match(/\$\d/g)?.length ?? 0
     // A message is the argument after the last one of the rule.
     if (method !== 'fail') messageComment(node, args[count], path)
+    else if (inLoop(path)) todo(path, TODO.failLoop)
     if (!path.some(n => FUNCTION.has(n.type))) todo(path, TODO.rootAssert)
     return rewrite(node, rule, args)
   }
@@ -1198,6 +1214,7 @@ export const convertSource = (
       use = pick(TAP[method]!, 1)!
       messageComment(node, args[1], path)
     } else if (!/^(fail|teardown|after|testdir)$/.test(method)) messageComment(node, args[count], path)
+    if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)
     if (method === 'rejects' || method.startsWith('resolveMatch')) awaited(node, path)
     if (!inTest && use.startsWith('assert')) todo(path, TODO.rootAssert)
     return rewrite(node, use, args)
@@ -1349,6 +1366,12 @@ const FORMATTERS: [pkg: string, command: string][] = [
   ['dprint', 'npx dprint fmt'],
 ]
 
+/**
+ * A comment of an other coverage tool that leaves out code. The
+ * `stop` comment of a range is not a place: its `start` comment is.
+ */
+const IGNORE = /\/[*/]\s*(c8|istanbul|v8)\s+ignore\b(?!\s+stop)/
+
 /** A file of types. */
 const TYPES = /\.d\.[cm]?ts$/
 
@@ -1444,7 +1467,11 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     written.push(file)
     if (!dry) writeFileSync(path, result.code)
     // A file with no tests is a helper. Its name is not a problem.
-    if (!TEST_NAME.test(file) && /^\s*(test|describe)\(/m.test(result.code)) unnamed.push(file)
+    if (
+      !TEST_NAME.test(file) &&
+      (/^\s*(test|describe)\(/m.test(result.code) || result.todos.some(t => t.text === TODO.rootAssert))
+    )
+      unnamed.push(file)
     if (/from\s+['"](cloudflare:|ubqtest\/workers)/.test(result.code)) workers++
     out(
       `${dry ? 'to convert' : 'converted'} ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`,
@@ -1486,6 +1513,24 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   if (old.length && changed)
     out(
       `note: these files still name the old test tool: ${old.sort().join(', ')}. Change them before you remove that tool.`,
+    )
+  // The comments of other coverage tools, in the files that git has
+  // or would add.
+  const git = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+  const ignores: string[] = []
+  for (const file of git.status === 0 ? git.stdout.split('\n') : [])
+    if (/\.[cm]?[jt]sx?$/.test(file) && existsSync(join(root, file)))
+      readFileSync(join(root, file), 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          if (IGNORE.test(line)) ignores.push(`${file}:${i + 1}`)
+        })
+  if (ignores.length && changed)
+    out(
+      `note: ubq does not read c8 or istanbul ignore comments: ${ignores.slice(0, 5).join(', ')}${ignores.length > 5 ? `, and ${ignores.length - 5} more` : ''}. At each range that no test can run, write: // ubq: not measured: <reason>`,
     )
   for (const note of setupNotes) out(note)
   if (spent.length && changed)

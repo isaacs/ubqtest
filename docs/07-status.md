@@ -342,6 +342,12 @@ All entries are from 2026-11-11 to 2026-11-14.
   - `--help` after a command prints the help.
   - `ubq mutate` names a test file that runs the changed code
     while it loads on its own line.
+  - `ubq convert` writes a TODO for a message that is not text,
+    and for `assert.fail` in a loop. Its report names `c8` and
+    `istanbul` ignore comments, and counts a file with only
+    top-level assertions as a file with tests.
+  - CONVERT.md: when a tap test runs, empty test names, packages
+    that the old tool brought, and the Node version of CI.
 
 ## Open, waiting for a decision
 
