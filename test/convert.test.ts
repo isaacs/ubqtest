@@ -1276,3 +1276,35 @@ test('a helper that gives a restore function: the hook, the variable, and the as
     '// TODO(ubq): If this only puts spies back, delete it, each assignment to',
   ])
 })
+
+test('vitest: convert writes the define values of the vite config, and the tests then run', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'vite.config.ts'),
+    "export default { define: { __DEBUG_BUILD__: 'true', WINDOW: 'window' } }\n",
+  )
+  writeFileSync(
+    join(p.dir, 'src/debug.ts'),
+    'declare const __DEBUG_BUILD__: boolean\nexport const debug = __DEBUG_BUILD__\n',
+  )
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    "import { expect, it } from 'vitest'\nimport { debug } from './src/debug.ts'\nit('a', () => {\n  expect(debug).toBe(true)\n})\n",
+  )
+  const lines = (r: { out: string }) => r.out.split('\n').filter(l => /define/.test(l))
+  const note =
+    'note: the value of WINDOW in the define of vite.config.ts is not a plain value. Add it to "define" by hand.'
+  assert.deepEqual(lines(p.ubq('convert', '--dry', 'old.ts')), [
+    'add to "ubq" in package.json: "define": {"__DEBUG_BUILD__":true}',
+    note,
+  ])
+  assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [
+    'wrote "ubq.define" to package.json: "define": {"__DEBUG_BUILD__":true}',
+    note,
+  ])
+  assert.deepEqual(JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')).ubq, {
+    define: { __DEBUG_BUILD__: true },
+  })
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+})

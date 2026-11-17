@@ -399,8 +399,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   - `clock.set(time)` (D81).
   - `stub(object, key, value)` (D82). `ubq convert` changes
     `vi.stubGlobal` and `vi.stubEnv`.
-  - Not done from this report: a predicate in a pattern (Q23), a value for a `define` of vite (Q21), and loops
-    for `it.each` (Q26).
+  - The `define` key (D83). `ubq convert` writes it from the vite
+    config.
+  - Not done from this report: a predicate in a pattern (Q23), and
+    loops for `it.each` (Q26).
 
 - **Snapshot files with CRLF line ends.** Git on Windows can check
   a snapshot file out with CRLF line ends. ubq then found no

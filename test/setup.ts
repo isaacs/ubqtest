@@ -108,6 +108,22 @@ export const project = () => {
  * Adds source that imports a file with no extension (`./two`) and a
  * folder (`./dir`), and its test file (`one.ts`), to a project.
  */
+/**
+ * A `define` key, and `flag.ts`, which imports source that reads its
+ * values before it imports ubqtest.
+ */
+export const addDefine = (p: { dir: string; configure: (ubq?: unknown) => void }): void => {
+  p.configure({ define: { __DEBUG_BUILD__: true, LABEL: 'x' } })
+  writeFileSync(
+    join(p.dir, 'src/flag.ts'),
+    'declare const __DEBUG_BUILD__: boolean\ndeclare const LABEL: string\nexport const flag = __DEBUG_BUILD__ && LABEL\n',
+  )
+  writeFileSync(
+    join(p.dir, 'flag.ts'),
+    "import { flag } from './src/flag.ts'\nimport { assert, test } from 'ubqtest'\ntest('flag', () => assert.equal(flag, 'x'))\n",
+  )
+}
+
 export const addBare = (dir: string): void => {
   mkdirSync(join(dir, 'src/dir'))
   writeFileSync(

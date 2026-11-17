@@ -1,7 +1,8 @@
 // Reads the vitest config of a project that tests a Cloudflare
 // Worker with the vitest plugin, for `ubq convert` and `ubq
 // doctor`: the wrangler config, the test files, the test values of
-// the bindings, and the setup files of each project in it.
+// the bindings, and the setup files of each project in it. Also
+// reads the `define` values of a vite or vitest config.
 // The config is code. This reads its text, and does not run it.
 import { existsSync, readFileSync } from 'node:fs'
 import { join, posix, relative, resolve, sep } from 'node:path'
@@ -151,6 +152,70 @@ export const vitestWorkers = (
   }
   walk(program, [])
   return projects.length ? { file, projects } : undefined
+}
+
+/**
+ * The `define` values of the vitest and vite configs at the project
+ * root, as JSON values for the `define` key of the ubq
+ * configuration (D83). Undefined if no config has `define`, and no
+ * config spreads a config from a different file.
+ */
+export const viteDefine = (
+  root: string,
+  parse: Parse,
+  children: Children,
+): { define: Record<string, unknown>; notes: string[] } | undefined => {
+  const define: Record<string, unknown> = {}
+  const notes: string[] = []
+  let found = false
+  for (const file of [...NAMES, ...NAMES.map(name => name.replace('vitest', 'vite'))]) {
+    if (!existsSync(join(root, file))) continue
+    let program: Node
+    try {
+      program = parse(readFileSync(join(root, file), 'utf8'), join(root, file))
+    } catch {
+      continue
+    }
+    let spread = false
+    const walk = (node: Node): void => {
+      if (node.type === 'SpreadElement' && (node.argument as Node).type === 'Identifier') spread = true
+      const values = node.type === 'ObjectExpression' ? get(node, 'define') : undefined
+      if (values?.type === 'ObjectExpression') {
+        found = true
+        for (const property of values.properties as Node[]) {
+          const key = keyOf(property)
+          if (key === undefined || !/^[A-Za-z_$][\w$]*$/.test(key)) {
+            notes.push(
+              `${key ?? 'a computed key'} of define in ${file} is not a global name. ubq sets only global names. Set it in the test by hand.`,
+            )
+            continue
+          }
+          const value = property.value as Node
+          try {
+            // Vite reads a string as code: 'true', '"text"'.
+            // `JSON.stringify(value)` gives the same code.
+            const callee = value.callee as Node | undefined
+            const stringify =
+              value.type === 'CallExpression' &&
+              callee?.type === 'MemberExpression' &&
+              (callee.object as Node & { name?: string }).name === 'JSON' &&
+              (callee.property as Node & { name?: string }).name === 'stringify'
+            const plainValue = stringify ? plain((value.arguments as Node[])[0]!) : plain(value)
+            define[key] = typeof plainValue === 'string' && !stringify ? JSON.parse(plainValue) : plainValue
+          } catch {
+            notes.push(`the value of ${key} in the define of ${file} is not a plain value. Add it to "define" by hand.`)
+          }
+        }
+      }
+      for (const child of children(node)) walk(child)
+    }
+    walk(program)
+    if (spread && !found)
+      notes.push(
+        `${file} spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.`,
+      )
+  }
+  return found || notes.length ? { define, notes } : undefined
 }
 
 /**

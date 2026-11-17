@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -35,40 +35,6 @@ Q21 to Q26 come from `19-sonnet-feedback-0.0.16.md`: a conversion
 of 167 vitest files of sentry-javascript `packages/core` by eight
 agents on a smaller model. "N of 8" is the count of agents that
 hit the problem.
-
-## Q21. Values that a build tool puts in the source (8 of 8)
-
-The vite config of the project has `define: { __DEBUG_BUILD__:
-true }`. Vite puts the value in place of the name. With ubq, the
-source throws `ReferenceError: __DEBUG_BUILD__ is not defined`
-when it loads. Each agent set the value in its own way:
-`globalThis.__DEBUG_BUILD__ = true` in a loader of `NODE_OPTIONS`
-(6 agents), a Bun `--preload` (1), or `BUN_OPTIONS="--define
-__DEBUG_BUILD__=true"` (1). A different vite plugin of the
-project removes blocks of the source (5 of 8 noticed it, 1
-needed it).
-
-Options:
-
-1. No config. `ubq convert` reads `define` of the vite config and
-   prints a note with a recipe: a module that sets each value on
-   `globalThis`, which each test file imports first.
-2. A `define` key in the `ubq` key of `package.json`: names and
-   JSON values. The preload sets each one on `globalThis` before
-   the test file loads. `ubq convert` writes the key from the
-   vite config, as it writes `workers`.
-3. A `preload` key: a list of modules that the runner loads before
-   each test file. More general, and it also covers other setup,
-   but it is a second place for the setup of a test, and the setup
-   is then not in the test file (`05-api.md`, section 2).
-4. As 2, and the hook also puts the value in place of the name in
-   the source, as vite does. A global is not the same: `typeof
-   __DEBUG_BUILD__` and dead code differ. This costs a parse of
-   each project file.
-
-The agent would pick 2. It is one way, it needs no code in the
-project, and the converter can write it. A transform of the
-source, as in 4 and in the vite plugin, is out of scope.
 
 ## Q23. "Any value of a type" in a pattern (8 of 8)
 

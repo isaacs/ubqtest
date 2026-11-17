@@ -1,5 +1,6 @@
 // The public API. See docs/05-api.md.
 import { startCapture } from './capture.ts'
+import { setDefines } from './config.ts'
 import { startCoverage } from './coverage.ts'
 import { type Files, makeTestdir } from './fixtures.ts'
 import { startPlain } from './plain.ts'
@@ -21,6 +22,9 @@ export { describe, test, type TestContext, type TestFn, type TestOptions } from 
  */
 export const testdir = (files?: Files): string => makeTestdir(currentFile(), files)
 
+// For a plain program. A test process of the runner did this in its
+// preload, before the source loaded.
+setDefines()
 // A child of the runner sends its events to the runner. Any other
 // process has the runner role for itself.
 if (process.env.UBQ_CHILD) startPipe()

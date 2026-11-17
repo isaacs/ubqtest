@@ -24,6 +24,8 @@ export interface Config {
   browser?: { url: string; command?: string }
   /** Test files that run in workerd, each group with its wrangler config (D48). */
   workers?: { config: string; include: string[]; vars?: Record<string, unknown> }[]
+  /** Global values that the source reads, as the `define` of vite gives them (D83). */
+  define?: Record<string, unknown>
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -52,6 +54,9 @@ const workers = (v: unknown): boolean =>
     return typeof config === 'string' && !!config && globs(include) && object && !Object.keys(more).length
   })
 
+const define = (v: unknown): boolean =>
+  typeof v === 'object' && !!v && !Array.isArray(v) && Object.keys(v).every(name => /^[A-Za-z_$][\w$]*$/.test(name))
+
 const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]> = {
   include: [globs, 'a list of glob patterns, such as ["test/**/*.test.ts"]'],
   exclude: [globs, 'a list of glob patterns, such as ["test/slow/**"]'],
@@ -73,6 +78,10 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   workers: [
     workers,
     'a list of objects with "config" and "include", and "vars" for test values, such as [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }]',
+  ],
+  define: [
+    define,
+    'an object of names and JSON values, such as { "__DEBUG_BUILD__": true }. Each name is a global name: a dot is not permitted',
   ],
 }
 
@@ -100,6 +109,16 @@ export const config = (): Config => {
     if (!known[0](value)) throw new UsageError(`"ubq.${key}" in package.json must be ${known[1]}`)
   }
   return (cached = raw as Config)
+}
+
+/**
+ * Sets each value of the `define` key on `globalThis`. A test
+ * process does this before the test file loads, and the library
+ * does it again for a test file that runs as a plain program.
+ */
+export const setDefines = (): void => {
+  for (const [name, value] of Object.entries(config().define ?? {}))
+    (globalThis as Record<string, unknown>)[name] = value
 }
 
 /**

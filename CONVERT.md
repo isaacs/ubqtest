@@ -118,6 +118,15 @@ names, do one of these:
   build step is a surprise to a maintainer. With Bun or a build,
   the tsconfig does not set `erasableSyntaxOnly`: with that
   option, the type checker reports the syntax in each run.
+- Vite puts each value of its `define` in the source, such as
+  `__DEBUG_BUILD__`. With ubq, the source throws `ReferenceError:
+  __DEBUG_BUILD__ is not defined`. Give the values in the
+  `define` key of the ubq configuration: `"ubq": { "define": {
+  "__DEBUG_BUILD__": true } }`. ubq sets each one on `globalThis`
+  before the test file loads. `ubq convert` writes the key from a
+  vite or vitest config at the project root. If that config gets
+  `define` from a different file, the command prints a note: then
+  add the key by hand. Do not write a loader or a preload for it.
 
 ## tap
 

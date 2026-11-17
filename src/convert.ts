@@ -15,7 +15,7 @@ import { restorePlan } from './convert-restore.ts'
 import type { Node } from './instrument.ts'
 import { OLD_TOOL } from './doctor.ts'
 import { projectRoot, rel } from './project.ts'
-import { setupMigrations, vitestWorkers } from './vitest-config.ts'
+import { setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -1836,6 +1836,27 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     out(
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
+  // Vite puts each define value in the source. ubq sets it as a
+  // global (D83).
+  const defined = config().define ? undefined : viteDefine(root, parse, children)
+  if (defined && Object.keys(defined.define).length) {
+    const pkgPath = join(root, 'package.json')
+    let wrote = false
+    if (!dry)
+      try {
+        const text = readFileSync(pkgPath, 'utf8')
+        const pkg = JSON.parse(text) as { ubq?: Record<string, unknown> }
+        pkg.ubq = { ...pkg.ubq, define: defined.define }
+        writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
+        wrote = true
+      } catch {
+        // No package.json that is JSON. The text below has the key.
+      }
+    out(
+      `${wrote ? 'wrote "ubq.define" to package.json' : 'add to "ubq" in package.json'}: "define": ${JSON.stringify(defined.define)}`,
+    )
+  }
+  for (const note of defined?.notes ?? []) out(`note: ${note}`)
   // tap writes snapshots when npm starts it for a script named snap
   // or snapshot. In ubq, --update does that.
   try {

@@ -6,6 +6,7 @@ import { statSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { announce } from './child-coverage.ts'
+import { setDefines } from './config.ts'
 import { startCounters } from './counter-collector.ts'
 import { withCounters } from './load-hook.ts'
 
@@ -72,6 +73,7 @@ registerHooks({
   },
 })
 
+setDefines()
 const counters = startCounters()
 // The processes that the tests start count too (D53).
 if (counters) announce()

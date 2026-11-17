@@ -133,7 +133,7 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
   }
   assert.deepEqual(err({ testMatch: ['x'] }), [
     4,
-    'ubq: unknown key "testMatch" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers\n',
+    'ubq: unknown key "testMatch" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define\n',
   ])
   assert.deepEqual(err({ include: 'test' }), [
     4,
@@ -145,6 +145,11 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
   ])
   assert.match(err({ browser: 1 })[1] as string, /^ubq: "ubq\.browser" in package\.json must be an object with "url"/)
   assert.match(err({ workers: [1] })[1] as string, /^ubq: "ubq\.workers" in package\.json must be a list of objects/)
+  for (const define of [[], { 'process.env.X': 1 }])
+    assert.deepEqual(err({ define }), [
+      4,
+      'ubq: "ubq.define" in package.json must be an object of names and JSON values, such as { "__DEBUG_BUILD__": true }. Each name is a global name: a dot is not permitted\n',
+    ])
   rmSync(p.dir, { recursive: true })
 })
 

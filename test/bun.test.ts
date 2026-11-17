@@ -9,7 +9,7 @@ import { assert, cleanup, describe, test } from 'ubqtest'
 import { mapper } from '../src/bun-coverage.ts'
 import { flatten } from '../src/coverage.ts'
 import { COUNTERS, snapshot } from '../src/counters.ts'
-import { addBare, addJsx, fixtures, project, resetStore } from './setup.ts'
+import { addBare, addDefine, addJsx, fixtures, project, resetStore } from './setup.ts'
 
 // The load hook of the counters loads the parser with `require`,
 // while this file loads. A static import of the same module from
@@ -194,6 +194,13 @@ describe('bun', () => {
     cleanup(() => rmSync(p.dir, { recursive: true }))
     addBare(p.dir)
     assert.deepEqual(sh('bun', [cli, 'one.ts'], p.dir), ['pass: 0 failed, 2 passed'])
+  })
+
+  test('the values of the define key are globals before the source loads', { skip }, () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true }))
+    addDefine(p)
+    assert.deepEqual(sh('bun', [cli, 'flag.ts'], p.dir), ['pass: 0 failed, 1 passed'])
   })
 
   test('doctor on Bun does not ask for erasableSyntaxOnly', { skip }, () => {

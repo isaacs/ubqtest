@@ -1,11 +1,12 @@
 // The reader of a vitest config of the Workers plugin, for `ubq
-// convert` and `ubq doctor`.
+// convert` and `ubq doctor`, and of the define values of a vite
+// config.
 import { createRequire } from 'node:module'
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
-import { setupMigrations, vitestWorkers } from '../src/vitest-config.ts'
+import { setupMigrations, viteDefine, vitestWorkers } from '../src/vitest-config.ts'
 
 // See test/convert.test.ts for the reason of this form.
 const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
@@ -125,5 +126,47 @@ test('a setup file: the D1 bindings that it migrates, and if that is all its wor
   assert.deepEqual(setupMigrations('await applyD1Migrations(env.DB, m)\nglobalThis.ready = true\n'), {
     bindings: ['DB'],
     only: false,
+  })
+})
+
+test('the define values of the vite and vitest configs', () => {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-vite-')))
+  cleanup(() => rmSync(dir, { recursive: true, force: true }))
+  assert.equal(viteDefine(dir, parse, children), undefined)
+  writeFileSync(join(dir, 'vite.config.ts'), 'export default {')
+  writeFileSync(join(dir, 'vitest.config.ts'), "export default { test: { include: ['a'] } }")
+  assert.equal(viteDefine(dir, parse, children), undefined)
+  writeFileSync(join(dir, 'vitest.config.ts'), "import base from '../vite.config'\nexport default { ...base }")
+  assert.deepEqual(viteDefine(dir, parse, children), {
+    define: {},
+    notes: [
+      'vitest.config.ts spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.',
+    ],
+  })
+  writeFileSync(
+    join(dir, 'vite.config.ts'),
+    `export default {
+  define: {
+    __DEBUG_BUILD__: 'true',
+    VERSION: JSON.stringify('1.2'),
+    'LIMIT': 3,
+    FLAGS: JSON.stringify({ a: [true] }),
+    NAME: '"x"',
+    'process.env.MODE': '"test"',
+    [key]: 1,
+    WINDOW: 'window',
+    LATER: JSON.stringify(later),
+  },
+}`,
+  )
+  assert.deepEqual(viteDefine(dir, parse, children), {
+    define: { __DEBUG_BUILD__: true, VERSION: '1.2', LIMIT: 3, FLAGS: { a: [true] }, NAME: 'x' },
+    notes: [
+      'vitest.config.ts spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.',
+      'process.env.MODE of define in vite.config.ts is not a global name. ubq sets only global names. Set it in the test by hand.',
+      'a computed key of define in vite.config.ts is not a global name. ubq sets only global names. Set it in the test by hand.',
+      'the value of WINDOW in the define of vite.config.ts is not a plain value. Add it to "define" by hand.',
+      'the value of LATER in the define of vite.config.ts is not a plain value. Add it to "define" by hand.',
+    ],
   })
 })

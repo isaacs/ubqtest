@@ -1,12 +1,13 @@
 // A test file that does not load: a syntax error, or an import of a
 // file that does not exist.
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { projectRoot } from '../src/project.ts'
 import { loadFailure } from '../src/runner.ts'
-import { addBare, project, remove } from './setup.ts'
+import { addBare, addDefine, project, remove } from './setup.ts'
 
 test('a test file that does not load is an error of the file, with the place', () => {
   const p = project()
@@ -165,4 +166,20 @@ test('a file that throws before it has a test has one error, not a second one fo
   assert(!/^ERROR throws\.test\.ts\n {2}the file registered no tests/m.test(r.out))
   // A file with no test and no error still has the error for no tests.
   assert.match(r.out, /^ERROR empty\.test\.ts\n {2}the file registered no tests$/m)
+})
+
+test('the values of the define key are globals before the source loads', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  addDefine(p)
+  const file = readFileSync(join(p.dir, 'flag.ts'), 'utf8')
+  writeFileSync(join(p.dir, 'flag2.ts'), file)
+  // In the process of the runner, in a child process, and as a plain program.
+  assert.equal(p.ubq('flag.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('flag.ts', 'flag2.ts').last, 'pass: 0 failed, 2 passed')
+  // A plain program sets them when it loads ubqtest.
+  const [source, ubqtest, ...rest] = file.split('\n')
+  writeFileSync(join(p.dir, 'plain.ts'), [ubqtest, source, ...rest].join('\n'))
+  const plain = spawnSync('node', ['plain.ts'], { cwd: p.dir, encoding: 'utf8' })
+  assert.equal(plain.status, 0, plain.stderr)
 })

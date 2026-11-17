@@ -1905,3 +1905,31 @@ did not exist, a getter, or a property of the prototype.
 - `ubq convert` changes `vi.stubGlobal(name, value)` to
   `stub(globalThis, name, value)`, and `vi.stubEnv(name, value)`
   to `env({ name: value })`.
+
+## D83. The `define` key: global values for the source (user, 2026-11-17)
+
+Q21. The vite config of a project had `define: { __DEBUG_BUILD__:
+true }`. With ubq, the source threw `ReferenceError` when it
+loaded. Each of 8 agents set the value in its own way: a loader in
+`NODE_OPTIONS`, a Bun preload, or `BUN_OPTIONS="--define ..."`.
+
+- `"ubq": { "define": { "NAME": value } }`. Each key is a global
+  name (no dot). Each value is a JSON value.
+- The preload of each test process (Node, Bun, Deno) sets the
+  values on `globalThis` before the test file loads. The library
+  sets them again when it loads, for a test file that runs as a
+  plain program. That file must import `ubqtest` before the source.
+- ubq does not change the source as vite does. A transform of the
+  source costs a parse of each file, and is a second way to build.
+  The difference: `typeof NAME` and dead code.
+- No `preload` key. It would put the setup of a test outside the
+  test file (`05-api.md`, section 2).
+- `ubq convert` reads `define` of `vitest.config.*` and
+  `vite.config.*` at the project root, and writes the key. A
+  string value is code for vite: the command reads it as JSON
+  (`'true'`, `'"text"'`). `JSON.stringify(value)` and a number or
+  a boolean also work. A name with a dot, or a value that is not
+  plain, gets a note. A config that spreads a config from a
+  different file, and has no `define`, gets a note.
+- Browser tests and Workers do not use the key: vite and wrangler
+  have their own `define`.

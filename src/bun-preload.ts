@@ -3,6 +3,7 @@
 // compiles it. The runner starts each Bun test process this way.
 import { readFileSync } from 'node:fs'
 import { announce } from './child-coverage.ts'
+import { setDefines } from './config.ts'
 import { startCounters } from './counter-collector.ts'
 import { SOURCE } from './counters.ts'
 import { projectRoot } from './project.ts'
@@ -20,6 +21,7 @@ declare const Bun: {
   }): void
 }
 
+setDefines()
 const counters = startCounters()
 if (counters) {
   // The processes that the tests start count too (D53).

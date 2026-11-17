@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { addBare, addJsx, project, remove } from './setup.ts'
+import { addBare, addDefine, addJsx, project, remove } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-package-')))
@@ -324,6 +324,9 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     'ubq: ubq mutate cannot change src/view.tsx on Deno. Run it on Node or Bun.',
     '',
   ])
+
+  addDefine(p)
+  assert.deepEqual(await run(deno, 'flag.ts'), ['pass: 0 failed, 1 passed', ''])
 })
 
 test('the type declarations of the package', () => {
