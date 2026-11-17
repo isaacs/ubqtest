@@ -210,6 +210,11 @@ older run saved (D31).
 **Types.**
 
 - `assert(value)` and `assert.equal` narrow, as the example shows.
+  `assert.equal` narrows a literal union to the literal, and
+  `T | undefined` to `T`. A value whose type is `number`,
+  `string`, `boolean`, or `bigint` keeps that type: a second
+  `assert.equal(spy.calls.length, 2)` after a first check with `1`
+  is not a type error.
   This works because `assert` is an import with a declared type.
   It would not work for a method of a context argument (TypeScript
   requires an explicit type on the receiver of an assertion
@@ -237,8 +242,13 @@ spyOn(object, key, impl?): Spy<typeof object[key]>
   test ends.
 - There are no special assertions for spies. Use `assert.equal`
   and `assert.deepEqual` on `calls`.
-- With no `impl`, `spy()` returns `undefined`, and `spyOn` calls
-  the original method. `result` of an async function is its
+- With no `impl`, `spy()` returns `undefined`, takes any
+  arguments, and fits each function type, and `spyOn` calls the
+  original method. With an `impl`, the spy has the type of the
+  `impl`: give the `impl` the parameters that the code passes
+  (`spy((event: Event) => event)`), or the type of `calls[i].args`
+  is too short. A spy that goes to a typed option gets the types
+  of the option: `{ beforeSend: spy(event => event) }`. `result` of an async function is its
   promise. `error` is present only if the call threw.
 - The key of `spyOn` must name a function of the object. A
   different key is a compile error.

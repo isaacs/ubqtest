@@ -317,6 +317,12 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   `assert.deepEqual<unknown>(a, b)`, or `assert.equal<unknown,
   unknown>(a, b)`. A type error in the expected value has a
   `hint:` line that says so.
+- `assert.equal` narrows a literal union to the literal, and
+  `T | undefined` to `T`. A `number` or a `string` stays a `number`
+  or a `string`, so a count can have a second check.
+- `spy()` with no implementation takes any arguments. A spy with an
+  implementation has its types: give the implementation the
+  parameters that the code passes, `spy((event: Event) => event)`.
 - The test function gets `{ signal }`. The signal aborts at the
   time limit. Pass it to `fetch` and to child processes.
 - `skip` is the reason, as text: `{ skip: 'needs a GPU' }`. A

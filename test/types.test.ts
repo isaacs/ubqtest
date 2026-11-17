@@ -1,6 +1,6 @@
 // The types reject wrong calls, and the compile error names the fix.
 import { spawnSync } from 'node:child_process'
-import { assert, test } from 'ubqtest'
+import { assert, spy, test } from 'ubqtest'
 
 const root = new URL('..', import.meta.url)
 // The `tsc` command file is a JavaScript program. Windows cannot
@@ -34,4 +34,44 @@ test('the error for a wrong guess names the fix', () => {
     'Use assert.deepEqual (it is always strict)',
   ])
     assert(r.stdout.includes(hint), hint)
+})
+
+// The project compile check above also checks the types in these
+// tests.
+test('assert.equal narrows a literal union, and keeps a number a number', () => {
+  const counted = spy()
+  assert.equal(counted.calls.length, 0)
+  counted(1, 'x')
+  // A second check of a value that changed: not a type error.
+  assert.equal(counted.calls.length, 1)
+  const shape = { kind: 'circle', r: 2 } as { kind: 'circle'; r: number } | { kind: 'square'; side: number }
+  assert.equal(shape.kind, 'circle')
+  const r: number = shape.r
+  const maybe = 5 as number | undefined
+  assert.equal(maybe, 5)
+  const sure: number = maybe
+  let flag = false as boolean
+  assert.equal(flag, false)
+  flag = true
+  assert.equal(flag, true)
+  const none = undefined as string | undefined
+  assert.equal(none, undefined)
+  const gone: undefined = none
+  const any = 5 as unknown
+  assert.equal(any, 5)
+  const five: 5 = any
+  assert.deepEqual([r, sure, gone, five], [2, 5, undefined, 5])
+})
+
+test('a spy with no implementation takes any arguments, and fits a typed callback', () => {
+  const counted = spy()
+  counted(1, 'x')
+  assert.deepEqual(counted.calls.at(-1)?.args, [1, 'x'])
+  type Send = (event: { id: string }, retries: number) => { id: string } | null
+  const options: { send: Send } = { send: spy(event => event) }
+  assert.deepEqual(options.send({ id: 'a' }, 1), { id: 'a' })
+  const send = spy()
+  const typed: { send: Send } = { send }
+  typed.send({ id: 'a' }, 1)
+  assert.deepEqual(send.calls[0]?.args, [{ id: 'a' }, 1])
 })

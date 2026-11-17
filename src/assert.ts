@@ -47,14 +47,46 @@ type Obj<O> = [O] extends [never]
   : [O] extends [readonly unknown[]]
     ? { [K in keyof O]: Pattern<O[K]> }
     : { [K in Keys<O>]?: Pattern<Val<O, K>> }
+/** The wide type of a literal `E`, if `T` has all of that wide type. */
+type Wide<T, E> = E extends string
+  ? string extends T
+    ? string
+    : E
+  : E extends number
+    ? number extends T
+      ? number
+      : E
+    : E extends boolean
+      ? boolean extends T
+        ? boolean
+        : E
+      : E extends bigint
+        ? bigint extends T
+          ? bigint
+          : E
+        : E
+/**
+ * The type of `actual` after `assert.equal(actual, expected)`. If
+ * the type of `actual` has all of `string`, `number`, `boolean`, or
+ * `bigint`, it keeps that type: such a value can change, as the
+ * count of the calls of a spy does, and a literal type would refuse
+ * a second check of it. A literal union, such as a discriminant,
+ * narrows to the literal. `T` is not at the top level, so that a
+ * literal as the actual value gets its wide type.
+ */
+type Narrowed<T, E> = unknown extends T ? E : Extract<T, Wide<T, E>>
 /** A partial shape: listed keys must match, and a RegExp tests a string. */
 export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>>
 
 export interface Assert {
   /** Passes if `value` is truthy. Narrows the type of `value`. */
   (value: unknown, message?: string): asserts value
-  /** Passes if `Object.is(actual, expected)`. Narrows the type of `actual`. */
-  equal<T, const E extends T>(actual: T, expected: E, message?: string): asserts actual is E
+  /**
+   * Passes if `Object.is(actual, expected)`. Narrows the type of
+   * `actual`: a literal union to the literal, and `T | undefined` to
+   * `T`. A `number` or a `string` stays a `number` or a `string`.
+   */
+  equal<T, const E extends T>(actual: T, expected: E, message?: string): asserts actual is Narrowed<T, E>
   /** Passes if not `Object.is(actual, expected)`. */
   notEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void
   /** Passes if both have the same structure, values, and prototypes. */

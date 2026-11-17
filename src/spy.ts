@@ -15,7 +15,7 @@ export interface SpyCall<F extends AnyFn> {
 export type Spy<F extends AnyFn = AnyFn> = F & { calls: SpyCall<F>[] }
 
 /** A function that records each call in `calls`, and then calls `impl`. */
-export const spy = <F extends AnyFn = (...args: unknown[]) => void>(impl?: F): Spy<F> => {
+export const spy = <F extends AnyFn = AnyFn>(impl?: F): Spy<F> => {
   if (impl !== undefined && typeof impl !== 'function') throw new TypeError('spy() needs a function, or no argument')
   const calls: SpyCall<F>[] = []
   const fn = function (this: unknown, ...args: Parameters<F>): ReturnType<F> {

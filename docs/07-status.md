@@ -375,8 +375,12 @@ All entries are from 2026-11-11 to 2026-11-14.
       gave text that was not code, and the file was not
       converted. The message for such a case now says that the
       place is in the new text.
-  - Not done from this report: the types of `assert.equal` and
-    `spy()`, a predicate in a pattern, `stubGlobal`, a way to set
+  - Types: `assert.equal` keeps a `number`, `string`, `boolean`,
+    or `bigint` wide, so a count can have a second check. It
+    still narrows a literal union and `T | undefined`. `spy()` with
+    no implementation takes any arguments and fits each function
+    type.
+  - Not done from this report: a predicate in a pattern, `stubGlobal`, a way to set
     the fake clock, a value for a `define` of vite, loops for
     `it.each`, and the hint texts.
 
