@@ -159,20 +159,24 @@ assert.fail(message)                           // returns never
 - An array matches an array of the same length, element by
   element.
 - A function is a predicate. It gets the value at its place, and
-  the value matches if the function returns a truthy value. It
-  does the work of "any number" or "any `URL`". A key that the
-  value does not have gives `undefined`. A failure shows the
-  path, the value, and the text of the function.
-- Any other value matches by `Object.is`. This includes a
-  function that is the value itself: the predicate runs only if
-  the two are different.
+  the value matches if the function returns `true`. It does the
+  work of "any number" or "any `URL`". A key that the value does
+  not have gives `undefined`. A failure shows the path, the
+  value, and the text of the function.
+- The type of a function in a pattern must be `(value: unknown)
+  => boolean`. Any other function is a compile error, so that a
+  function that the test wants to compare as a value is not
+  called by accident. Use `assert.equal` for such a function. At
+  run time, a result that is not `true` or `false` fails, and the
+  failure says so.
+- Any other value matches by `Object.is`.
 
 ```ts
 assert.match(res, { status: 200, body: { user: { name: /^a/ } } })
 assert.match(user, {
   id: (v: unknown) => typeof v === 'number',
   home: (v: unknown) => v instanceof URL,
-  tags: [(v: string) => v.length > 0],
+  tags: [(v: unknown) => v !== ''],
 })
 ```
 

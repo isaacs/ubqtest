@@ -113,9 +113,12 @@ export const diffDeep = (actual: unknown, expected: unknown, partial = false): {
       // The text of the function, with no coverage counters.
       const text = String(e).replace(COUNTER, '').replace(/\s+/g, ' ')
       const expected = text.length > 200 ? `${text.slice(0, 200)}...` : text
-      let note = 'the function in the pattern returned a falsy value'
+      let note = 'the function in the pattern returned false'
       try {
-        if ((e as (value: unknown) => unknown)(a)) return
+        const result: unknown = (e as (value: unknown) => unknown)(a)
+        if (result === true) return
+        if (result !== false)
+          note = `a function in a pattern must return true or false, and this one returned ${show(result)}. To compare a function as a value, use assert.equal.`
       } catch (error) {
         note = `the function in the pattern threw: ${error instanceof Error ? error.message : show(error)}`
       }

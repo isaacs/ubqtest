@@ -1971,7 +1971,17 @@ of them, and each of the eight agents wrote a helper for them.
 - In a pattern of `assert.match`, `assert.eventually`, and the
   object form of `assert.throws` and `assert.rejects`, a function
   gets the value at its place. The value matches if the function
-  returns a truthy value.
+  returns `true`.
+- The type of such a function must be `(value: unknown) =>
+  boolean`. Any other function in a pattern is a compile error
+  that names `assert.equal`. A test that wants to compare two
+  functions as values must not get a call of one with the other.
+  The check does not use the type of the value, so it works for
+  `unknown` too. It reads the pattern that the call has as an
+  object literal. It does not go into a pattern from a variable
+  with a wider type, or into a class instance.
+- At run time, a result that is not `true` or `false` is a
+  failure that says the same.
 - If the function and the value are the same function, they
   match, and the function does not run.
 - A key that the value does not have gives `undefined` to the

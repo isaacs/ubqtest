@@ -27,3 +27,14 @@ test('mocks', async () => {
   spyOn({ n: 1, f: () => 1 }, 'n')
   spyOn({ n: 1, f: () => 1 }, 'f', () => 'one')
 })
+test('patterns', async () => {
+  const cb = (a: string) => a.length
+  assert.match({ cb }, { cb })
+  assert.match({ cb } as unknown, { cb })
+  assert.match({ cb } as unknown, { list: [{ at: new Date(), cb }] })
+  assert.match({ n: 1 }, { n: (v: number) => v > 0 })
+  assert.match({ n: 1 }, { n: (v: unknown) => v })
+  assert.throws(() => {}, { cb })
+  await assert.rejects(Promise.resolve(), { cb })
+  await assert.eventually(() => 1 as unknown, { cb })
+})

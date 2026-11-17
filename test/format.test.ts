@@ -97,7 +97,7 @@ test('a function in a pattern is a predicate for the value at its place', () => 
   const diffs = (a: unknown, e: unknown, partial = true): string[] =>
     diffDeep(a, e, partial).diffs.map(d => `${d.path}: ${d.actual} / ${d.expected} (${d.note})`)
   const isNumber = (v: unknown) => typeof v === 'number'
-  const falsy = 'the function in the pattern returned a falsy value'
+  const falsy = 'the function in the pattern returned false'
   // The text of the function is the text that the runtime has. It
   // has no coverage counter.
   const text = String(isNumber)
@@ -132,10 +132,28 @@ test('a function in a pattern is a predicate for the value at its place', () => 
   assert.match(diffs(1, long)[0]!, /^: 1 \/ \(v ?\) => \(?v === ['"]a text[^\n]{170,180}\.\.\. \(/)
   // Only in a pattern: deepEqual compares two functions as values.
   assert.equal(diffs({ id: 7 }, { id: isNumber }, false).length, 1)
-  // The types: the parameter gets the type of the value.
-  const value: { id: number; name: string; tags: string[] } = { id: 1, name: 'a', tags: ['x'] }
-  assert.match(value, { id: v => v > 0, name: (v: unknown) => typeof v === 'string', tags: [v => v.length === 1] })
-  assert.match(value, v => v.tags.length === 1)
+  // A value that is not true or false does not match.
+  assert.match(
+    diffs({ cb: () => 1 }, { cb: () => 1 })[0]!,
+    /^\.cb: .* \(a function in a pattern must return true or false, and this one returned 1\. To compare a function as a value, use assert\.equal\.\)$/,
+  )
+  // The types: the parameter is unknown, also with no annotation.
+  const value: { id: number; name: string; tags: string[]; at: Date } = {
+    id: 1,
+    name: 'a',
+    tags: ['x'],
+    at: new Date(0),
+  }
+  assert.match(value, { id: v => typeof v === 'number', name: (v: unknown) => v === 'a', tags: [v => v === 'x'] })
+  assert.match(value, { at: new Date(0), tags: value.tags })
+  assert.match(value as unknown, { id: (v: unknown) => v === 1, at: new Date(0), tags: [/x/] })
+  assert.match(value, v => v !== null)
+  assert.throws(
+    () => {
+      throw new TypeError('x')
+    },
+    { name: (v: unknown) => v === 'TypeError' },
+  )
 })
 
 test('the report has 8 differences at most, and the count of the others', () => {

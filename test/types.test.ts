@@ -21,7 +21,7 @@ const errors = r.stdout.split('\n').filter(l => /^\S.*error TS/.test(l))
 
 test('each wrong call in types-bad.ts is a compile error', () => {
   const lines = errors.map(l => +/\((\d+),/.exec(l)![1]!)
-  assert.deepEqual(lines, [5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 18, 22, 25, 27, 28])
+  assert.deepEqual(lines, [5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 18, 22, 25, 27, 28, 32, 33, 34, 35, 36, 37, 38, 39])
 })
 
 test('the error for a wrong guess names the fix', () => {
@@ -32,6 +32,7 @@ test('the error for a wrong guess names the fix', () => {
     'Use assert(value)',
     'Use assert.equal (it is always strict)',
     'Use assert.deepEqual (it is always strict)',
+    'A function in a pattern must be (value: unknown) => boolean. To compare a function as a value, use assert.equal',
   ])
     assert(r.stdout.includes(hint), hint)
 })

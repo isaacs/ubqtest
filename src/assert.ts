@@ -39,6 +39,30 @@ class MustAwait<T> extends Promise<T> {
 
 type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>
 
+/** A function in a pattern: it tests the value at its place. */
+type Predicate = (value: unknown) => boolean
+type Same<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ? 1 : 2 ? true : false
+/**
+ * The pattern `P`, with a function that is not a predicate made a
+ * compile error. This check does not use the type of the value, so
+ * it works for a value of type `unknown` too. It goes into arrays,
+ * and into objects where each key is readonly: an object literal in
+ * the call is such an object, and a `Date` or a `Map` is not.
+ */
+type Checked<P> = P extends (...args: never[]) => unknown
+  ? P extends Predicate
+    ? P
+    : Hint<'A function in a pattern must be (value: unknown) => boolean. To compare a function as a value, use assert.equal'>
+  : P extends readonly unknown[]
+    ? { [K in keyof P]: Checked<P[K]> }
+    : P extends object
+      ? Same<P, Readonly<P>> extends true
+        ? { [K in keyof P]: Checked<P[K]> }
+        : P
+      : P
+/** At the top level, a RegExp or a class is not a pattern. */
+type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => Error) ? unknown : Checked<P>
+
 type Keys<T> = T extends unknown ? keyof T : never
 type Val<T, K> = T extends unknown ? (K extends keyof T ? T[K] : never) : never
 type Prim<T> = T extends string ? T | RegExp : T
@@ -79,7 +103,7 @@ type Narrowed<T, E> = unknown extends T ? E : Extract<T, Wide<T, E>>
  * A partial shape: listed keys must match, a RegExp tests a string,
  * and a function is a predicate for the value at its place.
  */
-export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | ((value: T) => unknown)
+export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | Predicate
 
 export interface Assert {
   /** Passes if `value` is truthy. Narrows the type of `value`. */
@@ -98,11 +122,12 @@ export interface Assert {
    * Passes if `actual` has the shape of `pattern`. Each key in the
    * pattern must match. Extra keys in `actual` are fine. A RegExp
    * tests a string. A function in the pattern gets the value at
-   * its place, and the value matches if the function returns a
-   * truthy value: `{ id: (v: unknown) => typeof v === 'number' }`.
-   * A key that `actual` does not have gives `undefined`.
+   * its place, and the value matches if the function returns
+   * true: `{ id: (v: unknown) => typeof v === 'number' }`. A key
+   * that `actual` does not have gives `undefined`. To compare a
+   * function as a value, use `assert.equal`.
    */
-  match<T, const P extends Pattern<T>>(actual: T, pattern: P, message?: string): void
+  match<T, const P extends Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void
   /**
    * Passes if the text `actual` has the text `expected` in it, or if
    * an element of the iterable `actual` is `expected`. Fails on null
@@ -118,16 +143,24 @@ export interface Assert {
    * tests the message, a class tests `instanceof`, an object is a
    * `match` pattern. Returns the error.
    */
-  throws(fn: () => unknown, expected: ErrorMatch, message?: string): Error
+  throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error
   /** As `throws`, for a promise. The result must be awaited. */
-  rejects(promise: Promise<unknown> | (() => Promise<unknown>), expected: ErrorMatch, message?: string): Promise<Error>
+  rejects<const P extends ErrorMatch>(
+    promise: Promise<unknown> | (() => Promise<unknown>),
+    expected: P & CheckedError<P>,
+    message?: string,
+  ): Promise<Error>
   /**
    * As `match`, for a value that changes with time, such as the text
    * of a page. Calls `fn` again and again until its value matches
    * `pattern`. Fails after 2000 ms with the last value. The result
    * must be awaited.
    */
-  eventually<T, const P extends Pattern<Awaited<T>>>(fn: () => T, pattern: P, message?: string): Promise<void>
+  eventually<T, const P extends Pattern<Awaited<T>>>(
+    fn: () => T,
+    pattern: P & Checked<P>,
+    message?: string,
+  ): Promise<void>
   /**
    * Passes if the text of `value` is the text in the snapshot file
    * of the test file. `ubq --update <test>` writes the file.
