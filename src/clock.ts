@@ -17,6 +17,12 @@ export interface FakeClock {
    * `tick(0)` runs only the `setImmediate` callbacks.
    */
   tick(ms: number): Promise<void>
+  /**
+   * Sets the time of `Date`, forward or back, and runs no timer.
+   * `performance.now()`, `process.hrtime()`, and the timers do not
+   * change: a timer runs after the same count of milliseconds.
+   */
+  set(time: number | Date): void
   /** Moves the clock from timer to timer until no timer waits. */
   runAll(): Promise<void>
   /** Puts the real timers and clocks back. The end of the test does this too. */
@@ -71,6 +77,8 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   // changes nothing.
   cleanup(() => clock.restore())
   let now = start
+  // The time of `Date` minus `now`. Only set() changes it.
+  let offset = 0
   let ids = 0
   const timers = new Map<number, Timer>()
 
@@ -138,12 +146,12 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   }
 
   const FakeDate = function (this: unknown, ...args: unknown[]) {
-    if (!new.target) return new RealDate(now).toString()
-    return Reflect.construct(RealDate, args.length ? args : [now], new.target)
+    if (!new.target) return new RealDate(now + offset).toString()
+    return Reflect.construct(RealDate, args.length ? args : [now + offset], new.target)
   } as unknown as DateConstructor
   Object.setPrototypeOf(FakeDate, RealDate)
   ;(FakeDate as Any).prototype = RealDate.prototype
-  FakeDate.now = () => now
+  FakeDate.now = () => now + offset
 
   const realPerformanceNow = performance.now
   // A whole number, so that a tick of whole milliseconds moves
@@ -229,7 +237,7 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
   let restored = false
   const clock: FakeClock = {
     get now() {
-      return now
+      return now + offset
     },
     get timers() {
       return timers.size
@@ -241,6 +249,12 @@ export const fakeClock = (options: FakeClockOptions = {}): FakeClock => {
       await settle()
       for (let timer = next(target); timer; timer = next(target)) await run(timer)
       now = target
+    },
+    set(time) {
+      if (restored) throw new Error('the fake clock was restored. Make a new one with fakeClock().')
+      const to = +time
+      if (!Number.isFinite(to)) throw new TypeError('set() needs a number of milliseconds since 1970, or a Date')
+      offset = to - now
     },
     async runAll() {
       if (restored) throw new Error('the fake clock was restored. Make a new one with fakeClock().')

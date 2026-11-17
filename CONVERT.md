@@ -110,12 +110,14 @@ names, do one of these:
 - Node runs TypeScript with the types removed, and no other
   change. Source with `enum`, `namespace`, or a parameter property
   (`constructor(private x: number)`) does not load. `ubq doctor`
-  names the files that have such syntax. If the project has such
-  syntax, tell the user: the choice is to change that syntax or to
-  run the tests on Bun (`bun node_modules/ubqtest/cli.js`). A
-  project that runs its tests on Bun does not set
-  `erasableSyntaxOnly` in its tsconfig: with that option, the type
-  checker reports the syntax in each run.
+  names the files that have such syntax. Node 26 has no option to
+  run it. Stop, and ask the user to choose: change that syntax,
+  run the tests on Bun (`bun node_modules/ubqtest/cli.js`), or
+  test a build of the source (slower, and each run needs a build
+  first). Do not choose for the user: a change of runtime or a
+  build step is a surprise to a maintainer. With Bun or a build,
+  the tsconfig does not set `erasableSyntaxOnly`: with that
+  option, the type checker reports the syntax in each run.
 
 ## tap
 
@@ -389,6 +391,7 @@ Things to check by hand:
   | --- | --- |
   | `vi.useFakeTimers()` | `const clock = fakeClock()` |
   | `vi.setSystemTime(t)` at the start | `fakeClock({ now: t })` |
+  | `vi.setSystemTime(t)` later | `clock.set(t)` |
   | `vi.advanceTimersByTime(ms)`, `advanceTimersByTimeAsync` | `await clock.tick(ms)` |
   | `vi.runAllTimers()`, `runOnlyPendingTimers`, and their async forms | `await clock.runAll()` |
   | `vi.useRealTimers()` | delete it, or `clock.restore()` before the end of the test |

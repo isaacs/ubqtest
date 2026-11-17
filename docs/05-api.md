@@ -357,6 +357,7 @@ clock.now                 // milliseconds since 1970
 clock.timers              // count of timers that wait
 await clock.tick(ms)      // move forward, run each timer that is due
 await clock.runAll()      // move from timer to timer until none waits
+clock.set(time)           // set the time of Date, run no timer
 clock.restore()           // the real clock comes back
 ```
 
@@ -367,6 +368,9 @@ clock.restore()           // the real clock comes back
   `setImmediate` and their `clear` functions, `Date`,
   `performance.now`, `process.hrtime`, `AbortSignal.timeout`, and
   the same functions in `node:timers` and `node:timers/promises`.
+- `set(time)` sets the time of `Date`, forward or back, and runs
+  no timer. `performance.now`, `process.hrtime`, and the timers do
+  not change: a timer runs after the same count of milliseconds.
 - Time moves only in `tick` and `runAll`. Timers run in the order
   of their times. Promise callbacks run after each timer, so a
   chain of `await sleep(10)` calls ends in one `tick`.

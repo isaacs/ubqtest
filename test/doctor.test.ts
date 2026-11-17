@@ -79,7 +79,7 @@ test('doctor states the fix for each problem of the setup', () => {
     '{ "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true } }',
   )
   assert.deepEqual(doctor().lines.slice(2), [
-    'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): src/hard.ts. Node runs only syntax that it can erase. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js. A project that runs its tests on Bun does not set "erasableSyntaxOnly" in tsconfig.json.',
+    'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".',
     'ok   tsconfig.json',
     'doctor: 1 problems',
   ])

@@ -303,7 +303,7 @@ await mockImport(() => import('../src/a.ts'), [
 testdir({ 'a.txt': 'hi', sub: { 'b.json': '{}' } })  // a new folder, returns its path
 env({ NAME: 'value', OTHER: undefined })             // set or delete, until the test ends
 cleanup(() => server.close())                        // runs when the test ends
-const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), await clock.runAll()
+const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), await clock.runAll(), clock.set(time)
 ```
 
 - `expected` of `throws` and `rejects` is a `RegExp` for the
@@ -834,10 +834,12 @@ builds JavaScript from that tsconfig (for example with tshy), set
 `"rewriteRelativeImportExtensions": true` in place of `"noEmit"`.
 It needs TypeScript 5.7 or later.
 
-Bun runs syntax that cannot be erased. If the source of a project
-has such syntax, `ubq doctor` names the files. Such a project runs
-its tests on Bun (`bun node_modules/ubqtest/cli.js`), and does not
-set `"erasableSyntaxOnly"`.
+If the source of a project has syntax that cannot be erased,
+`ubq doctor` names the files. Ask the person who owns the project
+to choose: change that syntax, run the tests on Bun (`bun
+node_modules/ubqtest/cli.js`), which runs such syntax, or test a
+build of the source. With Bun or a build, do not set
+`"erasableSyntaxOnly"`.
 
 Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.

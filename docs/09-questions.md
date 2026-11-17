@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66.
+is D66. The answer to Q22 is D80. The answer to Q25 is D81.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -70,30 +70,6 @@ The agent would pick 2. It is one way, it needs no code in the
 project, and the converter can write it. A transform of the
 source, as in 4 and in the vite plugin, is out of scope.
 
-## Q22. Syntax that Node cannot run (8 of 8)
-
-Two source files have parameter properties
-(`constructor(private x: number)`). Node removes types and makes
-no other change, so the source does not load on Node. D79 made
-`ubq doctor` name such files and say to use Bun. Each agent could
-not change the source, so 6 of 8 wrote a loader with esbuild or
-`typescript`, and 2 used Bun.
-
-Options:
-
-1. Keep D79: change the syntax, or run on Bun.
-2. On Node, the runner adds `--experimental-transform-types` to
-   each test process when `ubq doctor` would find such a file.
-   Node then changes the syntax itself. It is experimental, Node
-   refuses it in `NODE_OPTIONS` (the runner would pass it as an
-   argument), and its effect on the counters and on source
-   positions is not checked.
-3. As 2, with no check: always on.
-
-The agent would check 2 first: does the counters hook get the
-source before the change, and do the stack places stay correct?
-If both hold, 2. If not, 1.
-
 ## Q23. "Any value of a type" in a pattern (8 of 8)
 
 vitest has `expect.any(Number)`, `expect.anything()`, and
@@ -143,25 +119,6 @@ The agent would pick 2: the put-back is easy to get wrong (a
 property that did not exist, a property with a getter), and a
 missed put-back is a leak to the next test of the file. D60 says
 to wait for a real project, and this report is one.
-
-## Q25. Set the time of a fake clock (2 of 8, 38 uses in one file)
-
-`vi.setSystemTime(t)` changes `Date.now()` in a test, also back in
-time, and runs no timer. `fakeClock({ now })` sets the time only at
-the start, and `tick` only moves forward and runs timers. One
-agent called `restore()` and `fakeClock({ now })` again for each
-change. Another put `spyOn(Date, 'now', ...)` on top of the clock.
-A test that stubbed `performance` and then made a clock lost the
-stub's `now`.
-
-Options:
-
-1. No change.
-2. `clock.set(time)`: sets the time of `Date` and of
-   `performance.now()`, forward or back, and runs no timer. A timer
-   keeps its due time, so a time back in time makes it wait longer.
-
-The agent would pick 2. It is one method on the existing object.
 
 ## Q26. Two changes of `ubq convert` that are not always certain (7 of 8, 8 of 8)
 

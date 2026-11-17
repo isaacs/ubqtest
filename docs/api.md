@@ -262,6 +262,12 @@ interface FakeClock {
      * `tick(0)` runs only the `setImmediate` callbacks.
      */
     tick(ms: number): Promise<void>;
+    /**
+     * Sets the time of `Date`, forward or back, and runs no timer.
+     * `performance.now()`, `process.hrtime()`, and the timers do not
+     * change: a timer runs after the same count of milliseconds.
+     */
+    set(time: number | Date): void;
     /** Moves the clock from timer to timer until no timer waits. */
     runAll(): Promise<void>;
     /** Puts the real timers and clocks back. The end of the test does this too. */

@@ -83,7 +83,7 @@ test('an import of ./a.js finds the file ./a.ts', () => {
   writeFileSync(join(p.dir, 'src/two.ts'), 'export enum Two {\n  A,\n}\nexport const two = (): number => 2\n')
   assert.deepEqual(p.ubq('one.ts').out.split('\n').slice(0, 4), [
     'ERROR one.ts',
-    '  the test file did not load: TypeScript enum is not supported in strip-only mode. Node runs only TypeScript syntax that can be erased. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js',
+    '  the test file did not load: TypeScript enum is not supported in strip-only mode. Node runs only TypeScript syntax that can be erased. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source.',
     '  at src/two.ts:1:1',
     '  > export enum Two {',
   ])

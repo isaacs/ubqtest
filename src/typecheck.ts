@@ -155,7 +155,7 @@ const check = (
         // The option that reports this syntax is for Node.
         if (error.code === 'TS1294')
           error.message +=
-            '\nhint: Node cannot run this syntax. Change it, or run the tests on Bun (bun node_modules/ubqtest/cli.js) and remove "erasableSyntaxOnly" from the tsconfig.'
+            '\nhint: Node cannot run this syntax. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, remove "erasableSyntaxOnly" from the tsconfig.'
         const source = error.at && read(error.at.file)
         if (!source) continue
         let at = 0

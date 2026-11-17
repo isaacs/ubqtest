@@ -1857,5 +1857,30 @@ ended with `fail`.
   node_modules/ubqtest/cli.js`. With pnpm, `node_modules/.bin/ubq`
   is a shell script, and Bun cannot run it.
 
-**Not decided:** a way to run such syntax on Node (the
-`--experimental-transform-types` option of Node).
+D80 decides the way to run such syntax on Node.
+
+## D80. For syntax that Node cannot run, the agent asks the person (user, 2026-11-17)
+
+Q22. Node 24 has `--experimental-transform-types`. Node 26
+removed it ("bad option"), so ubq cannot use it. A switch to Bun
+is a surprise to a maintainer, and so is a build step: a test run
+with no build is a large part of the value of ubq on Node.
+
+- `ubq doctor`, the load error of a test file, and the TS1294 hint
+  say: do not choose for the person who owns the project. Ask
+  them: change this syntax, run the tests on Bun, or test a build
+  of the source.
+- `CONVERT.md` and `GUIDE.md` say the same.
+
+## D81. `clock.set(time)` sets the time of `Date` (user, 2026-11-17)
+
+Q25. `vi.setSystemTime(t)` changes `Date.now()` in a test, also
+back in time.
+
+- `clock.set(time)` takes a number or a `Date`. It changes `Date`
+  and `clock.now`, and runs no timer.
+- `performance.now()`, `process.hrtime()`, and the timers do not
+  change. They are monotonic, as the real ones are: a time back in
+  time does not make a timer wait longer, and a time forward does
+  not run a timer. Only `tick` and `runAll` run timers.
+- The converter hint for `setSystemTime` names `clock.set`.

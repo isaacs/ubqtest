@@ -216,7 +216,7 @@ export const doctor = (out: (text: string) => void): number => {
   }
   if (hard.length)
     fix(
-      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${hard.slice(0, 5).join(', ')}${hard.length > 5 ? `, and ${hard.length - 5} more` : ''}. Node runs only syntax that it can erase. Change this syntax, or run the tests on Bun: bun node_modules/ubqtest/cli.js. A project that runs its tests on Bun does not set "erasableSyntaxOnly" in tsconfig.json.`,
+      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${hard.slice(0, 5).join(', ')}${hard.length > 5 ? `, and ${hard.length - 5} more` : ''}. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
     )
 
   const tsconfig = join(root, 'tsconfig.json')

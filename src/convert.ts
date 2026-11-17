@@ -234,7 +234,7 @@ const VI: Record<string, string> = {
   useFakeTimers:
     'Use fakeClock: const clock = fakeClock(). It replaces the timers and Date until the test ends. Make it in the test that uses it: if this is in a hook, make the clock in a setup function that each test calls.',
   setSystemTime:
-    'Give the time to the clock when you make it: fakeClock({ now: time }). Later, await clock.tick(ms) moves the time and runs the timers that are due.',
+    'Use clock.set(time), with the clock of fakeClock(). It sets the time of Date and runs no timer. Or give the time when you make the clock: fakeClock({ now: time }).',
   advanceTimersByTime: 'Use await clock.tick(ms), with the clock of fakeClock().',
   advanceTimersByTimeAsync: 'Use await clock.tick(ms), with the clock of fakeClock().',
   runAllTimers: 'Use await clock.runAll(), with the clock of fakeClock().',

@@ -392,9 +392,14 @@ All entries are from 2026-11-11 to 2026-11-14.
     `toHaveBeenCalledExactlyOnceWith`, `not.toHaveBeenCalled`,
     `not.toHaveBeenCalledWith`, and `toBeTypeOf`. A `test.each`
     or `describe.each` with a TODO keeps its name in the import.
-  - Not done from this report: a predicate in a pattern, `stubGlobal`, a way to set
-    the fake clock, a value for a `define` of vite, and loops for
-    `it.each`.
+  - Syntax that Node cannot run (D80): Node 26 has no
+    `--experimental-transform-types`. The texts of doctor, of a
+    load error, and of TS1294 tell the agent to ask the person:
+    change the syntax, Bun, or a build.
+  - `clock.set(time)` (D81).
+  - Not done from this report: a predicate in a pattern (Q23),
+    `stub` (Q24), a value for a `define` of vite (Q21), and loops
+    for `it.each` (Q26).
 
 - **Snapshot files with CRLF line ends.** Git on Windows can check
   a snapshot file out with CRLF line ends. ubq then found no
