@@ -741,3 +741,170 @@ test('tap: the scripts test and snap of package.json become ubq and ubq --update
   writeFileSync(join(p.dir, 'package.json'), '{ not json')
   assert.equal(p.ubq('convert', 'test').code, 0)
 })
+
+test('a helper that gives a restore function: the hook, the variable, and the assignments go', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'old'))
+  const write = (file: string, lines: string[]): void =>
+    writeFileSync(join(p.dir, 'old', file), lines.join('\n') + '\n')
+  const read = (file: string): string[] =>
+    readFileSync(join(p.dir, 'old', file), 'utf8')
+      .split('\n')
+      .slice(0, -1)
+  write('helper.ts', [
+    "import { vi } from 'vitest'",
+    'export const mockFetch = (fn: any) => {',
+    '  const calls: unknown[] = []',
+    "  const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(fn)",
+    '  return {',
+    '    calls,',
+    '    restore: () => spy.mockRestore(),',
+    '    size: () => calls.length,',
+    '    reset: () => {},',
+    '  }',
+    '}',
+    'export type Calls = unknown[]',
+    'export function mockLog() {',
+    "  const spy = vi.spyOn(console, 'log')",
+    '  return { restore: () => { spy.mockRestore() }, spy }',
+    '}',
+    "export const mockWarn = () => ({ restore: () => vi.spyOn(console, 'warn').mockRestore(), n: 1 })",
+    "export const mockError = () => ({ n: 2, restore: () => vi.spyOn(console, 'error').mockRestore() })",
+  ])
+  // A file that exports a helper again: code outside the run can use it.
+  write('helper2.ts', [
+    "import { vi } from 'vitest'",
+    "export const mockTime = () => ({ restore: () => vi.spyOn(Date, 'now').mockRestore() })",
+  ])
+  write('index.ts', ["export * from './helper2.ts'"])
+  // A test file that only assigns the functions: all of it goes.
+  write('a.test.ts', [
+    "import { afterEach, expect, it } from 'vitest'",
+    "import { mockError, mockFetch, mockLog, mockWarn } from './helper.js'",
+    "import { mockTime } from './helper2.ts'",
+    'let restore = () => {}',
+    'afterEach(() => restore())',
+    "it('a', async () => {",
+    "  const m = mockFetch(() => new Response('ok'))",
+    '  restore = m.restore',
+    '  expect(m.calls).toEqual([])',
+    '})',
+    "it('b', async () => {",
+    '  const l = await mockLog()',
+    '  restore = l.restore',
+    '  const w = mockWarn()',
+    '  restore = w.restore',
+    '  const e = mockError()',
+    '  restore = e.restore',
+    '  const t = mockTime()',
+    '  restore = t.restore',
+    '})',
+  ])
+  // A call in a test: the function of mockLog stays.
+  write('b.test.ts', [
+    "import { afterEach, it } from 'vitest'",
+    "import { mockLog } from './helper.ts'",
+    'let undo: (() => void) | undefined',
+    'afterEach(() => undo?.())',
+    "it('c', () => {",
+    '  const l = mockLog()',
+    '  undo = l.restore',
+    '  l.restore()',
+    '  mockLog()',
+    '  const f = mockLog',
+    '  use(l)',
+    '})',
+  ])
+  // A name that is also an other value: the hook stays.
+  write('d.test.ts', [
+    "import { afterEach, it } from 'vitest'",
+    "import { mockLog } from './helper.ts'",
+    'let restore = () => {}',
+    'afterEach(() => restore())',
+    "it('e', () => {",
+    '  const l = mockLog()',
+    '  restore = l.restore',
+    '})',
+    "it('f', () => {",
+    '  const l = 2',
+    '})',
+  ])
+  // A function that does other work: the hook stays, with a TODO.
+  write('c.test.ts', [
+    "import { afterEach, it } from 'vitest'",
+    'let restore = () => {}',
+    'afterEach(() => restore())',
+    'afterEach(cleanupAll)',
+    'afterEach(() => { x = 1 })',
+    'afterEach(() => spy.mockRestore())',
+    "it('d', () => {",
+    '  restore = () => server.close()',
+    '  restore = a.b.restore',
+    '})',
+  ])
+  p.ubq('convert', 'old')
+  assert.deepEqual(read('helper.ts'), [
+    "import { spyOn } from 'ubqtest'",
+    'export const mockFetch = (fn: any) => {',
+    '  const calls: unknown[] = []',
+    "  const spy = spyOn(globalThis, 'fetch', fn)",
+    '  return {',
+    '    calls,',
+    '    size: () => calls.length,',
+    '    reset: () => {},',
+    '  }',
+    '}',
+    'export type Calls = unknown[]',
+    'export function mockLog() {',
+    "  const spy = spyOn(console, 'log')",
+    '  // TODO(ubq): A spyOn spy goes back when its test ends. Remove this call,',
+    '  // if the code after it does not need the real method: a second spyOn on',
+    '  // a key replaces the first. ubq has no call that puts the method back',
+    '  // before the test ends. The callers of the helper get this function as',
+    '  // "restore". In the test files, remove each call and each assignment of',
+    '  // it, and each hook that only calls it. Then remove this function.',
+    '  return { restore: () => { spy.mockRestore() }, spy }',
+    '}',
+    'export const mockWarn = () => ({ n: 1 })',
+    'export const mockError = () => ({ n: 2 })',
+  ])
+  assert.deepEqual(read('helper2.ts').slice(1, 2), [
+    '// TODO(ubq): A spyOn spy goes back when its test ends. Remove this call,',
+  ])
+  assert.deepEqual(read('a.test.ts'), [
+    "import { assert, test } from 'ubqtest'",
+    "import { mockError, mockFetch, mockLog, mockWarn } from './helper.js'",
+    "import { mockTime } from './helper2.ts'",
+    "test('a', async () => {",
+    "  const m = mockFetch(() => new Response('ok'))",
+    '  assert.deepEqual(m.calls, [])',
+    '})',
+    "test('b', async () => {",
+    '  const l = await mockLog()',
+    '  const w = mockWarn()',
+    '  const e = mockError()',
+    '  const t = mockTime()',
+    '})',
+  ])
+  assert.deepEqual(read('b.test.ts'), [
+    "import { test } from 'ubqtest'",
+    "import { mockLog } from './helper.ts'",
+    "test('c', () => {",
+    '  const l = mockLog()',
+    '  l.restore()',
+    '  mockLog()',
+    '  const f = mockLog',
+    '  use(l)',
+    '})',
+  ])
+  assert.deepEqual(read('d.test.ts').slice(2, 4), [
+    'let restore = () => {}',
+    '// TODO(ubq): If this only puts spies back, delete it, each assignment to',
+  ])
+  assert.deepEqual(read('c.test.ts').slice(0, 3), [
+    "import { test } from 'ubqtest'",
+    'let restore = () => {}',
+    '// TODO(ubq): If this only puts spies back, delete it, each assignment to',
+  ])
+})

@@ -10,6 +10,7 @@ import { globSync, readdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { config, UsageError } from './config.ts'
+import { restorePlan } from './convert-restore.ts'
 import type { Node } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
 import { setupMigrations, vitestWorkers } from './vitest-config.ts'
@@ -239,6 +240,8 @@ export const convertSource = (
   children: Children,
   /** D1 bindings: the file gets `await migrate(binding)` after its imports. */
   migrate: string[] = [],
+  /** The starts of the statements and properties to remove: see restorePlan. */
+  drop: Set<number> = new Set(),
 ): Converted | undefined => {
   const program = parse(source, file)
   const text = (n: Node): string => source.slice(n.start, n.end)
@@ -504,10 +507,8 @@ export const convertSource = (
       edits.push({ start: node.end + rest.length, end: node.end + rest.length, text: ` // ${message.value}` })
   }
 
-  /** Removes the statement of a call: `t.end()`, `t.plan(3)`. */
-  const removeStatement = (path: Node[]): boolean => {
-    const stmt = path.at(-2)
-    if (stmt?.type !== 'ExpressionStatement') return false
+  /** Removes a statement, with its line if it is alone on the line. */
+  const removeLine = (stmt: Node): void => {
     const from = lineStart(stmt.start)
     const end = source.indexOf('\n', stmt.end)
     const alone =
@@ -515,7 +516,27 @@ export const convertSource = (
     if (alone) replace(from, end < 0 ? source.length : end + 1, '')
     else replace(stmt.start, stmt.end, '')
     changes++
+  }
+  /** Removes the statement of a call: `t.end()`, `t.plan(3)`. */
+  const removeStatement = (path: Node[]): boolean => {
+    const stmt = path.at(-2)
+    if (stmt?.type !== 'ExpressionStatement') return false
+    removeLine(stmt)
     return true
+  }
+  /** Removes a property of an object literal, with its comma. */
+  const removeProperty = (property: Node): void => {
+    const after = /^\s*,/.exec(source.slice(property.end))
+    const end = property.end + (after?.[0].length ?? 0)
+    const lineEnd = source.indexOf('\n', end)
+    if (
+      !source.slice(lineStart(property.start), property.start).trim() &&
+      /^[ \t]*\r?$/.test(source.slice(end, lineEnd))
+    )
+      replace(lineStart(property.start), lineEnd + 1, '')
+    else if (after) replace(property.start, end + /^[ \t]*/.exec(source.slice(end))![0].length, '')
+    else replace(source.lastIndexOf(',', property.start), property.end, '')
+    changes++
   }
 
   /** The text from the start of the parameters of a function to their end, with the parentheses. */
@@ -766,6 +787,10 @@ export const convertSource = (
   }
 
   const walk = (node: Node, path: Node[]): void => {
+    if (drop.has(node.start)) {
+      if (node.type === 'Property') return removeProperty(node)
+      if (node.type === 'ExpressionStatement' || node.type === 'VariableDeclaration') return removeLine(node)
+    }
     path = [...path, node]
     let next: Node[] | undefined
     if (node.type === 'CallExpression') next = call(node, path)
@@ -939,11 +964,26 @@ export const convertSource = (
     if (/^mock(Implementation|ReturnValue|ResolvedValue|RejectedValue|Reset|Clear|Restore)(Once)?$/.test(method)) {
       const found = spyChain(node, object, method)
       if (found) return found
-      if (method === 'mockRestore' && removeStatement(path)) {
+      if (method !== 'mockRestore') {
+        todo(path, TODO.spyImpl)
+        return undefined
+      }
+      // `{ restore: () => spy.mockRestore() }`: a helper gives the
+      // function to its callers, and they can call it in a test.
+      const fn = path.findLastIndex(n => FUNCTION.has(n.type))
+      const key = fn > 0 && path[fn - 1]!.type === 'Property' ? text(path[fn - 1]!.key as Node) : undefined
+      if (key) {
+        todo(
+          path,
+          `${TODO.restore} The callers of the helper get this function as "${key}". In the test files, remove each call and each assignment of it, and each hook that only calls it. Then remove this function.`,
+        )
+        return undefined
+      }
+      if (removeStatement(path)) {
         if (!(inHook(path) || lastInFunction(path))) todo(path, TODO.restored)
         return []
       }
-      todo(path, method === 'mockRestore' ? TODO.restore : TODO.spyImpl)
+      todo(path, TODO.restore)
       return undefined
     }
 
@@ -1372,6 +1412,8 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
         if (!migrations.has(path)) migrations.set(path, bindings)
       }
   }
+  const sources = new Map(files.map(path => [path, readFileSync(path, 'utf8')]))
+  const drop = restorePlan(sources, parse, children)
   let changed = 0
   let todos = 0
   /** Files that use no test tool that this command knows. */
@@ -1388,7 +1430,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     const file = rel(path)
     let result: Converted | undefined
     try {
-      result = convertSource(readFileSync(path, 'utf8'), path, parse, children, migrations.get(path))
+      result = convertSource(sources.get(path)!, path, parse, children, migrations.get(path), drop.get(path))
     } catch (error) {
       out(`not converted ${file}: ${(error as Error).message}`)
       failed++

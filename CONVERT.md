@@ -281,10 +281,14 @@ Things to check by hand:
   back before that. The command removes a hook that only
   restores, and each call. A call that is not at the end of a
   test gets a TODO: if the code after it needs the real method,
-  move that code to a new test. If a helper of the project gives
-  a restore function (`restore = m.restore`, with
-  `afterEach(() => restore())`), delete the hook and each
-  assignment.
+  move that code to a new test. A helper of the project can give
+  a restore function (`restore: () => spy.mockRestore()`), and a
+  test file can assign it to a variable that a hook calls
+  (`restore = m.restore`, with `afterEach(() => restore())`). If
+  the helper and the test files are in the same run, the command
+  removes the variable, the hook, and each assignment. It removes
+  the function from the helper if no other code of the run reads
+  it. Else a TODO stays at the hook or at the function.
 - **`vi.useFakeTimers()`, `vi.advanceTimersByTime(ms)`.**
   `const clock = fakeClock({ now: 0 })`, then `await
   clock.tick(ms)`. The clock goes back when the test ends.

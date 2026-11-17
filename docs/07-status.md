@@ -306,6 +306,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   - The report gives the command of the formatter of the project,
     names the files that still import the old tool, and has a note
     for each key of `miniflare` other than `bindings`.
+  - The restore form of a helper (`restore = m.restore`, with
+    `afterEach(() => restore())`) goes away, in the test files and
+    in the helper, when all of its files are in the run.
 
 - **A hint for a hook.** A file that calls `afterEach` (or another
   hook of an other tool) fails with a hint that ubq has no hooks.
