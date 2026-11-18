@@ -467,8 +467,6 @@ All entries are from 2026-11-11 to 2026-11-14.
   same file gives a plain load error.
 - `ubq convert` for Playwright tests that use vitest, jest,
   `@playwright/test`, or no test tool (asked by the user).
-- A conversion of a real project by a different agent: the user
-  planned this check.
 
 ## Ideas for later
 
@@ -592,6 +590,24 @@ Type check and doctor:
   `<package>.json`.
 - A run of one file that ends with `process.exit` before the type
   check ends reports no type errors.
+- On Windows, a type checker that is stopped after it wrote some
+  errors looks like a checker that ended (D96).
+- `doctor` reads only relative imports to find the files that the
+  tests import. It does not read path aliases (D101).
+
+Node versions (D100):
+
+- CI runs Node 24 and the newest Node, not Node 22. On Node
+  22.22, 6 tests of this repository fail (Q38).
+- `require('./file')` with no extension in a CommonJS test file
+  needs Node 24.18 or later of Node 24, or Node 26.5.
+
+Check and review:
+
+- `ubq check` fails for a changed file that no test can load,
+  such as the entry of a browser worker (Q36).
+- `ubq review` does not compare a converted test with the test
+  of the old tool (D101).
 
 Server, mutate, hang reruns:
 
@@ -615,8 +631,13 @@ Convert:
   rule of the old tool.
 - A helper file that gets `t` as an argument is not converted.
 - A comment between the arguments of a changed call goes away.
-- `beforeAll` in a `describe`, `expect.any`, and
-  `expect.arrayContaining` stay hand work.
+- `beforeAll` in a `describe`, `expect.any` outside a pattern,
+  and `expect.arrayContaining` stay hand work.
+- A `t.plan(n)` of tap or tape with no `t.end()` in a test that
+  has a callback stays, with a TODO. ava hooks, `t.context`, and
+  macros stay hand work.
+- `toBeGreaterThanOrEqual` and `toBeLessThanOrEqual` become
+  `assert(a >= b)`, which shows no values in a failure (Q37).
 - No sentence in the output for a project helper that returns a
   restore function.
 - `const spy = vi.fn()` becomes `const spy = spy()`: the local

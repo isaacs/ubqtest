@@ -65,8 +65,8 @@ test('writes a report', { timeout: 500 }, async ({ signal }) => {
 2. **One way to do each thing** (D2). No aliases.
 3. **Few tokens.** No chains, no wrappers, no setup code that
    repeats in each file.
-4. **Types carry the rules.** An assertion narrows the type of its
-   argument. A mock must match the module that it replaces. A
+4. **Types carry the rules.** `assert(value)` narrows the type of
+   its argument. A mock must match the module that it replaces. A
    comparison of a `string` with a `number` does not compile.
 5. **A test contains all that it needs.** No hooks, and no state
    that a reader must look for in a different part of the file.

@@ -212,7 +212,7 @@ comment with the instruction.
   of the wrangler config: the `workers` key, and
   `'ubqtest/workers'`. The project installs `wrangler`.
 - Configuration is the `ubq` key of `package.json`: `include`,
-  `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`, and two switches. Most projects need none.
+  `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`, `define`, and two switches. Most projects need none.
   See [docs/08-config.md](docs/08-config.md).
 
 ## More documents

@@ -801,8 +801,10 @@ Most projects need none. The `ubq` key of `package.json` can have
 of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
 can be wrong. `ubq <test file>` on Bun does not need it), and
-`browser` (see "Tests in a browser"), and `workers` (see "Tests
-of a Cloudflare Worker"). A folder
+`browser` (see "Tests in a browser"), `workers` (see "Tests
+of a Cloudflare Worker"), and `define` (global values that the
+source reads, as the `define` of vite gives them: `"define": {
+"__DEBUG__": true }`). A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace.
