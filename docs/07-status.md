@@ -409,6 +409,10 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `assert.equal` does not narrow the type (D98).
+  - `assert.greaterThan`, `assert.lessThan`, and `assert.close`
+    (D99). `ubq convert` writes them, and keeps the precision of
+    `toBeCloseTo`.
   - `ubq convert` knows tape and ava. A `t.end()` in a callback
     and a `t.plan(n)` of a test with a callback get a TODO, also
     for tap (D97).

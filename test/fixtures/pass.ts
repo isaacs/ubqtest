@@ -5,7 +5,7 @@ describe('parse', () => {
   test('circle', () => {
     const shape = parse('c')
     assert(shape)
-    assert.equal(shape.kind, 'circle')
+    assert(shape.kind === 'circle')
     assert.equal(shape.r, 1)
   })
 

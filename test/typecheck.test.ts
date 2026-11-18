@@ -247,7 +247,7 @@ test('t', () => f('x', 'x'))
     .out.split('\n')
     .filter(line => line.startsWith('  hint: ') || line.startsWith('  at '))
   assert.deepEqual(hints, [
-    '  hint: this is the expected value of assert.equal. It must have the type of the actual value. To compare two different types on purpose: assert.equal<unknown, unknown>(a, b)',
+    '  hint: this is the expected value of assert.equal. It must have the type of the actual value. To compare two different types on purpose: assert.equal<unknown>(a, b)',
     '  at hint.test.ts:3:19',
     '  hint: this is the expected value of assert.deepEqual. It must have the type of the actual value. To compare two different types on purpose: assert.deepEqual<unknown>(a, b)',
     '  at hint.test.ts:4:32',

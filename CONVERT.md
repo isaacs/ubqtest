@@ -378,7 +378,9 @@ Things to check by hand:
 | `toMatch(/re/)`, `toMatch('text')` | `assert.match(a, /re/)`, `assert.contains(a, 'text')` |
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
-| `toBeGreaterThan(b)` and the other comparisons | `assert(a > b)` |
+| `toBeGreaterThan(b)`, `toBeLessThan(b)` | `assert.greaterThan(a, b)`, `assert.lessThan(a, b)` |
+| `toBeGreaterThanOrEqual(b)`, `toBeLessThanOrEqual(b)` | `assert(a >= b)`, `assert(a <= b)` |
+| `toBeCloseTo(b)`, `toBeCloseTo(b, digits)` | `assert.close(a, b)`, `assert.close(a, b, digits)` |
 | `expect(fn).toThrow(x)` | `assert.throws(fn, x)` (a text becomes a RegExp, and an Error instance becomes `{ message: error.message }`) |
 | `await expect(p).rejects.toThrow(x)` | `await assert.rejects(p, x)` |
 | `await expect(p).rejects.toBeInstanceOf(C)`, `rejects.toMatchObject(o)` | `await assert.rejects(p, C)`, `await assert.rejects(p, o)` |

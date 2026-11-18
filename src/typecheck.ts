@@ -173,7 +173,7 @@ const check = (
         for (let line = 1; line < error.at!.line; line++) at = source.indexOf('\n', at) + 1
         const method = expectedOf(source, at + error.at!.column - 1)
         if (method)
-          error.message += `\nhint: this is the expected value of assert.${method}. It must have the type of the actual value. To compare two different types on purpose: assert.${method}<${method === 'equal' ? 'unknown, unknown' : 'unknown'}>(a, b)`
+          error.message += `\nhint: this is the expected value of assert.${method}. It must have the type of the actual value. To compare two different types on purpose: assert.${method}<unknown>(a, b)`
       }
       done(errors)
     })

@@ -96,9 +96,9 @@ const MATCHERS: Record<string, Rule> = {
   toHaveLength: 'assert.equal(<$0>.length, $1)',
   toMatchObject: 'assert.match($0, $1)',
   toBeInstanceOf: 'assert(<$0> instanceof $1)',
-  toBeGreaterThan: 'assert(<$0> > <$1>)',
+  toBeGreaterThan: 'assert.greaterThan($0, $1)',
   toBeGreaterThanOrEqual: 'assert(<$0> >= <$1>)',
-  toBeLessThan: 'assert(<$0> < <$1>)',
+  toBeLessThan: 'assert.lessThan($0, $1)',
   toBeLessThanOrEqual: 'assert(<$0> <= <$1>)',
   toThrow: { 1: 'assert.throws($0, Error)', 2: 'assert.throws($0, $1)' },
   toThrowError: { 1: 'assert.throws($0, Error)', 2: 'assert.throws($0, $1)' },
@@ -106,8 +106,8 @@ const MATCHERS: Record<string, Rule> = {
   toHaveBeenCalledTimes: 'assert.equal(<$0>.calls.length, $1)',
   toHaveBeenCalledOnce: 'assert.equal(<$0>.calls.length, 1)',
   toMatchSnapshot: { 1: 'assert.snapshot($0)' },
-  // The default of jest and vitest: 2 digits.
-  toBeCloseTo: { 2: 'assert(Math.abs(<$0> - <$1>) < 0.005)' },
+  // The precision is the same number: a count of digits, 2 if absent.
+  toBeCloseTo: { 2: 'assert.close($0, $1)', 3: 'assert.close($0, $1, $2)' },
   // The same as `key in object`. The arguments keep their order.
   // `Object()`: the value can be undefined, and expect() took that.
   toHaveProperty: { 2: 'assert(Reflect.has(Object($0), $1))' },
@@ -135,6 +135,10 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBeFalsy: 'assert($0)',
   toHaveBeenCalled: 'assert.equal(<$0>.calls.length, 0)',
   toBeTypeOf: 'assert.notEqual(typeof <$0>, $1)',
+  toBeGreaterThan: 'assert(!(<$0> > <$1>))',
+  toBeLessThan: 'assert(!(<$0> < <$1>))',
+  // The default of jest and vitest: 2 digits.
+  toBeCloseTo: { 2: 'assert(!(Math.abs(<$0> - <$1>) < 0.005))', 3: '$9' },
 }
 
 /** The end of a callee that calls its function argument before it returns. */

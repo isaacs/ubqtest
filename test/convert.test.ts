@@ -230,6 +230,11 @@ describe('group', () => {
     expect(f.mock.calls.length).toBe(2)
     expect(f.mock.calls[0]).toEqual(['u'])
     expect(1.234).toBeCloseTo(1.23)
+    expect(ratio / plain).toBeCloseTo(1 + bonus, 6)
+    expect(staff).toBeGreaterThan(5)
+    expect(a + b).toBeLessThan(c)
+    expect(staff).not.toBeLessThan(5)
+    expect(staff).not.toBeCloseTo(5)
     expect(o).not.toHaveProperty('k')
     expect(o).toHaveProperty('a.b')
     vi.restoreAllMocks()
@@ -266,7 +271,12 @@ describe('group', () => {
     "    assert.equal(f.calls[1]?.args?.[0], 'u')",
     '    assert.equal(f.calls.length, 2)',
     "    assert.deepEqual(f.calls[0].args, ['u'])",
-    '    assert(Math.abs(1.234 - 1.23) < 0.005)',
+    '    assert.close(1.234, 1.23)',
+    '    assert.close(ratio / plain, 1 + bonus, 6)',
+    '    assert.greaterThan(staff, 5)',
+    '    assert.lessThan(a + b, c)',
+    '    assert(!(staff < 5))',
+    '    assert(!(Math.abs(staff - 5) < 0.005))',
     "    assert(!(Reflect.has(Object(o), 'k')))",
     ...todo(
       "toHaveProperty('a.b') is a path of keys: assert('b' in x.a). For one key with a dot in its name, assert('a.b' in x). Use assert(!(...)) for not.",

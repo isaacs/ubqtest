@@ -1,0 +1,65 @@
+// assert.greaterThan, assert.lessThan, and assert.close: a failure
+// shows the value and the target.
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { assert, cleanup, test } from 'ubqtest'
+import { project, remove } from './setup.ts'
+
+test('greaterThan, lessThan, and close pass, and show the two values in a failure', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  writeFileSync(
+    join(p.dir, 'c.test.ts'),
+    `import { assert, test } from 'ubqtest'
+const staff = 0.93
+test('pass', () => {
+  assert.greaterThan(2, 1)
+  assert.greaterThan(2n, 1)
+  assert.lessThan(1, 2)
+  assert.close(1.234, 1.23)
+  assert.close(1.0000004, 1, 6)
+  assert.close(Infinity, Infinity)
+  assert.close(7.4, 7, 0)
+})
+test('greater', () => assert.greaterThan(staff, 5))
+test('greater, equal', () => assert.greaterThan(5, 5))
+test('less', () => assert.lessThan(staff, 0.5, 'the staff'))
+test('less, not a number', () => assert.lessThan(NaN, 1))
+test('close', () => assert.close(1.24, 1.23))
+test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
+`,
+  )
+  const blocks = p
+    .ubq('c.test.ts')
+    .out.split('\n\n')
+    .map(block => block.split('\n').filter(line => !/^ {2}(at|>|rerun:) /.test(line)))
+  assert.deepEqual(blocks.slice(0, 6), [
+    ['FAIL c.test.ts > greater', '  expected a value greater than the target', '  actual:   0.93', '  expected: > 5'],
+    [
+      'FAIL c.test.ts > greater, equal',
+      '  expected a value greater than the target',
+      '  actual:   5',
+      '  expected: > 5',
+    ],
+    [
+      'FAIL c.test.ts > less',
+      '  the staff: expected a value less than the target',
+      '  actual:   0.93',
+      '  expected: < 0.5',
+    ],
+    [
+      'FAIL c.test.ts > less, not a number',
+      '  expected a value less than the target',
+      '  actual:   NaN',
+      '  expected: < 1',
+    ],
+    ['FAIL c.test.ts > close', '  expected a value near the target', '  actual:   1.24', '  expected: 1.23 ± 0.005'],
+    [
+      'FAIL c.test.ts > close, with a precision',
+      '  the ratio: expected a value near the target',
+      '  actual:   1.000001',
+      '  expected: 1 ± 5e-7',
+    ],
+  ])
+  assert.equal(blocks.at(-1)!.at(-2), 'fail: 6 failed, 1 passed (run 1)')
+})

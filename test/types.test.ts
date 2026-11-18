@@ -39,29 +39,22 @@ test('the error for a wrong guess names the fix', () => {
 
 // The project compile check above also checks the types in these
 // tests.
-test('assert.equal narrows a literal union, and keeps a number a number', () => {
-  const counted = spy()
-  assert.equal(counted.calls.length, 0)
-  counted(1, 'x')
-  // A second check of a value that changed: not a type error.
-  assert.equal(counted.calls.length, 1)
+test('assert.equal does not narrow: a second check of a value that the code changed is not a type error', () => {
+  const state: { owner?: number; kind: 'new' | 'done' } = { kind: 'new' }
+  const run = (): void => {
+    state.owner = 5
+    state.kind = 'done'
+  }
+  assert.equal(state.owner, undefined)
+  assert.equal(state.kind, 'new')
+  run()
+  assert.equal(state.owner, 5)
+  assert.equal(state.kind, 'done')
+  // A truthy check narrows.
   const shape = { kind: 'circle', r: 2 } as { kind: 'circle'; r: number } | { kind: 'square'; side: number }
-  assert.equal(shape.kind, 'circle')
+  assert(shape.kind === 'circle')
   const r: number = shape.r
-  const maybe = 5 as number | undefined
-  assert.equal(maybe, 5)
-  const sure: number = maybe
-  let flag = false as boolean
-  assert.equal(flag, false)
-  flag = true
-  assert.equal(flag, true)
-  const none = undefined as string | undefined
-  assert.equal(none, undefined)
-  const gone: undefined = none
-  const any = 5 as unknown
-  assert.equal(any, 5)
-  const five: 5 = any
-  assert.deepEqual([r, sure, gone, five], [2, 5, undefined, 5])
+  assert.equal(r, 2)
 })
 
 test('a spy with no implementation takes any arguments, and fits a typed callback', () => {

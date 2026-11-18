@@ -283,12 +283,15 @@ describe(name, fn)                 // a name prefix for its tests. fn is sync.
 describe(name, { skip?, timeout? }, fn)
 
 assert(value, message?)            // truthy. Narrows the type.
-assert.equal(actual, expected)     // Object.is
+assert.equal(actual, expected)     // Object.is. Does not narrow the type.
 assert.notEqual(actual, expected)
 assert.deepEqual(actual, expected) // strict: same structure, values, prototypes
 assert.match(actual, pattern)      // a partial object. A RegExp tests a string. A function tests a value: { id: (v: unknown) => typeof v === 'number' }
 assert.contains(actual, expected)  // text in text, or an element of an array, Set, or other iterable
 assert.notContains(actual, expected)
+assert.greaterThan(value, target)  // value > target. A failure shows the two values.
+assert.lessThan(value, target)     // value < target
+assert.close(value, target, precision?)   // the difference is less than 10 ** -precision / 2. The default precision is 2: less than 0.005.
 assert.throws(fn, expected)        // expected is required. Returns the error.
 await assert.rejects(promise, expected)   // resolves to the error
 await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
@@ -318,12 +321,12 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   of the actual value. If the type checker refuses a comparison,
   make the value exact (`value!`, or narrow it with
   `assert(value)`). To compare two different types on purpose:
-  `assert.deepEqual<unknown>(a, b)`, or `assert.equal<unknown,
-  unknown>(a, b)`. A type error in the expected value has a
-  `hint:` line that says so.
-- `assert.equal` narrows a literal union to the literal, and
-  `T | undefined` to `T`. A `number` or a `string` stays a `number`
-  or a `string`, so a count can have a second check.
+  `assert.equal<unknown>(a, b)`. A type error in the expected
+  value has a `hint:` line that says so.
+- `assert(value)` narrows the type of `value`. `assert.equal` does
+  not: a second `assert.equal` on a value that the code changed
+  is not a type error. To narrow a union: `assert(shape.kind ===
+  'circle')`.
 - `spy()` with no implementation takes any arguments. A spy with an
   implementation has its types: give the implementation the
   parameters that the code passes, `spy((event: Event) => event)`.

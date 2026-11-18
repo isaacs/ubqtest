@@ -201,15 +201,25 @@ interface Assert {
     /** Passes if `value` is truthy. Narrows the type of `value`. */
     (value: unknown, message?: string): asserts value;
     /**
-     * Passes if `Object.is(actual, expected)`. Narrows the type of
-     * `actual`: a literal union to the literal, and `T | undefined` to
-     * `T`. A `number` or a `string` stays a `number` or a `string`.
+     * Passes if `Object.is(actual, expected)`. It does not narrow the
+     * type of `actual`: a test often reads a value again after the
+     * code under test changed it. To narrow, use `assert(a === b)`.
      */
-    equal<T, const E extends T>(actual: T, expected: E, message?: string): asserts actual is Narrowed<T, E>;
+    equal<T>(actual: T, expected: NoInfer<T>, message?: string): void;
     /** Passes if not `Object.is(actual, expected)`. */
     notEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void;
     /** Passes if both have the same structure, values, and prototypes. */
     deepEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void;
+    /** Passes if `value > target`. A failure shows the two values. */
+    greaterThan(value: number | bigint, target: number | bigint, message?: string): void;
+    /** Passes if `value < target`. A failure shows the two values. */
+    lessThan(value: number | bigint, target: number | bigint, message?: string): void;
+    /**
+     * Passes if `value` is near `target`: the difference is less than
+     * `10 ** -precision / 2`. The default `precision` is 2, a difference
+     * of less than 0.005. Two values that are equal pass.
+     */
+    close(value: number, target: number, precision?: number, message?: string): void;
     /**
      * Passes if `actual` has the shape of `pattern`. Each key in the
      * pattern must match. Extra keys in `actual` are fine. A RegExp
@@ -430,20 +440,6 @@ interface Test {
 }
 ```
 
-### `Narrowed`
-
-The type of `actual` after `assert.equal(actual, expected)`. If
-the type of `actual` has all of `string`, `number`, `boolean`, or
-`bigint`, it keeps that type: such a value can change, as the
-count of the calls of a spy does, and a literal type would refuse
-a second check of it. A literal union, such as a discriminant,
-narrows to the literal. `T` is not at the top level, so that a
-literal as the actual value gets its wide type.
-
-```ts
-type Narrowed<T, E> = unknown extends T ? E : Extract<T, Wide<T, E>>;
-```
-
 ### `Checked`
 
 The pattern `P`, with a function that is not a predicate made a
@@ -507,14 +503,6 @@ A function in a pattern: it tests the value at its place.
 
 ```ts
 type Predicate = (value: unknown) => boolean;
-```
-
-### `Wide`
-
-The wide type of a literal `E`, if `T` has all of that wide type.
-
-```ts
-type Wide<T, E> = E extends string ? string extends T ? string : E : E extends number ? number extends T ? number : E : E extends boolean ? boolean extends T ? boolean : E : E extends bigint ? bigint extends T ? bigint : E : E;
 ```
 
 ### `Same`

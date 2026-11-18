@@ -2241,3 +2241,41 @@ soon passes with fewer assertions, or fails after its end, so a
 TODO is the safe side. The command does not change the `test`
 script of `package.json` for tape or ava.
 
+## D98. `assert.equal` does not narrow the type (user, 2026-11-19)
+
+`assert.equal(actual, expected)` narrowed the type of `actual` to
+the type of `expected`. The user removed this
+(`20-seldo-feedback-0.0.18.md`, item 6).
+
+- The signature is `equal<T>(actual: T, expected: NoInfer<T>):
+  void`, as `deepEqual` has.
+- `assert(value)` still narrows. To narrow a union:
+  `assert(shape.kind === 'circle')`.
+- To compare two different types on purpose:
+  `assert.equal<unknown>(a, b)`, the same form as `deepEqual`.
+
+**Reason.** TypeScript keeps a narrowed type of a property across
+a function call. A test reads a field, runs the code under test,
+and reads the field again: the second `assert.equal` was a type
+error in a correct test. The harm is more than the use.
+
+## D99. `assert.greaterThan`, `assert.lessThan`, and `assert.close` (user, 2026-11-19)
+
+The user added three assertions (`20-seldo-feedback-0.0.18.md`,
+items 1 and 5). They add to a small API, against the "one way"
+goal, for this reason: `assert(a > b)` shows only `false` in a failure,
+and arithmetic by hand for a near value is easy to get wrong.
+
+- `assert.greaterThan(value, target)` and
+  `assert.lessThan(value, target)` take a `number` or a `bigint`.
+  A failure shows `actual: 0.93` and `expected: > 5`.
+- `assert.close(value, target, precision?)` passes if the
+  difference is less than `10 ** -precision / 2`, with 2 as the
+  default. Equal values pass. This rule and the meaning of
+  `precision` are an assumption of the assistant: they are the
+  rule of `toBeCloseTo`, so `ubq convert` keeps the number.
+- `ubq convert` writes them for `toBeGreaterThan`,
+  `toBeLessThan`, and `toBeCloseTo`. Before, `toBeCloseTo(b, 6)`
+  lost its precision, and the new check was weaker.
+- `>=` and `<=` have no assertion: `assert(a >= b)`.
+

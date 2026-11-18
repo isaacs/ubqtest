@@ -21,7 +21,7 @@ describe('parse', () => {
   test('circle', () => {
     const shape = parse('c')
     assert(shape)                       // narrows away undefined
-    assert.equal(shape.kind, 'circle')  // narrows the union
+    assert(shape.kind === 'circle')     // narrows the union
     assert.equal(shape.r, 1)
   })
 
@@ -123,12 +123,15 @@ A failed assertion throws. The test stops at its first failure.
 
 ```ts
 assert(value, message?)                        // asserts value
-assert.equal(actual, expected, message?)       // asserts actual is typeof expected
+assert.equal(actual, expected, message?)
 assert.notEqual(actual, expected, message?)
 assert.deepEqual(actual, expected, message?)
 assert.match(actual, pattern, message?)
 assert.contains(actual, expected, message?)
 assert.notContains(actual, expected, message?)
+assert.greaterThan(value, target, message?)
+assert.lessThan(value, target, message?)
+assert.close(value, target, precision?, message?)
 assert.throws(fn, expected, message?)          // returns the Error
 await assert.rejects(promise, expected, message?)  // resolves to the Error
 await assert.eventually(fn, pattern, message?) // as match; calls fn until it matches, 2000 ms at most
@@ -145,6 +148,8 @@ assert.fail(message)                           // returns never
 | `match` | `actual` has the shape of `pattern`. See below. |
 | `contains` | the text `actual` has the text `expected` in it, or an element of the iterable `actual` is `expected` (by the rule of `Array.prototype.includes`). `null` and `undefined` fail. A failure shows the text, or the part of long text near the longest start of `expected` that it has. |
 | `notContains` | the opposite of `contains`. `null` and `undefined` fail. |
+| `greaterThan`, `lessThan` | `value > target`, `value < target`, for a `number` or a `bigint`. A failure shows the two values, which `assert(a > b)` cannot. For `>=` and `<=`, use `assert(a >= b)`. |
+| `close` | the difference of `value` and `target` is less than `10 ** -precision / 2`. The default `precision` is 2: less than 0.005. This is the rule of `toBeCloseTo` in jest and vitest. |
 | `throws` | `fn` throws an error that fits `expected`. |
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
 
@@ -239,12 +244,9 @@ older run saved (D31).
 
 **Types.**
 
-- `assert(value)` and `assert.equal` narrow, as the example shows.
-  `assert.equal` narrows a literal union to the literal, and
-  `T | undefined` to `T`. A value whose type is `number`,
-  `string`, `boolean`, or `bigint` keeps that type: a second
-  `assert.equal(spy.calls.length, 2)` after a first check with `1`
-  is not a type error.
+- `assert(value)` narrows, as the example shows. `assert.equal`
+  does not narrow (D98): a second `assert.equal` on a value that
+  the code changed is not a type error.
   This works because `assert` is an import with a declared type.
   It would not work for a method of a context argument (TypeScript
   requires an explicit type on the receiver of an assertion
