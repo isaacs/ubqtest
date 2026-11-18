@@ -2085,3 +2085,20 @@ D84.
 - Not for tap: a hook of tap runs for each subtest too.
 - In the sentry corpus, 81 hook TODOs stay. The baseline before
   D84 had 211.
+
+## D91. A failed `assert` shows its `isDeepEqual` calls (user, 2026-11-17)
+
+Q31. `toHaveBeenCalledWith` passes if any call matches. The
+converter writes `assert(spy.calls.some(call =>
+isDeepEqual(call.args, [...])))`. A failure of that line showed
+only `false`.
+
+- No `assert.calledWith`. It would be a second way to state what
+  `assert` with `isDeepEqual` states.
+- `isDeepEqual` records its two values and its result in the
+  state of the test. Each assertion clears the record. If
+  `assert(value)` fails, the report shows each record, 8 at most,
+  as `isDeepEqual call 1 gave false` with `actual` and
+  `expected`.
+- This works for each use of `isDeepEqual` in an `assert`, such
+  as `toContainEqual`, and for the opposite form with `!`.

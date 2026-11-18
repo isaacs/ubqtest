@@ -182,7 +182,7 @@ test('each wrong use of the test API has a report with the cause', { timeout: 60
   assert.equal(r.last, 'fail: 7 errors, 7 failed, 6 passed')
 })
 
-const asserts = `import { assert, test } from 'ubqtest'
+const asserts = `import { assert, isDeepEqual, spy, test } from 'ubqtest'
 const bad = (): never => {
   throw new RangeError('out of range')
 }
@@ -230,6 +230,25 @@ test('assertions after the end of the test', () => {
 test('waits', async () => {
   await new Promise(done => setTimeout(done, 100))
   assert(true)
+})
+test('assert: no call of a spy has the arguments', () => {
+  const s = spy()
+  s('a', 1)
+  s('b')
+  assert(s.calls.some(call => isDeepEqual(call.args, ['c'])))
+})
+test('assert: a call of a spy has the arguments', () => {
+  const s = spy()
+  s('a')
+  s('b')
+  assert(!s.calls.some(call => isDeepEqual(call.args, ['b'])))
+})
+test('assert: more calls of isDeepEqual than the report shows', () => {
+  assert([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].some(n => isDeepEqual(n, 0)))
+})
+test('assert: isDeepEqual before a different assertion', () => {
+  assert(!isDeepEqual(1, 2))
+  assert(false)
 })
 `
 
@@ -338,7 +357,43 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  at asserts.test.ts:39:12',
     "  > assert.match('a', /a/)",
   )
-  assert.equal(r.last, 'fail: 1 errors, 11 failed, 1 passed')
+  // The values of the isDeepEqual calls of a failed assert(value).
+  fail(
+    'assert: no call of a spy has the arguments',
+    50,
+    '  expected a truthy value, got false',
+    '  at asserts.test.ts:54:3',
+    "  > assert(s.calls.some(call => isDeepEqual(call.args, ['c'])))",
+    '  isDeepEqual call 1 gave false',
+    "    actual:   [ 'a', 1 ]",
+    "    expected: [ 'c' ]",
+    '  isDeepEqual call 2 gave false',
+    "    actual:   [ 'b' ]",
+    "    expected: [ 'c' ]",
+  )
+  fail(
+    'assert: a call of a spy has the arguments',
+    56,
+    '  expected a truthy value, got false',
+    '  at asserts.test.ts:60:3',
+    "  > assert(!s.calls.some(call => isDeepEqual(call.args, ['b'])))",
+    '  isDeepEqual call 1 gave false',
+    "    actual:   [ 'a' ]",
+    "    expected: [ 'b' ]",
+    '  isDeepEqual call 2 gave true',
+    "    actual:   [ 'b' ]",
+    "    expected: [ 'b' ]",
+  )
+  assert.match(r.out, /  isDeepEqual call 8 gave false\n    actual:   8\n    expected: 0\n  … and 2 more differences\n/)
+  // Only the calls after the last assertion.
+  fail(
+    'assert: isDeepEqual before a different assertion',
+    65,
+    '  expected a truthy value, got false',
+    '  at asserts.test.ts:67:3',
+    '  > assert(false)',
+  )
+  assert.equal(r.last, 'fail: 1 errors, 15 failed, 1 passed')
 })
 
 test('a snapshot file that cannot be written, two open timers, and a changed variable', { timeout: 60_000 }, () => {

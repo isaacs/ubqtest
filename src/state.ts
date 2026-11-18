@@ -12,6 +12,11 @@ export interface TestState {
   ended: boolean
   /** True after one `late-failure` event for this test. */
   late: boolean
+  /**
+   * The calls of `isDeepEqual` after the last assertion, and the
+   * count of the calls that are not in the list.
+   */
+  compared?: { calls: { actual: unknown; expected: unknown; result: boolean }[]; more: number }
   /** Results of `assert.rejects` that nothing awaited yet. */
   unawaited: Set<object>
   /** Functions from fixtures. They run in reverse order when the test ends. */

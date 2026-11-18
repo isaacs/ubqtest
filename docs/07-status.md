@@ -409,6 +409,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - A failed `assert(value)` shows the values of the
+    `isDeepEqual` calls before it (D91).
   - `ubq convert` makes a setup function from `beforeEach` and
     `afterEach` hooks that assign no outer variable, and calls it
     in each test (D90). In the sentry corpus this changes about

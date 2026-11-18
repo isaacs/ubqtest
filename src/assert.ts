@@ -9,6 +9,9 @@ import { checkSnapshot } from './snapshot.ts'
 import { userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
 
+/** The count of `isDeepEqual` calls that a failure of `assert` shows. */
+const MAX_COMPARED = 8
+
 /** Thrown by a failed assertion. The test state already has the failure. */
 export class AssertionFailure extends Error {
   failure: Failure
@@ -199,6 +202,7 @@ const begin = (): TestState | undefined => {
     return undefined
   }
   state.asserts++
+  state.compared = undefined
   return state
 }
 
@@ -347,8 +351,20 @@ const containsFailure = (
 }
 
 const assertFn = (value: unknown, message?: string): void => {
+  const compared = current.getStore()?.compared
   const state = begin()
-  if (state && !value) fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message)
+  if (!state || value) return
+  // `assert(list.some(item => isDeepEqual(item, expected)))` gives
+  // only false. The values of those calls show why.
+  const diff = compared && {
+    diffs: compared.calls.map((call, i) => ({
+      path: `isDeepEqual call ${i + 1} gave ${call.result}`,
+      actual: show(call.actual),
+      expected: show(call.expected),
+    })),
+    more: compared.more,
+  }
+  fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message, diff)
 }
 
 const methods = {
@@ -503,6 +519,16 @@ export const assert: Assert = Object.assign(assertFn, methods) as Assert
  * It is not an assertion. Use it for a condition that
  * `assert.deepEqual` cannot state, such as "the list has an element
  * that equals this": `assert(list.some(item => isDeepEqual(item,
- * expected)))`.
+ * expected)))`. If that assertion fails, the report shows the values
+ * of each call.
  */
-export const isDeepEqual = (a: unknown, b: unknown): boolean => isDeepStrictEqual(a, b)
+export const isDeepEqual = (a: unknown, b: unknown): boolean => {
+  const result = isDeepStrictEqual(a, b)
+  const state = current.getStore()
+  if (state && !state.ended) {
+    const compared = (state.compared ??= { calls: [], more: 0 })
+    if (compared.calls.length < MAX_COMPARED) compared.calls.push({ actual: a, expected: b, result })
+    else compared.more++
+  }
+  return result
+}

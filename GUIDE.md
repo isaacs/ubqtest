@@ -292,7 +292,7 @@ await assert.rejects(promise, expected)   // resolves to the error
 await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
 assert.snapshot(value)             // compares with saved text
 assert.fail(message)
-isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion.
+isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion. A failed assert(value) shows the values of its calls.
 
 spy(impl?)                         // records calls in spy.calls: { args, result, error }
 spyOn(object, key, impl?)          // replaces a method until the test ends. A second spyOn on the key replaces the first.

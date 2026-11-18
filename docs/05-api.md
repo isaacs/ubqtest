@@ -149,7 +149,11 @@ assert.fail(message)                           // returns never
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
 
 `isDeepEqual(a, b)` returns true or false by the rules of
-`deepEqual`. It is not an assertion (D50).
+`deepEqual`. It is not an assertion (D50). If `assert(value)`
+fails, the report shows the two values and the result of each
+`isDeepEqual` call since the last assertion, 8 at most (D91). So
+`assert(s.calls.some(call => isDeepEqual(call.args, ['a'])))`
+shows the arguments of each call of the spy.
 
 **`match` patterns.** One function covers "looks like this":
 
