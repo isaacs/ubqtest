@@ -408,7 +408,19 @@ Things to check by hand:
   on the line that makes the spy. For a call on a later line, or
   for a different result in each call, write the logic in the
   implementation. In one test, a second `spyOn` on the same key
-  replaces the first.
+  replaces the first. A spy does not change after it is made.
+  The forms:
+
+  | vitest | ubq |
+  | --- | --- |
+  | `s.mockReturnValue(v)` on a later line | `let result = first; const s = spy(() => result)`, then `result = v` |
+  | `s.mockReturnValueOnce(a).mockReturnValueOnce(b)` | `const results = [a, b]; const s = spy(() => results.shift())` |
+  | `s.mockImplementationOnce(f)` | `let once: typeof impl \| undefined = f; const s = spy((...args) => { const now = once ?? impl; once = undefined; return now(...args) })` |
+  | `s.mockClear()`, `s.mockReset()` | `s.calls.length = 0`, or a new spy in each test |
+
+  A spy from a shared helper, or at the top level of a file, lives
+  until the file ends. Make it in a function that each test
+  calls, so that each test gets a new one.
 - **`fn.mock.calls[0]`** is `fn.calls[0]?.args`.
   `fn.mock.results[0].value` is `fn.calls[0]?.result`.
 - **`vi.restoreAllMocks()`, `mockRestore()`.** A `spyOn` spy goes

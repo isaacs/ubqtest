@@ -2007,3 +2007,18 @@ of them, and each of the eight agents wrote a helper for them.
 Q17. A person runs `ubq` on each runtime, CI makes the matrix,
 and `ubq merge` joins the coverage. A `--runtimes` option waits
 until a user asks for it.
+
+## D87. A spy does not change after it is made (user, 2026-11-17)
+
+Q27. vitest has `mockClear`, `mockReset`, `mockReturnValue` on a
+spy that exists, and `mockImplementationOnce`. Six of eight
+agents asked for them.
+
+- No new API. A spy that changes in a test is the design that
+  ubq left out.
+- The hints, `CONVERT.md`, and `GUIDE.md` have the forms: an
+  implementation that reads a variable, `results.shift()` for a
+  different result in each call, and `s.calls.length = 0`.
+- A spy from a shared helper or at the top level of a file lives
+  until the file ends. The guide says to make it in a function
+  that each test calls.

@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -22,29 +22,6 @@ hit the problem.
 
 Q27 to Q35 come from the same report. They are the points that
 D78 to D86 did not decide.
-
-## Q27. A spy that changes after it is made (6 of 8)
-
-vitest has `mockClear`, `mockReset`, `mockReturnValue` on a spy
-that exists, and `mockImplementationOnce`. A ubq spy gets its
-implementation when it is made, and has only `calls`. The agents
-wrote `spy.calls.length = 0`, a flag in the implementation, or a
-variable that the implementation reads. The case that is hard is a
-spy from a shared helper, or a spy at the top level of a file,
-which lives until the file ends.
-
-Options:
-
-1. No change. The guide says: make the spy in the test or in a
-   setup function, and let the implementation read a variable.
-   `spy.calls.length = 0` clears the calls.
-2. `spy.use(impl)` replaces the implementation. With a closure it
-   does the work of "once" and of "return value".
-3. Also `spy.reset()`, and a form for one call.
-
-The agent would pick 1, and add the three recipes to the hint and
-the guide. 2 and 3 make a spy that changes in a test, which is the
-design that ubq left out.
 
 ## Q28. A mock that keeps the other exports (7 of 8)
 
