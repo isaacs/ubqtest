@@ -174,7 +174,8 @@ names, do one of these:
 | `t.testdir({ ... })` | `testdir({ ... })` |
 | `t.mockImport('../a.js', { '../b.js': { f } })` | `mockImport(() => import('../a.js'), [[() => import('../b.js'), { f }]])` |
 | `t.comment(...)` | `console.log(...)` |
-| `t.end()`, `t.plan(n)` | removed, or a TODO if the test can end in a callback |
+| `t.end()`, `t.plan(n)` | removed |
+| `t.end()` in a callback | `end()`, and the test returns `new Promise(end => { ... })` |
 
 Things to check by hand:
 
@@ -254,21 +255,29 @@ tape:
 
 - **A test that ends in a callback.** A tape test ends at
   `t.end()`, or after the count of assertions of `t.plan(n)`. A
-  ubq test ends when its function ends. `ubq convert` writes a
-  TODO at a `t.end()` that is in a callback, and at a `t.plan(n)`
-  of a test that uses the test object in a function. If the
-  callback runs later, make the test async and await a promise:
+  ubq test ends when its function ends, or when the promise that
+  it returns resolves. For a `t.end()` in a callback, `ubq
+  convert` makes the test return a promise, and the callback
+  resolves it:
 
   ```ts
-  test('reads the file', async () => {
-    const data = await new Promise<Buffer>((resolve, reject) =>
-      readFile(path, (error, data) => (error ? reject(error) : resolve(data))),
-    )
-    assert.equal(String(data), 'text')
-  })
+  test('reads the file', () => new Promise<void>(end => {
+    readFile(path, (error, data) => {
+      assert(!error)
+      assert.equal(String(data), 'text')
+      end()
+    })
+  }))
   ```
 
-  If the function runs before the test function returns (a loop
+  It writes a TODO, and does not make this change, if the test
+  function is async or uses `this`, or if the call has an
+  argument (`t.end(error)`).
+- **`t.plan(n)` with no `t.end()`.** The command writes a TODO at
+  a `t.plan(n)` of a test that uses the test object in a
+  function. If that function runs later, make the test return a
+  promise in the same form, and call `end()` after the last
+  assertion. If it runs before the test function returns (a loop
   helper), delete the `t.plan(n)` line.
 - **`t.looseEqual` and `t.deepLooseEqual`** compare with `==`.
   They become `assert.deepEqual`, which is strict.

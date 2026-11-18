@@ -231,8 +231,8 @@ const TODO = {
     'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
   restored:
     'The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
-  end: 'ubq has no t.end. A test ends when its function ends. This call is in a callback: make the test function async, and await a promise that the callback resolves.',
-  plan: 'ubq has no t.plan. A test ends when its function ends. If an assertion of this test runs in a callback, make the test function async, and await a promise that the callback resolves.',
+  end: 'ubq has no t.end. A test ends when its function ends. This call is in a callback: make the test function return a promise that the callback resolves.',
+  plan: 'ubq has no t.plan. A test ends when its function ends. If an assertion of this test runs in a callback, make the test function return a promise, and resolve it after the last assertion: test(name, () => new Promise(end => { ... end() })). If not, delete this line.',
   notThrows:
     'ubq has no assertion for code that does not throw. Call the function, with await for a promise: a test fails if its code throws.',
   avaThrows:
@@ -382,6 +382,10 @@ export const convertSource = (
   // --- The names of the old test tool ---
   /** Names of the `test` function of tap. Its test function gets the test object. */
   const tapTests = new Set<string>()
+  /** Each `t.end()` of a test that ends in a callback, and the name of the function that it becomes. */
+  const endCalls = new Map<Node, string>()
+  /** The functions of those tests. */
+  const promised = new Set<Node>()
   const bind = (module: string, imported: string, local: string): void => {
     if (ASSERT_MODULES.has(module)) {
       roles.set(
@@ -1334,8 +1338,36 @@ export const convertSource = (
           if (fn.async && !waits)
             replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
         }
+        // A test that ends in a callback returns a promise, and the
+        // callback resolves it.
+        const ends: Node[] = []
+        let callback = false
+        const find = (n: Node, depth: number): void => {
+          const inner = FUNCTION.has(n.type) || n.type === 'FunctionDeclaration'
+          // A parameter with the same name is a different test object.
+          if (inner && (n.params as Node[]).some(p => nameOf(p) === param)) return
+          const c = n.type === 'CallExpression' ? (n.callee as Node) : undefined
+          if (
+            c?.type === 'MemberExpression' &&
+            nameOf(c.object as Node) === param &&
+            nameOf(c.property as Node) === 'end' &&
+            !(n.arguments as Node[]).length
+          ) {
+            ends.push(n)
+            callback ||= depth > 0
+          }
+          for (const child of children(n)) find(child, depth + (inner ? 1 : 0))
+        }
+        find(body, 0)
         const span = paramSpan(fn)
-        if (span) replace(span[0], span[1], '()')
+        if (callback && name === 'test' && !fn.async && body.type === 'BlockStatement' && !mentions(body, 'this')) {
+          const end = ['end', 'done', 'ended'].find(n => !mentions(program, n)) ?? 'endTest'
+          for (const one of ends) endCalls.set(one, end)
+          promised.add(fn)
+          replace(fn.start, body.start, `() => new Promise${/\.[cm]?tsx?$/.test(file) ? '<void>' : ''}(${end} => `)
+          edits.push({ start: body.end, end: body.end, text: ')' })
+          changes++
+        } else if (span) replace(span[0], span[1], '()')
       } else if (param && kind === 'test') {
         // The test object of node:test, or the done callback of jest.
         if (mentions(body, param))
@@ -1932,13 +1964,20 @@ export const convertSource = (
       const inner = (n: Node, top = true): boolean =>
         (!top && FUNCTION.has(n.type) && !!param && mentions(n, param)) ||
         children(n).some(c => !(n.type === 'CallExpression' && SYNC.test(text(n.callee as Node))) && inner(c, false))
+      const end = endCalls.get(node)
+      if (end) {
+        replace(node.start, node.end, `${end}()`)
+        changes++
+        return []
+      }
       if (method !== 'plan' && !ofTest) {
         todo(path, TODO.end)
         return []
       }
       // tap and tape: a test with a plan ends after that count of
       // assertions, also if its function ended before.
-      if (method === 'plan' && framework !== 'ava' && fn && !fn.async && inner(fn)) todo(path, TODO.plan)
+      if (method === 'plan' && framework !== 'ava' && fn && !fn.async && !promised.has(fn) && inner(fn))
+        todo(path, TODO.plan)
       else if (!removeStatement(path)) todo(path, `ubq has no t.${method}. A test ends when its function ends.`)
       return []
     }

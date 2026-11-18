@@ -2218,9 +2218,12 @@ object as the parameter of each test function.
   and `test.failing` get a TODO.
 - `t.notThrows(() => f())` and `t.doesNotThrow` become `f()`.
   This and the not-equal names (`t.notSame`) also apply to tap.
-- **The end of a test.** A `t.end()` in a function that is not
-  the test function stays, with a TODO: the test ends in a
-  callback. A `t.plan(n)` of tap or tape stays, with a TODO, if
+- **The end of a test.** For a `t.end()` in a function that is
+  not the test function, the test function becomes `() => new
+  Promise(end => { ... })`, and each `t.end()` of the test becomes
+  `end()` (the user chose this form). The call stays, with a
+  TODO, if the test function is async or uses `this`, or if the
+  call has an argument. A `t.plan(n)` of tap or tape stays, with a TODO, if
   the test function is not async and a function in it uses the
   test object. A function that is an argument of `forEach`,
   `map`, or `t.throws` does not count. Before this, the command

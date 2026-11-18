@@ -2176,6 +2176,16 @@ test('loop', t => {
   t.plan(2)
   ;[1, 2].forEach(n => t.ok(n))
 })
+test('both', function (t) {
+  t.plan(1)
+  if (skip) return t.end()
+  run(function (t) { t.end() })
+  run(() => { t.ok(1); t.end() })
+})
+test('async', async t => {
+  await load()
+  run(() => t.end())
+})
 `,
     'a.js',
   )
@@ -2199,21 +2209,19 @@ test('sync', () => {
   console.log('hi')
 })
 
-test('callback', function () {
+test('callback', () => new Promise(end => {
   fs.readFile('x', (err, data) => {
     assert(!err)
     assert.equal(String(data), 'x')
-    // TODO(ubq): ubq has no t.end. A test ends when its function ends.
-    // This call is in a callback: make the test function async, and await
-    // a promise that the callback resolves.
-    t.end()
+    end()
   })
-})
+}))
 
 test('planned', () => {
   // TODO(ubq): ubq has no t.plan. A test ends when its function ends. If
   // an assertion of this test runs in a callback, make the test function
-  // async, and await a promise that the callback resolves.
+  // return a promise, and resolve it after the last assertion: test(name,
+  // () => new Promise(end => { ... end() })). If not, delete this line.
   t.plan(1)
   setTimeout(() => assert(true), 10)
 })
@@ -2233,16 +2241,52 @@ test('opts', { timeout: 500 }, () => {
   t.timeoutAfter(100)
   assert(true) // ok
 })
-test('promise', () => {
-  // TODO(ubq): ubq has no t.end. A test ends when its function ends. This
-  // call is in a callback: make the test function async, and await a
-  // promise that the callback resolves.
-  load().then(() => t.end())
+test('promise', () => new Promise(end => {
+  load().then(() => end())
   assert.throws(() => f(), Error) // a message
-})
+}))
 test('loop', () => {
   [1, 2].forEach(n => assert(n))
+})
+test('both', () => new Promise(end => {
+  if (skip) return end()
+  // TODO(ubq): ubq has no t.end. A test ends when its function ends. This
+  // call is in a callback: make the test function return a promise that
+  // the callback resolves.
+  run(function (t) { t.end() })
+  run(() => { assert(1); end() })
+}))
+test('async', async () => {
+  await load()
+  // TODO(ubq): ubq has no t.end. A test ends when its function ends. This
+  // call is in a callback: make the test function return a promise that
+  // the callback resolves.
+  run(() => t.end())
 })`,
+    ],
+  )
+})
+
+test('tape: the promise of a test that ends in a callback has a type in TypeScript, and a name that the file does not use', () => {
+  const r = convert(
+    `import test from 'tape'
+const [end, done, ended] = names
+test('typed', t => {
+  later(() => t.end())
+})
+`,
+    'a.ts',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'tape',
+      0,
+      `import { test } from 'ubqtest'
+const [end, done, ended] = names
+test('typed', () => new Promise<void>(endTest => {
+  later(() => endTest())
+}))`,
     ],
   )
 })
