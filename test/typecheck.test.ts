@@ -190,9 +190,12 @@ test('a TypeScript with no native program, and a native program that does not st
       ],
     ],
   )
+  // Windows has no signals: a program that is stopped there ends
+  // with exit code 1, as a checker with errors does. ubq can only
+  // see it if the program wrote no error.
   writeFileSync(
     join(ts, 'bin/tsc'),
-    "console.log('pass.ts(1,1): error TS1000: one')\nprocess.kill(process.pid, 'SIGKILL')\nsetTimeout(() => {}, 9999)\n",
+    `${process.platform === 'win32' ? '' : "console.log('pass.ts(1,1): error TS1000: one')\n"}process.kill(process.pid, 'SIGKILL')\nsetTimeout(() => {}, 9999)\n`,
   )
   const killed = p.ubq('pass.ts')
   assert.equal(killed.code, 1)

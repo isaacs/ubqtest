@@ -2186,6 +2186,9 @@ assistant.
   code `ubq`: the checker stopped, and its result is not
   complete. The text has the end of what the checker wrote to
   stderr.
+  Windows has no signals: a checker that is stopped there ends
+  with exit code 1. ubq sees that only if the checker wrote no
+  error before it stopped.
 - **The count of the others.** In a run of a selection, the line
   `note: N type errors are in files that this run did not use
   ...` is gone. The summary line has the count: `pass: 0 failed,
