@@ -308,7 +308,8 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 ```
 
 - `expected` of `throws` and `rejects` is a `RegExp` for the
-  message, an error class, or a partial object.
+  message, an error class, or a partial object. An Error instance
+  is not permitted: use `{ message: error.message }`.
 - An object pattern of `match` permits extra keys in the value. An
   array pattern must have the same length.
 - The expected value of `equal` and `deepEqual` must have the type

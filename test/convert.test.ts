@@ -392,9 +392,10 @@ it('a', () => {
     '  assert.match(last, { content: /a\\.b/ })',
     ...todo(MATCHER, '  '),
     "  assert.match(last, { content: expect.not.stringContaining('c') })",
-    '  // TODO(ubq): vitest and jest accept a string here. assert.throws needs',
-    '  // an Error class, a RegExp, or a partial object. If this value is a',
-    '  // string, make a RegExp from it.',
+    '  // TODO(ubq): vitest and jest accept a string or an Error here.',
+    '  // assert.throws needs an Error class, a RegExp, or a partial object. If',
+    '  // this value is a string, make a RegExp from it. If it is an Error, use',
+    '  // { message: error.message }.',
     '  assert.throws(() => f(), message)',
     '  assert.throws(() => f(), TypeError)',
     '})',
@@ -503,6 +504,30 @@ it('a', () => { expect(require('x')).toBe(__dirname) })
     'const require = createRequire(import.meta.url)',
     "const __dirname = '.'",
     "test('a', () => { assert.equal(require('x'), __dirname) })",
+  ])
+})
+
+test('vitest: an Error instance as the expected error is a pattern for its message', () => {
+  const r = convert(`import { expect, it } from 'vitest'
+const error = new TypeError('x')
+it('a', async () => {
+  expect(() => f()).toThrow(error)
+  expect(() => f()).toThrow(new Error('boom'))
+  expect(() => f()).toThrow(new RangeError(\`a \${b}\`))
+  expect(() => f()).toThrow(new MyError(code, 'x'))
+  expect(() => f()).toThrow(new Error(text))
+  await expect(p).rejects.toThrow(error)
+  await expect(p).rejects.toThrowError(new Error('boom'))
+})
+`)
+  assert.deepEqual(r?.code.slice(3, -1), [
+    '  assert.throws(() => f(), { message: error.message })',
+    "  assert.throws(() => f(), { message: 'boom' })",
+    '  assert.throws(() => f(), { message: `a ${b}` })',
+    "  assert.throws(() => f(), { message: new MyError(code, 'x').message })",
+    '  assert.throws(() => f(), { message: new Error(text).message })',
+    '  await assert.rejects(p, { message: error.message })',
+    "  await assert.rejects(p, { message: 'boom' })",
   ])
 })
 

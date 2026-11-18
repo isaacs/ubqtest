@@ -2034,3 +2034,24 @@ other exports.
   code is real.
 - The need was the text of the hint, and the hint of `vi.mock`
   has this form.
+
+## D89. The expected error is not an Error instance (user, 2026-11-17)
+
+Q29. `toThrow(error)` with an Error instance is common, and four
+of eight agents hit the type error.
+
+- `expected` of `throws` and `rejects` stays a RegExp, a class,
+  or an object pattern. An instance would be a fourth meaning for
+  one parameter.
+- `ubq convert` writes the pattern: `toThrow(new Error('x'))`
+  becomes `{ message: 'x' }`, and `toThrow(error)` becomes `{
+  message: error.message }` if the file makes `error` with `new`.
+  Any other name with a small first letter keeps the TODO. jest
+  and vitest compare only the message of an instance.
+- `assert.rejects` takes a `PromiseLike`. It is a wider type, and
+  no new rule.
+- A rejection with a value that is not an Error has no form of
+  its own. A RegExp tests `String(value)`, and the assertion
+  returns the value: `const value: unknown = await
+  assert.rejects(p, /full/)`, then `assert.equal(value, FULL)`. This is an assumption of the agent: the user
+  agreed to the other parts, and did not answer this part.

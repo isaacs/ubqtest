@@ -409,6 +409,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `assert.rejects` takes a `PromiseLike`. `ubq convert` makes
+    `toThrow(error)` with an Error instance a pattern for the
+    message (D89).
   - A function in an `assert.match` pattern is a predicate (D85).
     `ubq convert` changes `expect.any` and `expect.anything` in a
     pattern.

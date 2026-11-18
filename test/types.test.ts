@@ -76,3 +76,16 @@ test('a spy with no implementation takes any arguments, and fits a typed callbac
   typed.send({ id: 'a' }, 1)
   assert.deepEqual(send.calls[0]?.args, [{ id: 'a' }, 1])
 })
+
+test('rejects takes a PromiseLike, and gives a value that is not an Error', async () => {
+  const later: PromiseLike<number> = {
+    // oxlint-disable-next-line unicorn/no-thenable
+    then: (_, no) => Promise.reject(new TypeError('no')).then(undefined, no),
+  }
+  assert.equal((await assert.rejects(later, TypeError)).message, 'no')
+  await assert.rejects(() => later, /^no$/)
+  // A RegExp tests the text of a value that is not an Error.
+  const FULL = Symbol('full')
+  const value: unknown = await assert.rejects(Promise.reject(FULL), /^Symbol\(full\)$/)
+  assert.equal(value, FULL)
+})

@@ -236,7 +236,7 @@ interface Assert {
      */
     throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error;
     /** As `throws`, for a promise. The result must be awaited. */
-    rejects<const P extends ErrorMatch>(promise: Promise<unknown> | (() => Promise<unknown>), expected: P & CheckedError<P>, message?: string): Promise<Error>;
+    rejects<const P extends ErrorMatch>(promise: PromiseLike<unknown> | (() => PromiseLike<unknown>), expected: P & CheckedError<P>, message?: string): Promise<Error>;
     /**
      * As `match`, for a value that changes with time, such as the text
      * of a page. Calls `fn` again and again until its value matches

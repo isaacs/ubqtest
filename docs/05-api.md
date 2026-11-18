@@ -192,7 +192,13 @@ test.
 
 - A `RegExp` tests the message.
 - A class tests `instanceof`.
-- An object is a `match` pattern for the error.
+- An object is a `match` pattern for the error. For an error
+  that is equal to an instance: `{ message: error.message }`.
+
+`rejects` takes a `PromiseLike` too. A value that is not an
+`Error` has no form of its own: a `RegExp` tests its text, and
+the assertion returns the value, so `assert.equal` can compare it
+(D89).
 
 Both return the error, so more assertions can follow:
 

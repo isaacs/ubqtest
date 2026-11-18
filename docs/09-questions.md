@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -22,33 +22,6 @@ hit the problem.
 
 Q27 to Q35 come from the same report. They are the points that
 D78 to D86 did not decide.
-
-## Q29. The expected error of `throws` and `rejects` (4 of 8)
-
-- `toThrow(error)` with an Error instance is common. In ubq it is
-  a type error. The agents wrote `{ message: error.message }`.
-- `assert.rejects` takes a `Promise`, not a `PromiseLike` (2 of
-  8).
-- A rejection that is not an Error, such as a Symbol, has no form
-  (1 of 8).
-
-Options for the instance:
-
-1. No change. The converter writes `{ message: error.message }`
-   for a name, with a TODO if it cannot know that the value is an
-   Error.
-2. An Error instance as `expected` compares the class and the
-   message.
-
-The agent would pick 1 for the instance: 2 is a fourth meaning
-for one parameter. The agent would accept a `PromiseLike` (it is
-a wider type and no new rule). For a value that is not an Error,
-the agent would make no form: `assert.rejects` already returns
-the value, so `assert.equal(await assert.rejects(p, ...), value)`
-needs only a pattern that matches any value. That part needs your
-answer: is `(v: unknown) => true` as `expected` good enough, or
-is a rejection with a value that is not an Error a failure in
-ubq?
 
 ## Q30. `ubq convert` writes the `setup()` calls for hooks (8 of 8)
 

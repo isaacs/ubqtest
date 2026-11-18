@@ -274,7 +274,7 @@ Things to check by hand:
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
 | `toBeGreaterThan(b)` and the other comparisons | `assert(a > b)` |
-| `expect(fn).toThrow(x)` | `assert.throws(fn, x)` (a text becomes a RegExp) |
+| `expect(fn).toThrow(x)` | `assert.throws(fn, x)` (a text becomes a RegExp, and an Error instance becomes `{ message: error.message }`) |
 | `await expect(p).rejects.toThrow(x)` | `await assert.rejects(p, x)` |
 | `await expect(p).rejects.toBeInstanceOf(C)`, `rejects.toMatchObject(o)` | `await assert.rejects(p, C)`, `await assert.rejects(p, o)` |
 | `await expect(p).resolves.toEqual(b)` | `assert.deepEqual(await p, b)` |

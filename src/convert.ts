@@ -188,7 +188,7 @@ const TODO = {
   assertions:
     'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
   throwsText:
-    'vitest and jest accept a string here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it.',
+    'vitest and jest accept a string or an Error here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it. If it is an Error, use { message: error.message }.',
   workers:
     "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
   restore:
@@ -581,6 +581,28 @@ export const convertSource = (
   const messageRegExp = (arg: Node | undefined): void => {
     if (arg?.type !== 'Literal' || typeof arg.value !== 'string') return
     replace(arg.start, arg.end, `/${arg.value.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&').replace(/\n/g, '\\n')}/`)
+  }
+
+  /**
+   * The expected error of `toThrow`. A string becomes a RegExp. An
+   * Error instance becomes a pattern for its message: jest and
+   * vitest compare only the message of an instance.
+   */
+  const expectedError = (arg: Node | undefined, path: Node[]): void => {
+    messageRegExp(arg)
+    if (arg?.type === 'NewExpression') {
+      const [message, more] = arg.arguments as Node[]
+      const plain =
+        message && !more && (message.type === 'TemplateLiteral' || typeof message.value === 'string')
+          ? text(message)
+          : `${text(arg)}.message`
+      replace(arg.start, arg.end, `{ message: ${plain} }`)
+    } else if (arg?.type === 'Identifier' && /^[a-z]/.test(nameOf(arg)!)) {
+      // A name with a small first letter is a value, not a class.
+      if (new RegExp(`\\b(const|let|var)\\s+${nameOf(arg)}\\s*=\\s*new\\s`).test(source))
+        replace(arg.start, arg.end, `{ message: ${nameOf(arg)}.message }`)
+      else todo(path, TODO.throwsText)
+    }
   }
 
   /** The message of an assertion, as a comment at the end of the line. */
@@ -1579,7 +1601,7 @@ export const convertSource = (
       return all
     }
     if (promise === 'rejects' && /^toThrow(Error)?$/.test(method) && !not) {
-      messageRegExp(args[0])
+      expectedError(args[0], path)
       awaited(node, path)
       return rewrite(node, args.length ? 'assert.rejects($0, $1)' : 'assert.rejects($0, Error)', all)
     }
@@ -1610,9 +1632,7 @@ export const convertSource = (
       if (outer?.type === 'AwaitExpression') replace(outer.start, node.start, '')
     }
     if (/^toThrow(Error)?$/.test(method)) {
-      messageRegExp(args[0])
-      // A name with a small first letter is a value, not a class.
-      if (args[0]?.type === 'Identifier' && /^[a-z]/.test(nameOf(args[0])!)) todo(path, TODO.throwsText)
+      expectedError(args[0], path)
     }
     return rewrite(node, rule, all)
   }

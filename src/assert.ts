@@ -146,7 +146,7 @@ export interface Assert {
   throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error
   /** As `throws`, for a promise. The result must be awaited. */
   rejects<const P extends ErrorMatch>(
-    promise: Promise<unknown> | (() => Promise<unknown>),
+    promise: PromiseLike<unknown> | (() => PromiseLike<unknown>),
     expected: P & CheckedError<P>,
     message?: string,
   ): Promise<Error>
@@ -416,7 +416,7 @@ const methods = {
     return error as Error
   },
   rejects(
-    promise: Promise<unknown> | (() => Promise<unknown>),
+    promise: PromiseLike<unknown> | (() => PromiseLike<unknown>),
     expected: ErrorMatch,
     message?: string,
   ): Promise<Error> {
