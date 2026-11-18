@@ -62,7 +62,7 @@ const answers = (preload: string): Answers => {
 // accepted differences below is for V8 13 and later.
 const oldV8 = +(process.versions.v8 ?? '13').split('.')[0]! < 13 && 'V8 12 gives other ranges for a class'
 
-test('counters and V8 give the same answers on the fixture project', { timeout: 30000, skip: oldV8 }, () => {
+test('counters and V8 give the same answers on the fixture project', { skip: oldV8 }, () => {
   const v8 = answers('preload')
   const counters = answers('counters-preload')
   resetStore(cwd)

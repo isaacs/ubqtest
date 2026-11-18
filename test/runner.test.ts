@@ -141,7 +141,7 @@ test('a plain program keeps its console', () => {
   assert.equal(r.stderr, 'step 2: about to fail\n')
 })
 
-test('hangs: a promise that never settles, a timeout, a process that stays alive', { timeout: 20_000 }, () => {
+test('hangs: a promise that never settles, a timeout, a process that stays alive', () => {
   // A project of its own: the test asks the store for the last run.
   const p = project()
   cleanup(() => remove(p.dir))

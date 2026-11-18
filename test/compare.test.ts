@@ -94,7 +94,7 @@ test('slow', { timeout: 50 }, () => {
   work(120)
   assert(true)
 })
-test('in its limit', { timeout: 2000 }, () => {
+test('in its limit', () => {
   work(120)
   assert(true)
 })

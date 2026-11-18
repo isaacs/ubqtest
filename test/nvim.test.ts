@@ -29,7 +29,7 @@ io.stdout:write(vim.json.encode(out))
 vim.cmd('qa!')
 `
 
-test('ubq nvim writes the plugin, and Neovim shows the results of the store', { skip: absent, timeout: 60_000 }, () => {
+test('ubq nvim writes the plugin, and Neovim shows the results of the store', { skip: absent }, () => {
   const home = mkdtempSync(join(tmpdir(), 'ubq-nvim-'))
   cleanup(() => rmSync(home, { recursive: true, force: true }))
   // A Neovim with no config of the user.

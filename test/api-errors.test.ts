@@ -74,7 +74,7 @@ test('waits', async () => {
 `,
 }
 
-test('each wrong use of the test API has a report with the cause', { timeout: 60_000 }, () => {
+test('each wrong use of the test API has a report with the cause', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   for (const [name, text] of Object.entries(files)) writeFileSync(join(p.dir, name), text)
@@ -252,7 +252,7 @@ test('assert: isDeepEqual before a different assertion', () => {
 })
 `
 
-test('each kind of failed assertion has a report with the two values and the place', { timeout: 60_000 }, () => {
+test('each kind of failed assertion has a report with the two values and the place', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   writeFileSync(join(p.dir, 'asserts.test.ts'), asserts)
@@ -397,7 +397,7 @@ test('each kind of failed assertion has a report with the two values and the pla
   assert.equal(r.last, 'fail: 1 errors, 15 failed, 1 passed')
 })
 
-test('a snapshot file that cannot be written, two open timers, and a changed variable', { timeout: 60_000 }, () => {
+test('a snapshot file that cannot be written, two open timers, and a changed variable', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   // A file where the folder of the snapshots must be.
@@ -433,7 +433,7 @@ test('wrong arguments to spy and cleanup, and browser() outside a test', async (
   assert.equal(await outside, 'browser() must run in a test, before the test ends. Await the call.')
 })
 
-test('a "ubq" key that is not an object, and snapshots of many lines', { timeout: 60_000 }, () => {
+test('a "ubq" key that is not an object, and snapshots of many lines', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   p.configure(1)

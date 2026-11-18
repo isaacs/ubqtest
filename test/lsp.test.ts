@@ -38,9 +38,13 @@ const client = (cwd: string) => {
     const text = JSON.stringify({ jsonrpc: '2.0', ...message })
     server.stdin.write(`Content-Length: ${Buffer.byteLength(text)}\r\n\r\n${text}`)
   }
-  /** The first message from now on that `match` accepts. */
+  /**
+   * The first message from now on that `match` accepts. The wait
+   * ends when the message comes. The limit is only for a server
+   * that sends no such message, and a slow machine must not reach it.
+   */
   const next = async (match: (m: Message) => boolean, from = got.length): Promise<Message> => {
-    const limit = Date.now() + 10_000
+    const limit = Date.now() + 60_000
     for (;;) {
       const found = got.slice(from).find(match)
       if (found) return found
@@ -205,9 +209,19 @@ test('wrong', () => assert.equal(sign(3), 2))
       contentChanges: [{ text: `// a change\n${SIGN}` }],
     },
   })
-  const changed = (await diagnostics('src/sign.ts', from)).params.diagnostics
+  // The runs above changed the store, and the server sends the
+  // diagnostics of each open file again a short time after such a
+  // change. That message can come after the change in the editor,
+  // with the same content. The test waits for the content.
+  const changed = await c.next(
+    m =>
+      m.method === 'textDocument/publishDiagnostics' &&
+      m.params.uri === uri('src/sign.ts') &&
+      m.params.diagnostics[0]?.message.startsWith('this file changed') === true,
+    from,
+  )
   assert.deepEqual(
-    changed.map((d: { message: string; severity: number }) => [d.message, d.severity]),
+    changed.params.diagnostics.map((d: { message: string; severity: number }) => [d.message, d.severity]),
     [['this file changed after the last run of its tests. Run them again: ubq --changed', 3]],
   )
   const none = await c.request('textDocument/hover', {

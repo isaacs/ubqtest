@@ -10,7 +10,7 @@ import { project } from './setup.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
-test('each page has a markdown copy, and each link of the site goes to a file', { timeout: 30_000 }, () => {
+test('each page has a markdown copy, and each link of the site goes to a file', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ubq-site-'))
   cleanup(() => rmSync(dir, { recursive: true }))
   const made = spawnSync('node', ['scripts/site.ts', dir], { cwd: root, encoding: 'utf8' })

@@ -23,15 +23,40 @@ test('waits', async () => {
 const status = (dir: string): string[] =>
   spawnSync(process.execPath, [cli, 'status'], { cwd: dir, encoding: 'utf8' }).stdout.split('\n').slice(0, -1)
 
-/** The lines of `ubq status` when `match` accepts them, with each time as `N s`. */
-const until = async (dir: string, match: (lines: string[]) => boolean): Promise<string[]> => {
-  const limit = Date.now() + 15_000
-  for (;;) {
-    const lines = status(dir).map(l => l.replace(/\d+\.\d s/g, 'N s'))
-    if (match(lines)) return lines
-    if (Date.now() > limit) throw new Error(`no such status. Last: ${JSON.stringify(lines)}`)
-    await new Promise(resolve => setTimeout(resolve, 100))
+/** A run of `ubq` that waits for the files `load` and `go`. */
+const start = (dir: string, ...files: string[]) => {
+  const child = spawn(process.execPath, [cli, ...files], { cwd: dir, env: { ...process.env, CI: '' } })
+  cleanup(() => void child.kill())
+  let output = ''
+  let code: number | null | undefined
+  child.stdout.on('data', data => (output += data))
+  child.stderr.on('data', data => (output += data))
+  const done = new Promise<number | null>(resolve =>
+    child.on('close', status => {
+      code = status
+      resolve(status)
+    }),
+  )
+  /**
+   * The lines of `ubq status` when `match` accepts them, with each
+   * time as `N s`. The run waits for a file that the test writes,
+   * so the status that the test looks for stays until then: the
+   * wait has no race. It ends with an error if the run ended, which
+   * it must not before the test writes `go`. The time limit is only
+   * for a run that does not start, and a slow machine must not
+   * reach it.
+   */
+  const until = async (match: (lines: string[]) => boolean): Promise<string[]> => {
+    const limit = Date.now() + 60_000
+    for (;;) {
+      const lines = status(dir).map(l => l.replace(/\d+\.\d s/g, 'N s'))
+      if (match(lines)) return lines
+      const why = code !== undefined ? `the run ended with code ${code}` : Date.now() > limit ? 'no such status' : ''
+      if (why) throw new Error(`${why}. Last status: ${JSON.stringify(lines)}. Output of the run: ${output}`)
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
   }
+  return { child, done, until }
 }
 
 test('ubq status names the files that run, and the test that runs in each', async () => {
@@ -45,19 +70,14 @@ test('ubq status names the files that run, and the test that runs in each', asyn
   writeFileSync(join(p.dir, 'bad.test.ts'), "import { test } from 'ubqtest'\nthrow new Error('boom')\n")
   assert.deepEqual(status(p.dir), ['no run in progress'])
 
-  const child = spawn(process.execPath, [cli, 'slow.test.ts', 'fast.test.ts', 'bad.test.ts'], {
-    cwd: p.dir,
-    env: { ...process.env, CI: '' },
-  })
-  cleanup(() => void child.kill())
-  const done = new Promise(resolve => child.on('close', resolve))
+  const { child, done, until } = start(p.dir, 'slow.test.ts', 'fast.test.ts', 'bad.test.ts')
   const head = `run 1: ubq slow.test.ts fast.test.ts bad.test.ts (pid ${child.pid}, N s)`
   const ended = '2 of 3 files ended: 1 errors, 0 failed, 1 passed, 1 skipped'
   // The file loads.
-  assert.deepEqual(await until(p.dir, l => l[1] === ended), [head, ended, 'slow.test.ts, N s'])
+  assert.deepEqual(await until(l => l[1] === ended), [head, ended, 'slow.test.ts, N s'])
   // Its test runs.
   writeFileSync(join(p.dir, 'load'), '')
-  assert.deepEqual(await until(p.dir, l => l.length === 3 && l[2] !== 'slow.test.ts, N s'), [
+  assert.deepEqual(await until(l => l.length === 3 && l[2] !== 'slow.test.ts, N s'), [
     head,
     ended,
     'slow.test.ts, N s: slow.test.ts > waits, N s',
@@ -73,10 +93,8 @@ test('ubq status shows a run of one file', async () => {
   cleanup(() => remove(p.dir))
   writeFileSync(join(p.dir, 'slow.test.ts'), SLOW)
   writeFileSync(join(p.dir, 'load'), '')
-  const child = spawn(process.execPath, [cli, 'slow.test.ts'], { cwd: p.dir, env: { ...process.env, CI: '' } })
-  cleanup(() => void child.kill())
-  const done = new Promise(resolve => child.on('close', resolve))
-  const lines = await until(p.dir, l => l.length === 3 && l[2] !== 'slow.test.ts, N s')
+  const { done, until } = start(p.dir, 'slow.test.ts')
+  const lines = await until(l => l.length === 3 && l[2] !== 'slow.test.ts, N s')
   assert.match(lines[0]!, /^run 1: ubq slow\.test\.ts \(pid \d+, N s\)$/)
   assert.deepEqual(lines.slice(1), [
     '0 of 1 file ended: 0 failed, 0 passed',

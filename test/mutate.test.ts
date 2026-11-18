@@ -59,7 +59,7 @@ const b = !a && { 1: true }[1] /* || */ || import('./x.ts')
   assert.equal(mutants('const = 1', 'a.mjs'), undefined)
 })
 
-test('mutate lists each change that no test fails for, and does not change the file', { timeout: 30_000 }, () => {
+test('mutate lists each change that no test fails for, and does not change the file', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   mkdirSync(join(p.dir, 'src'), { recursive: true })
@@ -135,28 +135,25 @@ test('mutate lists each change that no test fails for, and does not change the f
   }
 })
 
-test(
-  'mutate with more than one file: the order of the report, a long line, a test that fails, and wrong arguments',
-  { timeout: 60_000 },
-  () => {
-    const p = project()
-    cleanup(() => rmSync(p.dir, { recursive: true }))
-    mkdirSync(join(p.dir, 'lib'))
-    writeFileSync(
-      join(p.dir, 'lib/a.ts'),
-      `export const LIMIT = 10
+test('mutate with more than one file: the order of the report, a long line, a test that fails, and wrong arguments', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(
+    join(p.dir, 'lib/a.ts'),
+    `export const LIMIT = 10
 export const over = (n: number): boolean => n > LIMIT
 export const label = (n: number): string => (n === 0 ? 'none' : n === 1 ? 'one' : 'many') + ' items in the list of things that the function counts for the caller'
 `,
-    )
-    writeFileSync(
-      join(p.dir, 'lib/b.ts'),
-      'export const twice = (n: number): number => n * 2\nexport const sign = (n: number): number => {\n  if (n < 0) return -1\n  return 1\n}\n',
-    )
-    // Assertions that pass for each change, and a test that fails with no change.
-    writeFileSync(
-      join(p.dir, 'm.test.ts'),
-      `import { assert, test } from 'ubqtest'
+  )
+  writeFileSync(
+    join(p.dir, 'lib/b.ts'),
+    'export const twice = (n: number): number => n * 2\nexport const sign = (n: number): number => {\n  if (n < 0) return -1\n  return 1\n}\n',
+  )
+  // Assertions that pass for each change, and a test that fails with no change.
+  writeFileSync(
+    join(p.dir, 'm.test.ts'),
+    `import { assert, test } from 'ubqtest'
 import { label, over } from './lib/a.ts'
 import { sign, twice } from './lib/b.ts'
 test('weak', () => {
@@ -169,48 +166,47 @@ test('fails with no change', () => {
   assert.equal(sign(-5), 1)
 })
 `,
-    )
-    assert.equal(p.ubq('m.test.ts').last, 'fail: 1 failed, 1 passed')
-    const lines = p.ubq('mutate', 'lib/b.ts', 'lib/a.ts').out.trimEnd().split('\n')
-    // In the order of the files and of the places, not of the arguments.
-    assert.deepEqual(
-      lines.filter(line => line.startsWith('SURVIVED')),
-      [
-        'lib/a.ts:2:47',
-        'lib/a.ts:3:48',
-        'lib/a.ts:3:52',
-        'lib/a.ts:3:67',
-        'lib/a.ts:3:71',
-        'lib/b.ts:1:47',
-        'lib/b.ts:1:49',
-        'lib/b.ts:3:9',
-        'lib/b.ts:3:11',
-      ].map(place => `SURVIVED ${place}`),
-    )
-    // A source line of more than 100 characters is cut.
-    assert.equal(
-      lines[6],
-      "  > export const label = (n: number): string => (n === 0 ? 'none' : n === 1 ? 'one' : 'many') + ' items …",
-    )
-    assert.equal(
-      lines.at(-1),
-      'mutate: 9 of 12 changes survived, 1 more are in code that no passing test runs (ubq uncovered)',
-    )
-    assert.equal(p.ubq('mutate', 'lib/a.ts:99').out, 'mutate: 0 of 0 changes survived\n')
-    assert.deepEqual(
-      [p.ubq('mutate', 'lib/nope.ts').code, p.ubq('mutate', 'lib/nope.ts').err],
-      [4, 'ubq: no test loaded lib/nope.ts. Run the tests first: ubq\n'],
-    )
-    const v8 = spawnSync('node', [fileURLToPath(new URL('../src/cli.ts', import.meta.url)), 'mutate', 'lib/a.ts'], {
-      cwd: p.dir,
-      encoding: 'utf8',
-      env: { ...process.env, UBQ_COVERAGE: 'v8' },
-    })
-    assert.deepEqual([v8.status, v8.stderr], [4, 'ubq: ubq mutate needs source counters. Remove UBQ_COVERAGE=v8.\n'])
-  },
-)
+  )
+  assert.equal(p.ubq('m.test.ts').last, 'fail: 1 failed, 1 passed')
+  const lines = p.ubq('mutate', 'lib/b.ts', 'lib/a.ts').out.trimEnd().split('\n')
+  // In the order of the files and of the places, not of the arguments.
+  assert.deepEqual(
+    lines.filter(line => line.startsWith('SURVIVED')),
+    [
+      'lib/a.ts:2:47',
+      'lib/a.ts:3:48',
+      'lib/a.ts:3:52',
+      'lib/a.ts:3:67',
+      'lib/a.ts:3:71',
+      'lib/b.ts:1:47',
+      'lib/b.ts:1:49',
+      'lib/b.ts:3:9',
+      'lib/b.ts:3:11',
+    ].map(place => `SURVIVED ${place}`),
+  )
+  // A source line of more than 100 characters is cut.
+  assert.equal(
+    lines[6],
+    "  > export const label = (n: number): string => (n === 0 ? 'none' : n === 1 ? 'one' : 'many') + ' items …",
+  )
+  assert.equal(
+    lines.at(-1),
+    'mutate: 9 of 12 changes survived, 1 more are in code that no passing test runs (ubq uncovered)',
+  )
+  assert.equal(p.ubq('mutate', 'lib/a.ts:99').out, 'mutate: 0 of 0 changes survived\n')
+  assert.deepEqual(
+    [p.ubq('mutate', 'lib/nope.ts').code, p.ubq('mutate', 'lib/nope.ts').err],
+    [4, 'ubq: no test loaded lib/nope.ts. Run the tests first: ubq\n'],
+  )
+  const v8 = spawnSync('node', [fileURLToPath(new URL('../src/cli.ts', import.meta.url)), 'mutate', 'lib/a.ts'], {
+    cwd: p.dir,
+    encoding: 'utf8',
+    env: { ...process.env, UBQ_COVERAGE: 'v8' },
+  })
+  assert.deepEqual([v8.status, v8.stderr], [4, 'ubq: ubq mutate needs source counters. Remove UBQ_COVERAGE=v8.\n'])
+})
 
-test('a change that removes a "!", in code that runs while the test file loads', { timeout: 30_000 }, () => {
+test('a change that removes a "!", in code that runs while the test file loads', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   mkdirSync(join(p.dir, 'lib'))
@@ -232,7 +228,7 @@ test('a change that removes a "!", in code that runs while the test file loads',
   ])
 })
 
-test('a change that only a file error kills runs one more time', { timeout: 30_000 }, () => {
+test('a change that only a file error kills runs one more time', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   mkdirSync(join(p.dir, 'lib'))
@@ -266,7 +262,7 @@ test('half', () => {
   assert.equal(p.ubq('mutate', 'lib/half.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 2 changes survived')
 })
 
-test('a change that makes a loop that does not end is killed after two runs', { timeout: 60_000 }, () => {
+test('a change that makes a loop that does not end is killed after two runs', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   mkdirSync(join(p.dir, 'lib'))
@@ -283,39 +279,35 @@ test('a change that makes a loop that does not end is killed after two runs', { 
   assert.equal(p.ubq('mutate', 'lib/steps.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 3 changes survived')
 })
 
-test(
-  'the closest tests of a survivor: the test file of the source, then the tests that run the least code',
-  { timeout: 30_000 },
-  () => {
-    const p = project()
-    cleanup(() => rmSync(p.dir, { recursive: true }))
-    mkdirSync(join(p.dir, 'src'), { recursive: true })
-    writeFileSync(join(p.dir, 'src/price.ts'), SOURCE)
-    writeFileSync(
-      join(p.dir, 'src/big.ts'),
-      'export const big = (n: number): number => {\n  const a = n + 1\n  const b = a * 2\n  return b - a\n}\n',
-    )
-    // Three tests run the line, and none checks the lower limit.
-    const run = (name: string, extra = '') =>
-      `test('${name}', () => {\n  ${extra}assert.equal(price(1200, 'FIVEOFF'), 700)\n})\n`
-    writeFileSync(
-      join(p.dir, 'other.test.ts'),
-      "import { assert, test } from 'ubqtest'\nimport { price } from './src/price.ts'\nimport { big } from './src/big.ts'\n" +
-        run('wide', 'big(1)\n  ') +
-        run('narrow') +
-        run('narrow too') +
-        run('more'),
-    )
-    writeFileSync(
-      join(p.dir, 'price.test.ts'),
-      "import { assert, test } from 'ubqtest'\nimport { price } from './src/price.ts'\nimport { big } from './src/big.ts'\n" +
-        run('own', 'big(1)\n  '),
-    )
-    assert.equal(p.ubq().code, 0)
-    const lines = p.ubq('mutate', 'src/price.ts:2').out.split('\n')
-    assert.equal(
-      lines[3],
-      '  tests that run this code (5), the closest first: price.test.ts > own (price.test.ts:4), other.test.ts > more (other.test.ts:14), other.test.ts > narrow (other.test.ts:8). For all of them: ubq covers src/price.ts:2',
-    )
-  },
-)
+test('the closest tests of a survivor: the test file of the source, then the tests that run the least code', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'src'), { recursive: true })
+  writeFileSync(join(p.dir, 'src/price.ts'), SOURCE)
+  writeFileSync(
+    join(p.dir, 'src/big.ts'),
+    'export const big = (n: number): number => {\n  const a = n + 1\n  const b = a * 2\n  return b - a\n}\n',
+  )
+  // Three tests run the line, and none checks the lower limit.
+  const run = (name: string, extra = '') =>
+    `test('${name}', () => {\n  ${extra}assert.equal(price(1200, 'FIVEOFF'), 700)\n})\n`
+  writeFileSync(
+    join(p.dir, 'other.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { price } from './src/price.ts'\nimport { big } from './src/big.ts'\n" +
+      run('wide', 'big(1)\n  ') +
+      run('narrow') +
+      run('narrow too') +
+      run('more'),
+  )
+  writeFileSync(
+    join(p.dir, 'price.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { price } from './src/price.ts'\nimport { big } from './src/big.ts'\n" +
+      run('own', 'big(1)\n  '),
+  )
+  assert.equal(p.ubq().code, 0)
+  const lines = p.ubq('mutate', 'src/price.ts:2').out.split('\n')
+  assert.equal(
+    lines[3],
+    '  tests that run this code (5), the closest first: price.test.ts > own (price.test.ts:4), other.test.ts > more (other.test.ts:14), other.test.ts > narrow (other.test.ts:8). For all of them: ubq covers src/price.ts:2',
+  )
+})

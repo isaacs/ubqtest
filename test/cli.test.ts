@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { cli, project } from './setup.ts'
 
-test('help, and the error of each command with a wrong or absent argument', { timeout: 60_000 }, () => {
+test('help, and the error of each command with a wrong or absent argument', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   const error = (...args: string[]): [number | null, string] => {
@@ -110,7 +110,7 @@ test('later', { skip: 'not now' }, () => assert(true))
   )
 })
 
-test('a file that ends the process, cut output, and a run of only skipped tests', { timeout: 60_000 }, () => {
+test('a file that ends the process, cut output, and a run of only skipped tests', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   // No import of ubqtest: the runner must report the exit.

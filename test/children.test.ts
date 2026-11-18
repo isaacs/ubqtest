@@ -43,7 +43,7 @@ const server = createServer((req, res) => {
 }
 const lines = (text: string): string[] => text.trimEnd().split('\n')
 
-test('the code of a child process is coverage of the test that started it', { timeout: 60_000 }, () => {
+test('the code of a child process is coverage of the test that started it', () => {
   const p = make()
   writeFileSync(
     join(p.dir, 'test/cli.test.ts'),
@@ -101,7 +101,7 @@ console.log(greet(name) + '!')
   )
 })
 
-test('a child process on Bun has coverage too', { skip: !bun && 'bun is not installed', timeout: 60_000 }, () => {
+test('a child process on Bun has coverage too', { skip: !bun && 'bun is not installed' }, () => {
   const p = make()
   writeFileSync(
     join(p.dir, 'test/bun.test.ts'),

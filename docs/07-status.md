@@ -42,6 +42,15 @@ older run.
 ## Lessons for work on this repository
 
 - A command that can hang must run under `timeout`.
+- A test must not fail because a machine is slow. Three rules:
+  - No time limit below the default of the project (120 s) for a
+    test that starts a process. A limit is only for a test that
+    never ends.
+  - A test that waits for a message waits for the content that it
+    needs, not for the next message of a kind. A second message
+    with old content can come first.
+  - A test that waits for a child process fails at once if the
+    child ended, with the output of the child in the error.
 - The formatter can split a line, and move a `// ubq: not
   measured:` comment away from the code that it marks. After
   `npm run lint`, compare `ubq uncovered` with its count before.
