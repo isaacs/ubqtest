@@ -92,7 +92,7 @@ const USAGE = `usage:
   ubq --version              the version of ubq
   ubq guide                  how to write and run tests, for the installed version
   ubq guide convert          how to move a project from a different test tool to ubq
-  ubq convert <files or folders>  changes the test files of tap, node:test, vitest, jest, bun:test, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
+  ubq convert <files or folders>  changes the test files of tap, tape, ava, node:test, vitest, jest, bun:test, or mocha to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
   ubq doctor                 checks the setup of the project, and states the fix for each problem
   ubq check                  checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each line that differs from the last git commit ran in a test (--diff=<commit>: from that commit). On a pass, it lists the changes to the tests to look at: put its output at the end of your last message. --hook: as the stop hook of a coding agent

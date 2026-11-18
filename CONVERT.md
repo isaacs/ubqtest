@@ -1,6 +1,6 @@
 # ubq guide: convert
 
-How to move the tests of a project from tap, `node:test`, vitest,
+How to move the tests of a project from tap, tape, ava, `node:test`, vitest,
 jest, `bun:test`, or mocha to `ubqtest`. This text comes from the installed
 package. `ubq guide convert` prints it. Read `ubq guide` first: it
 has the API and the rules of ubq.
@@ -159,6 +159,8 @@ names, do one of these:
 | `t.equal(a, b)`, `t.is`, `t.strictEqual` | `assert.equal(a, b)` |
 | `t.not(a, b)`, `t.notEqual` | `assert.notEqual(a, b)` |
 | `t.same(a, b)`, `t.strictSame`, `t.deepEqual` | `assert.deepEqual(a, b)` |
+| `t.notSame(a, b)`, `t.notStrictSame` | `assert(!isDeepEqual(a, b))` |
+| `t.doesNotThrow(() => f())` | `f()` |
 | `t.ok(a)`, `t.notOk(a)` | `assert(a)`, `assert(!a)` |
 | `t.match(a, pattern)`, `t.has` | `assert.match(a, pattern)` |
 | `t.throws(fn, expected)` | `assert.throws(fn, expected)` (`Error` if there was none) |
@@ -172,7 +174,7 @@ names, do one of these:
 | `t.testdir({ ... })` | `testdir({ ... })` |
 | `t.mockImport('../a.js', { '../b.js': { f } })` | `mockImport(() => import('../a.js'), [[() => import('../b.js'), { f }]])` |
 | `t.comment(...)` | `console.log(...)` |
-| `t.end()`, `t.plan(n)` | removed |
+| `t.end()`, `t.plan(n)` | removed, or a TODO if the test can end in a callback |
 
 Things to check by hand:
 
@@ -235,6 +237,92 @@ Things to check by hand:
 - **A fixture or helper that uses `t`.** A helper function that
   gets `t` as an argument must import `assert` from `ubqtest` and
   must not get `t`.
+
+## tape
+
+`ubq convert` changes a tape file with the rules of tap: the
+table above, and the other names that tape has for each
+assertion. Read "Things to check by hand" of tap too. More for
+tape:
+
+| tape | ubq |
+| --- | --- |
+| `test(name, t => { ... })` | `test(name, () => { ... })` |
+| `t.notDeepEqual(a, b)` | `assert(!isDeepEqual(a, b))` |
+| `t.doesNotMatch(text, /re/)` | `assert.equal(text.match(/re/), null)` |
+| `t.timeoutAfter(ms)` | TODO: `test(name, { timeout: ms }, fn)` |
+
+- **A test that ends in a callback.** A tape test ends at
+  `t.end()`, or after the count of assertions of `t.plan(n)`. A
+  ubq test ends when its function ends. `ubq convert` writes a
+  TODO at a `t.end()` that is in a callback, and at a `t.plan(n)`
+  of a test that uses the test object in a function. If the
+  callback runs later, make the test async and await a promise:
+
+  ```ts
+  test('reads the file', async () => {
+    const data = await new Promise<Buffer>((resolve, reject) =>
+      readFile(path, (error, data) => (error ? reject(error) : resolve(data))),
+    )
+    assert.equal(String(data), 'text')
+  })
+  ```
+
+  If the function runs before the test function returns (a loop
+  helper), delete the `t.plan(n)` line.
+- **`t.looseEqual` and `t.deepLooseEqual`** compare with `==`.
+  They become `assert.deepEqual`, which is strict.
+- **`test.onFinish(fn)`.** At the top level of the file,
+  `cleanup(fn)` runs `fn` when the file ends.
+
+## ava
+
+| ava | ubq |
+| --- | --- |
+| `test(name, async t => { ... })`, `test.serial` | `test(name, async () => { ... })` |
+| `t.is(a, b)`, `t.not(a, b)` | `assert.equal(a, b)`, `assert.notEqual(a, b)` |
+| `t.deepEqual(a, b)`, `t.notDeepEqual(a, b)` | `assert.deepEqual(a, b)`, `assert(!isDeepEqual(a, b))` |
+| `t.like(a, { ... })` | `assert.match(a, { ... })` |
+| `t.truthy(a)`, `t.assert(a)`, `t.falsy(a)` | `assert(a)`, `assert(!a)` |
+| `t.true(a)`, `t.false(a)` | `assert.equal(a, true)`, `assert.equal(a, false)` |
+| `t.regex(text, /re/)`, `t.notRegex(text, /re/)` | `assert.match(text, /re/)`, `assert.equal(text.match(/re/), null)` |
+| `t.throws(fn)` | `assert.throws(fn, Error)` |
+| `t.throws(fn, { instanceOf: TypeError })` | `assert.throws(fn, TypeError)` |
+| `t.throws(fn, { message: 'text', code: 'E' })` | `assert.throws(fn, { message: 'text', code: 'E' })` |
+| `await t.throwsAsync(p, expected)` | `await assert.rejects(p, expected)` |
+| `t.notThrows(() => f())`, `await t.notThrowsAsync(p)` | `f()`, `await p` |
+| `t.snapshot(a)` | `assert.snapshot(a)` |
+| `t.teardown(fn)` | `cleanup(fn)` |
+| `t.pass()`, `t.fail(msg)` | `assert(true)`, `assert.fail(msg)` |
+| `t.log(...)` | `console.log(...)` |
+| `t.plan(n)` | removed |
+| `test.todo(name)` | `test(name, { skip: 'todo' }, () => {})` |
+
+Things to check by hand:
+
+- **Tests run one after the other.** ava runs the tests of a
+  file at the same time. ubq runs them in the order of the file,
+  as `test.serial` does.
+- **`t.context` and hooks.** ubq has no hooks and no context.
+  Make a setup function that returns the values, and call it in
+  each test: see "Hooks" below. `test.after.always(fn)` is
+  `cleanup(fn)` at the top level of the file.
+- **`t.throws` with a class and other keys.** `assert.throws`
+  takes a class or a partial object, not the two. It returns the
+  error: `const error = assert.throws(fn, { message: 'text' })`,
+  then `assert(error instanceof TypeError)`. The key `is` of ava
+  is `assert.equal(error, expected)`.
+- **Macros.** `test(name, macro, a, b)` has a TODO. Make the
+  macro a plain function with `assert` of `ubqtest` in it, and
+  call it: `test(name, () => macro(a, b))`.
+- **`test.failing`.** ubq has no test that must fail. Assert on
+  the wrong behavior, or skip the test with a reason.
+- **`t.timeout(ms)`** is the option `{ timeout: ms }` of `test`.
+- **Snapshots.** ubq does not read the `.snap` files of ava. Read
+  the `.md` report of each old snapshot, run `ubq --update`, and
+  compare the new files with the reports. Then delete the old
+  files.
+- **`t.try`.** ubq has no form of it.
 
 ## node:test and node:assert
 

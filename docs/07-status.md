@@ -409,6 +409,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `ubq convert` knows tape and ava. A `t.end()` in a callback
+    and a `t.plan(n)` of a test with a callback get a TODO, also
+    for tap (D97).
   - A type checker that stops with no result fails the run. The
     count of type errors in other files is in the summary line,
     not in a note (D96).

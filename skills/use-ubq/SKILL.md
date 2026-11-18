@@ -1,6 +1,6 @@
 ---
 name: use-ubq
-description: Write, run, and debug tests with ubq (the ubqtest package), or move a project's tests from tap, node:test, vitest, jest, or mocha to ubq. Use when the project has ubqtest in its package.json, when the user asks for ubq, or when the user asks to convert a test suite to ubq.
+description: Write, run, and debug tests with ubq (the ubqtest package), or move a project's tests from tap, tape, ava, node:test, vitest, jest, or mocha to ubq. Use when the project has ubqtest in its package.json, when the user asks for ubq, or when the user asks to convert a test suite to ubq.
 ---
 
 # use-ubq

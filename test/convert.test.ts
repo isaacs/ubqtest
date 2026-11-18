@@ -1950,3 +1950,299 @@ describe.each([['a'], ['b']])('group %s', s => {
     ],
   )
 })
+
+test('ava: tests, modifiers, hooks, assertions, throws, and the context', () => {
+  const r = convert(
+    `import anyTest, { type TestFn } from 'ava'
+import { parse } from '../src/parse.ts'
+
+const test = anyTest as TestFn<{ db: Db }>
+
+test.beforeEach(t => {
+  t.context.db = open()
+})
+test.after.always(() => close())
+
+test('basic', t => {
+  t.is(parse('a'), 1, 'one')
+  t.not(parse('a'), 2)
+  t.deepEqual(parse('b'), { a: 1 })
+  t.notDeepEqual(parse('b'), { a: 2 })
+  t.like(parse('b'), { a: 1 })
+  t.true(parse('c') === 3)
+  t.false(isBad())
+  t.truthy(parse('c'))
+  t.falsy(parse('d') || x)
+  t.regex(text, /a/)
+  t.notRegex(a + b, /a/)
+  t.throws(() => parse('?'))
+  t.throws(() => parse('?'), { instanceOf: TypeError })
+  t.throws(() => parse('?'), { message: /bad/, code: 'E' }, 'the message')
+  const error = t.throws(() => parse('?'), { instanceOf: TypeError, message: 'x' })
+  t.notThrows(() => parse('a'))
+  t.notThrows(() => { parse('a') })
+  t.snapshot(parse('z'))
+  t.log('hello')
+  t.pass()
+  t.teardown(() => close())
+  t.timeout(100)
+  t.plan(3)
+})
+
+test.serial('async', async t => {
+  await t.throwsAsync(load('x'), { instanceOf: Error })
+  await t.throwsAsync(() => load('x'))
+  await t.notThrowsAsync(load('y'))
+  await t.notThrowsAsync(async () => load('y'))
+  t.is(t.context.db.count, 1)
+})
+
+test.serial.only('only', t => {
+  t.plan(1)
+  t.assert(true)
+})
+test.skip('skipped', t => {
+  t.fail('no')
+})
+test.todo('later')
+test.failing('fails', t => { t.fail() })
+test('macro', macro, 1, 2)
+test('more', t => {
+  t.throws(() => parse('?'), undefined, 'a message')
+  t.throws(() => parse('?'), expectation)
+  const value = t.notThrows(() => parse('a'))
+  t.notThrowsAsync(load('z'))
+  t.notThrows(check)
+  t.throws(() => parse('?'), { ...shape })
+  t.is(t.title, 'more')
+})
+`,
+    'a.ts',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'ava',
+      15,
+      `import { assert, cleanup, isDeepEqual, test } from 'ubqtest'
+import { parse } from '../src/parse.ts'
+
+
+// TODO(ubq): ubq has no hooks. Make a setup function and call it in each
+// test. Use cleanup() for the work after a test.
+test.beforeEach(t => {
+  // TODO(ubq): ubq has no t.context. Make the values in a setup function,
+  // and call it in each test: const { value } = setup().
+  t.context.db = open()
+})
+// TODO(ubq): ubq has no hooks. Make a setup function and call it in each
+// test. Use cleanup() for the work after a test.
+test.after.always(() => close())
+
+test('basic', () => {
+  assert.equal(parse('a'), 1) // one
+  assert.notEqual(parse('a'), 2)
+  assert.deepEqual(parse('b'), { a: 1 })
+  assert(!isDeepEqual(parse('b'), { a: 2 }))
+  assert.match(parse('b'), { a: 1 })
+  assert.equal(parse('c') === 3, true)
+  assert.equal(isBad(), false)
+  assert(parse('c'))
+  assert(!(parse('d') || x))
+  assert.match(text, /a/)
+  assert.equal((a + b).match(/a/), null)
+  assert.throws(() => parse('?'), Error)
+  assert.throws(() => parse('?'), TypeError)
+  assert.throws(() => parse('?'), { message: /bad/, code: 'E' }) // the message
+  // TODO(ubq): The second argument is an Error class, a RegExp for the
+  // message, or a partial object: assert.throws(fn, { message: 'text',
+  // code: 'E' }). assert.throws and assert.rejects return the error:
+  // assert(error instanceof X).
+  const error = t.throws(() => parse('?'), { instanceOf: TypeError, message: 'x' })
+  parse('a')
+  // TODO(ubq): ubq has no assertion for code that does not throw. Call the
+  // function, with await for a promise: a test fails if its code throws.
+  t.notThrows(() => { parse('a') })
+  assert.snapshot(parse('z'))
+  console.log('hello')
+  assert(true)
+  cleanup(() => close())
+  // TODO(ubq): Use the option of test(): test(name, { timeout: ms }, fn).
+  t.timeout(100)
+})
+
+test('async', async () => {
+  await assert.rejects(load('x'), Error)
+  await assert.rejects(() => load('x'), Error)
+  await load('y')
+  await load('y')
+  // TODO(ubq): ubq has no t.context. Make the values in a setup function,
+  // and call it in each test: const { value } = setup().
+  assert.equal(t.context.db.count, 1)
+})
+
+// TODO(ubq): ubq has no .only. Run one test with: ubq <file>:<line>.
+test('only', () => {
+  assert(true)
+})
+// TODO(ubq): Give the reason: { skip: 'the reason' }.
+test('skipped', { skip: 'TODO(ubq): the reason' }, () => {
+  assert.fail('no')
+})
+test('later', { skip: 'todo' }, () => {})
+// TODO(ubq): ubq has no test.failing.
+test.failing('fails', () => { assert.fail('fail') })
+// TODO(ubq): ubq has no macros. Give test() a function that calls the
+// macro function, with assert of ubqtest in it.
+test('macro', macro, 1, 2)
+test('more', async () => {
+  assert.throws(() => parse('?'), Error) // a message
+  // TODO(ubq): The second argument is an Error class, a RegExp for the
+  // message, or a partial object: assert.throws(fn, { message: 'text',
+  // code: 'E' }). assert.throws and assert.rejects return the error:
+  // assert(error instanceof X).
+  t.throws(() => parse('?'), expectation)
+  // TODO(ubq): ubq has no assertion for code that does not throw. Call the
+  // function, with await for a promise: a test fails if its code throws.
+  const value = t.notThrows(() => parse('a'))
+  await load('z')
+  // TODO(ubq): ubq has no assertion for code that does not throw. Call the
+  // function, with await for a promise: a test fails if its code throws.
+  t.notThrows(check)
+  // TODO(ubq): The second argument is an Error class, a RegExp for the
+  // message, or a partial object: assert.throws(fn, { message: 'text',
+  // code: 'E' }). assert.throws and assert.rejects return the error:
+  // assert(error instanceof X).
+  t.throws(() => parse('?'), { ...shape })
+  assert.equal(t.title, 'more')
+})`,
+    ],
+  )
+})
+
+test('tape: assertions, subtests, and a test that ends in a callback', () => {
+  const r = convert(
+    `const test = require('tape')
+const fs = require('fs')
+
+test('sync', t => {
+  t.plan(2)
+  t.equal(1, 1, 'same')
+  t.notDeepEqual({ a: 1 }, { a: 2 })
+  t.doesNotThrow(() => f())
+  t.doesNotMatch('abc', /x/)
+  t.match('abc', /a/)
+  t.notok(false)
+  t.iferror(null)
+  t.throws(() => f(), /bad/, 'throws bad')
+  t.comment('hi')
+  t.end()
+})
+
+test('callback', function (t) {
+  fs.readFile('x', (err, data) => {
+    t.error(err)
+    t.equal(String(data), 'x')
+    t.end()
+  })
+})
+
+test('planned', t => {
+  t.plan(1)
+  setTimeout(() => t.ok(true), 10)
+})
+
+test('nested', t => {
+  t.test('inner', st => {
+    st.ok(1)
+    st.end()
+  })
+  t.end()
+})
+
+test.skip('skipped', t => { t.fail() })
+test.onFinish(() => done())
+test('opts', { timeout: 500 }, t => {
+  t.timeoutAfter(100)
+  t.pass('ok')
+  t.end()
+})
+test('promise', t => {
+  load().then(() => t.end())
+  t.throws(() => f(), 'a message')
+})
+t.end()
+test('loop', t => {
+  t.plan(2)
+  ;[1, 2].forEach(n => t.ok(n))
+})
+`,
+    'a.js',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'tape',
+      6,
+      `const { assert, describe, isDeepEqual, test } = require('ubqtest')
+const fs = require('fs')
+
+test('sync', () => {
+  assert.equal(1, 1) // same
+  assert(!isDeepEqual({ a: 1 }, { a: 2 }))
+  f()
+  assert.equal('abc'.match(/x/), null)
+  assert.match('abc', /a/)
+  assert(!false)
+  assert(!null)
+  assert.throws(() => f(), /bad/) // throws bad
+  console.log('hi')
+})
+
+test('callback', function () {
+  fs.readFile('x', (err, data) => {
+    assert(!err)
+    assert.equal(String(data), 'x')
+    // TODO(ubq): ubq has no t.end. A test ends when its function ends.
+    // This call is in a callback: make the test function async, and await
+    // a promise that the callback resolves.
+    t.end()
+  })
+})
+
+test('planned', () => {
+  // TODO(ubq): ubq has no t.plan. A test ends when its function ends. If
+  // an assertion of this test runs in a callback, make the test function
+  // async, and await a promise that the callback resolves.
+  t.plan(1)
+  setTimeout(() => assert(true), 10)
+})
+
+describe('nested', () => {
+  test('inner', () => {
+    assert(1)
+  })
+})
+
+// TODO(ubq): Give the reason: { skip: 'the reason' }.
+test('skipped', { skip: 'TODO(ubq): the reason' }, () => { assert.fail('fail') })
+// TODO(ubq): ubq has no test.onFinish.
+test.onFinish(() => done())
+test('opts', { timeout: 500 }, () => {
+  // TODO(ubq): Use the option of test(): test(name, { timeout: ms }, fn).
+  t.timeoutAfter(100)
+  assert(true) // ok
+})
+test('promise', () => {
+  // TODO(ubq): ubq has no t.end. A test ends when its function ends. This
+  // call is in a callback: make the test function async, and await a
+  // promise that the callback resolves.
+  load().then(() => t.end())
+  assert.throws(() => f(), Error) // a message
+})
+test('loop', () => {
+  [1, 2].forEach(n => assert(n))
+})`,
+    ],
+  )
+})

@@ -117,7 +117,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq status` | The runs in progress: the files that run now, the test that runs in each, and for how long. |
 | `ubq merge <store>...` | Adds the coverage of other stores, such as those of CI jobs on other runtimes and systems. |
 | `ubq mutate <file>`, `ubq mutate --diff` | A mutation check: small changes to the source, one at a time, and the list of changes that no test fails for. |
-| `ubq convert <folder>` | Changes the tests of tap, `node:test`, vitest, jest, `bun:test`, or mocha to ubq. |
+| `ubq convert <folder>` | Changes the tests of tap, tape, ava, `node:test`, vitest, jest, `bun:test`, or mocha to ubq. |
 | `ubq browser install` | Downloads the browser for tests that use `'ubqtest/browser'`. |
 | `ubq doctor` | Checks the setup of the project. |
 | `ubq guide`, `ubq guide convert` | The guides, for the installed version. |
@@ -185,7 +185,7 @@ npx ubq guide convert   # the steps
 npx ubq convert test    # the certain changes, and a TODO for each of the others
 ```
 
-`ubq convert` knows tap, `node:test` with `node:assert`, vitest,
+`ubq convert` knows tap, tape, ava, `node:test` with `node:assert`, vitest,
 jest, `bun:test`, and mocha with `node:assert`. It changes imports, test
 definitions, and assertions. Where a person or an agent must
 decide (hooks, subtests, module mocks), it writes a `TODO(ubq)`

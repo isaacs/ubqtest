@@ -23,7 +23,7 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 export interface Converted {
   /** The new text of the file. */
   code: string
-  /** `tap`, `node:test`, `vitest`, `jest`, `mocha`, or `bun:test`. */
+  /** `tap`, `tape`, `ava`, `node:test`, `vitest`, `jest`, `mocha`, or `bun:test`. */
   framework: string
   /** The count of rules that changed text. */
   changes: number
@@ -51,6 +51,8 @@ type Role =
 
 const FRAMEWORKS: Record<string, string> = {
   tap: 'tap',
+  tape: 'tape',
+  ava: 'ava',
   'node:test': 'node:test',
   vitest: 'vitest',
   '@jest/globals': 'jest',
@@ -62,8 +64,6 @@ const NOT_CONVERTED: Record<string, string> = {
   chai: 'chai',
   mocha: 'mocha',
   sinon: 'sinon',
-  ava: 'ava',
-  tape: 'tape',
   jasmine: 'jasmine',
 }
 
@@ -137,26 +137,62 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBeTypeOf: 'assert.notEqual(typeof <$0>, $1)',
 }
 
+/** The end of a callee that calls its function argument before it returns. */
+const SYNC = /(^|\.)(forEach|map|filter|some|every|reduce|sort|find|throws|doesNotThrow|notThrows)$/
+
 /** `t.name(a, b)` of tap: `$0` is `a`. A message after the last argument goes into a comment. */
 const TAP: Record<string, Rule> = {}
 const tap = (names: string, rule: Rule): void => {
   for (const name of names.split(' ')) TAP[name] = rule
 }
 tap('equal equals is strictEqual strictEquals isEqual isStrict', 'assert.equal($0, $1)')
-tap('not notEqual inequal notStrictEqual isNot isNotEqual doesNotEqual', 'assert.notEqual($0, $1)')
-tap('same strictSame deepEqual deepEquals strictDeepEqual looseEqual equivalent', 'assert.deepEqual($0, $1)')
+tap(
+  'not notEqual notEquals inequal isInequal notStrictEqual notStrictEquals isNot isNotEqual doesNotEqual notLooseEqual notLooseEquals',
+  'assert.notEqual($0, $1)',
+)
+tap(
+  'same strictSame deepEqual deepEquals strictDeepEqual looseEqual looseEquals deepLooseEqual equivalent isEquivalent',
+  'assert.deepEqual($0, $1)',
+)
+tap(
+  'notSame notStrictSame notDeepEqual notDeepEquals notDeeply notEquivalent isNotDeepEqual isNotDeeply isNotEquivalent isInequivalent notDeepLooseEqual',
+  'assert(!isDeepEqual($0, $1))',
+)
 tap('ok true assert', 'assert($0)')
-tap('notOk false assertNot', 'assert(!<$0>)')
+tap('notOk notok false assertNot', 'assert(!<$0>)')
 tap('match has hasStrict matchStrict matchOnly', 'assert.match($0, $1)')
 tap('throws throw', { 1: 'assert.throws($0, Error)', 2: 'assert.throws($0, $1)' })
 tap('rejects', { 1: 'assert.rejects($0, Error)', 2: 'assert.rejects($0, $1)' })
 tap('resolveMatch resolveMatchSnapshot', 'assert.match(await $0, $1)')
 tap('pass', { 0: 'assert(true)', 1: 'assert(true)' })
 tap('fail', { 0: "assert.fail('fail')", 1: 'assert.fail($0)' })
-tap('error ifError ifErr', 'assert(!<$0>)')
+tap('error ifError ifErr iferror', 'assert(!<$0>)')
 tap('matchSnapshot', 'assert.snapshot($0)')
 tap('teardown after', 'cleanup($0)')
 tap('testdir', { 0: 'testdir()', 1: 'testdir($0)' })
+
+/** `t.name(a, b)` of tape: the names of tap, and `match` for a string only. */
+const TAPE: Record<string, Rule> = { ...TAP, doesNotMatch: 'assert.equal(<$0>.match($1), null)' }
+
+/** `t.name(a, b)` of ava. `t.true` is not `t.truthy`. */
+const AVA: Record<string, Rule> = {
+  is: 'assert.equal($0, $1)',
+  not: 'assert.notEqual($0, $1)',
+  deepEqual: 'assert.deepEqual($0, $1)',
+  notDeepEqual: 'assert(!isDeepEqual($0, $1))',
+  like: 'assert.match($0, $1)',
+  assert: 'assert($0)',
+  truthy: 'assert($0)',
+  falsy: 'assert(!<$0>)',
+  true: 'assert.equal($0, true)',
+  false: 'assert.equal($0, false)',
+  regex: 'assert.match($0, $1)',
+  notRegex: 'assert.equal(<$0>.match($1), null)',
+  pass: { 0: 'assert(true)', 1: 'assert(true)' },
+  fail: { 0: "assert.fail('fail')", 1: 'assert.fail($0)' },
+  snapshot: { 1: 'assert.snapshot($0)' },
+  teardown: 'cleanup($0)',
+}
 
 /** Methods of `node:assert`. A string is the new name. A rule is the new call. */
 const ASSERT: Record<string, Rule> = {
@@ -195,6 +231,16 @@ const TODO = {
     'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
   restored:
     'The convert command removed a call here that put spies back. A spyOn spy goes back when its test ends, not before, and a second spyOn on a key replaces the first. If the code after this place needs the real method, move that code to a new test.',
+  end: 'ubq has no t.end. A test ends when its function ends. This call is in a callback: make the test function async, and await a promise that the callback resolves.',
+  plan: 'ubq has no t.plan. A test ends when its function ends. If an assertion of this test runs in a callback, make the test function async, and await a promise that the callback resolves.',
+  notThrows:
+    'ubq has no assertion for code that does not throw. Call the function, with await for a promise: a test fails if its code throws.',
+  avaThrows:
+    "The second argument is an Error class, a RegExp for the message, or a partial object: assert.throws(fn, { message: 'text', code: 'E' }). assert.throws and assert.rejects return the error: assert(error instanceof X).",
+  avaContext:
+    'ubq has no t.context. Make the values in a setup function, and call it in each test: const { value } = setup().',
+  macro: 'ubq has no macros. Give test() a function that calls the macro function, with assert of ubqtest in it.',
+  testTimeout: 'Use the option of test(): test(name, { timeout: ms }, fn).',
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
@@ -355,6 +401,15 @@ export const convertSource = (
       roles.set('t', 'tap')
       return
     }
+    if (module === 'ava' || module === 'tape') {
+      // The other names of ava are types.
+      if (imported === 'default' || imported === '*' || imported === 'test') {
+        tapTests.add(local)
+        roles.set(local, 'test')
+      }
+      roles.set('t', 'tap')
+      return
+    }
     // node:test, vitest, @jest/globals, bun:test
     if (imported === 'default' || imported === 'test' || imported === 'it') roles.set(local, 'test')
     else if (imported === 'describe' || imported === 'suite') roles.set(local, 'describe')
@@ -425,6 +480,15 @@ export const convertSource = (
       // const t = require('tap'), const { test } = require('node:test')
       const decls = node.declarations as Node[]
       const init = decls[0]?.init as Node | undefined
+      // ava: const test = anyTest as TestFn<Context>
+      const cast = init?.type === 'TSAsExpression' ? (init.expression as { name?: string }).name : undefined
+      const alias = (decls[0]?.id as { name?: string } | undefined)?.name
+      if (decls.length === 1 && cast && alias && tapTests.has(cast)) {
+        tapTests.add(alias)
+        roles.set(alias, 'test')
+        removed.push(node)
+        continue
+      }
       const callee = init?.callee as { name?: string } | undefined
       const arg = (init?.arguments as Node[] | undefined)?.[0] as { value?: unknown } | undefined
       if (decls.length !== 1 || init?.type !== 'CallExpression' || callee?.name !== 'require') continue
@@ -1241,6 +1305,8 @@ export const convertSource = (
     const callee = call.callee as Node
     const fn = args.find(a => FUNCTION.has(a.type))
     let name: 'test' | 'describe' = kind
+    // ava: test(name, macro, value)
+    if (!fn && framework === 'ava' && args.length > 1) todo(path, TODO.macro)
     if (fn) {
       const param = nameOf((fn.params as Node[])[0])
       const body = fn.body as Node
@@ -1363,6 +1429,12 @@ export const convertSource = (
       // helper(t, value)
       const parent = path.at(-2)
       if (parent?.type === 'CallExpression' && (parent.arguments as Node[]).includes(node)) todo(path, TODO.passed)
+      else if (
+        parent?.type === 'MemberExpression' &&
+        parent.object === node &&
+        nameOf(parent.property as Node) === 'context'
+      )
+        todo(path, TODO.avaContext)
     }
     for (const child of next ?? children(node)) walk(child, path)
   }
@@ -1451,7 +1523,27 @@ export const convertSource = (
       object.type === 'MemberExpression' &&
       nameOf(object.property as Node) === 'not' &&
       roleOf(object.object as Node) === 'expect'
-    const owner = negated ? 'expect' : roleOf(object)
+    // ava: test.serial.only(name, fn), test.after.always(fn)
+    const first = object.type === 'MemberExpression' ? (object.object as Node) : object
+    const ofTap = roleOf(first) === 'test' && tapTests.has(nameOf(first)!)
+    const middle = first === object ? undefined : nameOf(object.property as Node)
+    if (ofTap && (HOOKS.has(method) || (middle && HOOKS.has(middle)))) {
+      todo(path, TODO.hook)
+      return undefined
+    }
+    if (ofTap && !middle && method === 'serial') {
+      definition(node, path, 'test', true)
+      return args
+    }
+    const owner = negated ? 'expect' : ofTap && middle === 'serial' ? 'test' : roleOf(object)
+    // The test object of a test with a modifier: test.only(name, t => {})
+    if (ofTap) {
+      const fn = args.find(a => FUNCTION.has(a.type))
+      const param = nameOf((fn?.params as Node[] | undefined)?.[0])
+      const span = param && paramSpan(fn!)
+      if (param) roles.set(param, 'tap')
+      if (span) replace(span[0], span[1], '()')
+    }
 
     if (owner === 'tap') return tapCall(node, path, method)
     if (owner === 'assert') return assertCall(node, path, method)
@@ -1823,10 +1915,82 @@ export const convertSource = (
       return args
     }
     if (method === 'end' || method === 'plan' || method === 'endAll') {
-      if (!removeStatement(path)) todo(path, `ubq has no t.${method}. A test ends when its function ends.`)
+      // The function of the call, and the call that the function is
+      // an argument of.
+      const at = path.findLastIndex(n => FUNCTION.has(n.type))
+      const fn = path[at]
+      const owner = at > 0 ? path[at - 1]! : undefined
+      const callee = owner?.type === 'CallExpression' ? (owner.callee as Node) : undefined
+      const root = callee?.type === 'MemberExpression' ? (callee.object as Node) : callee
+      const ofTest =
+        !fn ||
+        roleOf(root) === 'test' ||
+        roleOf(root) === 'tap' ||
+        (root?.type === 'MemberExpression' && roleOf(root.object as Node) === 'test')
+      const param = fn && nameOf((fn.params as Node[])[0])
+      /** True if a function in the test function uses the test object. */
+      const inner = (n: Node, top = true): boolean =>
+        (!top && FUNCTION.has(n.type) && !!param && mentions(n, param)) ||
+        children(n).some(c => !(n.type === 'CallExpression' && SYNC.test(text(n.callee as Node))) && inner(c, false))
+      if (method !== 'plan' && !ofTest) {
+        todo(path, TODO.end)
+        return []
+      }
+      // tap and tape: a test with a plan ends after that count of
+      // assertions, also if its function ended before.
+      if (method === 'plan' && framework !== 'ava' && fn && !fn.async && inner(fn)) todo(path, TODO.plan)
+      else if (!removeStatement(path)) todo(path, `ubq has no t.${method}. A test ends when its function ends.`)
       return []
     }
-    if (method === 'comment') {
+    if (method === 'timeout' || method === 'timeoutAfter') {
+      todo(path, TODO.testTimeout)
+      return undefined
+    }
+    if (/^(notThrows|notThrowsAsync|doesNotThrow)$/.test(method)) {
+      // t.notThrows(() => f(x)) becomes f(x)
+      const [fn] = args
+      const body = fn?.body as Node | undefined
+      const code =
+        fn?.type === 'ArrowFunctionExpression' && !(fn.params as Node[]).length
+          ? body!.type !== 'BlockStatement' && body!.type !== 'ObjectExpression'
+            ? body
+            : undefined
+          : method === 'notThrowsAsync' && fn && !FUNCTION.has(fn.type)
+            ? fn
+            : undefined
+      const parent = path.at(-2)
+      const statement = parent?.type === 'AwaitExpression' ? path.at(-3) : parent
+      if (!code || args.length > 2 || statement?.type !== 'ExpressionStatement') {
+        todo(path, TODO.notThrows)
+        return undefined
+      }
+      replace(node.start, code.start, method === 'notThrowsAsync' && parent === statement ? 'await ' : '')
+      replace(code.end, node.end, '')
+      if (method === 'notThrowsAsync') asyncFunction(path)
+      messageComment(node, args[1], path)
+      changes++
+      return [code]
+    }
+    if (framework === 'ava' && (method === 'throws' || method === 'throwsAsync')) {
+      const [fn, expected, message] = args
+      const name = method === 'throws' ? 'assert.throws' : 'assert.rejects'
+      const props = expected?.type === 'ObjectExpression' ? (expected.properties as Node[]) : undefined
+      const keys = props?.map(p => (p.type === 'Property' && !p.computed ? nameOf(p.key as Node) : undefined))
+      // { instanceOf: TypeError } is the class. An object with no
+      // class is a pattern.
+      const only = keys?.length === 1 && keys[0] === 'instanceOf' ? (props![0]!.value as Node) : undefined
+      const pattern = keys?.every(key => key && key !== 'instanceOf' && key !== 'is')
+      if (!fn || (expected && !only && !pattern && nameOf(expected) !== 'undefined')) {
+        todo(path, TODO.avaThrows)
+        return undefined
+      }
+      messageComment(node, message, path)
+      if (method === 'throwsAsync') awaited(node, path)
+      return only
+        ? rewrite(node, `${name}($0, $1)`, [fn, only])
+        : rewrite(node, pattern ? `${name}($0, $1)` : `${name}($0, Error)`, args)
+    }
+    if (method === 'comment' || (framework === 'ava' && method === 'log')) {
       replace(callee.start, callee.end, 'console.log')
       changes++
       return args
@@ -1874,7 +2038,8 @@ export const convertSource = (
       todo(path, TODO.resolves)
       return undefined
     }
-    const rule = TAP[method] && pick(TAP[method], args.length)
+    const table = framework === 'ava' ? AVA : framework === 'tape' ? TAPE : TAP
+    const rule = table[method] && pick(table[method], args.length)
     if (!rule) {
       todo(path, `ubq has no form of t.${method}. See: ubq guide convert.`)
       return undefined
@@ -1883,7 +2048,7 @@ export const convertSource = (
     const count = rule.match(/\$\d/g)?.length ?? 0
     let use = rule
     if (/^(throws|throw|rejects)$/.test(method) && args[1]?.type === 'Literal' && typeof args[1].value === 'string') {
-      use = pick(TAP[method]!, 1)!
+      use = pick(table[method]!, 1)!
       messageComment(node, args[1], path)
     } else if (!/^(fail|teardown|after|testdir)$/.test(method)) messageComment(node, args[count], path)
     if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)

@@ -2203,3 +2203,35 @@ was the one place where ubq could lose errors with no sign. For
 the count: an agent reads the last line, so the count must stay
 (D49), but a line of 150 characters in each run is noise.
 
+## D97. `ubq convert` knows tape and ava (user, 2026-11-18)
+
+The user asked for it: the two tools are like tap, with a test
+object as the parameter of each test function.
+
+- **tape** uses the rules of tap, with the other names that tape
+  has for each assertion. `t.doesNotMatch` is for a string only.
+- **ava** has its own table: `t.true(a)` is `a === true` in ava,
+  and `a` is truthy in tap. `test.serial` is `test`. `t.throws`
+  with `{ instanceOf: X }` gets the class, and with other keys
+  gets the object as a pattern.
+- A hook (`test.beforeEach`), `t.context`, a macro, `t.timeout`,
+  and `test.failing` get a TODO.
+- `t.notThrows(() => f())` and `t.doesNotThrow` become `f()`.
+  This and the not-equal names (`t.notSame`) also apply to tap.
+- **The end of a test.** A `t.end()` in a function that is not
+  the test function stays, with a TODO: the test ends in a
+  callback. A `t.plan(n)` of tap or tape stays, with a TODO, if
+  the test function is not async and a function in it uses the
+  test object. A function that is an argument of `forEach`,
+  `map`, or `t.throws` does not count. Before this, the command
+  removed each such call, also for tap, and the test ended before
+  its callback.
+
+**Assumptions of the assistant.** The rule for `t.plan` cannot
+see if a callback runs later, so it writes a TODO for some tests
+that need no change. In 400 tape files of packages on this
+machine, it wrote 305 such TODO comments. A test that ends too
+soon passes with fewer assertions, or fails after its end, so a
+TODO is the safe side. The command does not change the `test`
+script of `package.json` for tape or ava.
+
