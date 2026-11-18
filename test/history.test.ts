@@ -167,6 +167,12 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   assert.match(slow.at(-1)!, /^the 8 slowest of 8 tests took \d+\.\d ms of \d+\.\d ms \(run 2\)$/)
   assert.match(p.ubq('slow', '1').last!, /^the 6 slowest of 6 tests took /)
   assert.deepEqual([p.ubq('slow', '9').code, p.ubq('slow', '9').err], [4, 'ubq: run 9 is not in the store\n'])
+  // With no run number: the last run of all tests, not a later run
+  // of one file.
+  p.configure({ include: ['pass.ts', 'flip.ts'] })
+  p.ubq()
+  p.ubq('flip.ts')
+  assert.match(p.ubq('slow').out, /^the 8 slowest of 8 tests took .* \(run 3\)$/m)
 
   // With a selection. One file runs in its own processes too.
   const one = p.ubq('--repeat', '3', 'flip.ts > c')

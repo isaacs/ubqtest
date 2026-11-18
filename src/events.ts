@@ -62,6 +62,8 @@ export interface Since {
   run: number
   /** `file:12`, `file:12-14`, `file:12 (lines removed)`, or `file (removed)`. Empty if none changed. */
   changed: string[]
+  /** If `changed` is empty: the lines that ran while the test file loaded, and that are different now. */
+  loaded?: string[]
 }
 
 /** A resource that a test opened, and the user code that opened it. */

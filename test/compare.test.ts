@@ -63,3 +63,31 @@ test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
   ])
   assert.equal(blocks.at(-1)!.at(-2), 'fail: 6 failed, 1 passed (run 1)')
 })
+
+test('a test that does not await, and that takes more than its time limit, fails', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  writeFileSync(
+    join(p.dir, 'slow.test.ts'),
+    `import { assert, test } from 'ubqtest'
+const work = (ms: number): void => {
+  const end = performance.now() + ms
+  while (performance.now() < end);
+}
+test('slow', { timeout: 50 }, () => {
+  work(120)
+  assert(true)
+})
+test('in its limit', { timeout: 2000 }, () => {
+  work(120)
+  assert(true)
+})
+`,
+  )
+  const r = p.ubq('slow.test.ts')
+  assert.match(
+    r.out,
+    /^FAIL slow\.test\.ts > slow\n {2}the test ended after 1\d\d ms, and its time limit is 50 ms\. If the test needs this time, give it a limit: test\(name, \{ timeout: ms \}, fn\)$/m,
+  )
+  assert.equal(r.last, 'fail: 1 failed, 1 passed')
+})

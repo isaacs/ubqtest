@@ -112,16 +112,26 @@ export const since = (db: DatabaseSync, run: number, id: string): Since | undefi
   if (last.status === 'fail') return (JSON.parse(last.failure!) as Failure).since
   if (last.status !== 'pass') return undefined
   // The coverage of the test is of its last run, until this run writes its own.
-  const rows = db.prepare('select file, hash, ranges from coverage where test = ? order by file').all(id) as {
-    file: string
-    hash: string
-    ranges: string
-  }[]
+  type Row = { file: string; hash: string; ranges: string }
+  const places = (rows: Row[]): string[] =>
+    rows.flatMap(r =>
+      fileHash(r.file) === r.hash ? [] : changedPlaces(r.file, r.hash, JSON.parse(r.ranges) as number[]),
+    )
+  const rows = db.prepare('select file, hash, ranges from coverage where test = ? order by file').all(id) as Row[]
   if (!rows.length) return undefined
-  const changed = rows.flatMap(r =>
-    fileHash(r.file) === r.hash ? [] : changedPlaces(r.file, r.hash, JSON.parse(r.ranges) as number[]),
+  const changed = places(rows)
+  if (changed.length) return { run: last.run, changed }
+  // The code that ran while its test file loaded: a constant of a
+  // module is such code, and the test reads its value.
+  const loaded = places(
+    db
+      .prepare(
+        `select file, hash, ranges from coverage
+         where test = '' and tfile in (select tfile from coverage where test = ?) order by file`,
+      )
+      .all(id) as Row[],
   )
-  return { run: last.run, changed }
+  return { run: last.run, changed, ...(loaded.length && { loaded }) }
 }
 
 /**

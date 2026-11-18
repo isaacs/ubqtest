@@ -10,10 +10,14 @@ has the API and the rules of ubq.
 1. **Record the old result.** Run the old test command. Write
    down the count of tests that pass, and each test that fails or
    is skipped. You compare with this at the end.
-2. **Install.** `npm install --save-dev ubqtest`. Then `npx ubq
+2. **Install.** `npm install --save-dev ubqtest`, or the same
+   command of the package manager that the project uses (`pnpm
+   add -D ubqtest`): do not make a second lockfile. Then `npx ubq
    doctor`, and do each `FIX` line. A `note` line needs no action.
    If the user permits it, commit these changes, so that `git
-   diff` in step 3 shows only the changes of the command.
+   diff` in step 3 shows only the changes of the command. If you
+   must not commit, go on: the diff then has the changes of this
+   step too.
 3. **Convert.** `npx ubq convert test` (give the folders and files
    that have tests). `--dry` shows the report and changes no file.
    The command changes the files in place. If `git status` is
@@ -120,6 +124,26 @@ names, do one of these:
   build step is a surprise to a maintainer. With Bun or a build,
   the tsconfig does not set `erasableSyntaxOnly`: with that
   option, the type checker reports the syntax in each run.
+  `ubq doctor` also says which of the files the tests import. If
+  the user changes only those, do not set `erasableSyntaxOnly`:
+  the other files still have the syntax.
+- If the user chooses to change a `const enum` or an `enum` to
+  an object, the change is in more than one file:
+
+  ```ts
+  export const Level = { Dirt: 0, Paved: 1 } as const
+  export type Level = (typeof Level)[keyof typeof Level]
+  ```
+
+  The type has the name of the object, so `level: Level` still
+  works. A member that is used as a type changes: `Level.Dirt`
+  becomes `typeof Level.Dirt`. A plain `number` is not a `Level`:
+  where the code made one from a number, add a check or a cast.
+  Run the type checker, and correct each place that it names.
+- If the old config has a time limit for each test (`testTimeout`
+  of vitest), `ubq convert` prints a note with the `"timeout"` key
+  to add. A test that takes more than its limit fails, also a
+  test that does not await.
 - Vite puts each value of its `define` in the source, such as
   `__DEBUG_BUILD__`. With ubq, the source throws `ReferenceError:
   __DEBUG_BUILD__ is not defined`. Give the values in the

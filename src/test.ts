@@ -378,6 +378,15 @@ const runOne = async (entry: Entry): Promise<void> => {
     } else state.failure ??= errorFailure(error)
   }
   clearTimeout(timer)
+  // A timer cannot stop a function that does not await. The limit
+  // is the same for it.
+  const took = Math.round(now() - t0)
+  if (!state.failure && took > entry.timeout)
+    state.failure = {
+      kind: 'timeout',
+      message: `the test ended after ${took} ms, and its time limit is ${entry.timeout} ms. If the test needs this time, give it a limit: test(name, { timeout: ms }, fn)`,
+      ...(entry.at && { at: entry.at }),
+    }
   if (!state.failure && state.unawaited.size)
     state.failure = {
       kind: 'not-awaited',

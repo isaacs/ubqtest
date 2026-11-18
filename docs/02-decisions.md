@@ -2317,3 +2317,52 @@ with the tests of this repository, on Node 20.19 to 26.5.
   tests use. A CI job for Node 22 needs those tests changed
   first. It is not done.
 
+## D101. Changes from the 0.0.18 conversion report (assistant, 2026-11-19)
+
+The user asked the assistant to see what can be done about the
+other items of `20-seldo-feedback-0.0.18.md`. Each choice here is
+an assumption of the assistant.
+
+- **The `since` line (item 3).** If no line that the test ran
+  changed, the line names the changed lines that ran while the
+  test file loaded: `no line that it runs changed. These lines
+  that ran while its file loaded changed: src/tuning.ts:663`. A
+  constant of a module is such a line. The `since` value of the
+  event has them in `loaded`. Only if none changed, the line
+  says that the cause is the data, the environment, or a flaky
+  test.
+- **The time limit of a test that does not await (item 4).** A
+  timer cannot stop such a test, and the watchdog stops it only
+  2000 ms after the limit. A test of 6.7 s passed with a limit
+  of 5 s. Now a test that ends after its limit fails, with its
+  time in the message. This can fail a slow test that passed
+  before: give it `{ timeout: ms }`, or set `"timeout"`.
+- **`testTimeout` of vitest (item 4).** `ubq convert` prints a
+  note with the `"timeout"` key to add. It does not write the key.
+- **Doctor and syntax that Node cannot run (item 7).** The FIX
+  line says which of the files the tests import. It reads the
+  relative imports as text, from each test file. It does not read
+  path aliases of a tsconfig.
+- **Smaller items (item 8).**
+  - The new import of `ubq convert` has the semicolon and the
+    quotes of the import that it replaces.
+  - A store command with a word that starts with `--` and is not
+    its option fails with `unknown option of ubq <command>`.
+  - `ubq slow` with no number shows the last run of all tests.
+  - The convert guide names the package manager of the project,
+    and says what to do if a commit is not permitted.
+- **Config files are build tools (item 10).** With no `build`
+  key, `*.config.ts` and `*.config.js` files are build tools, as
+  `dist/` and `scripts/` are.
+
+**Not done.**
+
+- A conversion mode of `ubq review` (item 9). The cause in the
+  report, the precision of `toBeCloseTo`, is corrected (D99).
+- `ubq check` and a changed file that no test can load, such as
+  the entry of a browser worker (item 10). To exempt a change of
+  only types, the command must compare the JavaScript of two
+  versions of the file. A decision for the user.
+- The values of `assert(a >= b)` in a failure (item 5).
+  `greaterThan` and `lessThan` show them (D99).
+

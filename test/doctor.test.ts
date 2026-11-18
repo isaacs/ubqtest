@@ -91,6 +91,16 @@ test('doctor states the fix for each problem of the setup', () => {
     doctor().lines[2]!,
     /^FIX  6 files have TypeScript syntax that Node cannot run \(enum, namespace, or a parameter property\): src\/h2\.ts, src\/h3\.ts, src\/h4\.ts, src\/h5\.ts, src\/h6\.ts, and 1 more\. /,
   )
+  // The files with such syntax that a test imports, also through a
+  // file with no such syntax.
+  writeFileSync(join(p.dir, 'src/mid.ts'), "export * from './h2.js'\nexport * from './h3'\n")
+  writeFileSync(join(p.dir, 'uses.test.ts'), "import './src/mid.ts'\n")
+  assert.match(
+    doctor().lines.find(line => line.includes('files have TypeScript syntax'))!,
+    /and 1 more\. The tests import 2 of them: src\/h2\.ts, src\/h3\.ts\. No test imports the others now\. Node runs only/,
+  )
+  rmSync(join(p.dir, 'uses.test.ts'))
+  rmSync(join(p.dir, 'src/mid.ts'))
   for (const file of hard) rmSync(join(p.dir, file))
   rmSync(join(p.dir, 'src/types.d.ts'))
   writeFileSync(join(p.dir, 'tsconfig.json'), full)

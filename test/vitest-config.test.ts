@@ -181,4 +181,12 @@ test('the define values of the vite and vitest configs', () => {
       'vite.config.ts has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.',
     ],
   })
+  // The time limit of the old config.
+  writeFileSync(join(dir, 'vite.config.ts'), 'export default { test: { testTimeout: 60000 } }')
+  assert.deepEqual(viteDefine(dir, parse, children), {
+    define: {},
+    notes: [
+      'vite.config.ts has testTimeout: 60000. The time limit of a test in ubq is 5000 ms. To keep the limit of the old config, add to "ubq" in package.json: "timeout": 60000',
+    ],
+  })
 })

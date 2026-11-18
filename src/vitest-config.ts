@@ -178,6 +178,7 @@ export const viteDefine = (
     }
     let spread = false
     let plugins = false
+    let limit: unknown
     const walk = (node: Node): void => {
       if (node.type === 'SpreadElement' && (node.argument as Node).type === 'Identifier') spread = true
       const list = node.type === 'ObjectExpression' ? get(node, 'plugins') : undefined
@@ -185,6 +186,8 @@ export const viteDefine = (
       const known = (e: Node | null): boolean =>
         e?.type === 'CallExpression' && (e.callee as Node & { name?: string }).name === 'cloudflareTest'
       if (list && !(list.type === 'ArrayExpression' && (list.elements as (Node | null)[]).every(known))) plugins = true
+      const timeout = node.type === 'ObjectExpression' ? get(node, 'testTimeout') : undefined
+      if (timeout?.type === 'Literal' && typeof timeout.value === 'number') limit = timeout.value
       const values = node.type === 'ObjectExpression' ? get(node, 'define') : undefined
       if (values?.type === 'ObjectExpression') {
         found = true
@@ -219,6 +222,10 @@ export const viteDefine = (
     if (plugins)
       notes.push(
         `${file} has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.`,
+      )
+    if (limit !== undefined)
+      notes.push(
+        `${file} has testTimeout: ${limit}. The time limit of a test in ubq is 5000 ms. To keep the limit of the old config, add to "ubq" in package.json: "timeout": ${limit}`,
       )
     if (spread && !found)
       notes.push(

@@ -121,7 +121,9 @@ earlier stored run. It names the lines that the test ran in that
 run and that are different now: the change that most likely broke
 it. A place can be `src/a.ts:12 (lines removed)` or `src/a.ts
 (removed)`. A test that fails again keeps the line of its first
-failure. If no code that the test runs changed, the line says so:
+failure. If no line that the test runs changed, the line names
+the changed lines that ran while its test file loaded, such as a
+constant of a module. If none of those changed, the line says so:
 then the cause is outside the code, such as a data file, a
 snapshot, the environment, the time, or the order of the tests.
 `ubq --repeat 10 '<test id>'` tells if the test is flaky.
@@ -161,7 +163,7 @@ of the run. The summary is on the page of the run, above the logs.
 - A test that changes `process.env` or the working directory and
   does not put the change back fails. Use `env()` and `cleanup()`.
 - A test that takes more than its time limit fails (default 5000
-  ms). The message lists what the test left open. Then ubq runs
+  ms), also a test that does not await: it fails when it ends. The message lists what the test left open. Then ubq runs
   that test one more time, and a `HANG` block names the line that
   opened each thing: `Timeout opened at test/a.test.ts:18:32`.
 - Two tests with the same name in one group are an error.
@@ -400,7 +402,7 @@ ubq failures [run]        the failures of a run again (default: the last run)
 ubq show '<test id>'      the last result of a test, with its console output
 ubq history '<test id>'   the result of a test in each stored run. Says if the test is flaky.
 ubq diff [run] [run]      the tests whose status differs in two runs
-ubq slow [run]            the slowest tests
+ubq slow [run]            the slowest tests of the last run of all tests, or of a run
 ubq uncovered [file]      code that no test ran, in each file that a test loaded. Not test files, and not test helpers. Exit code 1 if it lists code.
 ubq uncovered --diff      code that no test ran, in the lines that you changed (from the last git commit)
 ubq merge <store>...      adds the coverage of other stores: a project folder, a .ubq folder, or a runs.db file
@@ -807,7 +809,8 @@ that folder. At the root of a monorepo with no tests of its own,
 
 Build output and build tools are not source of the program. `ubq
 uncovered` does not list them. With no `build` key, they are the
-files in `dist/` and `scripts/` of the project. The key replaces
+files in `dist/` and `scripts/` of the project, and each config
+file of a tool (`*.config.ts`, `*.config.js`). The key replaces
 that rule: `"build": ["out/**", "tools/**"]`. An empty list means
 that each file is source. If a test loads a built file that has a
 source map, the coverage is coverage of the source files that the
@@ -856,7 +859,10 @@ step, so the code must use only syntax that can be erased: no
 `"noEmit": true`, and `"erasableSyntaxOnly": true`. If the project
 builds JavaScript from that tsconfig (for example with tshy), set
 `"rewriteRelativeImportExtensions": true` in place of `"noEmit"`.
-It needs TypeScript 5.7 or later.
+It needs TypeScript 5.7 or later. Do not set
+`"erasableSyntaxOnly"` if source files that no test loads keep
+such syntax: the type checker then reports them in each run.
+`ubq doctor` asks for the option only if no file has the syntax.
 
 If the source of a project has syntax that cannot be erased,
 `ubq doctor` names the files. Ask the person who owns the project

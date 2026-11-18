@@ -410,6 +410,11 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - From the 0.0.18 conversion report (D101): the `since` line
+    names changed lines that ran while the file loaded, a test
+    that does not await fails if it ends after its limit,
+    `ubq slow` shows the last run of all tests, and config files
+    are build tools.
   - ubq runs on Node 22.18 or later, with two workarounds for
     faults of Node, and `ubq doctor` tests the functions that it
     needs (D100).

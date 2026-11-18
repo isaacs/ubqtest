@@ -2107,10 +2107,16 @@ export const convertSource = (
 
   // --- The import of ubqtest, in place of the old imports ---
   const names = [...used].sort().join(', ')
+  // The new line has the form of the line that it replaces, or of
+  // the first import of the file: a `;`, and the quotes.
+  const like = removed[0] ?? (program.body as Node[]).find(node => node.type === 'ImportDeclaration')
+  const semi = like && text(like).endsWith(';') ? ';' : ''
+  const quote = like && /"[^'"]*"\)?;?$/.test(text(like)) ? '"' : "'"
   const line = names
-    ? commonJs
-      ? `const { ${names} } = require('ubqtest')`
-      : `import { ${names} } from 'ubqtest'`
+    ? (commonJs ? `const { ${names} } = require('ubqtest')` : `import { ${names} } from 'ubqtest'`).replaceAll(
+        "'",
+        quote,
+      ) + semi
     : ''
   /** `;` if code is after a statement on its line: the new text must not join that code. */
   const before = (node: Node): string => {
@@ -2118,7 +2124,8 @@ export const convertSource = (
     return source.slice(node.end, end < 0 ? source.length : end).trim() ? ';' : ''
   }
   removed.forEach((node, i) => {
-    if (i === 0 && line) replace(node.start, node.end, line + before(node))
+    const join = before(node)
+    if (i === 0 && line) replace(node.start, node.end, line + (semi ? '' : join))
     else replace(node.start, source[node.end] === '\n' ? node.end + 1 : node.end, '')
   })
   if (!removed.length && line) {

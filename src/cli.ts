@@ -24,6 +24,7 @@ import {
   incomplete,
   lastFileError,
   lastResult,
+  lastFullRun,
   lastRun,
   outputOf,
   runCounts,
@@ -80,7 +81,7 @@ const USAGE = `usage:
   ubq show <test id>         the last result of one test
   ubq history <test id>      the result of one test in each stored run
   ubq diff [run] [run]       the tests with a different status in two runs (default: the last run and the run before it)
-  ubq slow [run]             the slowest tests of a run (default: the last run)
+  ubq slow [run]             the slowest tests of a run (default: the last run of all tests)
   ubq uncovered [file]       code that no test ran
   ubq merge <store>...       adds the coverage of other stores (a project folder, a .ubq folder, or a runs.db file), such as the stores of CI jobs on other systems
   ubq uncovered --diff       code that no test ran, in the lines that differ from the last git commit (--diff=<commit>: from that commit)
@@ -259,6 +260,9 @@ const main = async (args: string[]): Promise<number> => {
   if (command === 'check') return (await import('./check.ts')).check(rest, out)
   if (command === 'review') return (await import('./review.ts')).reviewCommand(rest, out)
   if (!command || !QUERIES.includes(command)) return run(args)
+  // A word that starts with `--` is not a file or a test.
+  const option = command === 'sql' ? undefined : rest.find(a => a.startsWith('--') && !/^--diff(=|$)/.test(a))
+  if (option) throw new UsageError(`unknown option of ubq ${command}: ${option}`)
   if (!existsSync(join(projectRoot(), '.ubq', 'runs.db'))) throw new UsageError('no run. Run: ubq')
   const { db } = openStore()
   const arg = (name: string): string => {
@@ -436,7 +440,9 @@ const main = async (args: string[]): Promise<number> => {
 
     case 'slow': {
       const SHOWN = 10
-      const run = rest[0] ? +rest[0] : lastRun(db)
+      // A run of one file has few tests. The last run of all tests
+      // answers the question for the project.
+      const run = rest[0] ? +rest[0] : (lastFullRun(db) ?? lastRun(db))
       if (run === undefined || !runRow(db, run)) throw new UsageError(`run ${rest[0] ?? '(last)'} is not in the store`)
       const tests = slowest(db, run)
       for (const t of tests.slice(0, SHOWN)) out(`${t.ms.toFixed(1).padStart(8)} ms  ${t.id}`)

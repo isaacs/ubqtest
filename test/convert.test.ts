@@ -1961,6 +1961,26 @@ describe.each([['a'], ['b']])('group %s', s => {
   )
 })
 
+test('the new import has the semicolon and the quotes of the import that it replaces', () => {
+  assert.deepEqual(
+    convert(
+      'import { it, expect } from "vitest";\nimport { f } from "./f.ts";\nit("a", () => {\n  expect(f()).toBe(1);\n});\n',
+    )?.code,
+    [
+      'import { assert, test } from "ubqtest";',
+      'import { f } from "./f.ts";',
+      'test("a", () => {',
+      '  assert.equal(f(), 1);',
+      '});',
+    ],
+  )
+  // jest has no import. The first import of the file is the model.
+  assert.equal(
+    convert('import { f } from "./f.ts";\nit("a", () => {\n  expect(f()).toBe(1);\n});\n')?.code[0],
+    'import { assert, test } from "ubqtest";',
+  )
+})
+
 test('ava: tests, modifiers, hooks, assertions, throws, and the context', () => {
   const r = convert(
     `import anyTest, { type TestFn } from 'ava'

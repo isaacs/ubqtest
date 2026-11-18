@@ -243,9 +243,40 @@ export const doctor = (out: (text: string) => void): number => {
     }
     process.emitWarning = emitWarning
   }
+  // The files that the tests import, by the text of each import
+  // with a relative path. A question about a file that no test
+  // loads is not necessary.
+  const loaded = new Set(tests)
+  if (hard.length)
+    for (const file of loaded) {
+      let text = ''
+      try {
+        text = readFileSync(join(root, file), 'utf8')
+      } catch {
+        // ubq: not measured: the list has only files that exist
+      }
+      for (const m of text.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(\.{1,2}\/[^'"]*)\1/g)) {
+        const path = relative(root, resolve(root, dirname(file), m[2]!))
+          .split('\\')
+          .join('/')
+        const base = path.replace(/\.[cm]?js$/, '')
+        const found = [
+          path,
+          ...['.ts', '.tsx', '.mts', '.cts', '/index.ts'].flatMap(end => [base + end, path + end]),
+        ].find(name => code.includes(name))
+        if (found) loaded.add(found)
+      }
+    }
+  const reached = hard.filter(file => loaded.has(file))
+  const some = (files: string[]): string =>
+    `${files.slice(0, 5).join(', ')}${files.length > 5 ? `, and ${files.length - 5} more` : ''}`
+  const which =
+    reached.length && reached.length < hard.length
+      ? ` The tests import ${reached.length} of them: ${some(reached)}. No test imports the others now.`
+      : ''
   if (hard.length)
     fix(
-      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${hard.slice(0, 5).join(', ')}${hard.length > 5 ? `, and ${hard.length - 5} more` : ''}. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
+      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${some(hard)}.${which} Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
     )
 
   // The type check reads the tsconfig.json of each folder from a

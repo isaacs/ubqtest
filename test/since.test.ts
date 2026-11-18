@@ -169,3 +169,18 @@ test('no line for a failure with no pass before it, or with no stored coverage',
   assert.match(r.out, /^fail: 3 failed, 1 passed/m)
   assert(!r.out.includes('since run'))
 })
+
+test('a constant of a module that changed: the line ran while the test file loaded', () => {
+  const p = setup()
+  writeFileSync(p.file('lib/tuning.ts'), 'export const T = {\n  bonus: 0.15,\n}\n')
+  writeFileSync(
+    p.file('test/tuning.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { T } from '../lib/tuning.ts'\ntest('bonus', () => assert.equal(T.bonus, 0.15))\n",
+  )
+  assert.equal(p.ubq().code, 0)
+  writeFileSync(p.file('lib/tuning.ts'), 'export const T = {\n  bonus: 0.16,\n}\n')
+  assert.match(
+    p.ubq().out,
+    /^ {2}since run 1, where it passed, no line that it runs changed\. These lines that ran while its file loaded changed: lib\/tuning\.ts:2$/m,
+  )
+})

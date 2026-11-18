@@ -35,10 +35,15 @@ const indent = (text: string): string => '  ' + text.replaceAll('\n', '\n  ')
 const SINCE = 5
 
 /** The line of a failure block that says what changed after the last pass of the test (D69). */
-export const sinceLine = (s: Since, id: TestId): string =>
-  s.changed.length
-    ? `since run ${s.run}, where it passed, these lines that it runs changed: ${s.changed.slice(0, SINCE).join(', ')}${s.changed.length > SINCE ? `, and ${s.changed.length - SINCE} more` : ''}`
-    : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 '${id}'`
+export const sinceLine = (s: Since, id: TestId): string => {
+  const places = (list: string[]): string =>
+    `${list.slice(0, SINCE).join(', ')}${list.length > SINCE ? `, and ${list.length - SINCE} more` : ''}`
+  return s.changed.length
+    ? `since run ${s.run}, where it passed, these lines that it runs changed: ${places(s.changed)}`
+    : s.loaded
+      ? `since run ${s.run}, where it passed, no line that it runs changed. These lines that ran while its file loaded changed: ${places(s.loaded)}`
+      : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 '${id}'`
+}
 
 /**
  * A sink that writes compact text with `write`. With `all`, it

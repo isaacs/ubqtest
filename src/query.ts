@@ -328,6 +328,12 @@ const testRow = (r: Record<string, unknown>): TestRow =>
 export const lastRun = (db: DatabaseSync): number | undefined =>
   (db.prepare('select max(id) id from run').get() as { id: number | null }).id ?? undefined
 
+/** The last run of all tests: its command names no file, no test, and no selection. */
+export const lastFullRun = (db: DatabaseSync): number | undefined =>
+  (db.prepare('select id, command from run order by id desc').all() as { id: number; command: string }[]).find(run =>
+    (JSON.parse(run.command) as string[]).slice(1).every(arg => /^(--seed|--max-time|--update|\d+)$/.test(arg)),
+  )?.id
+
 /**
  * The variables of the environment of a run that differ from the
  * run before it, as one line. Undefined if none differ, or if no

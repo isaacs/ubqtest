@@ -143,9 +143,9 @@ export const isHelper = (file: string): boolean =>
 /**
  * With no `build` key: the common names for build output and for
  * the scripts of a project, the folders `dist` and `scripts` at the
- * root.
+ * root, and the config file of a tool, such as `vite.config.ts`.
  */
-const BUILD = /^(dist|scripts)\//
+const BUILD = /^(dist|scripts)\/|(^|\/)[^/]+\.config\.[cm]?[jt]s$/
 
 /**
  * True for a file that is not source of the program: the output of
