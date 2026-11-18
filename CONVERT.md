@@ -137,6 +137,12 @@ names, do one of these:
   for an `enum`, and for a parameter property in a test file.
   Change these in the test file: this is not the source of the
   project.
+- The type check of ubq reads the `tsconfig.json` of each folder
+  from a test file up to the project root, and no other file
+  name. If the project has the options of its tests in a file
+  such as `tsconfig.test.json`, `ubq doctor` gives the
+  `test/tsconfig.json` to add. Do not add the test files to the
+  `tsconfig.json` of the source.
 - In a package with no `"type": "module"`, Node prints the
   warning `MODULE_TYPELESS_PACKAGE_JSON` for each test file. The
   tests run. Do not add `"type": "module"` to stop the warning:

@@ -4,7 +4,7 @@ import { existsSync, globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 // Not a named import: Bun does not have the function that removes types.
 import * as nodeModule from 'node:module'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, matchesGlob, relative, resolve } from 'node:path'
 import { type Config, config, isBuild } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError } from './runner.ts'
@@ -48,6 +48,32 @@ const tsBase = (base: string, dir: string): string => {
   } catch {
     return require.resolve(`${base}.json`)
   }
+}
+
+/**
+ * False if the tsconfig file names its files, and the test file is
+ * not one of them. True if this check cannot know: a config that
+ * does not parse, one with `references`, or one that gets its list
+ * from a base config.
+ */
+const tsIncludes = (config: string, file: string): boolean => {
+  let json: { include?: string[]; files?: string[]; exclude?: string[]; extends?: unknown; references?: unknown }
+  try {
+    json = JSON.parse(plainJson(readFileSync(config, 'utf8')))
+  } catch {
+    return true
+  }
+  if (json.references || (json.extends && !json.include && !json.files)) return true
+  const path = relative(dirname(config), file).split('\\').join('/')
+  // A name with no pattern is a file or a folder.
+  const match = (globs: string[]): boolean =>
+    globs.some(glob => {
+      const name = glob.replace(/^\.\//, '').replace(/\/$/, '')
+      return name === '.' || name === '' || matchesGlob(path, name) || matchesGlob(path, `${name}/**`)
+    })
+  if (json.exclude && match(json.exclude)) return false
+  if (json.files?.some(name => name.replace(/^\.\//, '') === path)) return true
+  return json.include ? match(json.include) : !json.files
 }
 
 /** Prints one line for each check. Returns the count of problems. */
@@ -219,8 +245,45 @@ export const doctor = (out: (text: string) => void): number => {
       `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${hard.slice(0, 5).join(', ')}${hard.length > 5 ? `, and ${hard.length - 5} more` : ''}. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
     )
 
-  const tsconfig = join(root, 'tsconfig.json')
-  if (existsSync(tsconfig)) {
+  // The type check reads the tsconfig.json of each folder from a
+  // test file up to the root. The options must be in a config
+  // that has the test files.
+  const configs = new Set<string>()
+  const bare: string[] = []
+  for (const file of tests.filter(file => /\.[cm]?tsx?$/.test(file))) {
+    let found: string | undefined
+    for (let dir = dirname(join(root, file)); !found; dir = dirname(dir)) {
+      const config = join(dir, 'tsconfig.json')
+      if (existsSync(config) && tsIncludes(config, join(root, file))) found = config
+      if (dir === root) break
+    }
+    if (found) configs.add(found)
+    else bare.push(file)
+  }
+  const main = join(root, 'tsconfig.json')
+  if (bare.length && existsSync(main)) {
+    const folder = bare[0]!.includes('/') ? bare[0]!.slice(0, bare[0]!.indexOf('/')) : undefined
+    const base =
+      existsSync(join(root, 'tsconfig.test.json')) && tsIncludes(join(root, 'tsconfig.test.json'), join(root, bare[0]!))
+    const made = base
+      ? { extends: '../tsconfig.test.json' }
+      : {
+          extends: '../tsconfig.json',
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+            ...(!v.bun && !hard.length && { erasableSyntaxOnly: true }),
+          },
+          include: ['.'],
+        }
+    fix(
+      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
+    )
+  }
+  // With no TypeScript test file, the config of the project.
+  if (!configs.size && !bare.length && existsSync(main)) configs.add(main)
+  for (const tsconfig of configs) {
+    const name = relative(root, tsconfig).split('\\').join('/')
     let options: Record<string, unknown> | undefined
     try {
       options = tsOptions(tsconfig)
@@ -246,9 +309,9 @@ export const doctor = (out: (text: string) => void): number => {
       ).filter(key => options[key] !== true)
       if (missing.length)
         fix(
-          `tsconfig.json: set ${new Intl.ListFormat('en').format(missing.map(key => `"${key}": true`))} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
+          `${name}: set ${new Intl.ListFormat('en').format(missing.map(key => `"${key}": true`))} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
         )
-      else ok('tsconfig.json')
+      else ok(name)
     }
   }
 

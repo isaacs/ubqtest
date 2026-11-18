@@ -2130,3 +2130,25 @@ is not defined`. Two of eight agents made a jsdom window by hand.
   test, and they are gone in the next test.
 - A test of real browser behavior belongs in the browser tests.
   The guide says so.
+
+## D94. The tests are in a `tsconfig.json`, with no new key (user, 2026-11-17)
+
+Q34. Sentry has the options of its tests in `tsconfig.test.json`,
+and `tsconfig.json` includes only `src`. `ubq doctor` asked for
+options in the config of the source.
+
+- No `"tsconfig"` key, and no second file name. The type check
+  reads the `tsconfig.json` of each folder from a test file up to
+  the root.
+- `ubq doctor` finds, for each TypeScript test file, the nearest
+  `tsconfig.json` that includes it. It checks the options of
+  those files, and names each one.
+- If no `tsconfig.json` includes a test file, the FIX line gives
+  the file to add in the test folder. It extends
+  `tsconfig.test.json` if that file has the tests, and
+  `tsconfig.json` with the options and `"include": ["."]` if
+  not.
+- The check reads `include`, `files`, and `exclude` of the file
+  itself. For a config with `references`, or one that gets its
+  list from a base config, it does not know, and it reports no
+  problem.

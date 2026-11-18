@@ -409,6 +409,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `ubq doctor` checks the options in the `tsconfig.json` that
+    has the test files, and gives the file to add if none has
+    them (D94).
   - `CONVERT.md` has the form for a test that needs jsdom (D93).
   - A failed `assert(value)` shows the values of the
     `isDeepEqual` calls before it (D91).

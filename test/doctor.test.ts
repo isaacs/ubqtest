@@ -324,3 +324,74 @@ for (const [cmd, name, ...args] of [
       assert.match(first, new RegExp(`^ok   ${name} \\d+\\.\\d+`))
     },
   )
+
+test('doctor: the tsconfig.json that has the test files', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const lines = (): string[] =>
+    p
+      .ubq('doctor')
+      .out.split('\n')
+      .filter(line => /tsconfig/.test(line))
+  mkdirSync(join(p.dir, 'test/deep'), { recursive: true })
+  const source = "import { assert, test } from 'ubqtest'\ntest('a', () => assert(true))\n"
+  for (const file of ['test/a.test.ts', 'test/deep/b.test.ts', 'test/c.test.js'])
+    writeFileSync(join(p.dir, file), source)
+  p.configure({ include: ['test/**/*.test.*'] })
+  const options =
+    '"compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true, "erasableSyntaxOnly": true }'
+  // The config of the source does not have the test files.
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "compilerOptions": { "noEmit": true }, "include": ["src"] }')
+  const start =
+    'FIX  2 test files are in no tsconfig.json: test/a.test.ts, test/deep/b.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. Add test/tsconfig.json: '
+  const end = '. Do not add the test files to the tsconfig.json of the source.'
+  assert.deepEqual(lines(), [
+    `${start}{"extends":"../tsconfig.json","compilerOptions":{"noEmit":true,"allowImportingTsExtensions":true,"erasableSyntaxOnly":true},"include":["."]}${end}`,
+  ])
+  // A config for the tests with a different name.
+  writeFileSync(join(p.dir, 'tsconfig.test.json'), `{ ${options}, "include": ["test/**/*"] }`)
+  assert.deepEqual(lines(), [`${start}{"extends":"../tsconfig.test.json"}${end}`])
+  // The options are checked in the config that has the tests.
+  writeFileSync(join(p.dir, 'test/tsconfig.json'), '{ "extends": "../tsconfig.test.json" }')
+  assert.deepEqual(lines(), ['ok   test/tsconfig.json'])
+  writeFileSync(
+    join(p.dir, 'test/tsconfig.json'),
+    '{ "compilerOptions": { "noEmit": true }, "include": ["."], "exclude": ["deep"] }',
+  )
+  assert.match(
+    lines().join('\n'),
+    /^FIX  1 test files are in no tsconfig\.json: test\/deep\/b\.test\.ts\..*\nFIX  test\/tsconfig\.json: set "allowImportingTsExtensions": true and "erasableSyntaxOnly": true in compilerOptions\./,
+  )
+  rmSync(join(p.dir, 'test/tsconfig.json'))
+  // A list of files, a folder with a pattern, and a config with references.
+  for (const [config, fine] of [
+    ['"files": ["./test/a.test.ts", "test/deep/b.test.ts"]', true],
+    ['"files": ["src/a.ts"]', false],
+    ['"include": ["test/**/*.ts"]', true],
+    ['"include": ["./test/"]', true],
+    ['"include": ["test/*/*.js"]', false],
+    ['"include": ["."], "exclude": ["test"]', false],
+    ['"files": [], "references": [{ "path": "./src" }]', true],
+  ] as const) {
+    writeFileSync(join(p.dir, 'tsconfig.json'), `{ ${options}, ${config} }`)
+    assert.deepEqual(
+      lines().map(line => line.slice(0, 4)),
+      [fine ? 'ok  ' : 'FIX '],
+      config,
+    )
+  }
+  // Test files at the root of the project.
+  writeFileSync(join(p.dir, 'root.test.ts'), source)
+  p.configure({ include: ['root.test.ts'] })
+  writeFileSync(join(p.dir, 'tsconfig.json'), `{ ${options}, "include": ["src"] }`)
+  assert.deepEqual(lines(), [
+    'FIX  1 test files are in no tsconfig.json: root.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. Add them to "include" of tsconfig.json.',
+  ])
+  // More files than the line names.
+  for (const n of [1, 2, 3, 4, 5]) writeFileSync(join(p.dir, `test/n${n}.test.ts`), source)
+  p.configure({ include: ['test/**/*.test.ts'] })
+  assert.match(lines()[0]!, /^FIX  7 test files are in no tsconfig\.json: test\/a\.test\.ts, .*, and 2 more\. /)
+  // With no TypeScript test file, the config of the project.
+  p.configure({ include: ['test/c.test.js'] })
+  assert.deepEqual(lines(), ['ok   tsconfig.json'])
+})
