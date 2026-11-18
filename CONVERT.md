@@ -533,6 +533,17 @@ to `test(name, { timeout: ms }, fn)`.
 
 ubq has no `beforeEach`, `afterEach`, `beforeAll`, or `afterAll`.
 
+`ubq convert` makes the setup function for a `beforeEach` and an
+`afterEach` that assign no variable from outside: `const setup =
+() => {...}`, with `cleanup(teardown)` for the `afterEach`. It
+puts `setup()` at the start of each test of the file or of the
+`describe`, and the setup of a `describe` calls the setup of the
+group around it. It makes this change only where it knows each
+test of the group. Each other hook gets a TODO: a hook that
+assigns a variable (`client = makeClient()`), two hooks of one
+kind in a group, a hook after a test, or a group that calls a
+function that can make tests. Do those by hand:
+
 - **Setup for each test.** Make a function that does the setup
   and returns what the test needs. Call it in each test.
 

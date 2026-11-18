@@ -2055,3 +2055,33 @@ of eight agents hit the type error.
   returns the value: `const value: unknown = await
   assert.rejects(p, /full/)`, then `assert.equal(value, FULL)`. This is an assumption of the agent: the user
   agreed to the other parts, and did not answer this part.
+
+## D90. `ubq convert` makes a setup function from the certain hooks (user, 2026-11-17)
+
+Q30. D84 kept the TODO for each hook. The agents then wrote about
+500 `setup()` calls by hand. This decision changes that part of
+D84.
+
+- A scope is the file, or the function of a `describe`. For a
+  scope, the command makes `const setup = () => {...}` from the
+  `beforeEach`, and `const teardown = () => {...}` from the
+  `afterEach`, with `cleanup(teardown)` at the start of the
+  setup. It puts `setup()` at the start of each test of the scope.
+  A setup in a `describe` calls the setup of the scope around it
+  first. An `async` hook makes `await setup()`, and each test
+  `async`.
+- Only where the change is certain:
+  - The scope has one hook of each kind at most, and they are
+    before its tests.
+  - The hook is a function with a block and no parameters. It
+    assigns no variable from outside, and has no `return` and no
+    `this`.
+  - Each statement of the scope that is a call is a test, a
+    `describe`, a hook, or a call of `vi`. A different call can
+    make tests that the command does not see.
+- Each other hook keeps the TODO. A hook that assigns an outer
+  variable is a group of tests that share state, and the agent
+  must look at that design.
+- Not for tap: a hook of tap runs for each subtest too.
+- In the sentry corpus, 81 hook TODOs stay. The baseline before
+  D84 had 211.

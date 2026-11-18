@@ -531,6 +531,283 @@ it('a', async () => {
   ])
 })
 
+const HOOK =
+  'ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.'
+
+test('vitest: hooks that assign no outer variable become a setup function', () => {
+  const r = convert(`import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+describe('a', () => {
+  beforeEach(async () => {
+    const made = 1
+    list.length = 0
+    await start(made)
+  })
+  afterEach(() => {
+    stop()
+  })
+  it('one', () => {
+    expect(1).toBe(1)
+  })
+  it('empty', async () => {})
+  it.todo('later')
+  describe('inner', () => {
+    afterEach(async () => {
+      await done()
+    })
+    for (const x of [1, 2]) {
+      it('n' + x, () => {
+        expect(x).toBe(x)
+      })
+    }
+  })
+  describe('plain', () => {
+    it('two', () => {
+      expect(2).toBe(2)
+    })
+  })
+})
+describe('assigns', () => {
+  let client
+  beforeEach(() => {
+    client = make()
+  })
+  it('three', () => {
+    expect(client).toBe(1)
+  })
+})
+describe('a call that can make tests', () => {
+  beforeEach(() => {
+    reset()
+  })
+  shared()
+  it('four', () => {})
+})
+describe('two hooks of one kind', () => {
+  beforeEach(() => {
+    a()
+  })
+  beforeEach(() => {
+    b()
+  })
+  it('five', () => {})
+})
+describe('other forms', () => {
+  beforeEach(() => reset())
+  it('six', () => {})
+  describe('a return, a parameter, a time limit, and this', () => {
+    beforeEach(() => {
+      return reset()
+    })
+    it('seven', () => {})
+  })
+  describe('a hook after a test', () => {
+    it('eight', () => {})
+    beforeEach(() => {
+      reset()
+    })
+  })
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, cleanup, describe, test } from 'ubqtest'",
+    "describe('a', () => {",
+    '  const setup = async () => {',
+    '    cleanup(teardown)',
+    '    const made = 1',
+    '    list.length = 0',
+    '    await start(made)',
+    '  }',
+    '  const teardown = () => {',
+    '    stop()',
+    '  }',
+    "  test('one', async () => {",
+    '    await setup()',
+    '    assert.equal(1, 1)',
+    '  })',
+    "  test('empty', async () => { await setup() })",
+    "  test('later', { skip: 'todo' }, () => {})",
+    "  describe('inner', () => {",
+    '    const setup2 = async () => {',
+    '      await setup()',
+    '      cleanup(async () => {',
+    '      await done()',
+    '    })',
+    '    }',
+    '    for (const x of [1, 2]) {',
+    "      test('n' + x, async () => {",
+    '        await setup2()',
+    '        assert.equal(x, x)',
+    '      })',
+    '    }',
+    '  })',
+    "  describe('plain', () => {",
+    "    test('two', async () => {",
+    '      await setup()',
+    '      assert.equal(2, 2)',
+    '    })',
+    '  })',
+    '})',
+    "describe('assigns', () => {",
+    '  let client',
+    ...todo(HOOK, '  '),
+    '  beforeEach(() => {',
+    '    client = make()',
+    '  })',
+    "  test('three', () => {",
+    '    assert.equal(client, 1)',
+    '  })',
+    '})',
+    "describe('a call that can make tests', () => {",
+    ...todo(HOOK, '  '),
+    '  beforeEach(() => {',
+    '    reset()',
+    '  })',
+    '  shared()',
+    "  test('four', () => {})",
+    '})',
+    "describe('two hooks of one kind', () => {",
+    ...todo(HOOK, '  '),
+    '  beforeEach(() => {',
+    '    a()',
+    '  })',
+    ...todo(HOOK, '  '),
+    '  beforeEach(() => {',
+    '    b()',
+    '  })',
+    "  test('five', () => {})",
+    '})',
+    "describe('other forms', () => {",
+    ...todo(HOOK, '  '),
+    '  beforeEach(() => reset())',
+    "  test('six', () => {})",
+    "  describe('a return, a parameter, a time limit, and this', () => {",
+    ...todo(HOOK, '    '),
+    '    beforeEach(() => {',
+    '      return reset()',
+    '    })',
+    "    test('seven', () => {})",
+    '  })',
+    "  describe('a hook after a test', () => {",
+    "    test('eight', () => {})",
+    ...todo(HOOK, '    '),
+    '    beforeEach(() => {',
+    '      reset()',
+    '    })',
+    '  })',
+    '})',
+  ])
+  for (const hook of [
+    'beforeEach(ctx => {\n  reset(ctx)\n})',
+    'beforeEach(() => {\n  reset()\n}, 1000)',
+    'beforeEach(function () {\n  this.x = 1\n})',
+    'beforeEach(() => {\n  count++\n})',
+    'beforeEach(() => {\n  ;[a, b] = pair()\n})',
+    'beforeEach(reset)',
+  ]) {
+    const kept = convert(
+      `import { beforeEach, expect, it } from 'vitest'\n${hook}\nit('a', () => {\n  expect(1).toBe(1)\n})\n`,
+    )
+    assert.deepEqual(kept?.code.slice(1 + todo(HOOK).length, -3), hook.split('\n'), hook)
+  }
+})
+
+test('vitest: hooks with tests in an if, and a group with a try', () => {
+  const r = convert(`import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+afterEach(() => {})
+if (fast) {
+  it('a', () => {
+    expect(1).toBe(1)
+  })
+} else await it('b', () => {})
+describe('group', () => {
+  beforeEach(() => {
+    reset()
+  })
+  try {
+    it('c', () => {})
+  } catch {}
+})
+`)
+  assert.deepEqual(r?.code, [
+    "import { assert, describe, test } from 'ubqtest'",
+    ...todo(HOOK),
+    'afterEach(() => {})',
+    'if (fast) {',
+    "  test('a', () => {",
+    '    assert.equal(1, 1)',
+    '  })',
+    "} else await test('b', () => {})",
+    "describe('group', () => {",
+    ...todo(HOOK, '  '),
+    '  beforeEach(() => {',
+    '    reset()',
+    '  })',
+    '  try {',
+    "    test('c', () => {})",
+    '  } catch {}',
+    '})',
+  ])
+  const done = convert(`import { afterEach, expect, it } from 'vitest'
+afterEach(() => {})
+if (fast) {
+  it('a', () => {
+    expect(1).toBe(1)
+  })
+} else await it('b', () => {})
+`)
+  assert.deepEqual(done?.code, [
+    "import { assert, cleanup, test } from 'ubqtest'",
+    'const setup = () => {',
+    '  cleanup(() => {})',
+    '}',
+    'if (fast) {',
+    "  test('a', () => {",
+    '    setup()',
+    '    assert.equal(1, 1)',
+    '  })',
+    "} else await test('b', () => { setup() })",
+  ])
+})
+
+test('vitest: the setup functions from hooks run in the order of the hooks', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    `import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+const log: string[] = []
+beforeEach(() => {
+  log.push('top')
+})
+afterEach(async () => {
+  await null
+  log.push('top end')
+})
+it('first', () => {
+  expect(log).toEqual(['top'])
+})
+describe('group', () => {
+  beforeEach(async () => {
+    await null
+    log.push('group')
+  })
+  afterEach(() => {
+    log.push('group end')
+  })
+  it('second', () => {
+    expect(log).toEqual(['top', 'top end', 'top', 'group'])
+  })
+  it('third', () => {
+    expect(log.slice(4)).toEqual(['group end', 'top end', 'top', 'group'])
+  })
+})
+`,
+  )
+  assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 11 changes, 0 TODO')
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 3 passed')
+})
+
 test('vitest: rejects, checks of many calls of one spy, optional chains, and stringContaining', () => {
   const r = convert(`import { expect, it, vi } from 'vitest'
 it('a', async () => {

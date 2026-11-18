@@ -409,6 +409,10 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `ubq convert` makes a setup function from `beforeEach` and
+    `afterEach` hooks that assign no outer variable, and calls it
+    in each test (D90). In the sentry corpus this changes about
+    130 of 211 hooks.
   - `assert.rejects` takes a `PromiseLike`. `ubq convert` makes
     `toThrow(error)` with an Error instance a pattern for the
     message (D89).

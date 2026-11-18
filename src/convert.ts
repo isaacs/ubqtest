@@ -925,6 +925,162 @@ export const convertSource = (
     changes++
     return body
   }
+  /** The calls of the hooks that planSetups changed. */
+  const setups = new Set<Node>()
+  /**
+   * Makes a setup function from the `beforeEach` and `afterEach`
+   * hooks of a scope, and calls it in each test of the scope (D90).
+   * A scope is the file, or the function of a `describe`. Only if
+   * the change is certain:
+   * - The scope has one hook of each kind at most, before its tests.
+   * - A hook is a function with a block and no parameters. It
+   *   assigns no variable from outside, and has no `return` and no
+   *   `this`.
+   * - Each statement of the scope that is a call is a test, a
+   *   `describe`, a hook, or a call of `vi`: no other function can
+   *   make tests there.
+   * Not for tap: a hook of tap runs for each subtest too.
+   */
+  const planSetups = (): void => {
+    if ([...roles.values()].includes('tap')) return
+    interface Scope {
+      hooks: { call: Node; statement: Node }[]
+      tests: { call: Node; fn: Node }[]
+      inner: Scope[]
+      certain: boolean
+    }
+    const base = (n: Node): Node =>
+      n.type === 'MemberExpression' ? base(n.object as Node) : n.type === 'CallExpression' ? base(n.callee as Node) : n
+    const read = (statements: Node[], scope: Scope): void => {
+      for (const s of statements) {
+        if (/^(For|ForOf|ForIn|While|DoWhile|Labeled)Statement$/.test(s.type)) read([s.body as Node], scope)
+        else if (s.type === 'BlockStatement') read(s.body as Node[], scope)
+        else if (s.type === 'IfStatement') read([s.consequent, s.alternate].filter(Boolean) as Node[], scope)
+        else if (s.type === 'TryStatement' || s.type === 'SwitchStatement') scope.certain = false
+        if (s.type !== 'ExpressionStatement') continue
+        let e = s.expression as Node
+        if (e.type === 'AwaitExpression') e = e.argument as Node
+        if (e.type !== 'CallExpression') continue
+        const role = roleOf(base(e.callee as Node))
+        const fn = (e.arguments as Node[]).find(a => FUNCTION.has(a.type))
+        const block = fn && (fn.body as Node).type === 'BlockStatement'
+        if (role === 'hook') {
+          if (nameOf(e.callee as Node)?.endsWith('Each') && !restoresOnly((e.arguments as Node[])[0]))
+            scope.hooks.push({ call: e, statement: s })
+        } else if (role === 'test') {
+          if (fn && !block) scope.certain = false
+          else if (fn) scope.tests.push({ call: e, fn })
+        } else if (role === 'describe' && block) {
+          const child: Scope = { hooks: [], tests: [], inner: [], certain: true }
+          read((fn.body as Node).body as Node[], child)
+          scope.inner.push(child)
+        } else if (role !== 'vi' && role !== 'mock') scope.certain = false
+      }
+    }
+    const all = (scope: Scope): Scope['tests'] => [...scope.tests, ...scope.inner.flatMap(all)]
+    const certain = (scope: Scope): boolean => scope.certain && scope.inner.every(certain)
+    /** True if the function of a hook can move into a setup function. */
+    const plain = (call: Node): boolean => {
+      const args = call.arguments as Node[]
+      const fn = args[0]
+      if (args.length !== 1 || !fn || !FUNCTION.has(fn.type) || (fn.params as Node[]).length) return false
+      if ((fn.body as Node).type !== 'BlockStatement' || restoreCall(fn)) return false
+      const declared = new Set<string>()
+      const names = (n: Node): void => {
+        if (n.type === 'VariableDeclarator')
+          for (const m of text(n.id as Node).matchAll(/[A-Za-z_$][\w$]*/g)) declared.add(m[0])
+        children(n).forEach(names)
+      }
+      names(fn.body as Node)
+      const fine = (n: Node, top: boolean): boolean => {
+        if (n.type === 'ThisExpression' || (top && n.type === 'ReturnStatement')) return false
+        if (n.type === 'AssignmentExpression' || n.type === 'UpdateExpression') {
+          const to = (n.left ?? n.argument) as Node
+          if (to.type !== 'MemberExpression' && !declared.has(nameOf(to) ?? '')) return false
+        }
+        const inner = top && !FUNCTION.has(n.type) && n.type !== 'FunctionDeclaration'
+        return children(n).every(child => fine(child, inner))
+      }
+      return children(fn.body as Node).every(child => fine(child, true))
+    }
+    const taken = new Set<string>()
+    const fresh = (name: string): string => {
+      for (let i = 1; ; i++) {
+        const next = i === 1 ? name : `${name}${i}`
+        if (taken.has(next) || mentions(program, next)) continue
+        taken.add(next)
+        return next
+      }
+    }
+    const inside = (body: Node, around: Node): string =>
+      (body.body as Node[]).length ? indentAt((body.body as Node[])[0]!.start) : `${indentAt(around.start)}  `
+    const plan = (scope: Scope, parent: { name: string; async: boolean } | undefined): void => {
+      const kind = (k: string): Scope['hooks'] => scope.hooks.filter(h => nameOf(h.call.callee as Node) === k)
+      const [before, more] = kind('beforeEach')
+      const [after, more2] = kind('afterEach')
+      const tests = all(scope)
+      const isAsync = !!(before && ((before.call.arguments as Node[])[0] as Node).async) || !!parent?.async
+      let mine = parent
+      if (
+        scope.hooks.length &&
+        !more &&
+        !more2 &&
+        tests.length &&
+        certain(scope) &&
+        scope.hooks.every(h => plain(h.call) && h.statement.start < Math.min(...tests.map(t => t.call.start))) &&
+        // The loop of `each` changes the start of its function.
+        (!isAsync || tests.every(t => t.fn.async || (t.call.callee as Node).type !== 'CallExpression'))
+      ) {
+        mine = { name: fresh('setup'), async: isAsync }
+        const lines = parent ? [`${parent.async ? 'await ' : ''}${parent.name}()`] : []
+        const head = `const ${mine.name} = ${isAsync ? 'async ' : ''}() => {`
+        const change = (hook: Scope['hooks'][0], start: (indent: string) => string, end: string): void => {
+          const body = (hook.call.arguments as Node[])[0]!.body as Node
+          replace(hook.call.start, body.start + 1, start(inside(body, hook.call)))
+          replace(body.end, hook.statement.end, end)
+          setups.add(hook.call)
+          changes++
+        }
+        const fnAsync = (hook: Scope['hooks'][0]): string =>
+          ((hook.call.arguments as Node[])[0] as Node).async ? 'async ' : ''
+        if (after) used.add('cleanup')
+        if (before && after) {
+          const down = fresh('teardown')
+          lines.push(`cleanup(${down})`)
+          change(after, () => `const ${down} = ${fnAsync(after)}() => {`, '')
+        }
+        if (before) change(before, indent => head + lines.map(line => `\n${indent}${line}`).join(''), '')
+        else {
+          const indent = `${indentAt(after!.call.start)}  `
+          change(
+            after!,
+            () =>
+              `${head}${lines.map(line => `\n${indent}${line}`).join('')}\n${indent}cleanup(${fnAsync(after!)}() => {`,
+            `)\n${indentAt(after!.call.start)}}`,
+          )
+        }
+      }
+      if (mine)
+        for (const { call, fn } of scope.tests) {
+          const body = fn.body as Node
+          const text = `${mine.async ? 'await ' : ''}${mine.name}()`
+          const empty = !(body.body as Node[]).length
+          edits.push({
+            start: body.start + 1,
+            end: body.start + 1,
+            text: empty ? ` ${text} ` : `\n${inside(body, call)}${text}`,
+          })
+          if (mine.async && !fn.async && !madeAsync.has(fn)) {
+            edits.push({ start: fn.start, end: fn.start, text: 'async ' })
+            madeAsync.add(fn)
+          }
+        }
+      for (const child of scope.inner) plan(child, mine)
+    }
+    const top: Scope = { hooks: [], tests: [], inner: [], certain: true }
+    read(program.body as Node[], top)
+    plan(top, undefined)
+  }
   const inHook = (path: Node[]): boolean =>
     path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
 
@@ -1221,6 +1377,7 @@ export const convertSource = (
       return args
     }
     if (role === 'hook') {
+      if (setups.has(node)) return [args[0]!.body as Node]
       if (restoresOnly(args[0]) && removeStatement(path)) return []
       // roleOf gives a role only to a name.
       const once = /^(before|after)(All)?$/.exec(nameOf(callee)!)
@@ -1735,6 +1892,7 @@ export const convertSource = (
     return rewrite(node, use, args)
   }
 
+  planSetups()
   const first = (program.body as Node[])[0]
   if (first && /@(vitest|jest)-environment\s+(jsdom|happy-dom)\b/.test(source)) todo([program, first], TODO.dom)
   walk(program, [])

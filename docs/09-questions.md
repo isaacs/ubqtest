@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -22,27 +22,6 @@ hit the problem.
 
 Q27 to Q35 come from the same report. They are the points that
 D78 to D86 did not decide.
-
-## Q30. `ubq convert` writes the `setup()` calls for hooks (8 of 8)
-
-D84 keeps the TODO for hooks. The agents then wrote about 500
-`setup()` calls by hand, and some wrote scripts for it. The case
-that is certain: a `beforeEach` at the top level of the file or
-of a `describe`, whose body assigns no outer variable.
-
-Options:
-
-1. No change (D84).
-2. For the certain case, the command makes `const setup = () =>
-   {...}` and puts `setup()` (or `await setup()`, and makes the
-   test `async`) as the first line of each test in that scope. An
-   `afterEach` with the same limits becomes `cleanup(...)` in that
-   function. Each other hook keeps the TODO.
-
-The agent would pick 2. Most hooks in the corpus assign outer
-variables (`let client; beforeEach(() => { client = ... })`), so
-the agent must measure how many hooks 2 changes before it is
-worth the code.
 
 ## Q31. An assertion for "some call had these arguments"
 
