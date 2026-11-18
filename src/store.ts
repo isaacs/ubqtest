@@ -172,6 +172,19 @@ export const storedSource = (hash: string): string | undefined => {
   }
 }
 
+/** A coverage row of the code that ran while a test file loaded. */
+export interface LoadRow {
+  file: string
+  hash: string
+  ranges: string
+}
+
+/**
+ * For each test file of this run: the load rows of the run before
+ * that this run removed, of the files with different content.
+ */
+export const replacedLoads = new Map<string, LoadRow[]>()
+
 /** Removes the stored content that no coverage row names. */
 export const pruneSources = (db: DatabaseSync): void => {
   const used = new Set((db.prepare('select distinct hash from coverage').all() as { hash: string }[]).map(r => r.hash))
@@ -291,6 +304,7 @@ export const openStore = (): Store => {
           dropGone.run(tfile, before)
         },
       }
+      const oldLoad = db.prepare("select file, hash, ranges from coverage where tfile = ? and test = '' and run < ?")
       const addCov = db.prepare(
         'insert or replace into coverage (tfile, test, file, run, ranges, hash) values (?, ?, ?, ?, ?, ?)',
       )
@@ -369,10 +383,18 @@ export const openStore = (): Store => {
       }
       const write = (event: UbqEvent): void => {
         switch (event.type) {
-          case 'file-start':
+          case 'file-start': {
+            // The rows of the load of the file in the run before, for
+            // the files with different content now: the report of a
+            // failure names the lines of them that changed (D101).
+            const old = (oldLoad.all(event.file, run) as unknown as LoadRow[]).filter(
+              row => hashOf(row.file) !== row.hash,
+            )
+            if (old.length) replacedLoads.set(event.file, old)
             dropTestCov.run(event.file, '')
             setFile.run(event.file, run, event.coverage, hashOf(event.file))
             break
+          }
           case 'test-start':
             lines.set(event.id, event.at?.line)
             break

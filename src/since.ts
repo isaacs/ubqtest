@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Failure, Since, UbqEvent } from './events.ts'
 import { projectRoot } from './project.ts'
-import { fileHash, storedSource } from './store.ts'
+import { fileHash, replacedLoads, storedSource } from './store.ts'
 
 /** Lines `[from, to)` of the old text became lines `[newFrom, newTo)` of the new text. From 0. */
 type Hunk = [from: number, to: number, newFrom: number, newTo: number]
@@ -123,14 +123,15 @@ export const since = (db: DatabaseSync, run: number, id: string): Since | undefi
   if (changed.length) return { run: last.run, changed }
   // The code that ran while its test file loaded: a constant of a
   // module is such code, and the test reads its value.
-  const loaded = places(
-    db
-      .prepare(
-        `select file, hash, ranges from coverage
-         where test = '' and tfile in (select tfile from coverage where test = ?) order by file`,
-      )
-      .all(id) as Row[],
-  )
+  // The store writes events in groups: it can have the start of
+  // the file of this run, which removes the load rows, or not yet.
+  const tfile = (db.prepare('select tfile from coverage where test = ? limit 1').get(id) as { tfile: string }).tfile
+  const loaded = places([
+    ...(replacedLoads.get(tfile) ?? []),
+    ...(db
+      .prepare("select file, hash, ranges from coverage where test = '' and tfile = ? and run < ? order by file")
+      .all(tfile, run) as Row[]),
+  ])
   return { run: last.run, changed, ...(loaded.length && { loaded }) }
 }
 

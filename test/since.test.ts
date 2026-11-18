@@ -183,4 +183,16 @@ test('a constant of a module that changed: the line ran while the test file load
     p.ubq().out,
     /^ {2}since run 1, where it passed, no line that it runs changed\. These lines that ran while its file loaded changed: lib\/tuning\.ts:2$/m,
   )
+  // The same after the store wrote the start of the file, which
+  // removes the rows of the load of the run before.
+  writeFileSync(
+    p.file('test/tuning.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { T } from '../lib/tuning.ts'\ntest('bonus', async () => {\n  await new Promise(resolve => setTimeout(resolve, 600))\n  assert.equal(T.bonus, 0.16)\n})\n",
+  )
+  assert.equal(p.ubq().code, 0)
+  writeFileSync(p.file('lib/tuning.ts'), 'export const T = {\n  bonus: 0.17,\n}\n')
+  assert.match(
+    p.ubq().out,
+    /^ {2}since run 3, where it passed, no line that it runs changed\. These lines that ran while its file loaded changed: lib\/tuning\.ts:2$/m,
+  )
 })
