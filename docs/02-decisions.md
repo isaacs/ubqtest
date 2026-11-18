@@ -2102,3 +2102,16 @@ only `false`.
   `expected`.
 - This works for each use of `isDeepEqual` in an `assert`, such
   as `toContainEqual`, and for the opposite form with `!`.
+
+## D92. No transform of the source (user, 2026-11-17)
+
+Q32. Sentry has a vite plugin that removes blocks of the source.
+One of eight agents needed it, and wrote a loader.
+
+- ubq has no transform key and no plugins. It tests the code that
+  is in the repository. A project that needs a transform tests
+  its build.
+- `ubq convert` prints a note for a vite config with plugins, and
+  `CONVERT.md` tells the agent to tell the user.
+- A transform would need a source map for coverage and for stack
+  places, in each runtime.
