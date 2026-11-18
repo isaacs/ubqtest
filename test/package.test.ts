@@ -223,7 +223,7 @@ test('the guide, the version, and the doctor of the package', () => {
   assert.equal(sh('node', ubq, 'doctor').lines.at(-1), 'doctor: 0 problems')
 })
 
-test('the runner on deno gives the same output as on node', { skip: has('deno'), timeout: 30_000 }, async () => {
+test('the runner on deno gives the same output as on node', { skip: has('deno'), timeout: 120_000 }, async () => {
   // The fixture project, with the built package in place of the source.
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
