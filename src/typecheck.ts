@@ -114,7 +114,7 @@ const check = (
         '-p',
         folder,
       ],
-      { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
+      { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] },
     )
   } catch (error) {
     // On Windows, a file that is not a program throws here.
@@ -122,10 +122,12 @@ const check = (
   }
   const errors = new Promise<TypeCheckError[]>(done => {
     let text = ''
+    let stderr = ''
     child.stdout!.setEncoding('utf8').on('data', (data: string) => (text += data))
+    child.stderr!.setEncoding('utf8').on('data', (data: string) => (stderr += data))
     const errors: TypeCheckError[] = []
     child.on('error', error => done(failed(error)))
-    child.on('close', () => {
+    child.on('close', (code, signal) => {
       const sources = new Map<string, string | undefined>()
       const read = (file: string): string | undefined => {
         if (!sources.has(file))
@@ -149,6 +151,15 @@ const check = (
         // More lines of the same message have an indent.
         else if (line.startsWith(' ') && errors.length) errors.at(-1)!.message += '\n' + line.trim()
       }
+      // A checker that the system stopped, or that failed, has no
+      // result. No errors from it does not mean that the types are
+      // correct.
+      if (signal || (code && !errors.length))
+        errors.push({
+          type: 'type-error',
+          code: 'ubq',
+          message: `the type checker of ${rel(join(folder, 'tsconfig.json'))} stopped with ${signal ?? `exit code ${code}`}, and its result is not complete. Run again.${stderr.trim() ? '\n' + stderr.trim().slice(-500) : ''}`,
+        })
       // The expected value of an assertion has the type of the
       // actual value. The message of tsc names only a "parameter".
       for (const error of errors) {
@@ -188,7 +199,9 @@ export const typeCheck = (background = false, files: string[] = []): Checking | 
   if (!tsc || !folders.length) return undefined
   const checks = folders.map(folder => check(tsc, root, folder))
   type Handle = { ref?(): void; unref?(): void }
-  const handles: Handle[] = checks.flatMap(({ child }) => (child ? [child, child.stdout as Handle] : []))
+  const handles: Handle[] = checks.flatMap(({ child }) =>
+    child ? [child, child.stdout as Handle, child.stderr as Handle] : [],
+  )
   if (background) for (const h of handles) h.unref?.()
   return {
     // Two configs can have the same file.

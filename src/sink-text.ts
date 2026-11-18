@@ -181,16 +181,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
           write(
             `and ${typeErrors - TYPE_ERRORS} more type errors.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
           )
-        if (event.otherTypes)
-          write(
-            `note: ${event.otherTypes} type errors are in files that this run did not use. They are not part of this result. A run of all tests reports them: ubq\n`,
-          )
         if (skips.length) write(skips.join('\n') + '\n')
         const parts = [`${event.fail} failed`, `${event.pass} passed`]
         if (event.errors) parts.unshift(`${event.errors} errors`)
         if (event.skip) parts.push(`${event.skip} skipped`)
         if (event.unselected) parts.push(`${event.unselected} not selected`)
         if (event.types) parts.push(`${event.types} type errors`)
+        if (event.otherTypes) parts.push(`${event.otherTypes} type errors in other files`)
         const stored = run === undefined ? '' : ` (run ${run})`
         const status = event.code ? 'fail' : 'pass'
         const result = `${status}: ${parts.join(', ')}${stored}`

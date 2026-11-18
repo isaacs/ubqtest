@@ -79,8 +79,10 @@ Each run also runs the type checker, if the project has
 - A run of all tests (`ubq`) reports each type error. A run of a
   selection (`ubq <file>`, `ubq --changed`) reports the type
   errors of the files that it used: its test files, and the
-  files that their tests ran. It prints the count of the others
-  in one line, and does not fail for them.
+  files that their tests ran. It does not fail for the others.
+  The summary has their count: `12 type errors in other files`.
+- If the type checker stops with no result, the run fails with a
+  `TYPE` block that says so. Run again.
 
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/ubqtest/cli.js`.

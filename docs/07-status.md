@@ -409,6 +409,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - A type checker that stops with no result fails the run. The
+    count of type errors in other files is in the summary line,
+    not in a note (D96).
   - `ubq convert` runs the formatter of the project on the files
     that it changed (D95).
   - `ubq doctor` checks the options in the `tsconfig.json` that

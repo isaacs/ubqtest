@@ -2171,3 +2171,35 @@ note.
 - If the program is not there or fails, a note gives the command
   to run by hand, with the first line of the error.
 - A project with no formatter gets no note.
+
+## D96. A type check with no result fails the run, and the count of other type errors is in the summary (assistant, 2026-11-18)
+
+Two items of `19-sonnet-feedback-0.0.16.md`. The user asked for
+the work. The form of each change is an assumption of the
+assistant.
+
+- **A checker that stops.** ubq did not read the exit status of
+  the type checker. A checker that the system stopped, or that
+  failed with no error list, looked like a project with no type
+  errors. Now, if the checker ends with a signal, or with an exit
+  code and no errors, the run has one more type error with the
+  code `ubq`: the checker stopped, and its result is not
+  complete. The text has the end of what the checker wrote to
+  stderr.
+- **The count of the others.** In a run of a selection, the line
+  `note: N type errors are in files that this run did not use
+  ...` is gone. The summary line has the count: `pass: 0 failed,
+  5 passed, 2 type errors in other files`. `otherTypes` of the
+  `run-end` event does not change.
+
+**Reason.** Five of eight agents saw different type errors from
+runs of the same code. Tests with 40 checkers at the same time on
+one data file, and with a cut, empty, or wrong data file, gave
+the same errors each time: the shared data in `.ubq/types/` is
+not a cause. Each agent changed files in the same tree, and
+`tsconfig.test.json`, which changes the errors of each file. That
+is the probable cause, and ubq cannot change it. The exit status
+was the one place where ubq could lose errors with no sign. For
+the count: an agent reads the last line, so the count must stay
+(D49), but a line of 150 characters in each run is noise.
+

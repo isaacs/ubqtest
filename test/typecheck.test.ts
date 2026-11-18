@@ -79,14 +79,13 @@ test('passes at run time', () => {
       one.out
         .replace(/ \(run \d+\)\n$/, '')
         .split('\n')
-        .slice(-3),
+        .slice(-2),
     ],
     [
       0,
       [
-        'note: 2 type errors are in files that this run did not use. They are not part of this result. A run of all tests reports them: ubq',
         'skip pass.ts > not on this platform: needs a GPU',
-        'pass: 0 failed, 5 passed, 1 skipped',
+        'pass: 0 failed, 5 passed, 1 skipped, 2 type errors in other files',
       ],
     ],
   )
@@ -158,7 +157,7 @@ test('${name}', () => {
   const one = p.ubq('second/second.test.ts')
   assert.deepEqual(
     [one.code, one.out.includes('first.test.ts'), one.last],
-    [1, false, 'fail: 0 failed, 1 passed, 1 type errors'],
+    [1, false, 'fail: 0 failed, 1 passed, 1 type errors, 1 type errors in other files'],
   )
 })
 
@@ -176,6 +175,28 @@ test('a TypeScript with no native program, and a native program that does not st
     [old.code, old.out.split('\n').slice(0, 2)],
     [1, ['TYPE pass.ts', '  TS1000: from the program of the package']],
   )
+  // A program that fails with no error list, and one that the
+  // system stops, have no result.
+  writeFileSync(join(ts, 'bin/tsc'), "console.error('out of memory')\nprocess.exit(3)\n")
+  const failed = p.ubq('pass.ts')
+  assert.deepEqual(
+    [failed.code, failed.out.split('\n').slice(0, 3)],
+    [
+      1,
+      [
+        'TYPE (no file)',
+        '  ubq: the type checker of tsconfig.json stopped with exit code 3, and its result is not complete. Run again.',
+        '  out of memory',
+      ],
+    ],
+  )
+  writeFileSync(
+    join(ts, 'bin/tsc'),
+    "console.log('pass.ts(1,1): error TS1000: one')\nprocess.kill(process.pid, 'SIGKILL')\nsetTimeout(() => {}, 9999)\n",
+  )
+  const killed = p.ubq('pass.ts')
+  assert.equal(killed.code, 1)
+  assert.match(killed.out, /^  ubq: the type checker of tsconfig\.json stopped with (SIGKILL|exit code 1), and/m)
   // A native program that is not a program.
   const native = join(p.dir, `node_modules/@typescript/typescript-${process.platform}-${process.arch}`)
   mkdirSync(join(native, 'lib'), { recursive: true })
