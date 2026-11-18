@@ -468,7 +468,9 @@ it('a', () => { expect(s).toHaveBeenCalled() })
   assert(r)
   assert.deepEqual(r.code, [
     '/** @vitest-environment jsdom */',
-    ...todo('This file asks for a DOM environment. ubq has none. Tell the user about this file.'),
+    ...todo(
+      'This file asks for a DOM environment. ubq has none. Make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM" in `ubq guide convert`.',
+    ),
     "import { assert, spy, test } from 'ubqtest'",
     ...todo(
       'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',

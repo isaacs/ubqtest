@@ -472,11 +472,38 @@ Things to check by hand:
 - **`beforeEach` and the other hooks.** See "Hooks".
 - **Globals.** jest gives `describe`, `it`, and `expect` with no
   import. ubq has no globals. The command adds the import.
-- **A DOM (jsdom, happy-dom), a custom environment, a
-  transform.** ubq has none. Tell the user about each test file
-  that needs one. The command writes a TODO in a file with an
-  `@vitest-environment` or `@jest-environment` comment for jsdom
-  or happy-dom.
+- **A DOM (jsdom, happy-dom).** ubq has no test environment. The
+  command writes a TODO in a file with an `@vitest-environment`
+  or `@jest-environment` comment for jsdom or happy-dom. Make the
+  DOM in each test that needs it. `stub` puts each global back
+  when the test ends:
+
+  ```ts
+  import { JSDOM } from 'jsdom'
+  import { cleanup, stub } from 'ubqtest'
+
+  const dom = () => {
+    const { window } = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/' })
+    for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Event'] as const)
+      stub(globalThis, name, window[name] as never)
+    cleanup(() => window.close())
+    return window
+  }
+
+  test('a click', () => {
+    dom()
+    const button = document.createElement('button')
+    // ...
+  })
+  ```
+
+  Add each global that the code under test reads to the list.
+  Put the function in a helper file if more than one test file
+  needs it. Delete the environment comment. For a test of real
+  browser behavior (layout, focus, navigation), tell the user
+  about browser tests: "Tests in a browser" in `ubq guide`.
+- **A custom environment, a transform.** ubq has none. Tell the
+  user about each test file that needs one.
 - **A Cloudflare Worker (`cloudflare:test`,
   `@cloudflare/vitest-pool-workers`).** These tests run in the
   Workers runtime with ubq too. Read "Tests of a Cloudflare

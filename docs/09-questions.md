@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90. The answer to Q31 is D91. The answer to Q32 is D92.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90. The answer to Q31 is D91. The answer to Q32 is D92. The answer to Q33 is D93.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -22,27 +22,6 @@ hit the problem.
 
 Q27 to Q35 come from the same report. They are the points that
 D78 to D86 did not decide.
-
-## Q33. Tests that need a DOM (2 of 8)
-
-Files with `@vitest-environment jsdom` fail with `document is not
-defined`. ubq has browser tests (`ubq --browser`), which run in a
-real browser. The agents made a jsdom window by hand and put its
-globals on `globalThis` with `cleanup`.
-
-Options:
-
-1. No change. The TODO says to tell the user.
-2. A recipe in the convert guide: jsdom by hand, with `stub` for
-   each global.
-3. A helper: `dom()` of `ubqtest/dom` makes the window of jsdom
-   (a package that the project installs) and stubs the globals
-   until the test ends.
-4. The guide says to move such a file to the browser tests.
-
-The agent would pick 2: the code is short with `stub`, and it
-adds no API. 4 is correct for tests of real DOM behavior, and too
-much for a test that needs only `document.createElement`.
 
 ## Q34. The tsconfig of the tests (6 of 8)
 

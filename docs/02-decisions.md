@@ -2115,3 +2115,18 @@ One of eight agents needed it, and wrote a loader.
   `CONVERT.md` tells the agent to tell the user.
 - A transform would need a source map for coverage and for stack
   places, in each runtime.
+
+## D93. A DOM is a function in the test file, with `stub` (user, 2026-11-17)
+
+Q33. Files with `@vitest-environment jsdom` failed with `document
+is not defined`. Two of eight agents made a jsdom window by hand.
+
+- No test environment and no `ubqtest/dom`. The convert guide has
+  the form: a `dom()` function that makes a `JSDOM` window, puts
+  the globals that the code reads on `globalThis` with `stub`,
+  and closes the window with `cleanup`. A test calls it.
+- The TODO for the environment comment names that section.
+- The form ran with jsdom on Node: the globals are there in the
+  test, and they are gone in the next test.
+- A test of real browser behavior belongs in the browser tests.
+  The guide says so.

@@ -230,7 +230,7 @@ const TODO = {
   enum: 'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
   parameterProperty:
     'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
-  dom: 'This file asks for a DOM environment. ubq has none. Tell the user about this file.',
+  dom: 'This file asks for a DOM environment. ubq has none. Make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM" in `ubq guide convert`.',
 } as const
 
 /** The TODO text for a function of `vi` or `jest`. */
