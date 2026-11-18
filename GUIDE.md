@@ -293,6 +293,8 @@ assert.contains(actual, expected)  // text in text, or an element of an array, S
 assert.notContains(actual, expected)
 assert.greaterThan(value, target)  // value > target. A failure shows the two values.
 assert.lessThan(value, target)     // value < target
+assert.greaterThanOrEqual(value, target)   // value >= target
+assert.lessThanOrEqual(value, target)      // value <= target
 assert.close(value, target, precision?)   // the difference is less than 10 ** -precision / 2. The default precision is 2: less than 0.005.
 assert.throws(fn, expected)        // expected is required. Returns the error.
 await assert.rejects(promise, expected)   // resolves to the error
@@ -837,7 +839,10 @@ hooks start. Put the comment on a line of its own above the code,
 or at the end of the first line of the code. For a block, the
 first line in the block also works. `ubq uncovered` does not list
 that code, and it prints how many ranges it left out. A comment
-with no reason does not count. Look for a test first: the comment
+with no reason does not count. For a file that no test can load,
+such as the entry of a browser worker, put the comment before the
+first code of the file: `ubq check` then does not fail for a
+change to that file. Look for a test first: the comment
 is for code that a test cannot reach.
 
 ## Requirements

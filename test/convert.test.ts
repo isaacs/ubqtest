@@ -234,6 +234,9 @@ describe('group', () => {
     expect(staff).toBeGreaterThan(5)
     expect(a + b).toBeLessThan(c)
     expect(staff).not.toBeLessThan(5)
+    expect(staff).toBeGreaterThanOrEqual(5)
+    expect(staff).toBeLessThanOrEqual(5)
+    expect(staff).not.toBeLessThanOrEqual(5)
     expect(staff).not.toBeCloseTo(5)
     expect(o).not.toHaveProperty('k')
     expect(o).toHaveProperty('a.b')
@@ -276,6 +279,9 @@ describe('group', () => {
     '    assert.greaterThan(staff, 5)',
     '    assert.lessThan(a + b, c)',
     '    assert(!(staff < 5))',
+    '    assert.greaterThanOrEqual(staff, 5)',
+    '    assert.lessThanOrEqual(staff, 5)',
+    '    assert(!(staff <= 5))',
     '    assert(!(Math.abs(staff - 5) < 0.005))',
     "    assert(!(Reflect.has(Object(o), 'k')))",
     ...todo(

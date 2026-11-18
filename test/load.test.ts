@@ -113,7 +113,13 @@ test('an import with no extension finds the file, and an import of a folder find
       '',
     ].join('\n'),
   )
-  assert.equal(p.ubq('req.cts').last, 'pass: 0 failed, 1 passed')
+  // The resolve hook of Node gets a `require` with no extension in
+  // Node 24.18 and later of Node 24, and in Node 26.5 (D100).
+  const [major, minor] = spawnSync('node', ['-p', 'process.versions.node'], { encoding: 'utf8' })
+    .stdout.split('.')
+    .map(Number) as [number, number]
+  if (major === 24 ? minor >= 18 : major > 26 || (major === 26 && minor >= 5))
+    assert.equal(p.ubq('req.cts').last, 'pass: 0 failed, 1 passed')
   // A name with no file: the report has the name as it is written.
   writeFileSync(join(p.dir, 'src/two.ts'), "import './three'\n")
   assert.match(

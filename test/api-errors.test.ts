@@ -346,7 +346,8 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  expected values to be deeply equal',
     '  at asserts.test.ts:35:10',
     "  > assert.deepEqual({ [Symbol.for('k')]: 1 }, {})",
-    '  actual:   { Symbol(k): 1 }',
+    // Node 22 shows a symbol key in brackets.
+    `  actual:   ${+process.versions.node.split('.')[0]! < 24 ? '{ [Symbol(k)]: 1 }' : '{ Symbol(k): 1 }'}`,
     '  expected: {}',
   )
   // One report for the first assertion after the end of the test.

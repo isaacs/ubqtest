@@ -97,9 +97,9 @@ const MATCHERS: Record<string, Rule> = {
   toMatchObject: 'assert.match($0, $1)',
   toBeInstanceOf: 'assert(<$0> instanceof $1)',
   toBeGreaterThan: 'assert.greaterThan($0, $1)',
-  toBeGreaterThanOrEqual: 'assert(<$0> >= <$1>)',
+  toBeGreaterThanOrEqual: 'assert.greaterThanOrEqual($0, $1)',
   toBeLessThan: 'assert.lessThan($0, $1)',
-  toBeLessThanOrEqual: 'assert(<$0> <= <$1>)',
+  toBeLessThanOrEqual: 'assert.lessThanOrEqual($0, $1)',
   toThrow: { 1: 'assert.throws($0, Error)', 2: 'assert.throws($0, $1)' },
   toThrowError: { 1: 'assert.throws($0, Error)', 2: 'assert.throws($0, $1)' },
   toHaveBeenCalled: 'assert(<$0>.calls.length > 0)',
@@ -137,6 +137,8 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBeTypeOf: 'assert.notEqual(typeof <$0>, $1)',
   toBeGreaterThan: 'assert(!(<$0> > <$1>))',
   toBeLessThan: 'assert(!(<$0> < <$1>))',
+  toBeGreaterThanOrEqual: 'assert(!(<$0> >= <$1>))',
+  toBeLessThanOrEqual: 'assert(!(<$0> <= <$1>))',
   // The default of jest and vitest: 2 digits.
   toBeCloseTo: { 2: 'assert(!(Math.abs(<$0> - <$1>) < 0.005))', 3: '$9' },
 }

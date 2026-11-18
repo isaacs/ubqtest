@@ -26,8 +26,7 @@ npm run bench -- --only ubq --check   # speed guards (builds first)
 The suite needs `bun` and `deno` on the path for all tests. A test
 skips itself, with a reason, if its runtime is not installed.
 
-The tests of this repository need Node 24.18 or later (the tool
-runs on Node 22.18: D100). If `node -v` shows an older version, look
+The tests of this repository pass on Node 22.18 and later (D104). If `node -v` shows an older version, look
 for a newer one on the machine (a cloud session has
 `/opt/node24/bin`), and put it first on the path.
 
@@ -410,6 +409,10 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `assert.greaterThanOrEqual` and `assert.lessThanOrEqual`
+    (D102). A `not measured` comment before the first code of a
+    file: no test can load the file (D103). A CI job for Node
+    22.18.0 (D104).
   - From the 0.0.18 conversion report (D101): the `since` line
     names changed lines that ran while the file loaded, a test
     that does not await fails if it ends after its limit,
@@ -597,15 +600,13 @@ Type check and doctor:
 
 Node versions (D100):
 
-- CI runs Node 24 and the newest Node, not Node 22. On Node
-  22.22, 6 tests of this repository fail (Q38).
+- CI runs Node 22.18.0 on Linux only, and no version between it
+  and the newest Node 24 (D104).
 - `require('./file')` with no extension in a CommonJS test file
   needs Node 24.18 or later of Node 24, or Node 26.5.
 
 Check and review:
 
-- `ubq check` fails for a changed file that no test can load,
-  such as the entry of a browser worker (Q36).
 - `ubq review` does not compare a converted test with the test
   of the old tool (D101).
 
@@ -636,8 +637,6 @@ Convert:
 - A `t.plan(n)` of tap or tape with no `t.end()` in a test that
   has a callback stays, with a TODO. ava hooks, `t.context`, and
   macros stay hand work.
-- `toBeGreaterThanOrEqual` and `toBeLessThanOrEqual` become
-  `assert(a >= b)`, which shows no values in a failure (Q37).
 - No sentence in the output for a project helper that returns a
   restore function.
 - `const spy = vi.fn()` becomes `const spy = spy()`: the local

@@ -31,6 +31,8 @@ jobs:
           - { os: ubuntu-latest, runtime: node, node: latest, shell: bash }
           - { os: macos-latest, runtime: node, node: latest, shell: bash }
           - { os: windows-latest, runtime: node, node: 24, shell: pwsh }
+          # The oldest Node that ubq runs on (D100).
+          - { os: ubuntu-latest, runtime: node, node: 22.18.0, shell: bash }
     defaults:
       run:
         shell: ${{ matrix.shell }}

@@ -214,6 +214,10 @@ interface Assert {
     greaterThan(value: number | bigint, target: number | bigint, message?: string): void;
     /** Passes if `value < target`. A failure shows the two values. */
     lessThan(value: number | bigint, target: number | bigint, message?: string): void;
+    /** Passes if `value >= target`. A failure shows the two values. */
+    greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
+    /** Passes if `value <= target`. A failure shows the two values. */
+    lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
     /**
      * Passes if `value` is near `target`: the difference is less than
      * `10 ** -precision / 2`. The default `precision` is 2, a difference

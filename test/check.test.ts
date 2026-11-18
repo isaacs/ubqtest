@@ -164,6 +164,7 @@ test('ubq check: changed lines that no test runs, and changed files that no test
       '  lib/math.ts:2:20  (a: number, b: number): number => a * b',
       'Write a test that runs them. All of them: ubq uncovered --diff. For code that no test can reach, a comment: // ubq: not measured: <reason>',
       '1 changed files that no test loads: lib/other.ts',
+      'Write a test that loads each one. For a file that no test can load, a comment before its first code: // ubq: not measured: <reason>',
       'fail: 1 uncovered ranges in changed lines, 1 changed files that no test loads',
       '',
     ].join('\n'),
@@ -183,8 +184,16 @@ test('ubq check: changed lines that no test runs, and changed files that no test
     p.file('lib/math.ts'),
     SRC + '// ubq: not measured: no test can reach it\nexport const mul = (a: number, b: number): number => a * b\n',
   )
-  rmSync(p.file('lib/other.ts'))
+  // A comment before the first code of a file: no test can load
+  // the file. A comment after code is for a range only.
   p.ubq('--changed')
+  assert.match(p.ubq('check', '--diff=HEAD~1').out, /^1 changed files that no test loads: lib\/other\.ts$/m)
+  writeFileSync(p.file('lib/other.ts'), 'export const one = 1\n// ubq: not measured: the entry of a worker\n')
+  assert.match(p.ubq('check', '--diff=HEAD~1').out, /^1 changed files that no test loads: lib\/other\.ts$/m)
+  writeFileSync(
+    p.file('lib/other.ts'),
+    '#!/usr/bin/env node\n/* The worker. */\n\n// ubq: not measured: the entry of a worker\nexport const one = 1\n',
+  )
   assert.equal(p.ubq('check', '--diff=HEAD~1').code, 0)
 })
 

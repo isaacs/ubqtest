@@ -403,7 +403,7 @@ Things to check by hand:
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
 | `toBeGreaterThan(b)`, `toBeLessThan(b)` | `assert.greaterThan(a, b)`, `assert.lessThan(a, b)` |
-| `toBeGreaterThanOrEqual(b)`, `toBeLessThanOrEqual(b)` | `assert(a >= b)`, `assert(a <= b)` |
+| `toBeGreaterThanOrEqual(b)`, `toBeLessThanOrEqual(b)` | `assert.greaterThanOrEqual(a, b)`, `assert.lessThanOrEqual(a, b)` |
 | `toBeCloseTo(b)`, `toBeCloseTo(b, digits)` | `assert.close(a, b)`, `assert.close(a, b, digits)` |
 | `expect(fn).toThrow(x)` | `assert.throws(fn, x)` (a text becomes a RegExp, and an Error instance becomes `{ message: error.message }`) |
 | `await expect(p).rejects.toThrow(x)` | `await assert.rejects(p, x)` |

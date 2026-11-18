@@ -145,9 +145,18 @@ export const unloadedChanges = (db: DatabaseSync, diff: Map<string, unknown>): s
   const covered = new Set(coveredFiles(db))
   const tests = new Set(testFiles(db))
   return [...diff.keys()].filter(
-    f => CODE.test(f) && !covered.has(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f),
+    f =>
+      CODE.test(f) && !covered.has(f) && !tests.has(f) && !isHelper(f) && !isBuild(f) && fileHash(f) && !notLoaded(f),
   )
 }
+
+/**
+ * The reason of a `ubq: not measured:` comment before the first
+ * code of a file: no test can load the file, such as the entry of
+ * a browser worker (Q36).
+ */
+const notLoaded = (file: string): string | undefined =>
+  notMeasured(/^(\s*(#!.*|\/\/.*|\/\*[\s\S]*?\*\/)?(\n|$))*/.exec(readFileSync(join(projectRoot(), file), 'utf8'))![0])
 
 /** The test files of the store, and of the coverage that it merged (D54). */
 export const testFiles = (db: DatabaseSync): string[] =>

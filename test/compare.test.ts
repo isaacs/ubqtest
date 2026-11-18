@@ -16,6 +16,8 @@ test('pass', () => {
   assert.greaterThan(2, 1)
   assert.greaterThan(2n, 1)
   assert.lessThan(1, 2)
+  assert.greaterThanOrEqual(2, 2)
+  assert.lessThanOrEqual(2n, 2n)
   assert.close(1.234, 1.23)
   assert.close(1.0000004, 1, 6)
   assert.close(Infinity, Infinity)
@@ -25,6 +27,8 @@ test('greater', () => assert.greaterThan(staff, 5))
 test('greater, equal', () => assert.greaterThan(5, 5))
 test('less', () => assert.lessThan(staff, 0.5, 'the staff'))
 test('less, not a number', () => assert.lessThan(NaN, 1))
+test('at least', () => assert.greaterThanOrEqual(staff, 1))
+test('at most', () => assert.lessThanOrEqual(staff, 0.5, 'the staff'))
 test('close', () => assert.close(1.24, 1.23))
 test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
 `,
@@ -33,7 +37,7 @@ test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
     .ubq('c.test.ts')
     .out.split('\n\n')
     .map(block => block.split('\n').filter(line => !/^ {2}(at|>|rerun:) /.test(line)))
-  assert.deepEqual(blocks.slice(0, 6), [
+  assert.deepEqual(blocks.slice(0, 8), [
     ['FAIL c.test.ts > greater', '  expected a value greater than the target', '  actual:   0.93', '  expected: > 5'],
     [
       'FAIL c.test.ts > greater, equal',
@@ -53,6 +57,18 @@ test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
       '  actual:   NaN',
       '  expected: < 1',
     ],
+    [
+      'FAIL c.test.ts > at least',
+      '  expected a value greater than the target, or equal to it',
+      '  actual:   0.93',
+      '  expected: >= 1',
+    ],
+    [
+      'FAIL c.test.ts > at most',
+      '  the staff: expected a value less than the target, or equal to it',
+      '  actual:   0.93',
+      '  expected: <= 0.5',
+    ],
     ['FAIL c.test.ts > close', '  expected a value near the target', '  actual:   1.24', '  expected: 1.23 ± 0.005'],
     [
       'FAIL c.test.ts > close, with a precision',
@@ -61,7 +77,7 @@ test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
       '  expected: 1 ± 5e-7',
     ],
   ])
-  assert.equal(blocks.at(-1)!.at(-2), 'fail: 6 failed, 1 passed (run 1)')
+  assert.equal(blocks.at(-1)!.at(-2), 'fail: 8 failed, 1 passed (run 1)')
 })
 
 test('a test that does not await, and that takes more than its time limit, fails', () => {

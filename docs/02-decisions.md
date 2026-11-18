@@ -2366,3 +2366,48 @@ an assumption of the assistant.
 - The values of `assert(a >= b)` in a failure (item 5).
   `greaterThan` and `lessThan` show them (D99).
 
+## D102. `assert.greaterThanOrEqual` and `assert.lessThanOrEqual` (user, 2026-11-19)
+
+Q37. With `greaterThan` and `lessThan` only (D99), `>=` and `<=`
+were a gap: `assert(a >= b)` shows only `false` in a failure. The
+user added the two assertions. `ubq convert` writes them for
+`toBeGreaterThanOrEqual` and `toBeLessThanOrEqual`. A failure
+shows `actual: 0.93` and `expected: >= 1`.
+
+## D103. A `not measured` comment before the first code of a file (user, 2026-11-19)
+
+Q36. `ubq check` fails for a changed code file that no test
+loads. A project can have a file that no test can load, such as
+the entry of a browser worker.
+
+- A `// ubq: not measured: <reason>` comment before the first
+  code of the file says so. Only comments, a `#!` line, and empty
+  lines can be before it. `ubq check` and `ubq uncovered --diff`
+  then do not list the file as a changed file that no test loads.
+- It is the comment of D56, not a new one: one way. After the
+  first code, the comment is for a range, as before.
+- `ubq review` lists a new comment, as it does for a range.
+- The report of `ubq check` names the comment.
+
+## D104. CI runs Node 22.18.0 (user, 2026-11-19)
+
+Q38. ubq runs on Node 22.18 or later (D100), and CI did not test
+it. The user added a job: Node 22.18.0 on Linux.
+
+Changes to the tests of this repository, so that they pass there:
+
+- `test/clock.test.ts` calls `[Symbol.dispose]()`. Node 22 does
+  not have the `using` syntax.
+- The check of `require('./file')` with no extension runs only on
+  a Node that has it (D100).
+- The comparison of counters with V8 coverage is skipped on V8
+  12, which gives other ranges for a class. ubq uses counters by
+  default.
+- Two expected texts depend on the version: a symbol key in a
+  printed object, and the syntax error of a file with its types
+  removed.
+
+**Assumption of the assistant.** One job, on Linux. The faults of
+Node that D100 works around are not specific to a system. No job
+for the versions between 22.18 and the newest 24.
+

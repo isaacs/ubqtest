@@ -97,6 +97,10 @@ export interface Assert {
   greaterThan(value: number | bigint, target: number | bigint, message?: string): void
   /** Passes if `value < target`. A failure shows the two values. */
   lessThan(value: number | bigint, target: number | bigint, message?: string): void
+  /** Passes if `value >= target`. A failure shows the two values. */
+  greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void
+  /** Passes if `value <= target`. A failure shows the two values. */
+  lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void
   /**
    * Passes if `value` is near `target`: the difference is less than
    * `10 ** -precision / 2`. The default `precision` is 2, a difference
@@ -332,6 +336,31 @@ const containsFailure = (
   )
 }
 
+/** The sign and the words of each comparison of two numbers. */
+const COMPARE = {
+  greaterThan: ['>', 'greater than the target'],
+  lessThan: ['<', 'less than the target'],
+  greaterThanOrEqual: ['>=', 'greater than the target, or equal to it'],
+  lessThanOrEqual: ['<=', 'less than the target, or equal to it'],
+} as const
+
+/** A comparison of two numbers. */
+const compare = (
+  assertion: keyof typeof COMPARE,
+  pass: boolean,
+  value: number | bigint,
+  target: number | bigint,
+  message: string | undefined,
+): void => {
+  const state = begin()
+  const [sign, words] = COMPARE[assertion]
+  if (state && !pass)
+    fail(state, assertion, `expected a value ${words}`, message, {
+      diffs: [{ path: '', actual: show(value), expected: `${sign} ${show(target)}` }],
+      more: 0,
+    })
+}
+
 const assertFn = (value: unknown, message?: string): void => {
   const compared = current.getStore()?.compared
   const state = begin()
@@ -379,20 +408,16 @@ const methods = {
     }
   },
   greaterThan(value: number | bigint, target: number | bigint, message?: string): void {
-    const state = begin()
-    if (state && !(value > target))
-      fail(state, 'greaterThan', 'expected a value greater than the target', message, {
-        diffs: [{ path: '', actual: show(value), expected: `> ${show(target)}` }],
-        more: 0,
-      })
+    compare('greaterThan', value > target, value, target, message)
   },
   lessThan(value: number | bigint, target: number | bigint, message?: string): void {
-    const state = begin()
-    if (state && !(value < target))
-      fail(state, 'lessThan', 'expected a value less than the target', message, {
-        diffs: [{ path: '', actual: show(value), expected: `< ${show(target)}` }],
-        more: 0,
-      })
+    compare('lessThan', value < target, value, target, message)
+  },
+  greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void {
+    compare('greaterThanOrEqual', value >= target, value, target, message)
+  },
+  lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void {
+    compare('lessThanOrEqual', value <= target, value, target, message)
   },
   close(value: number, target: number, precision = 2, message?: string): void {
     const state = begin()

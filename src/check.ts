@@ -103,7 +103,9 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
         summary.push(`${lines.length} uncovered ranges in changed lines`)
       }
       if (unloaded.length) {
-        report.push(`${unloaded.length} changed files that no test loads: ${list(unloaded)}`)
+        report.push(
+          `${unloaded.length} changed files that no test loads: ${list(unloaded)}\nWrite a test that loads each one. For a file that no test can load, a comment before its first code: // ubq: not measured: <reason>`,
+        )
         summary.push(`${unloaded.length} changed files that no test loads`)
       }
     }

@@ -160,10 +160,10 @@ test('a test that blocks the thread of workerd, and a source file with an error'
     [1, 'ERROR test/throws.test.ts', true],
   )
   writeFileSync(join(p.dir, 'src/text.ts'), 'export const shout = (\n')
-  assert.deepEqual(p.ubq('test/worker.test.ts').out.slice(0, 2), [
-    'ERROR test/worker.test.ts',
-    '  the test file did not load: Expression expected',
-  ])
+  // The words of the error are from the runtime: Node 22 has "Unexpected eof".
+  const broken = p.ubq('test/worker.test.ts').out
+  assert.equal(broken[0], 'ERROR test/worker.test.ts')
+  assert.match(broken[1]!, /^ {2}the test file did not load: (Expression expected|Unexpected eof)$/)
 })
 
 test('test values for vars, a service that is absent, an alias, and a CommonJS package', slow, () => {

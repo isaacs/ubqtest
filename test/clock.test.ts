@@ -122,10 +122,11 @@ test('restore puts the real clock back, and the end of a test does it too', asyn
   )
   assert.equal(Date.now() > 1e12, true)
   await assert.rejects(clock.tick(1), /the fake clock was restored/)
-  {
-    using second = fakeClock({ now: 7 })
-    assert.equal(Date.now(), second.now)
-  }
+  // What `using second = fakeClock(...)` calls at the end of its
+  // block. Node 22 does not have that syntax.
+  const second = fakeClock({ now: 7 })
+  assert.equal(Date.now(), second.now)
+  second[Symbol.dispose]()
   assert.equal(Date, realDate)
   // Real time passes.
   const t0 = performance.now()

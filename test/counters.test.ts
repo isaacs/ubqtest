@@ -58,7 +58,11 @@ const answers = (preload: string): Answers => {
   return { uncovered: [...uncovered].sort((a, b) => a - b), covers, mode }
 }
 
-test('counters and V8 give the same answers on the fixture project', { timeout: 30000 }, () => {
+// V8 12, of Node 22, gives other ranges for a class. The list of
+// accepted differences below is for V8 13 and later.
+const oldV8 = +(process.versions.v8 ?? '13').split('.')[0]! < 13 && 'V8 12 gives other ranges for a class'
+
+test('counters and V8 give the same answers on the fixture project', { timeout: 30000, skip: oldV8 }, () => {
   const v8 = answers('preload')
   const counters = answers('counters-preload')
   resetStore(cwd)
