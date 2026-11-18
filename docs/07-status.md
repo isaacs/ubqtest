@@ -26,7 +26,8 @@ npm run bench -- --only ubq --check   # speed guards (builds first)
 The suite needs `bun` and `deno` on the path for all tests. A test
 skips itself, with a reason, if its runtime is not installed.
 
-The tool needs Node 24. If `node -v` shows an older version, look
+The tests of this repository need Node 24.18 or later (the tool
+runs on Node 22.18: D100). If `node -v` shows an older version, look
 for a newer one on the machine (a cloud session has
 `/opt/node24/bin`), and put it first on the path.
 
@@ -409,6 +410,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - ubq runs on Node 22.18 or later, with two workarounds for
+    faults of Node, and `ubq doctor` tests the functions that it
+    needs (D100).
   - `assert.equal` does not narrow the type (D98).
   - `assert.greaterThan`, `assert.lessThan`, and `assert.close`
     (D99). `ubq convert` writes them, and keeps the precision of

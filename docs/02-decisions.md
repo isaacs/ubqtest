@@ -2279,3 +2279,41 @@ and arithmetic by hand for a near value is easy to get wrong.
   lost its precision, and the new check was weaker.
 - `>=` and `<=` have no assertion: `assert(a >= b)`.
 
+## D100. ubq needs Node 22.18, and doctor tests the functions (user, 2026-11-19)
+
+The docs, `engines`, and `ubq doctor` said "Node 24 or later". A
+report (`20-seldo-feedback-0.0.18.md`, item 2) showed that this
+was wrong in two directions. The user asked for the real
+requirement. The assistant measured it with a small project and
+with the tests of this repository, on Node 20.19 to 26.5.
+
+- **The requirement is Node 22.18.** It is the first version with
+  `module.registerHooks` and with TypeScript files with no flag.
+  `engines` says `>=22.18`. `ubq doctor` tests the two functions,
+  not the version number.
+- **Two faults of Node that ubq now works around.**
+  - Node 24.0 to 24.3 (and 22 before 22.18, and 23) refuse the
+    result of a load hook for a module of the runtime, if the
+    process also has a resolve hook. Each test file failed with
+    "Expected a string ... for the "source" from the "load" hook
+    but got null". Each load hook of ubq now gives the result for
+    such a module itself.
+  - Node 22.18, 22.19, and 24.4 to 24.6 cannot bind a value to a
+    numbered parameter (`?1`) in `node:sqlite`. ubq failed after
+    the tests, with "column index out of range". The queries now
+    use `?` only.
+- **Limits that stay**, in the guide:
+  - Node 23, and Node 24.0 to 24.2, print an `ExperimentalWarning`
+    for type stripping.
+  - `require('./file')` with no extension in a CommonJS test file
+    works on Node 24.18 or later of Node 24, and on Node 26.5.
+- **What CI tests.** CI runs Node 24 (the newest 24) and the
+  newest Node. The tests of this repository do not all pass on
+  Node 22: on 22.22, 6 of 337 fail. Causes: `using` syntax in a
+  test file, the `require` limit above, a difference in what V8
+  reports for coverage, and the text of two error messages. On
+  Node 24.3 to 24.16, the failures are the `require` limit, and
+  an `rmSync` fault of Node on a link to a folder, which only the
+  tests use. A CI job for Node 22 needs those tests changed
+  first. It is not done.
+

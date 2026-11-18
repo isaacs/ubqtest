@@ -80,11 +80,11 @@ const rangesOf = (db: DatabaseSync, file: string): { tfile: string; test: string
       .prepare(
         // The rows of a different environment count if they are of
         // the file as it is now (D54).
-        `select tfile, test, ranges from coverage where file = ?1
-         union all select tfile, test, ranges from other_coverage where file = ?1 and hash = ?2
+        `select tfile, test, ranges from coverage where file = ?
+         union all select tfile, test, ranges from other_coverage where file = ? and hash = ?
          order by tfile, test`,
       )
-      .all(file, fileHash(file)) as { tfile: string; test: string; ranges: string }[]
+      .all(file, file, fileHash(file)) as { tfile: string; test: string; ranges: string }[]
   ).map(r => ({ ...r, ranges: JSON.parse(r.ranges) as number[] }))
 
 /** True if the store has coverage of `file` as it is now, or coverage of the last run of a test. */
@@ -172,10 +172,10 @@ export const uncovered = (db: DatabaseSync, file: string): Uncovered[] => {
   // Many tests can have the same coverage of a file.
   const rows = db
     .prepare(
-      `select distinct ranges from (select ranges from coverage where file = ?1
-       union all select ranges from other_coverage where file = ?1 and hash = ?2)`,
+      `select distinct ranges from (select ranges from coverage where file = ?
+       union all select ranges from other_coverage where file = ? and hash = ?)`,
     )
-    .all(file, fileHash(file)) as { ranges: string }[]
+    .all(file, file, fileHash(file)) as { ranges: string }[]
   for (const row of rows) {
     const ranges = JSON.parse(row.ranges) as number[]
     for (let i = 0; i < ranges.length; i += 3) (ranges[i + 2] ? hit : miss).push([ranges[i]!, ranges[i + 1]!])

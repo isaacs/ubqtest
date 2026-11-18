@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { announce } from './child-coverage.ts'
 import { setDefines } from './config.ts'
 import { startCounters } from './counter-collector.ts'
-import { withCounters } from './load-hook.ts'
+import { builtin, withCounters } from './load-hook.ts'
 
 const deno = !!process.versions.deno
 /** The codes of an import or a require that names no file, or names a folder. */
@@ -80,5 +80,6 @@ if (counters) announce()
 if (counters)
   registerHooks({
     load: (url, context, next) =>
+      (builtin(url, context) as ReturnType<typeof next> | undefined) ??
       withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined)),
   })

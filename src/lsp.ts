@@ -71,7 +71,9 @@ const withStore = <T>(use: (db: DatabaseSync) => T): T | undefined => {
 
 /** True if the store has a run of the code of `file`. */
 const known = (db: DatabaseSync, file: string): boolean =>
-  !!db.prepare('select 1 from coverage where file = ?1 union all select 1 from test_file where tfile = ?1').get(file)
+  !!db
+    .prepare('select 1 from coverage where file = ? union all select 1 from test_file where tfile = ?')
+    .get(file, file)
 
 /**
  * True if the stored places are not the places of `text`: the text

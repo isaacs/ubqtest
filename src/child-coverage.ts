@@ -13,7 +13,7 @@ import { isMainThread, threadId } from 'node:worker_threads'
 import { type ChildCounts, type Children, CHILDREN } from './child-read.ts'
 import { builtMap, cached, cachePath } from './counter-collector.ts'
 import { COUNTERS, SOURCE } from './counters.ts'
-import { type Counting, withCounters } from './load-hook.ts'
+import { builtin, type Counting, withCounters } from './load-hook.ts'
 import { projectRoot } from './project.ts'
 
 /**
@@ -311,6 +311,7 @@ export const startChild = (): void => {
   // A Node that is too old for this function has no coverage.
   nodeModule.registerHooks?.({
     load: (url, context, next) =>
+      (builtin(url, context) as ReturnType<typeof next> | undefined) ??
       withCounters(url, next(url, context), path =>
         taken(path) ? undefined : list.find(counting => counting.wants(path)),
       ),

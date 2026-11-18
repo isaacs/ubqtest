@@ -50,8 +50,8 @@ has the API and the rules of ubq.
    that the project uses, such as `@types/node` or `typescript`:
    after you remove it, make sure that the build and the type
    check still work. Change the test command of CI. ubq needs
-   Node 24 or later: remove older versions from the CI matrix, and
-   tell the user. The folder `.ubq/` has the run store, and git ignores it
+   Node 22.18 or later: if the CI matrix has an older version,
+   tell the user, and do not remove it with no answer. The folder `.ubq/` has the run store, and git ignores it
    with no setup. Commit `ubq-snapshots/`.
 
 Do not change the source of the project to make a test pass,

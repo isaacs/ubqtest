@@ -36,6 +36,21 @@ interface Loaded {
 }
 
 /**
+ * The result of a load hook for a module of the runtime, such as
+ * `node:fs`, and undefined for each other module. Node 24.0 to
+ * 24.3 refuse the result that they give themselves for such a
+ * module, if the process also has a resolve hook. Node does not
+ * read the source of such a module.
+ */
+export const builtin = (
+  url: string,
+  context: { format?: string | null },
+): (Loaded & { shortCircuit: boolean }) | undefined =>
+  !deno && (context.format === 'builtin' || nodeModule.isBuiltin(url))
+    ? { format: 'builtin', source: '', shortCircuit: true }
+    : undefined
+
+/**
  * The result of the load of `url` with counters, if `find` gives a
  * collector for the path. `result` is what the runtime loaded.
  */

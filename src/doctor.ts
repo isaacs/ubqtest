@@ -89,9 +89,12 @@ export const doctor = (out: (text: string) => void): number => {
   const v = process.versions
   if (v.deno) ok(`Deno ${v.deno}`)
   else if (v.bun) ok(`Bun ${v.bun}`)
-  else if (+v.node.split('.')[0]! >= 24) ok(`Node ${v.node}`)
-  // ubq: not measured: the tests run on Node 24 or later
-  else fix(`Node ${v.node} is too old. ubq needs Node 24 or later. Install it, and put it first on the path.`)
+  // The two functions of Node that ubq needs, not a version number:
+  // load hooks in the thread of the program, and TypeScript files
+  // with no flag. Node 22.18 is the first version with the two.
+  else if (typeof nodeModule.registerHooks === 'function' && process.features.typescript) ok(`Node ${v.node}`)
+  // ubq: not measured: the tests run on a Node that has the two
+  else fix(`Node ${v.node} is too old. ubq needs Node 22.18 or later. Install it, and put it first on the path.`)
 
   if (existsSync(join(root, 'package.json'))) ok(`project: ${root}`)
   else fix(`no package.json at or above ${root}. The folder of package.json is the project. Run: npm init -y`)

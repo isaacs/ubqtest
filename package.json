@@ -16,7 +16,7 @@
     "./counters-preload": "./src/counters-preload.ts"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=22.18"
   },
   "scripts": {
     "prepare": "node test/setup.ts",

@@ -7,6 +7,7 @@ import { SOURCE } from './counters.ts'
 import { projectRoot, rel } from './project.ts'
 import { callSite } from './stack.ts'
 import { notInWorkerd } from './workerd.ts'
+import { builtin } from './load-hook.ts'
 
 // The part of the Bun API that this file uses.
 declare const Bun: {
@@ -168,7 +169,8 @@ const register = (): void => {
     },
     load(url, context, next) {
       if (url.startsWith(STUB)) return { format: 'module', source: '', shortCircuit: true }
-      if (!url.startsWith(MOCK)) return next(url, context)
+      if (!url.startsWith(MOCK))
+        return (builtin(url, context) as ReturnType<typeof next> | undefined) ?? next(url, context)
       const rest = url.slice(MOCK.length)
       const id = rest.slice(0, rest.indexOf(':'))
       return { format: 'module', source: mockSource(id, rest.slice(id.length + 1)), shortCircuit: true }

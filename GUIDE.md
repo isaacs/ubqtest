@@ -837,7 +837,19 @@ is for code that a test cannot reach.
 
 ## Requirements
 
-Node 24 or later, or Bun, or Deno. TypeScript runs with no build
+Node 22.18 or later, or Bun, or Deno. `ubq doctor` tests the
+functions of Node that ubq needs, not the version number. Two
+limits of older versions:
+
+- Node 23, and Node 24.0 to 24.2, print `ExperimentalWarning: Type
+  Stripping is an experimental feature` to stderr for each process
+  that loads a TypeScript file.
+- In a CommonJS test file, `require('./file')` with no extension
+  finds `./file.ts` on Node 24.18 or later of Node 24, and on
+  Node 26.5 or later. It does not on Node 22, 25, or 26.0.
+  An `import` finds it on each version.
+
+TypeScript runs with no build
 step, so the code must use only syntax that can be erased: no
 `enum`, no `namespace`, no parameter properties. In
 `tsconfig.json`, set `"allowImportingTsExtensions": true`,

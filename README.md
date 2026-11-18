@@ -3,7 +3,7 @@
 A test tool for TypeScript and JavaScript, made for coding agents
 and the people who work with them.
 
-The package is `ubqtest`. The command is `ubq`. It runs on Node 24
+The package is `ubqtest`. The command is `ubq`. It runs on Node 22.18
 or later, Bun, and Deno, with no build step and no configuration.
 
 > **Status:** early. The versions are 0.0.x, and the API can
@@ -193,7 +193,9 @@ comment with the instruction.
 
 ## Requirements and limits
 
-- Node 24 or later, or Bun, or Deno.
+- Node 22.18 or later, or Bun, or Deno. In a CommonJS test file,
+  `require('./file')` with no extension needs Node 24.18 or
+  later of Node 24, or Node 26.5 or later.
 - On Node, TypeScript runs with its types removed and no other
   change. Source with `enum`, `namespace`, or parameter
   properties does not load on Node. Bun runs it.
