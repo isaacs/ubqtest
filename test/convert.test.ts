@@ -1344,15 +1344,56 @@ test('the report names the files that still name the old tool, and the command o
     p
       .ubq('convert', ...args)
       .out.split('\n')
-      .filter(line => /^note: (these|this command does not)/.test(line))
+      .filter(line => /^note: (these|this command did not|formatted)/.test(line))
   const old =
     'note: these files still name the old test tool: old/env.d.ts, old/setup.ts, old/w.test.ts. Change them before you remove that tool.'
   // With --dry, no file changes: there is nothing to format.
   assert.deepEqual(notes('--dry', 'old'), [old])
   assert.deepEqual(notes('old'), [
     old,
-    'note: this command does not format the code. To format the changed files: npx prettier --write old/a.test.ts old/w.test.ts',
+    'note: this command did not format the code: prettier is not installed. To format the changed files: npx prettier --write old/a.test.ts old/w.test.ts',
   ])
+  // The formatter of the project runs on the files that changed.
+  const bin = join(p.dir, 'node_modules/.bin')
+  mkdirSync(bin, { recursive: true })
+  const formatter = (code: string): void => {
+    writeFileSync(join(bin, 'prettier.mjs'), `import { appendFileSync } from 'node:fs'\n${code}\n`)
+    writeFileSync(join(bin, 'prettier'), `#!/bin/sh\nexec node "${join(bin, 'prettier.mjs')}" "$@"\n`, { mode: 0o755 })
+    writeFileSync(join(bin, 'prettier.cmd'), `@node "${join(bin, 'prettier.mjs')}" %*\r\n`)
+  }
+  const again = (): void =>
+    writeFileSync(
+      join(p.dir, 'old/a.test.ts'),
+      "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n",
+    )
+  formatter('for (const file of process.argv.slice(3)) appendFileSync(file, `// ${process.argv[2]}\\n`)')
+  again()
+  assert.deepEqual(notes('old/a.test.ts'), ['note: formatted the changed files with prettier.'])
+  assert.match(readFileSync(join(p.dir, 'old/a.test.ts'), 'utf8'), /assert\.equal\(1, 1\)\)\n\/\/ --write\n$/)
+  formatter("console.error('no config\\nmore'); process.exit(2)")
+  again()
+  assert.deepEqual(notes('old/a.test.ts'), [
+    'note: this command did not format the code: prettier failed (no config). To format the changed files: npx prettier --write old/a.test.ts',
+  ])
+  formatter('process.exit(3)')
+  again()
+  assert.deepEqual(notes('old/a.test.ts'), [
+    'note: this command did not format the code: prettier failed (exit code 3). To format the changed files: npx prettier --write old/a.test.ts',
+  ])
+  // A workspace: the formatter is in a folder around the project.
+  mkdirSync(join(p.dir, 'pkg/test'), { recursive: true })
+  writeFileSync(join(p.dir, 'pkg/package.json'), '{ "type": "module" }')
+  writeFileSync(
+    join(p.dir, 'pkg/test/a.test.ts'),
+    "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n",
+  )
+  formatter("for (const file of process.argv.slice(3)) appendFileSync(file, '// done\\n')")
+  const inner = spawnSync('node', [join(p.dir, 'node_modules/ubqtest/src/cli.ts'), 'convert', 'test'], {
+    cwd: join(p.dir, 'pkg'),
+    encoding: 'utf8',
+  })
+  assert.match(inner.stdout, /^note: formatted the changed files with prettier\.$/m)
+  assert.match(readFileSync(join(p.dir, 'pkg/test/a.test.ts'), 'utf8'), /\/\/ done\n$/)
 })
 
 test('the report names c8 and istanbul comments, and a file with only top-level assertions', () => {

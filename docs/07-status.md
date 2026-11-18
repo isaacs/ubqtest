@@ -409,6 +409,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `ubq convert` runs the formatter of the project on the files
+    that it changed (D95).
   - `ubq doctor` checks the options in the `tsconfig.json` that
     has the test files, and gives the file to add if none has
     them (D94).

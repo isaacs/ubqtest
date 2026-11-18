@@ -2152,3 +2152,22 @@ options in the config of the source.
   itself. For a config with `references`, or one that gets its
   list from a base config, it does not know, and it reports no
   problem.
+
+## D95. `ubq convert` runs the formatter of the project (user, 2026-11-17)
+
+Q35. `ubq convert` printed the command of the formatter in a
+note. Six of eight agents ran it by hand, and one did not see the
+note.
+
+- After the command writes the files, it runs the formatter on
+  the files that it changed: prettier, oxfmt, biome, or dprint,
+  from `dependencies` or `devDependencies` of the `package.json`
+  of the project, or of the nearest folder around it that has
+  one (a workspace).
+- It runs the program in `node_modules/.bin` of that folder, not
+  `npx`: no download.
+- No option to stop it: one way. `--dry` writes no file, and
+  formats nothing.
+- If the program is not there or fails, a note gives the command
+  to run by hand, with the first line of the error.
+- A project with no formatter gets no note.

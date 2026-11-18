@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, globSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { config, UsageError } from './config.ts'
 import { restorePlan } from './convert-restore.ts'
 import type { Node } from './instrument.ts'
@@ -2043,13 +2043,51 @@ export const convertSource = (
 const CODE = /(?<!\.d)\.([cm]?[jt]s|[jt]sx)$/
 /** The default name of a test file. */
 const TEST_NAME = /\.test\.([cm]?[jt]s|[jt]sx)$/
-/** The command that formats files, for each formatter package. */
-const FORMATTERS: [pkg: string, command: string][] = [
-  ['prettier', 'npx prettier --write'],
-  ['oxfmt', 'npx oxfmt'],
-  ['@biomejs/biome', 'npx biome format --write'],
-  ['dprint', 'npx dprint fmt'],
+/** The program that formats files, for each formatter package. */
+const FORMATTERS: [pkg: string, bin: string, ...args: string[]][] = [
+  ['prettier', 'prettier', '--write'],
+  ['oxfmt', 'oxfmt'],
+  ['@biomejs/biome', 'biome', 'format', '--write'],
+  ['dprint', 'dprint', 'fmt'],
 ]
+
+/**
+ * Formats the files with the formatter of the project, or of a
+ * project around it (a workspace). Returns the text of a note.
+ */
+const formatFiles = (root: string, files: string[]): string | undefined => {
+  for (let dir = root; ; dir = dirname(dir)) {
+    let pkg: Record<string, Record<string, string> | undefined> = {}
+    try {
+      pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+    } catch {
+      // No package.json that is JSON in this folder.
+    }
+    const found = FORMATTERS.find(([name]) => pkg.devDependencies?.[name] ?? pkg.dependencies?.[name])
+    if (found) {
+      const [, bin, ...args] = found
+      const byHand = `To format the changed files: npx ${[bin, ...args, ...files].join(' ')}`
+      const windows = process.platform === 'win32'
+      // ubq: not measured: the tests of one run are on one system
+      const program = join(dir, 'node_modules/.bin', windows ? `${bin}.cmd` : bin)
+      if (!existsSync(program)) return `this command did not format the code: ${bin} is not installed. ${byHand}`
+      // A command line has a limit of length.
+      for (let i = 0; i < files.length; i += 50) {
+        const run = spawnSync(program, [...args, ...files.slice(i, i + 50)], {
+          cwd: root,
+          encoding: 'utf8',
+          shell: windows,
+        })
+        if (run.status !== 0) {
+          const why = (run.error?.message ?? run.stderr).trim().split('\n')[0] || `exit code ${run.status}`
+          return `this command did not format the code: ${bin} failed (${why}). ${byHand}`
+        }
+      }
+      return `formatted the changed files with ${bin}.`
+    }
+    if (dirname(dir) === dir) return undefined
+  }
+}
 
 /**
  * A comment of an other coverage tool that leaves out code. The
@@ -2295,14 +2333,8 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     // No package.json that is JSON.
   }
   // The changes keep the code correct, not its format.
-  try {
-    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Record<string, Record<string, string>>
-    const format = FORMATTERS.find(([name]) => pkg.devDependencies?.[name] ?? pkg.dependencies?.[name])?.[1]
-    if (format && written.length && !dry)
-      out(`note: this command does not format the code. To format the changed files: ${format} ${written.join(' ')}`)
-  } catch {
-    // No package.json that is JSON.
-  }
+  const formatted = written.length && !dry ? formatFiles(root, written) : undefined
+  if (formatted) out(`note: ${formatted}`)
   // A TODO can look easy. The reader must know why it is there.
   if (todos)
     out(

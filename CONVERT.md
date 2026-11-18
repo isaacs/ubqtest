@@ -18,10 +18,12 @@ has the API and the rules of ubq.
    that have tests). `--dry` shows the report and changes no file.
    The command changes the files in place. If `git status` is
    clean before it, `git diff` shows only its changes. It is safe to run the command again on one file. The
-   command keeps the code correct, but it does not format it. If
-   the project has a formatter (prettier, oxfmt, biome, or
-   dprint), the report gives the command that formats the
-   changed files.
+   command keeps the code correct, and then runs the formatter of
+   the project (prettier, oxfmt, biome, or dprint) on the files
+   that it changed. It finds the formatter in the `package.json`
+   of the project, or of a folder around it. If the formatter is
+   not installed or fails, a note gives the command to run by
+   hand.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. It makes only the changes
    that are correct in each case, so a TODO can be easy to do by
