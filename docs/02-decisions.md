@@ -2022,3 +2022,15 @@ agents asked for them.
 - A spy from a shared helper or at the top level of a file lives
   until the file ends. The guide says to make it in a function
   that each test calls.
+
+## D88. `mockImport` has no partial form (user, 2026-11-17)
+
+Q28. `mockImport` needs each export that the code under test
+imports. Seven of eight agents asked for a form that keeps the
+other exports.
+
+- No change. The mock spreads the real module: `{ ...(await
+  import('./dep.ts')), fn: spy(impl) }`. The line shows which
+  code is real.
+- The need was the text of the hint, and the hint of `vi.mock`
+  has this form.

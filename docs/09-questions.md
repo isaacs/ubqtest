@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -22,23 +22,6 @@ hit the problem.
 
 Q27 to Q35 come from the same report. They are the points that
 D78 to D86 did not decide.
-
-## Q28. A mock that keeps the other exports (7 of 8)
-
-`mockImport` needs each export that the code under test imports.
-The agents wrote `{ ...real, fn: spy() }` with an import of the
-real module. The hint now shows this form.
-
-Options:
-
-1. No change. The spread is one line, and it shows that the other
-   exports are real.
-2. `mockImport` keeps each export that the mock does not name.
-   A mock can then not remove an export.
-3. An option: `{ partial: true }`.
-
-The agent would pick 1. The need was the text of the hint, and
-that is done. 2 hides which code is real.
 
 ## Q29. The expected error of `throws` and `rejects` (4 of 8)
 
