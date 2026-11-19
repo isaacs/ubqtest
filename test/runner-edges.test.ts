@@ -213,7 +213,7 @@ test('after 20 failure blocks, a run names the count of the others', () => {
   assert.match(lost.ubq('many.test.ts').out, /^and 3 more failures\.$/m)
 })
 
-test('--max-time stops the run, and names each file that did not end', () => {
+test('--max-time stops the run, and names each file that did not end', async () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
   assert.deepEqual(
@@ -250,15 +250,18 @@ test('waits', { timeout: 60_000 }, async () => {
   assert.match(r.last!, new RegExp(`^fail: ${count} errors, 0 failed, 0 passed`))
   // The processes that the tests started are gone.
   const pids = readFileSync(join(p.dir, 'pids.txt'), 'utf8').trim().split('\n').map(Number)
-  const alive = pids.filter(pid => {
-    try {
-      process.kill(pid, 0)
-      return true
-    } catch {
-      return false
-    }
-  })
-  assert.deepEqual(alive, [])
+  const alive = (): number[] =>
+    pids.filter(pid => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch {
+        return false
+      }
+    })
+  // The system removes a process some time after the signal.
+  for (let i = 0; i < 100 && alive().length; i++) await new Promise(resolve => setTimeout(resolve, 50))
+  assert.deepEqual(alive(), [])
   // A file that is still at its top level has no test to name.
   writeFileSync(join(p.dir, 'load.test.ts'), 'await new Promise(r => setTimeout(r, 30_000))\n')
   assert.match(
