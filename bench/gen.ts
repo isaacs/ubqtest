@@ -272,10 +272,12 @@ const files: File[] = [
           name: `case ${t + 1}`,
           async: true,
           steps: [
-            ['eq', `await withTimeout(delay(1, ${lit(`v${t}`)}), 50)`, `v${t}`],
-            ['rejects', 'withTimeout(delay(30), 2)', 'no result in 2 ms'],
-            ['rejects', `withTimeout(Promise.reject(new Error('lost ${t}')), 50)`, `lost ${t}`],
-            ['deep', `await Promise.all([withTimeout(delay(2, 1), 50), withTimeout(delay(1, 2), 50)])`, [1, 2]],
+            // No result depends on which of two timers is first: a
+            // machine with load must give the same result.
+            ['eq', `await withTimeout(delay(1, ${lit(`v${t}`)}), 5000)`, `v${t}`],
+            ['rejects', 'withTimeout(new Promise(() => {}), 2)', 'no result in 2 ms'],
+            ['rejects', `withTimeout(Promise.reject(new Error('lost ${t}')), 5000)`, `lost ${t}`],
+            ['deep', `await Promise.all([withTimeout(delay(2, 1), 5000), withTimeout(delay(1, 2), 5000)])`, [1, 2]],
             ['ok', '(await withTimeout(Promise.resolve(true), 1)) === true'],
           ] satisfies Step[],
         })),

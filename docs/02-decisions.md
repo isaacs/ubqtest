@@ -2442,3 +2442,34 @@ Checked with a real browser: a converted file of 2 tests ran, and
 the one that depends on the spaces of `toHaveText` failed with
 the two values.
 
+## D106. The runner makes the counters cache of a project that has none, and the cache has the source with no types (user, 2026-11-19)
+
+The user asked for less time in each test process. The benchmark
+of `bench/` showed where the time was: not in the load of the
+library (2 ms), but in work that each test process did again.
+
+- **A project with no `.ubq/counters/` folder**, such as a job in
+  CI: before the runner starts a test process, it makes the cache
+  entries of the test files of the run, and of the project files
+  that they import (`prepareAll`). It finds the imports as text:
+  relative paths, with the ends that the load hook tries. Before,
+  each test process loaded the parser and made the entries of the
+  same files. A run of one file in the process of the runner does
+  not do this, and a project with the folder does not: a file
+  that changed costs one test process the parser, as before.
+- **The entry of a TypeScript file has the source with no
+  types**, from `stripTypeScriptTypes` of Node, with each position
+  as it was. A test process then loads JavaScript, and Node does
+  not start its code that removes types. Before, only the
+  background server made such entries. ubq hides the warning that
+  Node prints for that function.
+
+**Measured** (`bench/README.md`, 20 test files, 2 CPUs): a run
+with no state went from 1.79 s and 3.31 s of CPU to 1.00 s and
+1.66 s. A run with a cache went from 0.86 s and 1.45 s of CPU to
+0.78 s and 1.27 s.
+
+**Not in the code.** A change that loaded the modules of Node
+with `process.getBuiltinModule`, to save the time of the ESM form
+of `node:fs`, gave no gain in 60 runs of each form.
+

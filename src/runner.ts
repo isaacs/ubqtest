@@ -21,7 +21,7 @@ import type { Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
-import { columnFromCache } from './counter-collector.ts'
+import { columnFromCache, prepareAll } from './counter-collector.ts'
 import { uncoveredCount } from './query.ts'
 import { startCoverage } from './coverage.ts'
 import {
@@ -802,6 +802,11 @@ export const run = async (args: string[]): Promise<number> => {
   // Each run of a TypeScript project also checks the types (D38).
   // A Workers test file cannot load in this process.
   const lone = files.length === 1 && !repeat && !baselineRef && !workersConfig(files[0]!.file)
+  // A project with no cache of source with counters: a new copy of
+  // the project, or a job in CI. One process makes the cache, before
+  // the test processes start.
+  if (!lone && !V8 && !existsSync(join(projectRoot(), '.ubq', 'counters')))
+    prepareAll(files.map(f => join(projectRoot(), f.file)))
   const checking = typeCheck(
     lone,
     files.map(f => f.file),

@@ -2,9 +2,9 @@
 // Node preload. Keeps the changed source of each file in a cache in
 // `.ubq/counters/`, so that most processes do not load the parser.
 import { hash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
-import { join, sep } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { addCoverage, type Collector, flatten, sourceCoverage } from './coverage.ts'
 import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
@@ -125,6 +125,24 @@ export const columnFromCache = (file: string, line: number, column: number): num
 }
 
 /**
+ * TypeScript source with its types removed, and each position as
+ * it was. Undefined for source that Node cannot change, such as an
+ * `enum`: Node then reports that when it loads the file.
+ */
+const withoutTypes = (code: string): string | undefined => {
+  // Node prints a warning the first time that a program removes types.
+  const emitWarning = process.emitWarning
+  process.emitWarning = () => {}
+  try {
+    return nodeModule.stripTypeScriptTypes(code)
+  } catch {
+    return undefined
+  } finally {
+    process.emitWarning = emitWarning
+  }
+}
+
+/**
  * The changed source of a file, from the cache. Makes the entry if
  * it is absent. With `strip`, the entry of a TypeScript file also
  * gets the source with the types removed.
@@ -165,7 +183,7 @@ export const cached = (
         const sources = builtSources(result.regions, source, map, root, (text, name) => parse()?.(text, name)?.regions)
         if (sources) result.sources = sources
       }
-      if (needsJs) result.js = nodeModule.stripTypeScriptTypes(result.code)
+      if (needsJs) result.js = withoutTypes(result.code)
       mkdirSync(join(root, '.ubq', 'counters'), { recursive: true })
       // Other processes read the cache at the same time, so the
       // file must be complete when it gets its name.
@@ -197,6 +215,45 @@ export const prepareCounters = (path: string): boolean => {
   } catch {
     // The file went away.
     return false
+  }
+}
+
+// `import x from './a.ts'`, `import('./a.ts')`, `require('./a.js')`
+const IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(\.{1,2}\/[^'"\n]*)\1/g
+/** The ends of the file that an import with no file names, as the load hook finds it. */
+const ENDS = ['', '.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '/index.ts', '/index.js']
+
+/**
+ * Makes the cache entries of the test files at `paths`, and of the
+ * project files that they import, in this process. The runner calls
+ * this for a project with no cache, such as a job in CI: if not,
+ * each test process loads the parser, and makes the entries of the
+ * same files.
+ */
+export const prepareAll = (paths: string[]): void => {
+  const root = projectRoot()
+  const seen = new Set<string>()
+  const queue = [...paths]
+  for (let path = queue.pop(); path !== undefined; path = queue.pop()) {
+    if (seen.has(path)) continue
+    seen.add(path)
+    let source: string
+    try {
+      source = readFileSync(path, 'utf8')
+      // The key and the arguments of the load hook of a test process.
+      cached(rel(path), source, true, root, path, builtMap(path, source))
+      // ubq: not measured: each path is a file that exists
+    } catch {
+      // The test process reports a file that it cannot load.
+      continue
+    }
+    for (const [, , name] of source.matchAll(IMPORT)) {
+      const base = resolve(dirname(path), name!)
+      const found = [base, base.replace(/\.[cm]?js$/, '')]
+        .flatMap(start => ENDS.map(end => start + end))
+        .find(file => statSync(file, { throwIfNoEntry: false })?.isFile())
+      if (found?.startsWith(root + sep) && !found.includes(`${sep}node_modules${sep}`)) queue.push(found)
+    }
   }
 }
 
@@ -291,7 +348,7 @@ export const startCounters = (): Counters | undefined => {
         source === undefined
           ? undefined // ubq: not measured: this module loads before the counters start
           : changed === undefined
-            ? cached(file, source, false, projectRoot(), path, builtMap(path, source))
+            ? cached(file, source, true, projectRoot(), path, builtMap(path, source))
             : parse()?.(changed, file)
       if (!result) {
         unread++

@@ -419,6 +419,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - A run with no cache is two times faster: the runner makes the
+    counters cache one time, and the cache has TypeScript source
+    with no types (D106).
   - `bench/`: a benchmark of 5 test tools on the same 20 test
     files, 306 tests, and 2330 assertions, in Docker with a fixed
     budget. The first results and three places where ubq loses

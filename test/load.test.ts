@@ -1,7 +1,7 @@
 // A test file that does not load: a syntax error, or an import of a
 // file that does not exist.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
@@ -188,4 +188,43 @@ test('the values of the define key are globals before the source loads', () => {
   writeFileSync(join(p.dir, 'plain.ts'), [ubqtest, source, ...rest].join('\n'))
   const plain = spawnSync('node', ['plain.ts'], { cwd: p.dir, encoding: 'utf8' })
   assert.equal(plain.status, 0, plain.stderr)
+})
+
+test('a run with no cache makes the cache of the test files and of the files that they import, with no types', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  mkdirSync(join(p.dir, 'lib/dir'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'lib/shared.ts'),
+    "import { one } from './dir'\nexport const two = (): number => one() + 1\n",
+  )
+  writeFileSync(join(p.dir, 'lib/dir/index.ts'), 'export const one = (): number => 1\n')
+  // Node cannot remove the types of this file. No test loads it.
+  writeFileSync(join(p.dir, 'lib/kind.ts'), 'export enum Kind {\n  A,\n}\n')
+  for (const name of ['a', 'b'])
+    writeFileSync(
+      join(p.dir, `${name}.test.ts`),
+      `import { assert, test } from 'ubqtest'
+import { two } from './lib/shared.js'
+const kind = (): Promise<unknown> => import('./lib/kind.ts')
+test('${name}', () => assert.deepEqual([two(), typeof kind], [2, 'function']))
+`,
+    )
+  const r = p.ubq('a.test.ts', 'b.test.ts')
+  assert.deepEqual([r.last, r.err], ['pass: 0 failed, 2 passed', ''])
+  // One entry for each file: the two test files, and the three
+  // files of `lib`. Each has the source with no types, but the file
+  // that Node cannot change.
+  const dir = join(p.dir, '.ubq/counters')
+  const entries = readdirSync(dir).map(
+    name => JSON.parse(readFileSync(join(dir, name), 'utf8')) as { code: string; js?: string },
+  )
+  assert.deepEqual(entries.map(entry => (entry.code.includes('enum Kind') ? 'no js' : typeof entry.js)).sort(), [
+    'no js',
+    'string',
+    'string',
+    'string',
+    'string',
+  ])
+  assert(entries.every(entry => !entry.js?.includes(': number')))
 })

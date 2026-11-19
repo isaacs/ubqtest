@@ -62,6 +62,10 @@ cost. "MB" is the most memory of one process.
 - **ubq, with the type check** is the same project with a
   `tsconfig.json`: ubq then runs the type checker of the
   project at the same time as the tests.
+- **ubq, with no state of a run before** removes the `.ubq`
+  folder before each run: the store, and the cache of the source
+  with counters. A job in CI starts this way, if it keeps no
+  cache.
 - **vitest, no isolation** and **mocha, parallel** are options
   that a project can set. They are not the defaults.
 - **tape** has no command for these files: its command cannot
@@ -70,72 +74,104 @@ cost. "MB" is the most memory of one process.
 
 ## Results
 
-Node v24.22.3, on 2026-11-19. ubqtest 0.0.19, vitest 5.1.1, ava 8.4.0,
-tape 5.11.0, mocha 12.0.3, c8 12.0.0. The full results, with the
-least and the most of each command, are in `results/`.
+The full results, with the least and the most of each command,
+are in `results/`. `node tables.ts` writes the tables from them.
+
+<!-- results -->
+Node v24.22.3. ubqtest 0.0.19, vitest 5.1.1, ava 8.4.0, tape 5.11.0, mocha 12.0.3, c8 12.0.0.
 
 ### All 20 files
 
-| Command | 2 CPUs: wall s | CPU s | MB | 4 CPUs: wall s | CPU s | MB |
+| Command | 2 CPUs, 2 GB: wall s | CPU s | MB | 4 CPUs, 4 GB: wall s | CPU s | MB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ubq | 0.81 | 1.34 | 73 | 0.57 | 1.54 | 74 |
-| ubq, with the type check | 0.90 | 1.52 | 84 | 0.60 | 1.63 | 85 |
-| vitest | 2.13 | 2.34 | 134 | 0.92 | 2.44 | 133 |
-| vitest, no isolation | 0.91 | 0.85 | 131 | 0.59 | 1.06 | 132 |
-| ava | 1.58 | 2.83 | 173 | 1.21 | 2.92 | 171 |
-| mocha | 0.79 | 0.74 | 118 | 0.75 | 0.76 | 121 |
-| mocha, parallel | 0.77 | 1.27 | 101 | 0.60 | 1.31 | 100 |
+| ubq | 0.78 | 1.27 | 67 | 0.47 | 1.28 | 67 |
+| ubq, with no state of a run before | 1.00 | 1.66 | 125 | 0.70 | 1.73 | 115 |
+| ubq, with the type check | 0.82 | 1.37 | 84 | 0.49 | 1.44 | 85 |
+| vitest | 2.15 | 2.34 | 134 | 0.92 | 2.45 | 134 |
+| vitest, no isolation | 0.93 | 0.86 | 131 | 0.59 | 1.05 | 134 |
+| ava | 1.58 | 2.81 | 173 | 1.22 | 2.92 | 172 |
+| tape | 0.89 | 0.85 | 138 | 0.86 | 0.88 | 139 |
+| mocha | 0.80 | 0.74 | 120 | 0.76 | 0.75 | 121 |
+| mocha, parallel | 0.79 | 1.29 | 100 | 0.60 | 1.31 | 101 |
 
 ### All 20 files, with coverage
 
-| Command | 2 CPUs: wall s | CPU s | MB | 4 CPUs: wall s | CPU s | MB |
+| Command | 2 CPUs, 2 GB: wall s | CPU s | MB | 4 CPUs, 4 GB: wall s | CPU s | MB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ubq | 0.85 | 1.40 | 73 | 0.58 | 1.48 | 72 |
-| vitest | 2.51 | 2.77 | 153 | 1.09 | 2.90 | 154 |
-| ava with c8 | 2.01 | 3.56 | 186 | 1.64 | 3.72 | 186 |
-| mocha with c8 | 0.99 | 1.01 | 123 | 0.93 | 1.04 | 121 |
+| ubq | 0.74 | 1.21 | 67 | 0.51 | 1.29 | 68 |
+| vitest | 2.52 | 2.77 | 155 | 1.09 | 2.88 | 154 |
+| ava with c8 | 2.01 | 3.57 | 182 | 1.64 | 3.71 | 187 |
+| tape with c8 | 1.13 | 1.18 | 143 | 1.08 | 1.21 | 141 |
+| mocha with c8 | 0.98 | 1.01 | 123 | 0.93 | 1.04 | 122 |
 
 ### One file (21 tests, 210 plain assertions)
 
-| Command | 2 CPUs: wall s | CPU s | MB | 4 CPUs: wall s | CPU s | MB |
+| Command | 2 CPUs, 2 GB: wall s | CPU s | MB | 4 CPUs, 4 GB: wall s | CPU s | MB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ubq | 0.06 | 0.06 | 69 | 0.06 | 0.06 | 69 |
-| ubq, the file as a program | 0.12 | 0.15 | 98 | 0.11 | 0.15 | 99 |
-| vitest | 0.25 | 0.28 | 126 | 0.24 | 0.29 | 126 |
-| ava | 0.21 | 0.25 | 117 | 0.19 | 0.26 | 118 |
-| mocha | 0.12 | 0.13 | 89 | 0.11 | 0.14 | 91 |
+| ubq | 0.06 | 0.07 | 69 | 0.06 | 0.06 | 69 |
+| ubq, the file as a program | 0.11 | 0.14 | 98 | 0.10 | 0.15 | 99 |
+| vitest | 0.25 | 0.28 | 125 | 0.24 | 0.31 | 126 |
+| ava | 0.21 | 0.25 | 117 | 0.20 | 0.26 | 118 |
+| tape | 0.11 | 0.12 | 86 | 0.09 | 0.13 | 86 |
+| mocha | 0.12 | 0.14 | 90 | 0.11 | 0.14 | 91 |
+<!-- /results -->
 
 ## What the results say about ubq
 
-- **Wall time.** With 4 CPUs, ubq is the fastest (0.57 s). With 2
-  CPUs it is level with mocha (0.81 s and 0.79 s), and mocha runs
-  each file in one process with no isolation and no coverage.
-  With coverage, ubq is the fastest in the two budgets.
-- **CPU time.** ubq uses 1.3 to 1.5 s of CPU, and mocha, tape,
-  and vitest with no isolation use 0.7 to 0.9 s. A process for
-  each test file is the cost. This is what a CI machine bills.
+- **Wall time.** ubq is the fastest with 4 CPUs (0.47 s), and
+  level with mocha with 2 CPUs (0.78 s and 0.80 s). mocha runs
+  each file in one process, with no isolation and no coverage.
+  With coverage for each tool, ubq is the fastest in the two
+  budgets.
+- **CPU time.** ubq uses about 1.3 s of CPU. mocha, tape, and
+  vitest with no isolation use 0.7 to 0.9 s: they load Node and
+  each module one time, for all files. ubq starts a process for
+  each test file. Of the tools that give each file its own
+  process or thread, ubq uses the least: vitest uses 2.5 s, and
+  ava 2.9 s.
+- **A run with no state**, as a job in CI, takes 1.00 s with 2
+  CPUs, and 1.66 s of CPU.
 - **One file.** `ubq <file>` takes 0.06 s. No other tool is
   below 0.09 s.
 
-Where the time of ubq goes, from single commands in the same
-container (2 CPUs):
+## The first changes that this benchmark led to
 
-| Command | ms |
-| --- | ---: |
-| `node -e 0` | 20 |
-| `node -e "import('ubqtest')"` | 53 |
-| `node test/text-slug.test.ts` (the file as a program) | 114 |
-| `ubq test/text-slug.test.ts` | 63 |
-| `ubq test/child.test.ts` (its 6 tests take 257 ms) | 473 |
-| `ubq` (all 20 files) | 825 |
+The numbers before are in `results/baseline/`: the same
+benchmark, with ubq at commit 66b9cf7.
 
-Three things to look at:
+| ubq, all 20 files | 2 CPUs: wall s | CPU s | 4 CPUs: wall s | CPU s |
+| --- | ---: | ---: | ---: | ---: |
+| before | 0.86 | 1.45 | 0.56 | 1.44 |
+| after | 0.78 | 1.27 | 0.47 | 1.28 |
+| before, with no state of a run before | 1.79 | 3.31 | 1.02 | 3.35 |
+| after, with no state of a run before | 1.00 | 1.66 | 0.70 | 1.73 |
 
-1. **The library takes 33 ms to load**, in each test process. The
-   20 files of this suite pay about 0.65 s of CPU for it.
-2. **A test file as a plain program takes 114 ms**, and the same
-   file with `ubq <file>` takes 63 ms.
-3. **The file that starts child processes takes 473 ms**, with
-   257 ms in its tests. This one file is more than half of the
-   wall time of the suite. ubq records the coverage of each
-   child process, which the other tools do not do.
+Two causes, and their changes:
+
+- **Each test process made the same cache entries.** ubq keeps
+  the source of each file with its counters in `.ubq/counters/`.
+  With no cache, each of the 20 test processes loaded the parser
+  and changed the same files. Now the runner makes the entries of
+  the test files, and of the project files that they import, one
+  time, before it starts a test process. It does this only if the
+  project has no such folder.
+- **Node removed the types of each file in each process.** The
+  cache entry of a TypeScript file now also has the source with
+  its types removed, so a test process loads JavaScript.
+
+What a test process costs, with a cache, on the machine of the
+maintainer (Node 26): `node -e 0` takes 30 ms, and a test process
+of a small file takes 47 ms. Of the 17 ms between them, 5 ms is
+the preload of ubq, which is almost all the time of Node to load
+its own modules (`fs`, `crypto`, `child_process`), 2 ms is the
+library, and the rest is the test file and its report. A change
+that loaded those modules of Node in a different way gave no
+gain, and is not in the code.
+
+Still to look at:
+
+1. **The file that starts child processes** takes 473 ms with
+   `ubq <file>`, and its tests take 257 ms. ubq records the
+   coverage of each child process.
+2. **A test file as a plain program** (`node <file>`) takes 110
+   ms, and `ubq <file>` takes 60 ms.

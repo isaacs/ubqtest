@@ -196,7 +196,7 @@ const count = ([root, dir]: Scope): Counting => {
       // can have both, for two projects with a file of the same name.
       const key = `//${file}`
       const map = builtMap(path, source)
-      const result = cached(key, source, false, root, path, map)
+      const result = cached(key, source, true, root, path, map)
       if (!result) return undefined
       let counts = all.get(key)
       if (counts?.length !== result.regions.length) all.set(key, (counts = new Uint32Array(result.regions.length)))
