@@ -10,6 +10,12 @@ import type { Location } from './events.ts'
 const OWN = [import.meta.dirname, join(import.meta.dirname, '../src'), join(import.meta.dirname, '../dist')].map(
   dir => dir + sep,
 )
+// A run of ubq in a test of ubq: the first run puts its coverage
+// code in each process below it, and that code can be in a folder
+// that is not one of the three above. It changes `process.emit`,
+// so a pause can stop in it.
+const outer = /--import (file:\S*\/)child-preload\.[jt]s/.exec(String(process.env.NODE_OPTIONS))?.[1]
+if (outer) OWN.push(fileURLToPath(outer))
 
 /** Time after the limit of a test before a watchdog acts. */
 export const GRACE_MS = 2000
