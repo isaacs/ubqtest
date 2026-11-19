@@ -2495,3 +2495,63 @@ then gets less CPU, so a test near its time limit can go over
 it. The mutation check keeps the count of CPUs: its test
 processes do not wait.
 
+## D108. Changes from the nest and jest report (assistant, 2026-11-19)
+
+`21-nest-jest-feedback-0.0.18.md`: a monorepo of 76 projects
+with 1305 jest test files (NestJS, React, pnpm, Nx). The user
+asked the assistant to close what it could, and to record each
+decision. Each choice here is an assumption of the assistant.
+
+- **Faults.** A stack frame with `(` in its path. A rerun command
+  with `$` or `(` in its path, with no quotes. A file that the
+  configuration leaves out, as a failure of `ubq check` and of
+  `ubq --failed`. "A test file must import 'ubqtest'" for a file
+  that has the import, and whose process ended while it loaded.
+- **pnpm.** The workspaces of a monorepo also come from
+  `pnpm-workspace.yaml`. `ubq doctor` at the root says that it is
+  a monorepo, and how many projects it has.
+- **A tsconfig with only references** (Nx). `tsc -p` of it reads
+  no file. `ubq doctor` has a FIX line, with a config for the
+  test folder that extends `tsconfig.spec.json` and turns
+  `composite` off. ubq does not run `tsc -b`: Q42.
+- **A TODO text that a file has more than one time** is in full
+  only at its first place. The report of the command has the full
+  text of each.
+- **`ubq convert`, new certain changes:**
+  - jest-dom checks with an exact form in the DOM:
+    `toBeInTheDocument`, `toHaveAttribute`, `toHaveTextContent`,
+    `toHaveClass` with one name, `toBeDisabled`, `toBeEnabled`,
+    `toBeChecked`, `toHaveFocus`. `toBeDisabled` is
+    `el.matches(':disabled')`, which also knows a disabled
+    `fieldset` around the element.
+  - `fail(text)` of jest is `assert.fail(text)`.
+  - `%p` in the name of an `each` table.
+  - A table of `each` with rows of plain values gets `as const`
+    in a TypeScript file, so each name of the loop has the type
+    of its place.
+  - A hook that only calls `useRealTimers` goes away.
+  - `rejects.toThrow(NOT_FOUND)`, with `const NOT_FOUND = 'text'`
+    in the file, gets a RegExp of the text.
+  - The comment `@jest-environment node` goes away.
+- **`ubq convert`, new TODO comments:** a file that imports
+  Testing Library or jsdom; a type of jest (`jest.Mocked<T>`); a
+  `process.env.X = value` line before an import;
+  `toContainEqual` with a matcher of `expect`; a name with
+  ` > ` in it.
+- **`assert.throws` and `assert.rejects` take each class**, not
+  only an Error class: a route can throw a `Response`. D89 has
+  the value that is not an Error.
+- **Testing Library.** The convert guide has a helper file that
+  makes one DOM for a test file, loads the library after it, and
+  removes each tree with `cleanup()`. It was run with jsdom,
+  react, and `@testing-library/react`, on Node and on Bun.
+
+**Not done**, and why:
+
+- Q40 to Q43 are decisions for the user.
+- Coverage on Bun for source that a test imports with no
+  `mockImport`, `mockImport` on Bun and a dependency that cannot
+  load, and output with no test in the store on Bun: the report
+  has no small case, and Bun 1.4.4 is not on this machine.
+- The parser and `<T>() =>` in a `.tsx` file: not confirmed.
+

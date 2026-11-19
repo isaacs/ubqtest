@@ -82,3 +82,17 @@ test('rejects takes a PromiseLike, and gives a value that is not an Error', asyn
   const value: unknown = await assert.rejects(Promise.reject(FULL), /^Symbol\(full\)$/)
   assert.equal(value, FULL)
 })
+
+test('assert.rejects and assert.throws take a class that is not an Error class', async () => {
+  class Redirect {
+    to: string
+    constructor(to: string) {
+      this.to = to
+    }
+  }
+  const value = await assert.rejects(Promise.reject(new Redirect('/login')), Redirect)
+  assert(value instanceof Redirect)
+  assert.throws(() => {
+    throw new Redirect('/')
+  }, Redirect)
+})

@@ -137,6 +137,14 @@ const MATCHERS: Record<string, Rule> = {
   toHaveProperty: { 2: 'assert(Reflect.has(Object($0), $1))' },
   toContainEqual: 'assert(<$0>.some(ITEM => isDeepEqual(ITEM, $1)))',
   toBeTypeOf: 'assert.equal(typeof <$0>, $1)',
+  // jest-dom. An element that a query did not find is null.
+  toBeInTheDocument: { 1: 'assert(<$0>?.isConnected)' },
+  toHaveAttribute: { 2: 'assert(<$0>.hasAttribute($1))', 3: 'assert.equal(<$0>.getAttribute($1), $2)' },
+  toHaveClass: { 2: 'assert(<$0>.classList.contains($1))' },
+  toBeDisabled: { 1: "assert(<$0>.matches(':disabled'))" },
+  toBeEnabled: { 1: "assert(!<$0>.matches(':disabled'))" },
+  toBeChecked: { 1: "assert(<$0>.matches(':checked'))" },
+  toHaveFocus: { 1: 'assert.equal(document.activeElement, $0)' },
 }
 /** Other names of jest and vitest for a matcher. */
 const ALIAS: Record<string, string> = {
@@ -159,6 +167,10 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBeFalsy: 'assert($0)',
   toHaveBeenCalled: 'assert.equal(<$0>.calls.length, 0)',
   toBeTypeOf: 'assert.notEqual(typeof <$0>, $1)',
+  toBeInTheDocument: { 1: 'assert(!<$0>?.isConnected)' },
+  toHaveAttribute: { 2: 'assert(!<$0>.hasAttribute($1))', 3: 'assert.notEqual(<$0>.getAttribute($1), $2)' },
+  toBeChecked: { 1: "assert(!<$0>.matches(':checked'))" },
+  toHaveFocus: { 1: 'assert.notEqual(document.activeElement, $0)' },
   toBeGreaterThan: 'assert(!(<$0> > <$1>))',
   toBeLessThan: 'assert(!(<$0> < <$1>))',
   toBeGreaterThanOrEqual: 'assert(!(<$0> >= <$1>))',
@@ -271,6 +283,10 @@ const TODO = {
     'ubq has no t.context. Make the values in a setup function, and call it in each test: const { value } = setup().',
   macro: 'ubq has no macros. Give test() a function that calls the macro function, with assert of ubqtest in it.',
   testTimeout: 'Use the option of test(): test(name, { timeout: ms }, fn).',
+  mockType:
+    "ubq has no types of jest or vitest. A spy has the type Spy<F> of 'ubqtest': import { type Spy } from 'ubqtest'. For an object of spies, give each key its type: { load: Spy<Service['load']> }. A function that returns the object gives the types with no annotation: const make = () => ({ load: spy(async () => user) }).",
+  envFirst:
+    'The imports of an ES module run before this line, also the imports below it. If a module reads this value while it loads, load that module after this line: const { name } = await import(path). If no module reads it while it loads, this line is correct.',
   separator:
     'The name of a test or of a group must not have " > " in it: ubq puts it between the names of the groups in the ID of a test. Use a different mark, such as " - ".',
   eventually:
@@ -320,7 +336,7 @@ const TODO = {
   enum: 'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
   parameterProperty:
     'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
-  dom: 'This file asks for a DOM environment. ubq has none. Make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM" in `ubq guide convert`.',
+  dom: 'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
 } as const
 
 /** The TODO text for a function of `vi` or `jest`. */
@@ -359,6 +375,9 @@ const VI: Record<string, string> = {
 
 /** The width of a line of a TODO comment, unless the indent is deep. */
 const WIDTH = 75
+
+/** The end of a TODO whose full text is in an earlier TODO of the file. */
+const AS_ABOVE = 'The full text is at the first TODO of this file with this sentence.'
 
 /** A `TODO(ubq)` comment, in lines of WIDTH characters at most. */
 export const todoComment = (indent: string, message: string): string => {
@@ -729,6 +748,12 @@ export const convertSource = (
           ? text(message)
           : `${text(arg)}.message`
       replace(arg.start, arg.end, `{ message: ${plain} }`)
+    } else if (arg?.type === 'Identifier' && /^[A-Z][A-Z0-9]*_[A-Z0-9_]*$/.test(nameOf(arg)!)) {
+      // A name such as NOT_FOUND is a constant. If the file gives it
+      // text, the check is for a message that has that text.
+      const value = new RegExp(`\\bconst\\s+${nameOf(arg)}\\s*=\\s*(['"])((?:(?!\\1)[^\\\\\\n])*)\\1`).exec(source)?.[2]
+      if (value === undefined) todo(path, TODO.throwsText)
+      else replace(arg.start, arg.end, `/${value.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}/`)
     } else if (arg?.type === 'Identifier' && /^[a-z]/.test(nameOf(arg)!)) {
       // A name with a small first letter is a value, not a class.
       if (new RegExp(`\\b(const|let|var)\\s+${nameOf(arg)}\\s*=\\s*new\\s`).test(source))
@@ -858,7 +883,7 @@ export const convertSource = (
     const parts: ((row: Node, index: number) => string | undefined)[] = []
     let index = false
     let arg = 0
-    const FORMAT = /%[sdifj%#]|\$#|\$([A-Za-z_$][\w$]*)(\.\w)?|%[oOc]/g
+    const FORMAT = /%[sdifjp%#]|\$#|\$([A-Za-z_$][\w$]*)(\.\w)?|%[oOc]/g
     let at = 0
     for (const m of words.matchAll(FORMAT)) {
       const literal = words.slice(at, m.index)
@@ -902,7 +927,8 @@ export const convertSource = (
         const n = arg++
         const target = mode === 'array' ? params[n] : n === 0 ? param : undefined
         if (!nameOf(target)) return false
-        const json = spec === '%j'
+        // %p shows a value as JSON shows it, for text and numbers.
+        const json = spec === '%j' || spec === '%p'
         template += json ? '${JSON.stringify(' + nameOf(target) + ')}' : '${' + nameOf(target) + '}'
         parts.push(row => {
           const value = mode === 'array' ? (row.elements as Node[])[n] : row
@@ -925,8 +951,19 @@ export const convertSource = (
     if (typed.length && typed.length !== params.length) return false
     const typeText = (p: (typeof params)[0]): string => text(p.typeAnnotation!.typeAnnotation as Node)
     const optional = (p: (typeof params)[0]): boolean => !!p.optional
+    // A row of plain values with no types: `as const` keeps the
+    // place of each value, as the table of jest and vitest does.
+    // If not, each name of the loop has the type of each value.
+    const plain = (value: Node | null): boolean =>
+      value?.type === 'Literal' || (value?.type === 'UnaryExpression' && (value.argument as Node).type === 'Literal')
+    const tuples =
+      mode === 'array' &&
+      /\.[cm]?tsx?$/.test(file) &&
+      rows.every(row => row!.type === 'ArrayExpression' && (row!.elements as (Node | null)[]).every(plain))
     const cast = !typed.length
-      ? ''
+      ? tuples
+        ? ' as const'
+        : ''
       : ` as ${
           mode === 'array'
             ? `[${params.map(p => typeText(p) + (optional(p) ? '?' : '')).join(', ')}]`
@@ -976,16 +1013,28 @@ export const convertSource = (
     const method = nameOf(callee.property as Node)
     return (owner === 'vi' && method === 'restoreAllMocks') || (owner === 'mock' && method === 'restoreAll')
   }
-  /** A function that does nothing but `vi.restoreAllMocks()`. */
+  /** `vi.useRealTimers()`: the clock of fakeClock() ends when its test ends. */
+  const realTimers = (node: Node): boolean => {
+    const callee = node.type === 'CallExpression' ? (node.callee as Node) : undefined
+    return (
+      callee?.type === 'MemberExpression' &&
+      roleOf(callee.object as Node) === 'vi' &&
+      nameOf(callee.property as Node) === 'useRealTimers'
+    )
+  }
+  /** A function that does nothing but put spies and the timers back. */
   const restoresOnly = (fn: Node | undefined): boolean => {
     if (!fn || !FUNCTION.has(fn.type)) return false
     const body = fn.body as Node
-    if (body.type !== 'BlockStatement') return restoresAll(body)
+    if (body.type !== 'BlockStatement') return restoresAll(body) || realTimers(body)
     const statements = body.body as unknown as Node[]
     return (
-      statements.length === 1 &&
-      statements[0]!.type === 'ExpressionStatement' &&
-      restoresAll(statements[0]!.expression as Node)
+      statements.length > 0 &&
+      statements.every(
+        statement =>
+          statement.type === 'ExpressionStatement' &&
+          (restoresAll(statement.expression as Node) || realTimers(statement.expression as Node)),
+      )
     )
   }
   /** `() => restore()`: gives the name `restore`. */
@@ -1551,6 +1600,8 @@ export const convertSource = (
       )
         todo(path, TODO.launch)
     }
+    // jest.Mocked<Service>, vi.Mock: a type of the old tool.
+    if (node.type === 'TSQualifiedName' && roleOf(node.left as Node) === 'vi') todo(path, TODO.mockType)
     if (node.type === 'TSEnumDeclaration' && !node.declare) todo(path, TODO.enum)
     if (node.type === 'TSParameterProperty') todo(path, TODO.parameterProperty)
     const meta = esm && META.get(nameOf(node) ?? '')
@@ -1609,6 +1660,9 @@ export const convertSource = (
     const callee = node.callee as Node
     const args = node.arguments as Node[]
     const role = roleOf(callee)
+    // fail('text') is a global of jest.
+    if (framework === 'jest' && nameOf(callee) === 'fail' && !declares('fail') && args.length < 2)
+      return rewrite(node, args.length ? 'assert.fail($0)' : "assert.fail('fail')", args)
     if (role === 'test' || role === 'describe') {
       definition(node, path, role, tapTests.has(nameOf(callee)!))
       return args
@@ -1964,7 +2018,7 @@ export const convertSource = (
             ? TODO.inline
             : method === 'toHaveProperty'
               ? TODO.path
-              : framework === 'playwright' && !(method in MATCHERS)
+              : framework === 'playwright' && (!(method in MATCHERS) || method === 'toHaveClass')
                 ? TODO.eventually
                 : `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`,
       )
@@ -2042,6 +2096,35 @@ export const convertSource = (
       )
       return []
     }
+    // isDeepEqual does not know a matcher of expect.
+    if (method === 'toContainEqual' && args.some(arg => /\bexpect\./.test(text(arg)))) {
+      todo(path, TODO.matcher)
+      return undefined
+    }
+    if (method === 'toHaveTextContent' && args.length === 1 && !promise) {
+      // The text of an element has the text in it, or matches.
+      const [value] = args
+      if (value!.type !== 'Literal') return fail()
+      const regex = (value as { regex?: unknown }).regex
+      return rewrite(
+        node,
+        regex
+          ? not
+            ? 'assert(!<$0>.textContent?.match($1))'
+            : 'assert.match(<$0>.textContent, $1)'
+          : `assert.${not ? 'notContains' : 'contains'}(<$0>.textContent, $1)`,
+        all,
+      )
+    }
+    // In a test of Playwright, the check waits for the class.
+    if (
+      method === 'toHaveClass' &&
+      (framework === 'playwright' || !/^(['"])[\w-]+\1$/.test(args.length === 1 ? text(args[0]!) : ''))
+    )
+      return fail()
+    // A getBy query gives an element or throws: it has no null.
+    if (method === 'toBeInTheDocument' && !args.length && !promise && /\b(get|getAll)By\w+\(/.test(text(subject)))
+      return rewrite(node, not ? 'assert(!<$0>.isConnected)' : 'assert(<$0>.isConnected)', all)
     if (method === 'toMatch' && args[0]) {
       // A value can be text or a RegExp, and the two have different forms.
       if (args[0].type !== 'Literal' && args[0].type !== 'TemplateLiteral') {
@@ -2345,7 +2428,31 @@ export const convertSource = (
 
   planSetups()
   const first = (program.body as Node[])[0]
-  if (first && /@(vitest|jest)-environment\s+(jsdom|happy-dom)\b/.test(source)) todo([program, first], TODO.dom)
+  // A file that asks for a DOM, or that uses a library that needs one.
+  const dom =
+    /@(vitest|jest)-environment\s+(jsdom|happy-dom)\b/.test(source) ||
+    (program.body as Node[]).some(
+      node =>
+        node.type === 'ImportDeclaration' &&
+        /^(@testing-library\/|jsdom$|happy-dom$)/.test(String((node.source as { value?: unknown }).value)),
+    )
+  if (first && dom) todo([program, first], TODO.dom)
+  // `@jest-environment node` is the environment of ubq.
+  const docblock = /\/\*\*?\s*@(?:vitest|jest)-environment\s+node\s*\*\/[ \t]*\r?\n?/.exec(source)
+  if (docblock) {
+    replace(docblock.index, docblock.index + docblock[0].length, '')
+    changes++
+  }
+  // process.env.NAME = value, before an import of the file.
+  const lastImport = (program.body as Node[]).findLast(node => node.type === 'ImportDeclaration')
+  if (esm && lastImport)
+    for (const node of program.body as Node[])
+      if (
+        node.start < lastImport.start &&
+        node.type === 'ExpressionStatement' &&
+        /^process\.env\b[^=]*=[^=]/.test(text(node))
+      )
+        todo([program, node], TODO.envFirst)
   walk(program, [])
 
   // --- The import of ubqtest, in place of the old imports ---
@@ -2425,10 +2532,23 @@ export const convertSource = (
         edits.push(by < 0 ? { start: at, end: at + cut, text: '' } : { start: at, end: at, text: ' '.repeat(by) })
       }
   }
-  for (const [at, messages] of todos) {
+  // The first TODO of a file with a text has the full text. Each
+  // later one has its first sentence: a file can have the same
+  // text 25 times.
+  const full = new Map<string, string>()
+  for (const [at, messages] of [...todos].sort((a, b) => a[0] - b[0])) {
     const from = lineStart(at)
     const indent = /^\s*/.exec(source.slice(from, at))![0]
-    edits.push({ start: from, end: from, text: [...messages].map(m => todoComment(indent, m)).join('') })
+    const comment = (message: string): string => {
+      // ubq: not measured: each TODO text has a full stop
+      const short = `${/^.*?[.:](?=\s|$)/.exec(message)?.[0] ?? message} ${AS_ABOVE}`
+      // Two texts can have the same first sentence. Only the text
+      // that the sentence is for has the short form.
+      if (short.length < message.length && full.get(short) === message) return todoComment(indent, short)
+      if (!full.has(short)) full.set(short, message)
+      return todoComment(indent, message)
+    }
+    edits.push({ start: from, end: from, text: [...messages].map(comment).join('') })
   }
 
   // Text that is put in comes before a change at the same place.
@@ -2503,7 +2623,8 @@ export const convertSource = (
       if (!more) break
       message += ` ${more[1]}`
     }
-    found.push({ line: i + 1, text: message })
+    // The report has the full text of each TODO.
+    found.push({ line: i + 1, text: full.get(message) ?? message })
   })
   return { code, framework, changes: changes + removed.length, todos: found }
 }

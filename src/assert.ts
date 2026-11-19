@@ -44,7 +44,7 @@ class MustAwait<T> extends Promise<T> {
  * What `assert.throws` and `assert.rejects` compare an error with: a
  * RegExp for the message, a class, or a `match` pattern.
  */
-type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>
+type ErrorMatch = RegExp | (abstract new (...args: any[]) => unknown) | Record<string, unknown>
 
 /** A function in a pattern: it tests the value at its place. */
 type Predicate = (value: unknown) => boolean
@@ -69,7 +69,7 @@ type Checked<P> = P extends (...args: never[]) => unknown
         : P
       : P
 /** At the top level, a RegExp or a class is not a pattern. */
-type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => Error) ? unknown : Checked<P>
+type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => unknown) ? unknown : Checked<P>
 
 /** The keys of each member of a union. */
 type Keys<T> = T extends unknown ? keyof T : never

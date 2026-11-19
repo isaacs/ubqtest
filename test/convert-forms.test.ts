@@ -4,6 +4,7 @@
 import { createRequire } from 'node:module'
 import { assert, test } from 'ubqtest'
 import { convertSource } from '../src/convert.ts'
+import { fullTodos } from './todos.ts'
 
 // See test/convert.test.ts for the reason of this form.
 const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
@@ -880,7 +881,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
 
 for (const [name, file, source, result, migrate] of cases)
   test(name, () => {
-    const converted = convertSource(source.join('\n') + '\n', file, parse, children, migrate)
+    const converted = fullTodos(convertSource(source.join('\n') + '\n', file, parse, children, migrate))
     assert.deepEqual(converted?.code.trimEnd().split('\n'), result)
   })
 
@@ -903,7 +904,7 @@ test('imports on the last line, with no line end', () => {
 
 test('mock.method of node:test, and a hook at the top level with declarations below it', () => {
   const convert = (source: string[]) =>
-    convertSource(source.join('\n') + '\n', 'a.ts', parse, children, [])
+    fullTodos(convertSource(source.join('\n') + '\n', 'a.ts', parse, children, []))
       ?.code.trimEnd()
       .split('\n')
   assert.deepEqual(

@@ -800,7 +800,7 @@ type Checked<P> = P extends (...args: never[]) => unknown ? P extends Predicate 
 At the top level, a RegExp or a class is not a pattern.
 
 ```ts
-type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => Error) ? unknown : Checked<P>;
+type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => unknown) ? unknown : Checked<P>;
 ```
 
 ### `CleanupFn`
@@ -824,7 +824,7 @@ What `assert.throws` and `assert.rejects` compare an error with: a
 RegExp for the message, a class, or a `match` pattern.
 
 ```ts
-type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>;
+type ErrorMatch = RegExp | (abstract new (...args: any[]) => unknown) | Record<string, unknown>;
 ```
 
 ### `Hint`

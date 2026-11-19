@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { convertSource, todoComment } from '../src/convert.ts'
 import { project } from './setup.ts'
+import { fullTodos } from './todos.ts'
 
 // The load hook of the counters loads the parser with `require`,
 // while this file loads. A static import of the same module from
@@ -23,7 +24,7 @@ const MATCHER =
 const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
 
 const convert = (source: string, file = 'a.ts') => {
-  const r = convertSource(source, file, parse, children)
+  const r = fullTodos(convertSource(source, file, parse, children))
   return r && { ...r, code: r.code.trimEnd().split('\n') }
 }
 
@@ -507,7 +508,7 @@ it('a', () => { expect(s).toHaveBeenCalled() })
   assert.deepEqual(r.code, [
     '/** @vitest-environment jsdom */',
     ...todo(
-      'This file asks for a DOM environment. ubq has none. Make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM" in `ubq guide convert`.',
+      'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
     ),
     "import { assert, spy, test } from 'ubqtest'",
     ...todo(
@@ -1871,7 +1872,7 @@ it.each([{ 'k': 1 }])('$k', row => {})
     'Use a for loop around test(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object: %s of an object is [object Object].'
   assert.deepEqual(r.code, [
     "import { assert, describe, test } from 'ubqtest'",
-    'for (const [a, b, sum] of [[1, 2, 3], [2, 3, 5]]) test(`${a} + ${b} is ${sum}`, () => {',
+    'for (const [a, b, sum] of [[1, 2, 3], [2, 3, 5]] as const) test(`${a} + ${b} is ${sum}`, () => {',
     '  assert.equal(a + b, sum)',
     '})',
     "for (const { a, n } of [{ a: 'x', n: 1 }, { a: 'y', n: 2 }]) test(`${a} is ${n}, %`, () => {",
@@ -1900,7 +1901,7 @@ it.each([{ 'k': 1 }])('$k', row => {})
     ),
     'describe.each`a',
     "${1}`('$a', ({ a }) => {})",
-    'for (const [n] of [[1], [2]]) describe(`group ${n}`, () => {',
+    'for (const [n] of [[1], [2]] as const) describe(`group ${n}`, () => {',
     "  test('in', () => {",
     '    assert(n)',
     '  })',
@@ -2698,4 +2699,192 @@ test('title', async () => {
 })`,
     ],
   )
+})
+
+test('jest: jest-dom checks, a DOM library, types of jest, fail, a constant as the expected error, and a text that the file has two times', () => {
+  // Not through fullTodos: a text that the file has two times has
+  // its short form the second time.
+  const r = convertSource(
+    `/** @jest-environment node */
+process.env.API_URL = 'http://localhost';
+import { screen, render } from '@testing-library/react';
+import { Service } from './service';
+import { z } from 'zod';
+
+const NOT_FOUND = 'not found';
+let svc: jest.Mocked<Service>;
+let spied: jest.SpiedFunction<typeof fetch>;
+
+describe('service', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each([
+    [1, 'one'],
+    [2, 'two'],
+  ])('maps %p to %p', (n, word) => {
+    expect(map(n)).toBe(word);
+  });
+
+  it('rejects', async () => {
+    await expect(svc.load()).rejects.toThrow(NOT_FOUND);
+    await expect(svc.load()).rejects.toBeInstanceOf(Response);
+    expect(list).toContainEqual(expect.stringContaining('warn'));
+    if (!svc) fail('no service');
+  });
+
+  it('dom', () => {
+    render(<div />);
+    expect(screen.getByText('Hi')).toBeInTheDocument();
+    expect(screen.queryByText('Bye')).not.toBeInTheDocument();
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/a');
+    expect(screen.getByRole('link')).toHaveAttribute('download');
+    expect(screen.getByRole('status')).toHaveTextContent('Saved');
+    expect(screen.getByRole('status')).toHaveTextContent(/saved/i);
+    expect(screen.getByRole('button')).toBeDisabled();
+    expect(screen.getByRole('button')).toBeEnabled();
+    expect(screen.getByRole('checkbox')).toBeChecked();
+    expect(screen.getByRole('textbox')).toHaveValue('x');
+    expect(screen.getByRole('status')).toHaveClass('ok');
+    expect(screen.getByRole('status')).toBeVisible();
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('a > b', () => {
+    expect(1).toBe(1);
+  });
+});
+`,
+    'a.spec.tsx',
+    parse,
+    children,
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.trimEnd()],
+    [
+      'jest',
+      9,
+      `import { assert, describe, test } from 'ubqtest';
+// TODO(ubq): This file needs a DOM. ubq has no test environment. For a
+// library that reads the document when it loads, such as Testing Library,
+// make the DOM in a helper file that then loads the library, and import
+// render and screen from that file: see "Testing Library" in \`ubq guide
+// convert\`. For other tests, make the DOM in each test that needs it, with
+// a function that stubs the globals: see "A DOM".
+// TODO(ubq): The imports of an ES module run before this line, also the
+// imports below it. If a module reads this value while it loads, load that
+// module after this line: const { name } = await import(path). If no
+// module reads it while it loads, this line is correct.
+process.env.API_URL = 'http://localhost';
+import { screen, render } from '@testing-library/react';
+import { Service } from './service';
+import { z } from 'zod';
+
+const NOT_FOUND = 'not found';
+// TODO(ubq): ubq has no types of jest or vitest. A spy has the type Spy<F>
+// of 'ubqtest': import { type Spy } from 'ubqtest'. For an object of
+// spies, give each key its type: { load: Spy<Service['load']> }. A
+// function that returns the object gives the types with no annotation:
+// const make = () => ({ load: spy(async () => user) }).
+let svc: jest.Mocked<Service>;
+// TODO(ubq): ubq has no types of jest or vitest. The full text is at the
+// first TODO of this file with this sentence.
+let spied: jest.SpiedFunction<typeof fetch>;
+
+describe('service', () => {
+
+  for (const [n, word] of [
+    [1, 'one'],
+    [2, 'two'],
+  ] as const) test(\`maps \${JSON.stringify(n)} to \${JSON.stringify(word)}\`, () => {
+    assert.equal(map(n), word);
+  });
+
+  test('rejects', async () => {
+    await assert.rejects(svc.load(), /not found/);
+    await assert.rejects(svc.load(), Response);
+    // TODO(ubq): ubq has no expect. In assert.match, a partial object does
+    // the work of objectContaining, and a RegExp does the work of
+    // stringContaining and stringMatching. An object pattern is partial at
+    // each depth, and an array pattern must have the same length. A
+    // function does the work of any and anything: { id: (v: unknown) =>
+    // typeof v === 'number' }, v instanceof URL, v != null.
+    // assert.deepEqual compares a function as a value: change it to
+    // assert.match, which permits keys that the pattern does not have. For
+    // arrayContaining, assert on each element: assert.contains(list, x),
+    // or assert(list.some(item => isDeepEqual(item, x))) for an object.
+    expect(list).toContainEqual(expect.stringContaining('warn'));
+    if (!svc) assert.fail('no service');
+  });
+
+  test('dom', () => {
+    render(<div />);
+    assert(screen.getByText('Hi').isConnected);
+    assert(!screen.queryByText('Bye')?.isConnected);
+    assert.equal(screen.getByRole('link').getAttribute('href'), '/a');
+    assert(screen.getByRole('link').hasAttribute('download'));
+    assert.contains(screen.getByRole('status').textContent, 'Saved');
+    assert.match(screen.getByRole('status').textContent, /saved/i);
+    assert(screen.getByRole('button').matches(':disabled'));
+    assert(!screen.getByRole('button').matches(':disabled'));
+    assert(screen.getByRole('checkbox').matches(':checked'));
+    // TODO(ubq): ubq has no toHaveValue. Write an assertion with assert,
+    // assert.equal, assert.deepEqual, or assert.match.
+    expect(screen.getByRole('textbox')).toHaveValue('x');
+    assert(screen.getByRole('status').classList.contains('ok'));
+    // TODO(ubq): ubq has no toBeVisible. Write an assertion with assert,
+    // assert.equal, assert.deepEqual, or assert.match.
+    expect(screen.getByRole('status')).toBeVisible();
+    // TODO(ubq): ubq has no toBeEmptyDOMElement. Write an assertion with
+    // assert, assert.equal, assert.deepEqual, or assert.match.
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  // TODO(ubq): The name of a test or of a group must not have " > " in it:
+  // ubq puts it between the names of the groups in the ID of a test. Use a
+  // different mark, such as " - ".
+  test('a > b', () => {
+    assert.equal(1, 1);
+  });
+});`,
+    ],
+  )
+})
+
+test('jest: other forms of the jest-dom checks, of fail, and of a table of each', () => {
+  const r = convert(
+    `const TEXT = \`a\`
+for (const el of list) {
+  it('checks', async () => {
+    await expect(load()).rejects.toThrow(NO_SUCH_NAME)
+    expect(el).toHaveTextContent(text)
+    expect(el).not.toHaveTextContent(/x/)
+    expect(el).not.toHaveTextContent('x')
+    expect(el).toHaveClass('a b')
+    expect(el).toHaveClass('a', 'b')
+    expect(screen.getByRole('status')).not.toBeInTheDocument()
+    if (!el) fail()
+  })
+}
+it.each([['a', -1]])('row %p %s', (a, b) => {
+  expect(a).toBe(b)
+})
+`,
+    'a.spec.ts',
+  )
+  const code = r!.code.filter(line => !line.trim().startsWith('//'))
+  assert.deepEqual(code.slice(4, 12), [
+    // With a TODO: the name is a constant, and the file does not have its text.
+    '    await assert.rejects(load(), NO_SUCH_NAME)',
+    '    expect(el).toHaveTextContent(text)',
+    '    assert(!el.textContent?.match(/x/))',
+    "    assert.notContains(el.textContent, 'x')",
+    "    expect(el).toHaveClass('a b')",
+    "    expect(el).toHaveClass('a', 'b')",
+    "    assert(!screen.getByRole('status').isConnected)",
+    "    if (!el) assert.fail('fail')",
+  ])
+  assert.equal(code.at(-3), "for (const [a, b] of [['a', -1]] as const) test(`row ${JSON.stringify(a)} ${b}`, () => {")
+  assert.equal(r!.todos.length, 4)
 })

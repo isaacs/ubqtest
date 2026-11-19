@@ -29,7 +29,9 @@ has the API and the rules of ubq.
    not installed or fails, a note gives the command to run by
    hand.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
-   each statement that it cannot change. It makes only the changes
+   each statement that it cannot change. If a file has the same
+   text more than one time, only the first TODO has the full
+   text, and the others have its first sentence. It makes only the changes
    that are correct in each case, so a TODO can be easy to do by
    hand: you can see what the code around it does, and the command
    cannot. `grep -rn 'TODO(ubq)'
@@ -402,6 +404,13 @@ Things to check by hand:
 | `toMatch(/re/)`, `toMatch('text')` | `assert.match(a, /re/)`, `assert.contains(a, 'text')` |
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
+| `toBeInTheDocument()`, `not.toBeInTheDocument()` | `assert(el.isConnected)`, `assert(!el?.isConnected)` |
+| `toHaveAttribute(name)`, `toHaveAttribute(name, v)` | `assert(el.hasAttribute(name))`, `assert.equal(el.getAttribute(name), v)` |
+| `toHaveTextContent('text')`, `toHaveTextContent(/re/)` | `assert.contains(el.textContent, 'text')`, `assert.match(el.textContent, /re/)` |
+| `toHaveClass('name')` | `assert(el.classList.contains('name'))` |
+| `toBeDisabled()`, `toBeEnabled()`, `toBeChecked()` | `assert(el.matches(':disabled'))`, `assert(!el.matches(':disabled'))`, `assert(el.matches(':checked'))` |
+| `toHaveFocus()` | `assert.equal(document.activeElement, el)` |
+| `fail('text')` (a global of jest) | `assert.fail('text')` |
 | `toBeGreaterThan(b)`, `toBeLessThan(b)` | `assert.greaterThan(a, b)`, `assert.lessThan(a, b)` |
 | `toBeGreaterThanOrEqual(b)`, `toBeLessThanOrEqual(b)` | `assert.greaterThanOrEqual(a, b)`, `assert.lessThanOrEqual(a, b)` |
 | `toBeCloseTo(b)`, `toBeCloseTo(b, digits)` | `assert.close(a, b)`, `assert.close(a, b, digits)` |
@@ -630,7 +639,50 @@ Things to check by hand:
 
   Add each global that the code under test reads to the list.
   Put the function in a helper file if more than one test file
-  needs it. Delete the environment comment. For a test of real
+  needs it. Delete the environment comment.
+- **Testing Library (`@testing-library/react` and the others).**
+  The library reads `document` when it loads, so a DOM that one
+  test makes is too late. Make the DOM one time for the test
+  file, in a helper file that then loads the library. The
+  command writes a TODO in each file that imports the library.
+  Each test file is its own process, so the DOM of one file is
+  not the DOM of a second file.
+
+  ```ts
+  // test/dom.ts
+  import { JSDOM } from 'jsdom'
+  import { cleanup } from 'ubqtest'
+
+  const { window } = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/' })
+  // Each name of the window that the test process does not have.
+  for (const name of Object.getOwnPropertyNames(window))
+    if (!(name in globalThis))
+      Object.defineProperty(globalThis, name, {
+        configurable: true,
+        get: () => window[name as keyof typeof window],
+      })
+
+  // After the lines above: the library reads `document` now.
+  const library = await import('@testing-library/react')
+
+  export const { screen, fireEvent, waitFor, act } = library
+  /** Renders, and removes what it made when the test ends. */
+  export const render: typeof library.render = (...args: Parameters<typeof library.render>) => {
+    cleanup(library.cleanup)
+    return library.render(...args)
+  }
+  ```
+
+  A test file imports `render` and `screen` from `./dom.ts`, not
+  from the library. jest and vitest remove each tree after each
+  test with a hook. Here `render` does it with `cleanup()`. A
+  `.tsx` test file needs Bun or Deno: Node does not run JSX. If
+  jsdom is in the project only because jest brought it, add it:
+  `npm install --save-dev jsdom`.
+- **jest-dom (`toBeInTheDocument` and the others).** The command
+  changes the checks of the table above. The others have a TODO:
+  read the property of the element, and assert on it. An element
+  that a `queryBy` function did not find is `null`. For a test of real
   browser behavior (layout, focus, navigation), tell the user
   about browser tests: "Tests in a browser" in `ubq guide`.
 - **A custom environment, a transform.** ubq has none. Tell the
