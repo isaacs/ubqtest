@@ -61,10 +61,10 @@ t.equal(1, 1)
     "import { parse, load } from '../src/shape.js'",
     '',
     "test('basic', () => {",
-    "  assert.equal(parse('c')?.kind, 'circle') // the kind",
+    "  assert.equal(parse('c')?.kind, 'circle', 'the kind')",
     "  assert.deepEqual(parse('s'), { kind: 'square', side: 2 })",
     "  assert(!(parse('x') || false))",
-    "  assert.throws(() => parse('?'), Error) // throws",
+    "  assert.throws(() => parse('?'), Error, 'throws')",
     "  assert.equal(typeof parse('c'), 'object')",
     '})',
     "test('async', async () => {",
@@ -145,7 +145,7 @@ it('a', (t) => {
   assert.deepEqual(node?.code, [
     "const { assert, test } = require('ubqtest')",
     "test('a', async () => {",
-    '  assert.equal(1, 1) // one',
+    "  assert.equal(1, 1, 'one')",
     '  assert(x)',
     '  await assert.rejects(p, Error)',
     '})',
@@ -1534,7 +1534,7 @@ test('a file with no line end at its end, and a file of one line', () => {
       '  assert(1)',
       '})',
       '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
-      'assert(2) // last',
+      "assert(2, 'last')",
     ],
   )
   assert.deepEqual(convert("import t from 'tap'\nt.test('a', t => {\n  t.pass()\n})\nt.end()")?.code, [
@@ -2140,7 +2140,7 @@ test.beforeEach(t => {
 test.after.always(() => close())
 
 test('basic', () => {
-  assert.equal(parse('a'), 1) // one
+  assert.equal(parse('a'), 1, 'one')
   assert.notEqual(parse('a'), 2)
   assert.deepEqual(parse('b'), { a: 1 })
   assert(!isDeepEqual(parse('b'), { a: 2 }))
@@ -2298,14 +2298,14 @@ test('async', async t => {
 const fs = require('fs')
 
 test('sync', () => {
-  assert.equal(1, 1) // same
+  assert.equal(1, 1, 'same')
   assert(!isDeepEqual({ a: 1 }, { a: 2 }))
   f()
   assert.equal('abc'.match(/x/), null)
   assert.match('abc', /a/)
   assert(!false)
   assert(!null)
-  assert.throws(() => f(), /bad/) // throws bad
+  assert.throws(() => f(), /bad/, 'throws bad')
   console.log('hi')
 })
 
@@ -2339,11 +2339,11 @@ test.onFinish(() => done())
 test('opts', { timeout: 500 }, () => {
   // TODO(ubq): Use the option of test(): test(name, { timeout: ms }, fn).
   t.timeoutAfter(100)
-  assert(true) // ok
+  assert(true, 'ok')
 })
 test('promise', () => new Promise(end => {
   load().then(() => end())
-  assert.throws(() => f(), Error) // a message
+  assert.throws(() => f(), Error, 'a message')
 }))
 test('loop', () => {
   [1, 2].forEach(n => assert(n))
@@ -2979,4 +2979,26 @@ test('vitest: convert writes the env values of the vitest config, and the tests 
     ],
   )
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+})
+
+test('ava: the message of notThrows is a comment, or a TODO if it is not text', () => {
+  const r = convert(`import test from 'ava'
+test('a', t => {
+  t.notThrows(() => parse('a'), 'text')
+  t.notThrows(() => parse('b'), \`plain\`)
+  t.notThrows(() => parse('c'), name)
+  t.is(parse('d'), 1, name)
+})
+`)
+  const code = r!.code.filter(line => !line.trim().startsWith('//'))
+  assert.deepEqual(code.slice(2, 6), [
+    "  parse('a') // text",
+    "  parse('b') // plain",
+    "  parse('c')",
+    "  assert.equal(parse('d'), 1, name)",
+  ])
+  assert.deepEqual(
+    r!.todos.map(todo => todo.text.slice(0, 37)),
+    ['This call is not an assertion now, so'],
+  )
 })

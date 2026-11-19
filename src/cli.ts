@@ -301,7 +301,8 @@ const main = async (args: string[]): Promise<number> => {
         })
       }
       const types = typeErrors(db, row.id)
-      for (const e of types) sink(e)
+      const others = typeErrors(db, row.id, true)
+      for (const e of [...types, ...others]) sink(e)
       const env = envChange(db, row.id)
       if (env) out(env)
       if (row.code === null) out(`run ${row.id} did not end`)
@@ -309,6 +310,7 @@ const main = async (args: string[]): Promise<number> => {
         // The same parts as the last line of the run.
         const parts = runCounts(row)
         if (types.length) parts.push(`${types.length} type errors`)
+        if (others.length) parts.push(`${others.length} type errors in other files`)
         out(`${paint(row.code ? 'fail' : 'pass')}: ${parts.join(', ')} (run ${row.id})`)
       }
       return row.code ?? 1
@@ -525,7 +527,10 @@ const main = async (args: string[]): Promise<number> => {
       }
       for (const f of old) out(`${f}  the stored coverage is of a different content of this file. Run the tests again.`)
       for (const f of changed) out(`${f}  changed after the last run of its tests. Run them first: ubq --changed`)
-      if (!total && !unloaded.length && !old.length && !changed.length) out('uncovered: none')
+      const weak = incomplete(db)
+      if (!total && !unloaded.length && !old.length && !changed.length)
+        // With coverage that is not complete, "none" is not known.
+        out(weak.length ? 'uncovered: none in the coverage of the store, which is not complete' : 'uncovered: none')
       else if (diff) {
         const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
         out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
@@ -544,7 +549,6 @@ const main = async (args: string[]): Promise<number> => {
         out(
           `note: ${elsewhere} of these ranges are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide`,
         )
-      const weak = incomplete(db)
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')
         out(

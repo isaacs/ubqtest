@@ -33,4 +33,44 @@ Q40 to Q44 come from `private/21-nest-jest-feedback-0.0.18.md`
 Q45 to Q48 came from `private/22-vitest-monorepo-feedback-0.0.19.md`
 (not public).
 
-No question is open.
+Q49 and Q50 come from `21-whosonfirst.ai-feedback-0.0.19.md`.
+D116 has what is done.
+
+## Q49. A skip that the test decides while it runs
+
+`skip` is an option: the reason is known when `test()` is called.
+The report has a test that measures a page, and skips if the page
+has no paragraph of three lines. To know that when the file
+loads, the file opens each page first (56 page loads at the top
+level).
+
+1. No change. The condition is code at the top level, or the
+   test passes with no check for that case, which the "no
+   assertions" rule refuses.
+2. A function for the test: `skip('reason')` ends the test as
+   skipped, with the reason. `node:test` has `t.skip()`, and
+   vitest has `ctx.skip()`. A test that calls it after an
+   assertion failed is still a failure.
+
+The agent would do 2. A skip with a reason is honest, and the
+other form costs a top level that does the work of the tests.
+The name can be a member of the test context: `test('x', ({
+skip }) => ...)`.
+
+## Q50. A check of the whole file that can fail as itself
+
+`assert` in a `cleanup()` at the top level of a file is an
+error: "assert was called outside a test". The helper of the
+report throws an Error there. An error of a page after its test
+ended is `1 errors` of the file, and the test that opened the
+page is among the passed.
+
+1. No change. A check that is not in a test is an error of the
+   file.
+2. `assert` works in a file-level `cleanup()`, and a failure
+   there is an ERROR block of the file with the diff of the
+   assertion.
+
+The agent would do 2: the block is the same, and the diff is
+better than the text of a thrown Error. It is not a new kind of
+result.

@@ -70,9 +70,8 @@ unless the test found a defect. Do not make an assertion weaker.
 - `it` becomes `test`. `describe` stays.
 - An assertion with a certain form in ubq gets that form. The
   tables below list them.
-- A message of an assertion becomes a comment at the end of its
-  line. ubq prints the source line of a failed assertion, so the
-  comment is in the failure report.
+- A message of an assertion stays, as the last argument: each
+  assertion of ubq takes one.
 - `t.end()` and `t.plan(n)` go away. A test of ubq ends when its
   function ends.
 - A promise that an assertion needs gets `await`, and its
@@ -256,10 +255,11 @@ Things to check by hand:
   reads a variable that the file changes later sees the last
   value. Copy the value when you call `test()`: `const f =
   [...files]`.
-- **A message that names the case.** ubq assertions have no
-  message. A text message becomes a comment. A message that an
-  expression makes, often in a loop, gets a TODO: make one test
-  for each case, with the case in the name of the test.
+- **A message that names the case.** The message stays: an
+  assertion of ubq takes one as its last argument. For a loop
+  over cases, one test for each case is often better: call
+  `test()` in the loop, with the case in the name. Then a run
+  shows each case that fails, and not only the first.
 - **`t.fail` in a loop, then `t.pass`.** Collect the wrong values
   in a list in the loop, and `assert.deepEqual(wrong, [])` after
   it. `assert(true)` cannot fail.

@@ -159,6 +159,13 @@ test('${name}', () => {
     [one.code, one.out.includes('first.test.ts'), one.last],
     [1, false, 'fail: 0 failed, 1 passed, 1 type errors, 1 type errors in other files'],
   )
+  // The run does not print the error of the other file. The store
+  // has it, and `ubq failures` prints it.
+  const stored = p.ubq('failures')
+  assert.deepEqual(
+    [stored.out.includes('at second/second.test.ts:2:7'), stored.out.includes('at first.test.ts:2:7'), stored.last],
+    [true, true, 'fail: 0 failed, 1 passed, 1 type errors, 1 type errors in other files'],
+  )
 })
 
 test('a TypeScript with no native program, and a native program that does not start', () => {

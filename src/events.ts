@@ -218,6 +218,12 @@ export interface TypeCheckError {
   message: string
   /** Absent for an error that belongs to no file. */
   at?: Location
+  /**
+   * True for an error in a file that a run of a selection did not
+   * use (D49). The run counts it, and does not print it or fail
+   * for it. `ubq failures` prints it.
+   */
+  other?: true
 }
 
 /**

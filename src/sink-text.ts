@@ -142,7 +142,9 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         starts.set(event.id, event.at)
         break
       case 'output':
-        if (event.id) output.set(event.id, (output.get(event.id) ?? '') + event.text)
+        // Text from outside a test is output of the file: it can
+        // say why the file ended.
+        output.set(event.id ?? event.file, (output.get(event.id ?? event.file) ?? '') + event.text)
         break
       case 'test-end':
         if (event.repeat) repeats.set(event.id, event.repeat)
@@ -158,7 +160,16 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         break
       case 'file-error':
         row('ERROR', event.file, event.failure, `ubq ${shellArg(event.file)}`)
-        if (shown()) block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
+        if (shown())
+          block(
+            `ERROR ${event.file}`,
+            event.failure,
+            // A file that calls process.exit says why in its output.
+            // For an error that the file threw, the output is the
+            // same error, as the runtime prints it.
+            event.failure.message.startsWith('process.exit(') ? event.file : undefined,
+            event.repeat,
+          )
         break
       case 'file-end':
         if (event.updated) write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
@@ -175,6 +186,9 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         break
       }
       case 'type-error':
+        // An error of a file that the run did not use is only in
+        // the count of the last line.
+        if (event.other && !all) break
         row('TYPE', event.at?.file ?? '(no file)', {
           message: `${event.code}: ${event.message}`,
           ...(event.at && { at: event.at }),

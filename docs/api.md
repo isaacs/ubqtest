@@ -34,6 +34,7 @@ the order of the alphabet.
   - [`testdir`](#testdir)
 - [`ubqtest/browser`](#ubqtest-browser)
   - [`browser`](#browser)
+  - [`prepareContext`](#preparecontext)
 - [`ubqtest/workers`](#ubqtest-workers)
   - [`executionContext`](#executioncontext)
   - [`migrate`](#migrate)
@@ -573,6 +574,30 @@ such as `viewport` or `locale`.
 
 ```ts
 const browser: (options?: BrowserContextOptions) => Promise<Page>;
+```
+
+### `prepareContext`
+
+Import from `'ubqtest/browser'`.
+
+Makes a browser context that the test started itself, with the
+Playwright of the project, ready for a test of ubq. A function
+that the test gives to `page.evaluate` has the coverage counters
+of the test file in its text. In a page of this context, they
+count into an object that keeps nothing. With no call, such a
+function throws `ReferenceError: __ubqc is not defined`.
+
+A page of `browser()` needs no call.
+
+```ts
+const context = await chromium.launch().then(b => b.newContext())
+await prepareContext(context)
+```
+
+```ts
+const prepareContext: (context: {
+    addInitScript(script: string): Promise<unknown>;
+}) => Promise<void>;
 ```
 
 ## `ubqtest/workers`

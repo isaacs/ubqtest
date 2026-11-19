@@ -289,3 +289,40 @@ test('an import of a name that only a config maps to a path has a hint', () => {
     `  hint: tsconfig.json has "paths" for "@lib/*". The type checker reads "paths", and the runtime does not. ${fix}`,
   )
 })
+
+test('a file that calls process.exit while it loads shows what it wrote', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'stale.ts'),
+    "import { assert, test } from 'ubqtest'\nconsole.error('The build is old: build again.')\nprocess.exit(1)\ntest('never', () => assert(true))\n",
+  )
+  const block = [
+    'ERROR stale.ts',
+    '  process.exit(1) was called before the tests ended',
+    '  output:',
+    '  | The build is old: build again.',
+  ]
+  // In the process of the runner, and in a child process.
+  assert.deepEqual(p.ubq('stale.ts').out.split('\n').slice(0, 4), block)
+  assert.deepEqual(p.ubq('stale.ts', 'pass.ts').out.split('\n').slice(0, 4), block)
+})
+
+test('with coverage that is not complete, ubq uncovered does not say only "none"', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(join(p.dir, 'src/one.ts'), 'export const one = (): number => 1\n')
+  writeFileSync(
+    join(p.dir, 'one.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.ts'\ntest('one', () => assert.equal(one(), 1))\n",
+  )
+  assert.equal(p.ubq('one.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('uncovered', 'src/one.ts').out.split('\n')[0], 'uncovered: none')
+  // As a plain program, the file has no counters in the files that
+  // loaded before the library.
+  assert.equal(spawnSync('node', ['one.test.ts'], { cwd: p.dir, encoding: 'utf8' }).status, 0)
+  assert.deepEqual(p.ubq('uncovered', 'src/one.ts').out.split('\n').slice(0, 2), [
+    'uncovered: none in the coverage of the store, which is not complete',
+    'note: coverage is not complete for 1 test files: one.test.ts (partial). Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>',
+  ])
+})

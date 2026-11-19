@@ -10,6 +10,9 @@ const files: Record<string, string> = {
   'name-sep.test.ts': "import { test } from 'ubqtest'\ntest('a > b', () => {})\n",
   'no-fn.test.ts': "import { test } from 'ubqtest'\n;(test as (name: string) => void)('x')\n",
   'describe-no-fn.test.ts': "import { describe } from 'ubqtest'\n;(describe as (name: string) => void)('g')\n",
+  'option.test.ts': "import { test } from 'ubqtest'\ntest('x', { retries: 2 } as object, () => {})\n",
+  'describe-option.test.ts':
+    "import { describe } from 'ubqtest'\ndescribe('g', { concurrency: 4 } as object, () => {})\n",
   'describe-async.test.ts':
     "import { describe } from 'ubqtest'\ndescribe('g', (async () => {}) as unknown as () => void)\n",
   'inside.test.ts': `import { assert, describe, test } from 'ubqtest'
@@ -100,6 +103,18 @@ test('each wrong use of the test API has a report with the cause', () => {
     "  > ;(test as (name: string) => void)('x')",
   )
   has(
+    'ERROR option.test.ts',
+    '  TypeError: test "x" has the option "retries", which ubq does not have. The options are skip and timeout.',
+    '  at option.test.ts:2:1',
+    "  > test('x', { retries: 2 } as object, () => {})",
+  )
+  has(
+    'ERROR describe-option.test.ts',
+    '  TypeError: describe "g" has the option "concurrency", which ubq does not have. The options are skip and timeout. The tests of a file run one at a time.',
+    '  at describe-option.test.ts:2:1',
+    "  > describe('g', { concurrency: 4 } as object, () => {})",
+  )
+  has(
     'ERROR describe-no-fn.test.ts',
     '  TypeError: describe "g" has no function',
     '  at describe-no-fn.test.ts:2:38',
@@ -179,7 +194,7 @@ test('each wrong use of the test API has a report with the cause', () => {
     '  rerun: ubq stray.test.ts:2',
   )
   assert(!r.out.includes('late 2'))
-  assert.equal(r.last, 'fail: 7 errors, 7 failed, 6 passed')
+  assert.equal(r.last, 'fail: 9 errors, 7 failed, 6 passed')
 })
 
 const asserts = `import { assert, isDeepEqual, spy, test } from 'ubqtest'

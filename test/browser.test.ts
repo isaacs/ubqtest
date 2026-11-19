@@ -1,6 +1,6 @@
 // `ubqtest/browser`: a page of a real browser, and `assert.eventually`.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -278,3 +278,45 @@ test('a browser that is not there: in UBQ_BROWSER, or not installed', () => {
   const none = run({ PLAYWRIGHT_BROWSERS_PATH: join(p.dir, 'no-browsers') })
   assert.match(none.stdout, /^  Error: the browser is not installed\. Run: npx ubq browser install$/m)
 })
+
+test(
+  'a browser that the test starts itself: prepareContext, and the hint with no call',
+  { ...skip, timeout: 60_000 },
+  () => {
+    const p = project()
+    cleanup(() => remove(p.dir))
+    symlinkSync(
+      join(createRequire(import.meta.url).resolve('playwright-core/package.json'), '..'),
+      join(p.dir, 'node_modules/playwright-core'),
+      'junction',
+    )
+    writeFileSync(
+      join(p.dir, 'own.test.ts'),
+      `import { chromium } from 'playwright-core'
+import { assert, cleanup, test } from 'ubqtest'
+import { prepareContext } from 'ubqtest/browser'
+
+const started = chromium.launch()
+cleanup(async () => (await started).close())
+const title = (prefix: string) => (document.title ? prefix + document.title : prefix)
+
+test('with the call', { timeout: 30_000 }, async () => {
+  const context = await (await started).newContext()
+  await prepareContext(context)
+  const page = await context.newPage()
+  assert.equal(await page.evaluate(title, 'a'), 'a')
+})
+test('with no call', { timeout: 30_000 }, async () => {
+  const page = await (await started).newPage()
+  assert.equal(await page.evaluate(title, 'a'), 'a')
+})
+`,
+    )
+    const r = p.ubq('own.test.ts')
+    assert.match(
+      r.out,
+      /FAIL own\.test\.ts > with no call\n {2}Error: page\.evaluate: ReferenceError: __ubqc is not defined[^]*\n {2}hint: a function of the test ran in a page of a browser that the test started itself, and its text has the coverage counters of ubq\. Use browser\(\) of 'ubqtest\/browser', or call prepareContext\(context\) of 'ubqtest\/browser' for each browser context that the test makes\.\n/,
+    )
+    assert.equal(r.last, 'fail: 1 failed, 1 passed')
+  },
+)

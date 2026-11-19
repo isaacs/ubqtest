@@ -5,7 +5,7 @@ import { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
 import { readChildren } from './child-read.ts'
 import { config } from './config.ts'
-import { COLUMN } from './counters.ts'
+import { COLUMN, COUNTER_NAME } from './counters.ts'
 import { type Collector, mergeRanges } from './coverage.ts'
 import { emit } from './emit.ts'
 import { type CleanupFn, fileCleanups, fileState } from './fixtures.ts'
@@ -108,6 +108,16 @@ const checkName = (kind: string, name: unknown): void => {
     throw new TypeError(`${kind} name must not contain "${SEPARATOR}": ${JSON.stringify(name)}`)
 }
 
+/** Throws for an option that ubq does not have: a file that is not TypeScript has no check of the names. */
+const checkOptions = (kind: string, name: string, options: object): void => {
+  const unknown = Object.keys(options).find(key => key !== 'skip' && key !== 'timeout')
+  if (unknown !== undefined)
+    throw new TypeError(
+      `${kind} ${JSON.stringify(name)} has the option ${JSON.stringify(unknown)}, which ubq does not have. The options are skip and timeout.` +
+        (unknown === 'concurrency' ? ' The tests of a file run one at a time.' : ''),
+    )
+}
+
 const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   const [options, fn] = typeof a === 'function' ? [{}, a] : [a, b]
   if (current.getStore())
@@ -118,6 +128,7 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
     )
   checkName('test', name)
   if (typeof fn !== 'function') throw new TypeError(`test ${JSON.stringify(name)} has no function`)
+  checkOptions('test', name, options)
   const at = callSite()
   // ubq: not measured: a call of test() from a file has a call site
   file ??= FILE || at?.file || rel(process.argv[1] ?? '')
@@ -190,6 +201,7 @@ export const describe: Describe = (name: string, a: TestOptions | (() => void), 
   if (current.getStore()) throw new Error('describe() was called inside a running test.')
   checkName('describe', name)
   if (typeof fn !== 'function') throw new TypeError(`describe ${JSON.stringify(name)} has no function`)
+  checkOptions('describe', name, options)
   groups.push({ name, options })
   try {
     const result: unknown = fn()
@@ -253,7 +265,9 @@ const errorFailure = (error: unknown): Failure => {
       ? `${error.name}: ${text}` +
         (error.name === 'ReferenceError' && HOOK.test(text)
           ? '. ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test. ubq convert leaves a TODO(ubq) at each hook.'
-          : '')
+          : text.includes(`${COUNTER_NAME} is not defined`)
+            ? `\nhint: a function of the test ran in a page of a browser that the test started itself, and its text has the coverage counters of ubq. Use browser() of 'ubqtest/browser', or call prepareContext(context) of 'ubqtest/browser' for each browser context that the test makes.`
+            : '')
       : `threw ${String(error)}`,
     ...(stack[0] && { at: stack[0], stack }),
   }

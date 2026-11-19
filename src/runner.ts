@@ -1075,10 +1075,9 @@ export const run = async (args: string[]): Promise<number> => {
   }
   clearTimeout(deadline)
   const allTypes = (await checking?.errors) ?? []
-  const { own: typeErrors, other: otherTypes } = checking?.partial
-    ? ownTypeErrors(allTypes, used)
-    : { own: allTypes, other: 0 }
-  for (const error of typeErrors) send(error)
+  const { own: typeErrors, others } = checking?.partial ? ownTypeErrors(allTypes, used) : { own: allTypes, others: [] }
+  const otherTypes = others.length
+  for (const error of [...typeErrors, ...others]) send(error)
   if (baseline) write(compare(baseline, status, errorFiles).join('\n') + '\n')
   // The order of the files can be the cause of a failure.
   if (ordered.length > 1 && ([...status.values()].includes('fail') || errorFiles.size))

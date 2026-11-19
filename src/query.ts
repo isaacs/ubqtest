@@ -409,11 +409,14 @@ export const lastFileError = (db: DatabaseSync, file: string): { run: number; fa
   return row && { run: row.run, failure: JSON.parse(row.failure) }
 }
 
-/** The type errors of a run. */
-export const typeErrors = (db: DatabaseSync, run: number): TypeCheckError[] =>
-  (db.prepare('select error from type_error where run = ? order by rowid').all(run) as { error: string }[]).map(
-    r => JSON.parse(r.error) as TypeCheckError,
-  )
+/**
+ * The type errors of a run. With `other`, those of the files that
+ * a run of a selection did not use.
+ */
+export const typeErrors = (db: DatabaseSync, run: number, other = false): TypeCheckError[] =>
+  (db.prepare('select error from type_error where run = ? order by rowid').all(run) as { error: string }[])
+    .map(r => JSON.parse(r.error) as TypeCheckError)
+    .filter(error => !!error.other === other)
 
 /** The last stored result of a test. */
 export const lastResult = (db: DatabaseSync, id: string): TestRow | undefined => {

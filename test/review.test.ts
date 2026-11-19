@@ -358,3 +358,26 @@ test('ubq review: with a store of merged coverage, as in CI', () => {
     /^assertions changed: lib\/math\.test\.ts > math > add \(lib\/math\.test\.ts:4\)\. The test runs code that changed: lib\/math\.ts:1$/m,
   )
 })
+
+test('ubq review: a file that had the tests of a different tool is not compared, and the note says so', () => {
+  const p = setup()
+  writeFileSync(
+    p.file('test/old.test.ts'),
+    "import assert from 'node:assert'\nimport { test } from 'node:test'\ntest('old', () => assert.equal(1, 1))\n",
+  )
+  p.configure({ exclude: ['test/old.test.ts'] })
+  p.git('add', '.')
+  p.git('commit', '-q', '-m', 'a test of node:test')
+  writeFileSync(
+    p.file('test/old.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('old', () => assert.equal(1, 1))\n",
+  )
+  const r = p.review()
+  assert.deepEqual(
+    [r.code, r.out],
+    [
+      0,
+      'note: 1 files had no ubq tests at the last commit, and have them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.\n',
+    ],
+  )
+})

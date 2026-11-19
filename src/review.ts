@@ -223,6 +223,8 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
 
   const items: string[][] = []
   const notes: string[] = []
+  /** The count of files that existed at the base with no ubq tests, and have ubq tests now. */
+  let converted = 0
 
   // Changed code: the tests that ran its changed lines.
   const diff = changedLines(base)
@@ -298,6 +300,9 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
     if (!then?.tests.size && !is?.tests.size && !isHelper(name) && !isBuild(name))
       for (const reason of minus(reasons(is?.comments ?? []), reasons(then?.comments ?? [])))
         items.push([`not measured: ${name}: ${reason || '(no reason)'}`])
+    // A file that had no ubq tests and has them now: a test file
+    // of a different tool before. Its tests were not compared.
+    if (then && !then.tests.size && is?.tests.size) converted++
     if (!then?.tests.size) continue
     // The IDs of the tests at the base, with the name of the file now.
     const was = new Map([...then.tests].map(([id, t]) => [after ? after + id.slice(before!.length) : id, t]))
@@ -330,6 +335,10 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
     }
   }
 
+  if (converted)
+    notes.push(
+      `note: ${converted} files had no ubq tests at ${from}, and have them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.`,
+    )
   if (old.length)
     notes.push(
       `note: code changed after the last run of its tests in ${old.join(', ')}, so review does not know which tests run the changed lines. Run: ubq --changed`,

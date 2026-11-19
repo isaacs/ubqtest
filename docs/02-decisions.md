@@ -2841,3 +2841,57 @@ The answer to Q48: add what `SELF` of the vitest plugin does.
   `cloudflare:workers` has no such function. Not measured: which
   version has it first.
 
+## D116. Changes from the whosonfirst.ai report (assistant, 2026-11-19)
+
+`21-whosonfirst.ai-feedback-0.0.19.md`: 36 `node:test` files of a
+static site, converted on ubq 0.0.20 by an agent in two passes.
+The user gave the report with no list of changes to make. Each
+choice here is an assumption of the assistant.
+
+- **`ubq convert` keeps the message of an assertion**, as its
+  last argument. Each assertion of ubq took a message from the
+  first version, the API reference said so, and a failure shows
+  it. The convert guide said "ubq assertions have no message",
+  and the command made a text message a comment and wrote a TODO
+  for each other one: 150 of the 254 TODO comments of the report.
+  No decision said that messages go away, so the guide and the
+  command were wrong, and not the API. The guide still says that
+  one test for each case is often better than a message in a
+  loop. A message that was not a statement of its own was lost
+  before, with no comment: it stays now too.
+- **`prepareContext(context)` of `ubqtest/browser`**, for a
+  browser that the test starts itself. A function that a test
+  gives to `page.evaluate` has the coverage counters in its text.
+  `browser()` gave the page an object for them, and a page of the
+  project's own Playwright had none: 197 of 281 browser tests of
+  the report failed with `__ubqc is not defined`. A failure with
+  that text now has a hint that names the function.
+- **A file that calls `process.exit`** shows what it wrote
+  outside a test, in its ERROR block. Its own message said why
+  it ended. Not for an error that the file threw: the output is
+  then the same error, as the runtime prints it.
+- **`ubq failures` prints the type errors of other files** of a
+  run of a selection, and its last line has their count. The run
+  stored only the count before. The run itself still prints only
+  the count (D96).
+- **An option that ubq does not have is an error**:
+  `describe('g', { concurrency: 4 }, fn)` ran with no word in a
+  file that is not TypeScript.
+- **`ubq review`** has a note for files that had no ubq tests at
+  the base and have them now. It said "nothing to do" for 36
+  converted files.
+- **`ubq uncovered`** does not start with "uncovered: none" if
+  the coverage of the store is not complete.
+
+Not done, with the reason:
+
+- A hook of `node:test` at the top level becomes code at the top
+  of the file (D84). The report asks for the lazy form, or a
+  TODO. The change of D84 is correct for each test, and starts a
+  server when the file loads, which a run of one test also
+  needs. No change.
+- "1 type errors": each count of ubq has the form `N things`. No
+  change.
+- Q49 and Q50 are decisions for the user.
+- Tests of one file run one at a time (D9, D34).
+

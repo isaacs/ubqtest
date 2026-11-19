@@ -66,6 +66,27 @@ const start = async (): Promise<Browser> => {
 }
 
 /**
+ * Import from `'ubqtest/browser'`.
+ *
+ * Makes a browser context that the test started itself, with the
+ * Playwright of the project, ready for a test of ubq. A function
+ * that the test gives to `page.evaluate` has the coverage counters
+ * of the test file in its text. In a page of this context, they
+ * count into an object that keeps nothing. With no call, such a
+ * function throws `ReferenceError: __ubqc is not defined`.
+ *
+ * A page of `browser()` needs no call.
+ *
+ * ```ts
+ * const context = await chromium.launch().then(b => b.newContext())
+ * await prepareContext(context)
+ * ```
+ */
+export const prepareContext = async (context: { addInitScript(script: string): Promise<unknown> }): Promise<void> => {
+  await context.addInitScript(`globalThis.${COUNTER_NAME} = new Proxy({}, { get: () => 0, set: () => true })`)
+}
+
+/**
  * Import from `'ubqtest/browser'`. The project needs the
  * `playwright-core` package, and `ubq browser install`.
  *
@@ -103,10 +124,7 @@ export const browser = async (options: BrowserContextOptions = {}): Promise<Page
         : route.fulfill({ status: 404, body: 'no such file in the project' })
     })
   }
-  // A function that the test gives to `page.evaluate` can have
-  // counters of the test file in its text. In the page, they count
-  // into an object that keeps nothing.
-  await context.addInitScript(`globalThis.${COUNTER_NAME} = new Proxy({}, { get: () => 0, set: () => true })`)
+  await prepareContext(context)
   const page = await context.newPage()
   // The code of the project that the page runs is coverage of the
   // test. This cleanup runs before the one that closes the context.

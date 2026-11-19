@@ -307,7 +307,7 @@ const TODO = {
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
   message:
-    'ubq assertions have no message, and this one was not text. If it named the case, put the case in the name of a test: call test() in the loop, one test for each case.',
+    'This call is not an assertion now, so it has no place for the message, and the message was not text. If it named the case, put the case in the name of a test: call test() in the loop, one test for each case.',
   failLoop:
     'assert.fail ends the test at the first wrong value. To see all of them, collect the wrong values in a list in the loop, and assert.deepEqual(wrong, []) after the loop.',
   passed:
@@ -822,6 +822,15 @@ export const convertSource = (
     if (/^\s*;?\s*$/.test(rest) && !text.includes('\n'))
       edits.push({ start: node.end + rest.length, end: node.end + rest.length, text: ` // ${text}` })
   }
+  /**
+   * The rule with the message of the assertion as its last
+   * argument: each assertion of ubq takes one. `index` is the
+   * place of the message in the arguments of the call.
+   */
+  const withMessage = (rule: string, index: number, args: Node[]): string =>
+    args[index] && args[index].type !== 'ObjectExpression' && rule.endsWith(')')
+      ? `${rule.slice(0, -1)}, $${index})`
+      : rule
   /** True if the node is in a loop of its function. */
   const inLoop = (path: Node[]): boolean =>
     path.findLastIndex(n => LOOP.test(n.type)) > path.findLastIndex(n => n.type.includes('Function'))
@@ -2292,10 +2301,10 @@ export const convertSource = (
     if (method === 'rejects') awaited(node, path)
     const count = rule.match(/\$\d/g)?.length ?? 0
     // A message is the argument after the last one of the rule.
-    if (method !== 'fail') messageComment(node, args[count], path)
-    else if (inLoop(path)) todo(path, TODO.failLoop)
+    const use = method === 'fail' ? rule : withMessage(rule, count, args)
+    if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)
     if (!path.some(n => FUNCTION.has(n.type))) todo(path, TODO.rootAssert)
-    return rewrite(node, rule, args)
+    return rewrite(node, use, args)
   }
 
   const tapCall = (node: Node, path: Node[], method: string): Node[] | undefined => {
@@ -2448,9 +2457,8 @@ export const convertSource = (
     const count = rule.match(/\$\d/g)?.length ?? 0
     let use = rule
     if (/^(throws|throw|rejects)$/.test(method) && args[1]?.type === 'Literal' && typeof args[1].value === 'string') {
-      use = pick(table[method]!, 1)!
-      messageComment(node, args[1], path)
-    } else if (!/^(fail|teardown|after|testdir)$/.test(method)) messageComment(node, args[count], path)
+      use = withMessage(pick(table[method]!, 1)!, 1, args)
+    } else if (!/^(fail|teardown|after|testdir)$/.test(method)) use = withMessage(use, count, args)
     if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)
     if (method === 'rejects' || method.startsWith('resolveMatch')) awaited(node, path)
     if (!inTest && use.startsWith('assert')) todo(path, TODO.rootAssert)

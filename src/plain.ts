@@ -24,16 +24,19 @@ const runtime = (): { name: 'node' | 'deno' | 'bun'; version: string } => {
 
 /**
  * For a run of a selection (D49): the type errors that belong to
- * the run, and the count of the others. An error belongs to the run
+ * the run, and the others. An error belongs to the run
  * if it has no file, or if its file is in `used`: the test files of
  * the run and the files that their tests ran.
  */
 export const ownTypeErrors = (
   errors: TypeCheckError[],
   used: Set<string>,
-): { own: TypeCheckError[]; other: number } => {
-  const own = errors.filter(error => !error.at || used.has(error.at.file))
-  return { own, other: errors.length - own.length }
+): { own: TypeCheckError[]; others: TypeCheckError[] } => {
+  const mine = (error: TypeCheckError): boolean => !error.at || used.has(error.at.file)
+  return {
+    own: errors.filter(mine),
+    others: errors.filter(error => !mine(error)).map(error => ({ ...error, other: true as const })),
+  }
 }
 
 /** The key of the type check that `ubq` started in this process. */
@@ -144,7 +147,7 @@ export const startPlain = (): void => {
         const all = types
         const split = all && checking?.partial ? ownTypeErrors(all, used) : undefined
         if (split) types = split.own
-        for (const error of types ?? []) send(error)
+        for (const error of [...(types ?? []), ...(split?.others ?? [])]) send(error)
         if (types?.length) process.exitCode = 1
         // The store has the coverage of the run before the count.
         stored?.flush()
@@ -163,7 +166,7 @@ export const startPlain = (): void => {
           skip: count('skip'),
           unselected: event.unselected,
           ...(types && { types: types.length }),
-          ...(split?.other && { otherTypes: split.other }),
+          ...(split?.others.length && { otherTypes: split.others.length }),
           ...(uncovered && { uncovered }),
           code: types?.length ? 1 : code,
         })

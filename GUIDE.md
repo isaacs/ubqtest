@@ -338,6 +338,7 @@ await assert.rejects(promise, expected)   // resolves to the error
 await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
 assert.snapshot(value)             // compares with saved text
 assert.fail(message)
+// Each assertion takes a message as its last argument: assert.equal(a, b, `case ${name}`). A failure shows it first.
 isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion. A failed assert(value) shows the values of its calls.
 
 spy(impl?)                         // records calls in spy.calls: { args, result, error }
@@ -571,6 +572,15 @@ test('the button counts', async () => {
   limit, `{ timeout: 30_000 }`.
 - `browser(options)` takes the options of `browser.newContext`
   of Playwright, such as `viewport` and `locale`.
+- A test can start a browser itself, with the Playwright of the
+  project: for a server of its own, or for headers that
+  `browser()` does not give. Then call `await
+  prepareContext(context)` of `ubqtest/browser` for each browser
+  context that the test makes. A function that the test gives to
+  `page.evaluate` has the coverage counters of ubq in its text,
+  and with no call it throws `ReferenceError: __ubqc is not
+  defined` in the page. Such a page gives no coverage of the code
+  that it runs.
 
 Coverage: the code of the project that a page runs is coverage of
 the test, as the code that the test process runs. So `ubq
