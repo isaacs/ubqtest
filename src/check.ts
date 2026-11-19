@@ -8,7 +8,7 @@ import { isBuild, isHelper } from './config.ts'
 import { paint } from './color.ts'
 import { changedLines, diffOption, headCommit } from './git.ts'
 import { projectRoot } from './project.ts'
-import { hasCoverage, lastRun, stale, typeErrors, uncovered, unloadedChanges } from './query.ts'
+import { hasCoverage, lastRun, stale, testFiles, typeErrors, uncovered, unloadedChanges } from './query.ts'
 import { reviewItems } from './review.ts'
 import { LAST_RESULTS, selectChanged, selectFailed, UsageError } from './runner.ts'
 import { runsInProgress } from './status.ts'
@@ -84,8 +84,12 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     if (commit && !summary.length) {
       const diff = changedLines(commit)
       const lines: string[] = []
+      // A test file is not code of the program, also if it is not
+      // in a test folder: a function of a test that no test calls
+      // is not a gap in the tests.
+      const tests = new Set(testFiles(db))
       for (const [file, groups] of diff) {
-        if (isHelper(file) || isBuild(file) || !hasCoverage(db, file) || stale(db, file)) continue
+        if (tests.has(file) || isHelper(file) || isBuild(file) || !hasCoverage(db, file) || stale(db, file)) continue
         for (const u of uncovered(db, file))
           if (!u.notMeasured && groups.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
             lines.push(`  ${u.file}:${u.line}:${u.column}  ${u.text}${u.moreLines ? ` (+${u.moreLines} lines)` : ''}`)

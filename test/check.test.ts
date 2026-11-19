@@ -192,6 +192,17 @@ test('ubq check: changed lines that no test runs, and changed files that no test
     p.file('lib/math.ts'),
     SRC + '// ubq: not measured: no test can reach it\nexport const mul = (a: number, b: number): number => a * b\n',
   )
+  // A test file that is not in a test folder: a function in it
+  // that no test calls is not uncovered code of the program.
+  writeFileSync(
+    p.file('lib/math.spec.ts'),
+    "import { assert, test } from 'ubqtest'\nconst unused = (): number => 1\ntest('spec', () => assert.equal(typeof unused, 'function'))\n",
+  )
+  p.configure({ include: ['test/**/*.test.ts', 'lib/**/*.spec.ts'] })
+  p.ubq()
+  assert(!p.ubq('check', '--diff=HEAD~1').out.includes('math.spec.ts'))
+  rmSync(p.file('lib/math.spec.ts'))
+  p.configure()
   // A comment before the first code of a file: no test can load
   // the file. A comment after code is for a range only.
   p.ubq('--changed')
