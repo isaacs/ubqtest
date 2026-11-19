@@ -18,6 +18,8 @@ above the working directory. The search leaves out:
   is a different project, with its own run store. Examples: a
   package of a monorepo, a folder of experiments, a fixture
   project.
+- with no `include` key, the `dist` folder of the root (D113). A
+  build of the test files there is a second copy of each test.
 
 A file that is an argument always runs: `ubq any/file.ts`. A
 folder that is an argument runs the test files of the project

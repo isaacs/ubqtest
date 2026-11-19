@@ -90,6 +90,22 @@ test('ubq does not go into a folder that has its own package.json', () => {
   )
   // A file that is an argument always runs.
   assert.equal(p.ubq('other/test/b.test.ts').last, 'pass: 0 failed, 3 passed')
+  // A build of the test files in `dist` is a second copy of each
+  // test. A `dist` folder that is not at the root is not known as
+  // build output.
+  mkdirSync(join(p.dir, 'dist/test'), { recursive: true })
+  mkdirSync(join(p.dir, 'src/dist'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'dist/test/a.test.js'),
+    "import { assert, test } from 'ubqtest'\ntest('built', () => assert(true))\n",
+  )
+  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'src/dist/c.test.ts'))
+  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+  // As an argument, and with an `include` key, the files of `dist` run.
+  assert.equal(p.ubq('dist/test/a.test.js').last, 'pass: 0 failed, 1 passed')
+  p.configure({ include: ['dist/**/*.test.js'] })
+  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
   rmSync(p.dir, { recursive: true })
 })
 

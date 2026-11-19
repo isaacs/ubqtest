@@ -364,3 +364,41 @@ test('a tsconfig.json with only references: ubq makes tsconfig.ubq.json, one tim
   // `ubq doctor` reads the options of the same file.
   assert.match(p.ubq('doctor').out, /^FIX  apps\/app\/tsconfig\.ubq\.json: set /m)
 })
+
+test('a referenced project that is not built has a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const name of ['typescript', '@typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  mkdirSync(join(p.dir, 'lib'))
+  const options = {
+    module: 'nodenext',
+    target: 'esnext',
+    strict: true,
+    allowImportingTsExtensions: true,
+    types: ['node'],
+  }
+  writeFileSync(
+    join(p.dir, 'lib/tsconfig.json'),
+    JSON.stringify({ compilerOptions: { ...options, composite: true, emitDeclarationOnly: true, outDir: 'out' } }),
+  )
+  writeFileSync(join(p.dir, 'lib/one.ts'), 'export const one = 1\n')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: { ...options, noEmit: true },
+      include: ['ref.test.ts'],
+      references: [{ path: './lib' }],
+    }),
+  )
+  writeFileSync(
+    join(p.dir, 'ref.test.ts'),
+    "import { assert, test } from 'ubqtest'\nimport { one } from './lib/one.ts'\ntest('one', () => assert.equal(one, 1))\n",
+  )
+  const lines = p.ubq('ref.test.ts').out.split('\n')
+  const at = lines.findIndex(line => line.startsWith('  TS6305: '))
+  assert.equal(
+    lines[at + 1],
+    '  hint: the tsconfig has "references", and the checker reads a referenced project from its build output, which is not there or is old. Build the referenced projects (tsc -b), in CI too, before the tests.',
+  )
+})

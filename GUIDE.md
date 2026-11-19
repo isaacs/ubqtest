@@ -86,6 +86,13 @@ Each run also runs the type checker, if the project has
   then reads the source of the other projects, and they need no
   build. The file is yours: change it as the project needs, and
   commit it.
+- A `tsconfig.json` with `references` and its own files reads
+  each referenced project from its build output. If that output
+  is not there, the checker reports TS6305: build the referenced
+  projects (`tsc -b`) before the tests, in CI too. If the build
+  puts test files in `dist`, ubq does not run them: with no
+  `include` key, it does not look in the `dist` folder of the
+  root.
 - A run of all tests (`ubq`) reports each type error. A run of a
   selection (`ubq <file>`, `ubq --changed`) reports the type
   errors of the files that it used: its test files, and the

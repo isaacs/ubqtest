@@ -2723,3 +2723,51 @@ are about, and a config that ubq writes (`tsconfig.ubq.json`) has
 a comment that says what made it, and why. A second place for
 the same facts gets old.
 
+## D113. Changes from the vitest monorepo report (assistant, 2026-11-19)
+
+`private/22-vitest-monorepo-feedback-0.0.19.md` (not public): a
+conversion of a monorepo from vitest, on ubq 0.0.19. The user gave the report with no list
+of changes to make. Each choice here is an assumption of the
+assistant.
+
+Done before this report, in 0.0.20 and after it:
+
+- Source with a parameter property needs no change of the
+  source: the `transform` key (D111).
+- `ubq convert --dry` prints the place of each TODO, and the list
+  of files with no test tool has 10 names at most.
+- Each `expect` and `vi` that the command cannot change has a
+  TODO. `grep -rn 'TODO(ubq)'` finds them.
+- Testing Library has a helper file in the convert guide (D108).
+
+Done now:
+
+- **With no `include` key, ubq does not look for test files in
+  the `dist` folder of the root.** `tsc -b` of a project with
+  references wrote the test files to `dist`, and each test ran
+  two times. A file of `dist` runs as an argument, and with an
+  `include` key that has it. Only `dist`, and only at the root:
+  the default of the `build` key also has `scripts`, and a test
+  file there is a test.
+- **TS6305 has a hint**: the referenced projects are not built.
+  A config that extends the tsconfig (D110) does not help here:
+  the import of the other package goes through `node_modules` to
+  its build output, and not through `paths` to its source.
+- **`ubq convert`**: `expect.fail(text)` becomes
+  `assert.fail(text)`. `expect.stringMatching(/re/)` in a pattern
+  or as the expected error becomes the RegExp. A note for
+  `test.env`, and one for an alias of imports, of a vitest
+  config.
+
+Not done, with the reason:
+
+- Q45 to Q48 are decisions for the user.
+- Hooks, and a DOM environment: D84 and D93 decided them.
+- Two files that the command refused ("made text that is not
+  code"), and `not.toThrow()` that left a test with no
+  assertion: the report has no sample. The current command
+  writes a TODO for `not.toThrow()`.
+- `ubq convert <folder>` also changes a helper file that uses
+  the old tool. That is correct: the helper cannot load with the
+  old tool gone.
+

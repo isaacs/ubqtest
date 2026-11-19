@@ -240,6 +240,9 @@ const check = (
         if (error.code === 'TS1294')
           error.message +=
             '\nhint: Node cannot run this syntax with only its types removed. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.'
+        if (error.code === 'TS6305')
+          error.message +=
+            '\nhint: the tsconfig has "references", and the checker reads a referenced project from its build output, which is not there or is old. Build the referenced projects (tsc -b), in CI too, before the tests.'
         const source = error.at && read(error.at.file)
         if (!source) continue
         let at = 0

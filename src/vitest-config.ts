@@ -179,6 +179,15 @@ export const viteDefine = (
     let spread = false
     let plugins = false
     let limit: unknown
+    /** The names of `test.env`, and of the aliases for imports. */
+    const env: string[] = []
+    const alias: string[] = []
+    const names = (object: Node | undefined): string[] =>
+      object?.type === 'ObjectExpression'
+        ? (object.properties as Node[]).map(p => keyOf(p) ?? 'a computed key')
+        : object
+          ? ['not a plain object']
+          : []
     const walk = (node: Node): void => {
       if (node.type === 'SpreadElement' && (node.argument as Node).type === 'Identifier') spread = true
       const list = node.type === 'ObjectExpression' ? get(node, 'plugins') : undefined
@@ -186,6 +195,8 @@ export const viteDefine = (
       const known = (e: Node | null): boolean =>
         e?.type === 'CallExpression' && (e.callee as Node & { name?: string }).name === 'cloudflareTest'
       if (list && !(list.type === 'ArrayExpression' && (list.elements as (Node | null)[]).every(known))) plugins = true
+      env.push(...names(get(get(node, 'test'), 'env')))
+      alias.push(...names(get(get(node, 'test'), 'alias')), ...names(get(get(node, 'resolve'), 'alias')))
       const timeout = node.type === 'ObjectExpression' ? get(node, 'testTimeout') : undefined
       if (timeout?.type === 'Literal' && typeof timeout.value === 'number') limit = timeout.value
       const values = node.type === 'ObjectExpression' ? get(node, 'define') : undefined
@@ -226,6 +237,14 @@ export const viteDefine = (
     if (limit !== undefined)
       notes.push(
         `${file} has testTimeout: ${limit}. The time limit of a test in ubq is 5000 ms. To keep the limit of the old config, add to "ubq" in package.json: "timeout": ${limit}`,
+      )
+    if (env.length)
+      notes.push(
+        `${file} has test.env (${env.join(', ')}). ubq has no key for the environment of the tests. Set each value in the test script of package.json and in CI, or in the test with env() of ubqtest.`,
+      )
+    if (alias.length)
+      notes.push(
+        `${file} has an alias for imports (${alias.join(', ')}). ubq does not change the name of an import. Use a name that the runtime finds: a relative path, the "imports" key of package.json, or a package of the workspace.`,
       )
     if (spread && !found)
       notes.push(

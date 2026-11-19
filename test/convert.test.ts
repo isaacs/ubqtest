@@ -2904,3 +2904,22 @@ it('a', () => {
     '  assert.deepEqual(s.calls.at(-1)?.args, [])',
   ])
 })
+
+test('vitest: expect.fail, and stringMatching with a RegExp as the expected error', () => {
+  const r = convert(`import { expect, it } from 'vitest'
+it('x', () => {
+  expect.fail('no')
+  expect.fail()
+  expect(() => load()).toThrow(expect.stringMatching(/x/))
+  expect(v).toEqual({ a: expect.stringMatching(/y/i) })
+})
+`)
+  assert.deepEqual(r!.code.filter(line => !line.trim().startsWith('//')).slice(2, 6), [
+    "  assert.fail('no')",
+    "  assert.fail('fail')",
+    '  assert.throws(() => load(), /x/)',
+    // Not a pattern: this one has a TODO.
+    '  assert.deepEqual(v, { a: expect.stringMatching(/y/i) })',
+  ])
+  assert.equal(r!.todos.length, 1)
+})

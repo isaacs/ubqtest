@@ -151,6 +151,14 @@ names, do one of these:
   of vitest), `ubq convert` prints a note with the `"timeout"` key
   to add. A test that takes more than its limit fails, also a
   test that does not await.
+- `test.env` of a vitest config has no key in ubq, and the
+  command prints a note with its names. Set each value in the
+  test script of `package.json` and in CI, or in the test with
+  `env()`.
+- An alias for imports (`resolve.alias`, `test.alias`) has no key
+  in ubq, and the command prints a note. ubq does not change the
+  name of an import: use a relative path, the `imports` key of
+  `package.json`, or a package of the workspace.
 - Vite puts each value of its `define` in the source, such as
   `__DEBUG_BUILD__`. With ubq, the source throws `ReferenceError:
   __DEBUG_BUILD__ is not defined`. Give the values in the
@@ -484,6 +492,8 @@ Things to check by hand:
   function as a value. Change that assertion to `assert.match`
   with the functions. It permits keys that the pattern does not
   have.
+  `expect.stringMatching(/re/)` becomes the RegExp, and
+  `expect.fail('text')` becomes `assert.fail('text')`.
   `expect.stringContaining('text')` becomes a RegExp only in a
   pattern (`toMatchObject`, `toThrow`). In an exact comparison
   (`toEqual`, `toHaveBeenCalledWith`) it stays, with a TODO: a

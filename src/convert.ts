@@ -1838,6 +1838,17 @@ export const convertSource = (
     if (owner === 'expect') {
       // expect.any(Number), expect.stringContaining('text')
       const first = args[0]
+      if (method === 'fail' && args.length < 2) {
+        used.add('assert')
+        return rewrite(node, args.length ? 'assert.fail($0)' : "assert.fail('fail')", args)
+      }
+      // A RegExp does the work of stringMatching with a RegExp.
+      if (method === 'stringMatching' && args.length === 1 && first!.regex && !negated && inPattern(path)) {
+        replace(node.start, first!.start, '')
+        replace(first!.end, node.end, '')
+        changes++
+        return []
+      }
       if (
         method === 'stringContaining' &&
         args.length === 1 &&

@@ -215,3 +215,22 @@ test('the notes for a config of Playwright Test: the address of the pages, and o
   writeFileSync(join(dir, 'playwright.config.ts'), 'export default {')
   assert.deepEqual(playwrightNotes(dir, parse, children), [])
 })
+
+test('the env and the aliases of a vitest config are notes', () => {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-vite-')))
+  cleanup(() => rmSync(dir, { recursive: true, force: true }))
+  writeFileSync(
+    join(dir, 'vitest.config.ts'),
+    `export default defineConfig({
+  resolve: { alias: { '@lib': path.resolve('lib') } },
+  test: { env: { MODE: 'dev', [name]: '1' }, alias: list },
+})`,
+  )
+  assert.deepEqual(viteDefine(dir, parse, children), {
+    define: {},
+    notes: [
+      'vitest.config.ts has test.env (MODE, a computed key). ubq has no key for the environment of the tests. Set each value in the test script of package.json and in CI, or in the test with env() of ubqtest.',
+      'vitest.config.ts has an alias for imports (not a plain object, @lib). ubq does not change the name of an import. Use a name that the runtime finds: a relative path, the "imports" key of package.json, or a package of the workspace.',
+    ],
+  })
+})

@@ -94,7 +94,9 @@ export { UsageError }
 /**
  * The test files of the project. Not in `node_modules`, not in a
  * folder whose name starts with a dot, and not in a folder that has
- * its own `package.json`: that folder is a different project.
+ * its own `package.json`: that folder is a different project. With
+ * no `include` key, not in the `dist` folder of the root: a build
+ * of the test files is a second copy of each test (D113).
  */
 const testFiles = (): string[] => {
   const root = projectRoot()
@@ -104,7 +106,7 @@ const testFiles = (): string[] => {
     /(^|[\\/])(node_modules$|\.)/.test(path) || existsSync(join(root, path, 'package.json'))
   const find = (patterns: string[]): string[] =>
     globSync(patterns, { cwd: root, exclude: skip }).map(f => f.split('\\').join('/'))
-  const files = new Set(find(include ?? [TEST_FILES]))
+  const files = new Set(include ? find(include) : find([TEST_FILES]).filter(file => !file.startsWith('dist/')))
   if (exclude.length) for (const file of find(exclude)) files.delete(file)
   return [...files].filter(f => !include || statSync(join(root, f)).isFile()).sort()
 }
