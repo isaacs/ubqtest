@@ -193,3 +193,31 @@ test('isDeepEqual gives true or false, by the rules of deepEqual', () => {
     [true, false, false, false],
   )
 })
+
+test('spy.results gives each result in order, throws an Error result, and throws after the last one', async () => {
+  const read = spy.results('a', 'b', new Error('no more'))
+  // The type of a result is not the type of the Error in the list.
+  const first: string = read(1, 2)
+  assert.equal(first, 'a')
+  assert.equal(read(), 'b')
+  assert.throws(() => read(), /no more/)
+  assert.throws(() => read(), /call 4 of a spy that has 3 results\. Give spy\.results\(\) a result for each call\./)
+  assert.deepEqual(
+    read.calls.map(call => [call.args, call.result, call.error instanceof Error]),
+    [
+      [[1, 2], 'a', false],
+      [[], 'b', false],
+      [[], undefined, true],
+      [[], undefined, true],
+    ],
+  )
+  // A promise that is rejected when the list is made, and that the
+  // code gets later, is not an unhandled rejection.
+  const load = spy.results(Promise.resolve(1), Promise.reject(new Error('gone')))
+  await new Promise(resolve => setTimeout(resolve, 5))
+  assert.equal(await load(), 1)
+  await assert.rejects(load(), /gone/)
+  // It fits a typed function.
+  const typed: (id: number) => Promise<number> = spy.results(Promise.resolve(2))
+  assert.equal(await typed(1), 2)
+})

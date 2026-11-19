@@ -12,7 +12,7 @@ export { assert, type Assert, isDeepEqual, type Pattern } from './assert.ts'
 export { fakeClock, type FakeClock, type FakeClockOptions } from './clock.ts'
 export { cleanup, env, stub, type Files } from './fixtures.ts'
 export { mockImport, type MockOf } from './mock.ts'
-export { spy, spyOn, type Spy, type SpyCall } from './spy.ts'
+export { spy, spyOn, type Spy, type SpyCall, type SpyFunction } from './spy.ts'
 export { describe, test, type TestContext, type TestFn, type TestOptions } from './test.ts'
 
 /**

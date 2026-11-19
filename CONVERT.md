@@ -420,7 +420,8 @@ Things to check by hand:
 | `await expect(p).resolves.toEqual(b)` | `assert.deepEqual(await p, b)` |
 | `toHaveBeenCalled()`, `toHaveBeenCalledTimes(n)` | `assert(s.calls.length > 0)`, `assert.equal(s.calls.length, n)` |
 | `not.toHaveBeenCalled()` | `assert.equal(s.calls.length, 0)` |
-| `toHaveBeenCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
+| `toHaveBeenCalledWith(...args)` | `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))` |
+| `toHaveBeenLastCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
 | `not.toHaveBeenCalledWith(...args)` | `assert(!s.calls.some(call => isDeepEqual(call.args, [...args])))` |
 | `toHaveBeenNthCalledWith(2, ...args)` | `assert.deepEqual(s.calls[1]?.args, [...args])` |
 | `toHaveBeenCalledExactlyOnceWith(...args)` | `assert.equal(s.calls.length, 1)`, then `assert.deepEqual(s.calls[0]?.args, [...args])` |
@@ -439,12 +440,11 @@ Things to check by hand:
   `undefined` and ignores the class. `assert.deepEqual` is
   strict. Use the exact value, or `assert.match` for some keys.
 - **`toHaveBeenCalledWith`.** jest passes if any call had the
-  arguments. With one such check of a spy in a function, the
-  converted line checks the last call. If the call is not the last
-  one, use the index of the call, or the form for any call. With
-  two or more checks of one spy in a function, the command writes
-  the form for any call:
+  arguments, and the converted line does the same:
   `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))`.
+  If it fails, the report shows the arguments of each call. If
+  you know which call it is, the exact form is better:
+  `assert.deepEqual(s.calls[0]?.args, [...args])`.
 - **`rejects` with a matcher that is not in the table**
   (`rejects.toBe(error)`, `rejects.toEqual(...)`). The command
   writes a TODO. `assert.rejects` gives the value that the promise
@@ -562,12 +562,14 @@ Things to check by hand:
   for a different result in each call, write the logic in the
   implementation. In one test, a second `spyOn` on the same key
   replaces the first. A spy does not change after it is made.
-  The forms:
+  A call of a `spy.results` spy after its last result throws.
+  A jest mock gives `undefined` there. The forms:
 
   | vitest | ubq |
   | --- | --- |
   | `s.mockReturnValue(v)` on a later line | `let result = first; const s = spy(() => result)`, then `result = v` |
-  | `s.mockReturnValueOnce(a).mockReturnValueOnce(b)` | `const results = [a, b]; const s = spy(() => results.shift())` |
+  | `s.mockReturnValueOnce(a).mockReturnValueOnce(b)` | `const s = spy.results(a, b)` |
+  | `s.mockResolvedValueOnce(a).mockRejectedValueOnce(e)` | `const s = spy.results(Promise.resolve(a), Promise.reject(e))` |
   | `s.mockImplementationOnce(f)` | `let once: typeof impl \| undefined = f; const s = spy((...args) => { const now = once ?? impl; once = undefined; return now(...args) })` |
   | `s.mockClear()`, `s.mockReset()` | `s.calls.length = 0`, or a new spy in each test |
 

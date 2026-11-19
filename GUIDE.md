@@ -355,8 +355,11 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 - A spy does not change after it is made. For a result that
   changes, the implementation reads a variable: `let result = 1;
   const s = spy(() => result)`. For a different result in each
-  call: `spy(() => results.shift())`. To forget the calls:
-  `s.calls.length = 0`.
+  call: `spy.results(a, b)` gives `a`, then `b`. A result that is
+  an Error instance is thrown, and a call after the last result
+  throws. For an async function:
+  `spy.results(Promise.resolve(a), Promise.reject(error))`. To
+  forget the calls: `s.calls.length = 0`.
 - The test function gets `{ signal }`. The signal aborts at the
   time limit. Pass it to `fetch` and to child processes.
 - `skip` is the reason, as text: `{ skip: 'needs a GPU' }`. A

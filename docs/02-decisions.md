@@ -2561,3 +2561,30 @@ in a `.tsx` file parses. `ubq doctor` names decorators. On Bun,
 the console is output of its test. `ubq check` does not list a
 test file. Q42 has the results of a test with the configs of Nx.
 
+## D109. `spy.results`, and `toHaveBeenCalledWith` is a check of any call (user, 2026-11-19)
+
+The answers to Q40 and Q43.
+
+- **`spy.results(a, b, c)`** is a spy that gives `a` to call 1,
+  `b` to call 2, and `c` to call 3. It is the one addition to the
+  spy API. D87 stays: a spy does not change after it is made.
+  - A result that is an Error instance is thrown.
+  - A call after the last result throws, with the count of the
+    results. A jest mock gives `undefined` there. A call that the
+    test did not expect is a failure. (Choice of the assistant.)
+  - For an async function, the results are promises. The spy
+    marks each promise of the list as handled, so
+    `Promise.reject(error)` in the list is not an unhandled
+    rejection before the code under test gets it.
+  - `ubq convert` does not write `spy.results`: a chain of
+    `mockReturnValueOnce` gives `undefined` after its last value,
+    so the change is not correct for each test. The TODO text and
+    the convert guide name the function. (Choice of the
+    assistant.)
+- **`toHaveBeenCalledWith`** becomes
+  `assert(s.calls.some(call => isDeepEqual(call.args, [...])))`
+  in each case, as jest passes if any call has the arguments.
+  Before, one such check of a spy in a function became a check of
+  the last call, and a correct test could fail.
+  `toHaveBeenLastCalledWith` is the check of the last call.
+

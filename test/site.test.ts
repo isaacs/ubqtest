@@ -66,9 +66,9 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   assert.match(section('fakeclock'), /=&gt; <a href="#fakeclock-1">FakeClock<\/a>;/)
   assert.match(section('fakeclock'), /options\?: <a href="#fakeclockoptions">FakeClockOptions<\/a>/)
   assert.match(section('fakeclock'), /<a href="#spy">spy<\/a>\(\)/)
-  assert.match(section('spy-1'), /calls: <a href="#spycall">SpyCall<\/a>/)
+  assert.match(section('spy-2'), /calls: <a href="#spycall">SpyCall<\/a>/)
   // Not the name that the item declares.
-  assert.match(section('spy-1'), /type<\/span> Spy&lt;/)
+  assert.match(section('spy-2'), /type<\/span> Spy&lt;/)
   // Each link of the contents goes to a heading of the page.
   const ids = new Set([...api.matchAll(/ id="([^"]+)"/g)].map(m => m[1]))
   const links = [...api.matchAll(/href="#([^"]+)"/g)].map(m => m[1]!)

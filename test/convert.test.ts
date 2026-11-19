@@ -107,7 +107,7 @@ describe('g', () => {
 `)
   assert(r)
   assert.deepEqual(r.code, [
-    "import { assert, describe, spy, test } from 'ubqtest'",
+    "import { assert, describe, isDeepEqual, spy, test } from 'ubqtest'",
     "describe('g', () => {",
     "  test('a', async () => {",
     '    assert.deepEqual(f(), { a: 1 })',
@@ -118,7 +118,7 @@ describe('g', () => {
     '    await assert.rejects(p, TypeError)',
     '    assert.equal(await p, 1)',
     '    const s = spy(() => 1)',
-    '    assert.deepEqual(s.calls.at(-1)?.args, [1, 2])',
+    '    assert(s.calls.some(call => isDeepEqual(call.args, [1, 2])))',
     '    // TODO(ubq): ubq has no toSatisfy. Write an assertion with assert,',
     '    // assert.equal, assert.deepEqual, or assert.match.',
     '    expect(f()).toSatisfy(ok)',
@@ -897,7 +897,7 @@ expect(fn).toHaveBeenCalledWith('a')
     '  assert((a ?? b).calls.some(call => isDeepEqual(call.args, [])))',
     '  assert((a ?? b).calls.some(call => isDeepEqual(call.args, [1])))',
     // One check: the last call.
-    "  assert.deepEqual(other.calls.at(-1)?.args, ['a'])",
+    "  assert(other.calls.some(call => isDeepEqual(call.args, ['a'])))",
     ...rejects,
     '  await expect(p).rejects.toBe(error)',
     '  await assert.rejects(p, TypeError)',
@@ -920,7 +920,7 @@ expect(fn).toHaveBeenCalledWith('a')
     '  assert(made.calls.some(call => isDeepEqual(call.args, [2])))',
     '})',
     "test('b', () => {",
-    "  assert.deepEqual(fn.calls.at(-1)?.args, ['a'])",
+    "  assert(fn.calls.some(call => isDeepEqual(call.args, ['a'])))",
     '})',
     // Not in the arguments of a matcher.
     ...todoComment('', MATCHER).trimEnd().split('\n'),
@@ -1166,7 +1166,7 @@ it('a', () => {
     ...real('now'),
     '  assert.equal(now.calls.length, 1)',
     ...real('time.now'),
-    '  assert.deepEqual(time.now.calls.at(-1)?.args, [2])',
+    '  assert(time.now.calls.some(call => isDeepEqual(call.args, [2])))',
     // The file replaces the module with vi.mock.
     ...real('send'),
     '  assert(send.calls.length > 0)',
@@ -1176,7 +1176,7 @@ it('a', () => {
     '  assert(s.calls.length > 0)',
     '  assert.equal(now, time.now)',
   ])
-  assert.equal(r.code[0], "import { assert, spyOn, test } from 'ubqtest'")
+  assert.equal(r.code[0], "import { assert, isDeepEqual, spyOn, test } from 'ubqtest'")
 })
 
 test('vitest: a hook at the top level that uses a later name, a restore hook, and resolves', () => {
@@ -2887,4 +2887,20 @@ it.each([['a', -1]])('row %p %s', (a, b) => {
   ])
   assert.equal(code.at(-3), "for (const [a, b] of [['a', -1]] as const) test(`row ${JSON.stringify(a)} ${b}`, () => {")
   assert.equal(r!.todos.length, 4)
+})
+
+test('vitest: toHaveBeenLastCalledWith is a check of the last call, and toHaveBeenCalledWith of any call', () => {
+  const r = convert(`import { expect, it, vi } from 'vitest'
+it('a', () => {
+  const s = vi.fn()
+  s(1)
+  s()
+  expect(s).toHaveBeenCalledWith(1)
+  expect(s).toHaveBeenLastCalledWith()
+})
+`)
+  assert.deepEqual(r!.code.slice(5, 7), [
+    '  assert(s.calls.some(call => isDeepEqual(call.args, [1])))',
+    '  assert.deepEqual(s.calls.at(-1)?.args, [])',
+  ])
 })

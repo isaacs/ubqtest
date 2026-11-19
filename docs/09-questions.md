@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90. The answer to Q31 is D91. The answer to Q32 is D92. The answer to Q33 is D93. The answer to Q34 is D94. The answer to Q35 is D95. The answer to Q36 is D103. The answer to Q37 is D102. The answer to Q38 is D104. The answer to Q39 is D107.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90. The answer to Q31 is D91. The answer to Q32 is D92. The answer to Q33 is D93. The answer to Q34 is D94. The answer to Q35 is D95. The answer to Q36 is D103. The answer to Q37 is D102. The answer to Q38 is D104. The answer to Q39 is D107. The answers to Q40 and Q43 are D109.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -29,30 +29,6 @@ Q39 came from the benchmark of `bench/`.
 
 Q40 to Q43 come from `private/21-nest-jest-feedback-0.0.18.md` (not public). D108 has
 what is done.
-
-## Q40. A spy with a result that the test changes
-
-D87 said no new spy API. This report asks again, with more
-weight: each converted file made its own helper of 10 to 20
-lines (`controllable()`, `setup(impls)` with `resolves`,
-`rejects`, and `inOrder`), and a suite of 870 lines with shared
-mocks was hard to convert. The user named this as a gap: "a
-better answer for some of jest's affordances".
-
-1. No change (D87). The guide has the forms: a variable that the
-   implementation reads, and `spy(() => results.shift())`.
-2. One function for the most frequent case, a list of results in
-   order: `spy.results(a, b, c)` gives `a`, then `b`, then `c`
-   each next call. `spy.results(Promise.resolve(a))` is a result
-   that is a promise. An Error instance in the list is thrown.
-3. A spy whose implementation the test can replace:
-   `s.impl = () => 2`. This is `mockImplementation` with a
-   different name, and makes a spy a thing with state.
-
-The agent would do 2: one function, no state to reset, and it
-covers `mockReturnValueOnce`, `mockResolvedValueOnce`, and
-`mockRejectedValueOnce`, which are most of the chains in the
-report. 3 brings back the shared mock that a hook resets.
 
 ## Q41. Source that Node cannot run: decorators, `enum`, metadata
 
@@ -118,20 +94,3 @@ or 4: ubq makes that config itself, in `.ubq/`, for a
 `tsconfig.json` with only references. The agent would stay with 1
 until a second report: 4 puts a config that the user cannot see
 between the project and its type errors.
-
-## Q43. `toHaveBeenCalledWith` with one check: the last call, or any call
-
-`ubq convert` changes one `toHaveBeenCalledWith` of a spy to a
-check of its last call, and more than one to a check of any call
-(`calls.some(...)`). jest passes if any call has the arguments.
-In the report, a converted test failed: the call that matched
-was not the last one.
-
-1. No change. The check of the last call is more exact, and a
-   failure shows the arguments.
-2. Each check becomes `calls.some(...)`: the same result as jest
-   in each case, and a failure shows only `false`, with the
-   values of the `isDeepEqual` calls below it (D91).
-
-The agent would do 2. The command must keep a test that passed
-correct, and 1 can fail a correct test.

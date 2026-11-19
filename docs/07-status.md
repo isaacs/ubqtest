@@ -419,6 +419,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `spy.results(a, b)`, and `toHaveBeenCalledWith` is a check
+    of any call in `ubq convert` (D109).
   - From the nest and jest report (D108): pnpm workspaces, a FIX
     line for a tsconfig with only references, jest-dom checks and
     other forms of jest in `ubq convert`, a short form for a

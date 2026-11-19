@@ -26,6 +26,7 @@ the order of the alphabet.
   - [`isDeepEqual`](#isdeepequal)
   - [`mockImport`](#mockimport)
   - [`spy`](#spy)
+    - [`spy()`](#spy-1), [`spy.results`](#spy-results)
   - [`spyOn`](#spyon)
   - [`stub`](#stub)
   - [`test`](#test)
@@ -46,8 +47,9 @@ the order of the alphabet.
   - [`Files`](#files)
   - [`MockOf`](#mockof)
   - [`Pattern`](#pattern)
-  - [`Spy`](#spy-1)
+  - [`Spy`](#spy-2)
   - [`SpyCall`](#spycall)
+  - [`SpyFunction`](#spyfunction)
   - [`TestContext`](#testcontext)
     - [`TestContext.signal`](#testcontext-signal)
   - [`TestFn`](#testfn)
@@ -419,6 +421,8 @@ const mockImport: <M, const D extends readonly unknown[]>(subject: Loader<M>, mo
 
 ### `spy`
 
+#### `spy()`
+
 A function that records each call in `calls`, and then calls
 `impl`. With no `impl`, it takes any arguments and returns
 `undefined`.
@@ -430,11 +434,35 @@ assert.equal(send.calls.length, 1)
 assert.deepEqual(send.calls[0]?.args, ['ann'])
 ```
 
-For a result that changes, the function reads a variable, or
-takes the next value of a list: `spy(() => results.shift())`.
+For a result that changes, the function reads a variable:
+`let result = 1; const s = spy(() => result)`.
 
 ```ts
-const spy: <F extends AnyFn = AnyFn>(impl?: F) => Spy<F>;
+spy<F extends AnyFn = AnyFn>(impl?: F): Spy<F>;
+```
+
+#### `spy.results`
+
+A spy with a list of results: call 1 gives the first one, call
+2 the second one. A result that is an Error instance is
+thrown. A call after the last result throws.
+
+```ts
+const read = spy.results('a', 'b', new Error('no more'))
+assert.equal(read(), 'a')
+assert.equal(read(), 'b')
+assert.throws(() => read(), /no more/)
+```
+
+For an async function, the results are promises. A promise
+that is rejected in the list is not an unhandled rejection.
+
+```ts
+const load = spy.results(Promise.resolve(user), Promise.reject(new Error('gone')))
+```
+
+```ts
+spy.results<R>(...results: (R | Error)[]): Spy<(...args: any[]) => R>;
 ```
 
 ### `spyOn`
@@ -723,6 +751,10 @@ interface SpyCall<F extends AnyFn> {
     error?: unknown;
 }
 ```
+
+### `SpyFunction`
+
+The type of [`spy`](#spy). Its members are in that part.
 
 ### `TestContext`
 

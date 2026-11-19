@@ -267,6 +267,7 @@ assertion that runs after its test ended fails that test.
 
 ```ts
 spy<F>(impl?: F): Spy<F>
+spy.results<R>(...results: (R | Error)[]): Spy<(...args) => R>
 spyOn(object, key, impl?): Spy<typeof object[key]>
 ```
 
@@ -286,6 +287,12 @@ spyOn(object, key, impl?): Spy<typeof object[key]>
   promise. `error` is present only if the call threw.
 - The key of `spyOn` must name a function of the object. A
   different key is a compile error.
+- `spy.results(a, b)` is a spy that gives `a` to call 1 and `b`
+  to call 2 (D109). A result that is an Error instance is thrown.
+  A call after the last result throws: a call that the test did
+  not expect is a failure, not `undefined`. For an async
+  function, the results are promises. The spy does not change
+  after it is made, as each spy (D87).
 
 ### `mockImport`
 

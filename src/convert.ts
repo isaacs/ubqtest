@@ -315,7 +315,7 @@ const TODO = {
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
   mock: "Use mockImport in each test that needs the mock: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { ...(await import('<the dependency>')), fn: spy(impl) }]]). The paths are from this test file. The mock replaces the dependency in each project module of the new instance. Each call gives a new instance.",
   spyImpl:
-    'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). For a result that changes, the implementation reads a variable: let result = 1; const s = spy(() => result). For a different result in each call: spy(() => results.shift()). A call is spy.calls[i]: { args, result, error }.',
+    'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). For a result that changes, the implementation reads a variable: let result = 1; const s = spy(() => result). For a different result in each call: spy.results(a, b), or for an async function spy.results(Promise.resolve(a), Promise.reject(error)). A call after the last result throws. A call is spy.calls[i]: { args, result, error }.',
   spyClear:
     'To forget the calls of a spy: s.calls.length = 0. A spy that a test makes has no calls from other tests: then delete this call.',
   timers: 'Use fakeClock: const clock = fakeClock(), then await clock.tick(ms). The clock ends when its test ends.',
@@ -1299,31 +1299,6 @@ export const convertSource = (
       ? `${text(subject)} is the real export of its module, not a spy. Make a spy, give it to mockImport in place of the export, and assert on that spy.`
       : undefined
   }
-  /** The count of `expect(subject).toHaveBeenCalledWith(...)` in each function, by the text of the subject. */
-  const calledWith = new Map<Node, Map<string, number>>()
-  const calledWithCount = (subject: Node, path: Node[]): number => {
-    const fn = path.findLast(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') ?? program
-    let counts = calledWith.get(fn)
-    if (!counts) {
-      calledWith.set(fn, (counts = new Map()))
-      const find = (n: Node): void => {
-        const callee = n.type === 'CallExpression' ? (n.callee as Node) : undefined
-        const base = callee?.type === 'MemberExpression' ? (callee.object as Node) : undefined
-        if (
-          base?.type === 'CallExpression' &&
-          [nameOf(callee!.property as Node)].some(n => n && (ALIAS[n] ?? n) === 'toHaveBeenCalledWith') &&
-          roleOf(base.callee as Node) === 'expect' &&
-          (base.arguments as Node[])[0]
-        ) {
-          const key = text((base.arguments as Node[])[0]!)
-          counts!.set(key, (counts!.get(key) ?? 0) + 1)
-        }
-        for (const child of children(n)) find(child)
-      }
-      find(fn)
-    }
-    return counts.get(text(subject))!
-  }
   /**
    * True if a matcher of `expect` in the arguments of a call is in
    * a pattern: the call becomes `assert.match`, `assert.throws`, or
@@ -2182,10 +2157,8 @@ export const convertSource = (
       }
       return all
     }
-    if (method === 'toHaveBeenCalledWith' && !promise && (not || calledWithCount(subject, path) > 1)) {
-      // jest and vitest pass if any call had the arguments. With one
-      // check of a spy, the last call is the call. With more, each
-      // check is for a different call.
+    if (method === 'toHaveBeenCalledWith' && !promise) {
+      // jest and vitest pass if any call had the arguments.
       const name = ['call', 'entry', 'one'].find(n => !all.some(arg => mentions(arg, n))) ?? '_call'
       const wrap = !SIMPLE.has(subject.type)
       const head = `${wrap ? ')' : ''}.calls.some(${name} => isDeepEqual(${name}.args, [`
@@ -2199,7 +2172,7 @@ export const convertSource = (
       }
       return all
     }
-    if (/^toHaveBeen(Last)?CalledWith$/.test(method) && !not && !promise) {
+    if (method === 'toHaveBeenLastCalledWith' && !not && !promise) {
       // The arguments of the last call.
       changes++
       used.add('assert')
