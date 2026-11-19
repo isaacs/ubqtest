@@ -375,8 +375,13 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 - A failed test keeps its `testdir` folder, and the failure block
   prints the path.
 - The mock of `mockImport` must have the types of the real
-  exports. It exists only in the returned module instance. The
-  two loaders must have the form `() => import('...')`. A mock
+  exports. It exists only in the returned module instance. Each
+  call loads a new copy of the module, and of the project modules
+  that it imports: their state is not the state of the copies
+  that the test file imported. To share a module, such as a React
+  context, give the copy of the test file as its mock:
+  `[() => import('../src/context.ts'), await import('../src/context.ts')]`.
+  The two loaders must have the form `() => import('...')`. A mock
   with a spy:
 
   ```ts

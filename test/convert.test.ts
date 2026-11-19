@@ -285,7 +285,7 @@ describe('group', () => {
     '',
     "describe('group', () => {",
     ...todo(
-      'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+      'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
       '  ',
     ),
     '  beforeAll(async () => { await row() })',

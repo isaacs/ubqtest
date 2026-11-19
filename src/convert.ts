@@ -260,7 +260,7 @@ const TODO = {
     'ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
   hookFileEnd: 'ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.',
   hookGroup:
-    'ubq has no hooks. Make a function that does this work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+    'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
     "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
   assertions:

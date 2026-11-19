@@ -540,6 +540,19 @@ Things to check by hand:
     file: `instanceof` with the class of the top import is false.
     To spy on a module that the code shares, such as a logger, put
     that module in the list too.
+  - A module with state that the test and the code under test
+    must share needs the same: a React context, a store, a client
+    that the module makes one time. The new instance has its own
+    copy, so a provider of the test file and a consumer of the new
+    instance do not see each other, and a "was not called" check
+    passes for the wrong reason. Give the copy of the test file as
+    the mock, with all its exports:
+    `[() => import('../src/context.ts'), await import('../src/context.ts')]`.
+  - A package of the same monorepo that the package manager links
+    (pnpm, npm workspaces) is a project module for `mockImport`,
+    not a package in `node_modules`: each call loads it again. If
+    that is slow, or if its state must be the same, give it as a
+    mock in the same form.
   - `vi.mocked(x)` only changes the type of `x`. Use the spy that
     you gave to the mock.
 - **`mockReturnValue`, `mockResolvedValue`, `mockImplementation`.**
