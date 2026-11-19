@@ -88,7 +88,7 @@ One row for each error of the type checker.
 | Column | Type | Value |
 | --- | --- | --- |
 | `run` | integer | The `id` of the run. |
-| `error` | text | JSON with `code` (such as `TS2322`), `message`, and `at` (`file`, `line`, `column`), if the error has a place. |
+| `error` | text | JSON with `code` (such as `TS2322`), `message`, and `at` (`file`, `line`, `column`), if the error has a place. `other` is `true` for an error in a file that a run of a selection did not use: the run counted it, and did not fail for it. |
 
 ### `output`
 

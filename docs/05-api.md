@@ -261,6 +261,13 @@ older run saved (D31).
 - `expected` must be assignable to the type of `actual`.
   `assert.equal(count, '1')` does not compile when `count` is a
   number.
+- Outside a test, an assertion is a function that throws if its
+  check fails (D117): at the top level of a file, or in a
+  `cleanup()` of the file. The failure is an error of the file,
+  with the values of the assertion. `assert.snapshot` needs a
+  test.
+- Each assertion takes a message as its last argument. A failure
+  shows it before the text of the assertion.
 
 Assertions find the current test through `AsyncLocalStorage`, which
 has no measurable cost (`03-measurements.md`, section 8). An

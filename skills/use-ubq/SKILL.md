@@ -53,7 +53,9 @@ On Bun, the command is `bun node_modules/ubqtest/cli.js`.
 
 For code that runs in a browser, the guide has "Tests in a
 browser": `browser()` from `'ubqtest/browser'` gives a Playwright
-`Page`. Do not add jsdom or a different driver.
+`Page`. Do not add jsdom or a different driver for a new test.
+For tests that a project has with jsdom or Testing Library, the
+convert guide has what to do.
 
 If `ubq uncovered` lists code for a different runtime or system,
 the guide has "Code for more than one runtime or system": run

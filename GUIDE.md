@@ -100,6 +100,7 @@ project then runs its type checker as a separate step.
   errors of the files that it used: its test files, and the
   files that their tests ran. It does not fail for the others.
   The summary has their count: `12 type errors in other files`.
+  `ubq failures` prints them.
 - If the type checker stops with no result, the run fails with a
   `TYPE` block that says so. Run again.
 

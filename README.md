@@ -118,6 +118,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq merge <store>...` | Adds the coverage of other stores, such as those of CI jobs on other runtimes and systems. |
 | `ubq mutate <file>`, `ubq mutate --diff` | A mutation check: small changes to the source, one at a time, and the list of changes that no test fails for. |
 | `ubq convert <folder>` | Changes the tests of tap, tape, ava, `node:test`, vitest, jest, `bun:test`, mocha, or Playwright Test to ubq. |
+| `ubq convert --transform=<name>` | Sets up a compiler (`typescript` or `swc`) for source that Node cannot run with only its types removed. |
 | `ubq browser install` | Downloads the browser for tests that use `'ubqtest/browser'`. |
 | `ubq doctor` | Checks the setup of the project. |
 | `ubq guide`, `ubq guide convert` | The guides, for the installed version. |
@@ -134,7 +135,8 @@ configuration.
   same time, if the project has `tsconfig.json` and the
   `typescript` package. A type error
   fails the run. A run of a selection fails only for the type
-  errors of the files that it used.
+  errors of the files that it used. The `skipTypecheck` key of
+  the configuration turns the check off.
 - A test that goes over its time limit fails, and the report
   names what it left open and the line that opened it.
 - A test file with a syntax error or a missing import is one
@@ -209,12 +211,18 @@ comment with the instruction.
 - Tests of front-end code run in a real browser, with Playwright
   and Chromium: `import { browser } from 'ubqtest/browser'`. The
   project installs `playwright-core`. There is no DOM in the test
-  process.
+  process. For tests with jsdom and Testing Library that a
+  project has before the change to ubq, the convert guide has a
+  helper file.
 - Tests of a Cloudflare Worker run in workerd, with the bindings
   of the wrangler config: the `workers` key, and
-  `'ubqtest/workers'`. The project installs `wrangler`.
+  `'ubqtest/workers'`. `exports.default.fetch()` of
+  `cloudflare:workers` sends a request to the Worker. The
+  project installs `wrangler`.
 - Configuration is the `ubq` key of `package.json`: `include`,
-  `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`, `define`, and two switches. Most projects need none.
+  `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`,
+  `define`, `env`, `transform`, and three switches. Most projects
+  need none.
   See [docs/08-config.md](docs/08-config.md).
 
 ## More documents
