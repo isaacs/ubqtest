@@ -764,8 +764,9 @@ Things to check by hand:
   | `await waitOnExecutionContext(ctx)` | `await ctx.settled()` |
   | `createScheduledController(options)` | `scheduledController(options)` |
   | `applyD1Migrations(env.DB, env.TEST_MIGRATIONS)` | `await migrate('DB')` |
+  | `SELF.fetch(request)` | `exports.default.fetch(request)`, with `exports` from `cloudflare:workers` |
 
-  ubq has no `SELF`, `fetchMock`, `runInDurableObject`, or the
+  ubq has no `fetchMock`, `runInDurableObject`, or the
   other names: write the test without them. Values that the
   vitest config gave to the tests (`miniflare.bindings`) go in
   `vars` of the `workers` entry in the ubq configuration.

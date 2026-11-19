@@ -419,6 +419,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `exports.default.fetch()` of `cloudflare:workers` calls the
+    Worker under test, as `SELF` of the vitest plugin did (D115).
   - The `skipTypecheck` key, the `env` key, and a hint for an
     import of a name of an alias or of `paths` (D114).
   - From the vitest monorepo report (D113): no test files from

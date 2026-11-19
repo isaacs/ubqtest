@@ -270,7 +270,7 @@ const TODO = {
   throwsText:
     'vitest and jest accept a string or an Error here. assert.throws needs an Error class, a RegExp, or a partial object. If this value is a string, make a RegExp from it. If it is an Error, use { message: error.message }.',
   workers:
-    "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. Write the test without the other names.",
+    "ubq has no 'cloudflare:test'. 'ubqtest/workers' has executionContext, scheduledController, and migrate. For SELF.fetch(request), use exports.default.fetch(request), with exports from 'cloudflare:workers'. Write the test without the other names.",
   restore:
     'A spyOn spy goes back when its test ends. Remove this call, if the code after it does not need the real method: a second spyOn on a key replaces the first. ubq has no call that puts the method back before the test ends.',
   restored:
@@ -517,6 +517,31 @@ export const convertSource = (
   const workersLeft: string[] = []
   /** Names to import from `ubqtest/workers`. */
   const workersUsed = new Set<string>()
+  /**
+   * `SELF.fetch(request)` of `cloudflare:test` is
+   * `exports.default.fetch(request)` of `cloudflare:workers`
+   * (D115). Changes each `SELF.` in the file, and returns their
+   * count. Undefined, with no change, if the file uses the name in
+   * a different way, or has the name `exports`.
+   */
+  const selfCalls = (local: string): number | undefined => {
+    if (/\bexports\b/.test(source)) return undefined
+    const members: Node[] = []
+    let others = 0
+    const visit = (node: Node, parent?: Node): void => {
+      if (node.type === 'ImportDeclaration') return
+      if (node.type === 'Identifier' && node.name === local) {
+        if (parent?.type === 'MemberExpression' && parent.object === node && !parent.computed) members.push(node)
+        else others++
+      }
+      for (const child of children(node)) visit(child, node)
+    }
+    visit(program)
+    if (others) return undefined
+    for (const node of members) replace(node.start, node.end, 'exports.default')
+    changes += members.length
+    return members.length
+  }
   const known = (module: string): boolean => module in FRAMEWORKS || ASSERT_MODULES.has(module)
   /** `import * as name` of a module that is not a test tool: the name, then the module. */
   const namespaces = new Map<string, string>()
@@ -537,11 +562,14 @@ export const convertSource = (
           continue
         }
         workersImports.push(node)
+        let uses: number | undefined
         for (const s of specifiers) {
           const name = (s.imported as { name: string }).name
           const local = (s.local as { name: string }).name
           if (name === 'env') workersKept.push(name === local ? name : `${name} as ${local}`)
-          else if (name in WORKERS) roles.set(local, `cf.${name}`)
+          else if (name === 'SELF' && (uses = selfCalls(local)) !== undefined) {
+            if (uses) workersKept.push('exports')
+          } else if (name in WORKERS) roles.set(local, `cf.${name}`)
           else workersLeft.push(text(s))
         }
         continue

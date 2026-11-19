@@ -2802,3 +2802,42 @@ The answers to Q45, Q46, and Q47.
   `package.json`, a package of the workspace, a relative path.
   `ubq convert` has a note for an alias of the old config.
 
+## D115. `exports.default.fetch()` of `cloudflare:workers` calls the Worker under test (user, 2026-11-19)
+
+The answer to Q48: add what `SELF` of the vitest plugin does.
+
+- **No new function in ubq.** The documentation of Cloudflare
+  now names `SELF` "the previous binding". The form of today is
+  `exports` of `cloudflare:workers`: `await
+  exports.default.fetch('http://example.com/path')`. It is a
+  function of the runtime (workerd 1.20261110 has it), and the
+  documentation says that the Worker "runs in the same
+  isolate/context as tests".
+- **What was wrong.** The default export of the main module of a
+  test run was the module of ubq that runs a test file. So
+  `exports.default.fetch()` sent the request to ubq, which read
+  it as the job of a test file.
+- **The change.** The default export of the main module is the
+  default export of the `main` of the wrangler config. The
+  module of ubq is a named export, `UbqTestRunner`, and the host
+  sends the job to it through a direct socket of miniflare
+  (`unsafeDirectSockets`, `unsafeGetDirectURL`).
+- A second Worker that gave the job to the named export through
+  a service binding did not work: a dynamic `import()` in a
+  handler that a service binding called failed with "internal
+  error".
+- **Measured in the fixture** (`test/fixtures/workers`), with the
+  host on Node, Bun, and Deno: the handler runs, the state of a
+  module is the same as in the test, and the handler does not
+  get the binding of ubq in `env`.
+- The test does not wait for `ctx.waitUntil` work of such a
+  request. `executionContext()` with a direct call of the
+  handler does.
+- `ubq convert` changes `SELF.fetch(...)` to
+  `exports.default.fetch(...)`, and the import. Not if the file
+  uses `SELF` as a value, or has the name `exports`: then the
+  TODO stays.
+- Limit: a project with an old workerd that has no `exports` in
+  `cloudflare:workers` has no such function. Not measured: which
+  version has it first.
+

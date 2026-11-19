@@ -23,7 +23,7 @@ const HOST = '__UBQ_HOST'
 
 /** The parts of the `miniflare` package that this file uses. */
 interface Miniflare {
-  dispatchFetch(url: string, init: { method: string; body: string }): Promise<{ text(): Promise<string> }>
+  unsafeGetDirectURL(worker: string, entrypoint: string): Promise<URL>
   dispose(): Promise<void>
 }
 interface MiniflareModule {
@@ -380,6 +380,8 @@ const flags = new Set(workerOptions.compatibilityFlags)
 if (!flags.has('nodejs_compat_v2')) flags.add('nodejs_compat')
 
 const ENTRY = join(OWN, `workers-entry${EXT}`)
+/** The name of the export of the main module that runs a test file. */
+const RUNNER = 'UbqTestRunner'
 // The first module that workerd runs. The code of a file with
 // counters asks for its counters by name and count, when the file
 // loads. So the place for them must exist before each other
@@ -422,6 +424,8 @@ for (const db of wranglerConfig.d1_databases ?? []) {
 
 // The options have the form of miniflare 4, which wrangler gives.
 // miniflare 5 has a function that changes them to its form.
+/** The main module of the Worker, as workerd names it. */
+const mainName = main ? '/' + toName(resolve(dirname(configPath), main)) : undefined
 const options = {
   unsafeModuleFallbackService(request: { url: string; headers: { get(name: string): string | null } }) {
     const url = new URL(request.url)
@@ -479,16 +483,25 @@ const options = {
           path: '/ubq-main.mjs',
           // The classes that the config names (Durable Objects,
           // Workflows) are exports of the main module of the Worker.
+          // The default export is that of the Worker too, so that
+          // `exports.default.fetch()` of `cloudflare:workers` in a
+          // test calls the Worker (D115). The module that runs a
+          // test file is a named export.
           contents:
             "import './ubq-setup.mjs'\n" +
-            `import entry from ${JSON.stringify('/' + toName(ENTRY))}\n` +
-            (main ? `export * from ${JSON.stringify('/' + toName(resolve(dirname(configPath), main)))}\n` : '') +
-            'export default entry\n',
+            `export { default as ${RUNNER} } from ${JSON.stringify('/' + toName(ENTRY))}\n` +
+            // A main module can have no default export.
+            (main
+              ? `import * as ubqMain from ${JSON.stringify(mainName)}\nexport * from ${JSON.stringify(mainName)}\nexport default ubqMain.default ?? {}\n`
+              : 'export default {}\n'),
         },
         // Not the first one: the first module is the one that workerd starts.
         { type: 'ESModule', path: '/ubq-setup.mjs', contents: SETUP },
       ],
       unsafeUseModuleFallbackService: true,
+      // The request with the job of a test file goes to the named
+      // export, at an address of its own.
+      unsafeDirectSockets: [{ entrypoint: RUNNER }],
       bindings,
       serviceBindings: {
         ...services,
@@ -576,7 +589,7 @@ const job: Job = {
   migrations,
 }
 try {
-  await (await mf.dispatchFetch('http://ubq/', { method: 'POST', body: JSON.stringify(job) })).text()
+  await (await fetch(await mf.unsafeGetDirectURL(name, RUNNER), { method: 'POST', body: JSON.stringify(job) })).text()
 } catch (error) {
   // An error of the main module of the Worker stops workerd when it
   // starts. miniflare has the text of workerd in its message.

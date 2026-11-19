@@ -733,6 +733,15 @@ test('lists the notes', async () => {
 
 - `env` comes from the runtime (`cloudflare:workers`), not from
   ubq. It has the bindings of the wrangler config.
+- To send a request to the Worker as a client does, use `exports`
+  of the runtime: `import { exports } from 'cloudflare:workers'`,
+  then `await exports.default.fetch('http://example.com/path')`.
+  It calls the default export of the `main` module of the
+  wrangler config, with the bindings and an execution context of
+  the runtime, in the isolate of the test: the modules and their
+  state are the same. The test does not wait for the work that
+  the handler gave to `ctx.waitUntil`. To wait for it, call the
+  handler with `executionContext()`, as the example above does.
 - A test does not get the values of `.dev.vars` or `.env`. Those
   files can have real secrets. Give test values in `vars` of the
   `workers` entry.
@@ -769,8 +778,8 @@ test('lists the notes', async () => {
 
 Not available in a Workers test file: `testdir`, `mockImport`,
 `assert.snapshot`, and JSX files. A test that goes over its time limit fails, but the
-report does not list what the test left open. There is no `SELF`
-fetcher: call the handler of the Worker with a `Request`.
+report does not list what the test left open. `SELF` of the
+vitest plugin is `exports.default` of `cloudflare:workers`.
 
 ## Faster runs
 

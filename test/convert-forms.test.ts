@@ -465,8 +465,9 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     [
       "import { env as bindings } from 'cloudflare:workers'",
       "// TODO(ubq): ubq has no 'cloudflare:test'. 'ubqtest/workers' has",
-      '// executionContext, scheduledController, and migrate. Write the test',
-      '// without the other names.',
+      '// executionContext, scheduledController, and migrate. For',
+      '// SELF.fetch(request), use exports.default.fetch(request), with exports',
+      "// from 'cloudflare:workers'. Write the test without the other names.",
       "import * as cf from 'cloudflare:test'",
       "import { assert, test } from 'ubqtest'",
       "test('a', async () => {",

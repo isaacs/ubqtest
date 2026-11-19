@@ -187,10 +187,10 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
         r.stderr,
       ]
     }
-    assert.deepEqual(run(), [['pass: 0 failed, 6 passed'], ''])
+    assert.deepEqual(run(), [['pass: 0 failed, 7 passed'], ''])
     assert.deepEqual(run('uncovered'), [
       [
-        "src/index.ts:28:32  return new Response('this line has no test')",
+        "src/index.ts:33:32  return new Response('this line has no test')",
         '1 uncovered ranges in 1 of the 2 files that tests ran',
       ],
       '',

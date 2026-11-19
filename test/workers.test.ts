@@ -51,15 +51,17 @@ const slow = { timeout: 120_000 }
 
 test('a Worker with D1, a Durable Object, and a scheduled handler', slow, () => {
   const p = project()
-  assert.deepEqual(p.ubq(), { code: 0, out: ['pass: 0 failed, 6 passed'], err: '' })
+  assert.deepEqual(p.ubq(), { code: 0, out: ['pass: 0 failed, 7 passed'], err: '' })
   // Coverage of each test, from the source of the Worker.
   assert.deepEqual(p.ubq('uncovered').out.slice(0, 2), [
-    "src/index.ts:28:32  return new Response('this line has no test')",
+    "src/index.ts:33:32  return new Response('this line has no test')",
     '1 uncovered ranges in 1 of the 2 files that tests ran',
   ])
-  assert.deepEqual(p.ubq('covers', 'src/text.ts:1').out.slice(0, 2), [
+  // Also the test that sends a request with `exports.default.fetch`.
+  assert.deepEqual(p.ubq('covers', 'src/text.ts:1').out.slice(0, 3), [
+    'test/exports.test.ts > exports.default.fetch calls the Worker of the wrangler config, in the isolate of the test',
     'test/worker.test.ts > fetch > a greeting from a var',
-    'test/worker.test.ts (while the file loads)',
+    'test/exports.test.ts (while the file loads)',
   ])
   assert.deepEqual(p.ubq('test/worker.test.ts:38').out, ['pass: 0 failed, 1 passed, 5 not selected'])
 })

@@ -367,9 +367,43 @@ it('a', async () => {
   ])
 })
 
+/** The lines after the first one of the TODO for a name of `cloudflare:test` that ubq does not have. */
+const WORKERS_TODO = [
+  '// executionContext, scheduledController, and migrate. For',
+  '// SELF.fetch(request), use exports.default.fetch(request), with exports',
+  "// from 'cloudflare:workers'. Write the test without the other names.",
+]
+
+test('vitest for Workers: SELF.fetch is exports.default.fetch of cloudflare:workers', () => {
+  const file = (use: string): string[] =>
+    convert(`import { env, SELF } from 'cloudflare:test'
+import { expect, it } from 'vitest'
+it('responds', async () => {
+  ${use}
+  expect(env.MODE).toBe('test')
+})
+`)!.code
+  assert.deepEqual(file("expect((await SELF.fetch('http://x/', { method: 'POST' })).status).toBe(200)").slice(0, 4), [
+    "import { env, exports } from 'cloudflare:workers'",
+    "import { assert, test } from 'ubqtest'",
+    "test('responds', async () => {",
+    "  assert.equal((await exports.default.fetch('http://x/', { method: 'POST' })).status, 200)",
+  ])
+  // The name as a value, and a file that has the name `exports`: no change.
+  for (const use of ['await call(SELF)', "await SELF.fetch('http://x/'); module.exports = 1"])
+    assert.deepEqual(file(use).slice(0, 6), [
+      "// TODO(ubq): ubq has no 'cloudflare:test'. 'ubqtest/workers' has",
+      ...WORKERS_TODO,
+      "import { env } from 'cloudflare:workers'",
+      "import { SELF } from 'cloudflare:test'",
+    ])
+  // A name with no use goes away.
+  assert.equal(file('await 1')[0], "import { env } from 'cloudflare:workers'")
+})
+
 test('vitest for Workers: the names of cloudflare:test', () => {
   const r =
-    convert(`import { env, createExecutionContext, waitOnExecutionContext, createScheduledController, applyD1Migrations, SELF } from 'cloudflare:test'
+    convert(`import { env, createExecutionContext, waitOnExecutionContext, createScheduledController, applyD1Migrations, fetchMock } from 'cloudflare:test'
 import { expect, it } from 'vitest'
 import worker from '../src/index'
 
@@ -385,11 +419,10 @@ it('responds', async () => {
   assert(r)
   assert.deepEqual(r.code, [
     "// TODO(ubq): ubq has no 'cloudflare:test'. 'ubqtest/workers' has",
-    '// executionContext, scheduledController, and migrate. Write the test',
-    '// without the other names.',
+    ...WORKERS_TODO,
     "import { env } from 'cloudflare:workers'",
     "import { executionContext, migrate, scheduledController } from 'ubqtest/workers'",
-    "import { SELF } from 'cloudflare:test'",
+    "import { fetchMock } from 'cloudflare:test'",
     "import { assert, test } from 'ubqtest'",
     "import worker from '../src/index'",
     '',

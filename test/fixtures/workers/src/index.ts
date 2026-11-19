@@ -15,9 +15,14 @@ export class Counter extends DurableObject {
   }
 }
 
+// A value of the module: a test in the same isolate reads it.
+let count = 0
+export const hits = (): number => count
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url)
+    if (pathname === '/hit') return Response.json({ hits: ++count, env: Object.keys(env).sort() })
     ctx.waitUntil(env.DB.prepare('INSERT INTO log (path) VALUES (?)').bind(pathname).run())
     if (pathname === '/notes') {
       const { results } = await env.DB.prepare('SELECT text, words FROM notes ORDER BY id').all()
