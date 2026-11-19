@@ -127,8 +127,8 @@ Node v24.22.3. ubqtest 0.0.19, vitest 5.1.1, ava 8.4.0, tape 5.11.0, mocha 12.0.
   vitest with no isolation use 0.7 to 0.9 s: they load Node and
   each module one time, for all files. ubq starts a process for
   each test file. Of the tools that give each file its own
-  process or thread, ubq uses the least: vitest uses 2.5 s, and
-  ava 2.9 s.
+  process or thread, ubq uses the least: vitest uses 2.3 to 2.5
+  s, and ava 2.8 to 2.9 s.
 - **A run with no state**, as a job in CI, takes 1.00 s with 2
   CPUs, and 1.66 s of CPU.
 - **One file.** `ubq <file>` takes 0.06 s. No other tool is

@@ -223,6 +223,15 @@ const IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(\.{1,2}\
 /** The ends of the file that an import with no file names, as the load hook finds it. */
 const ENDS = ['', '.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '/index.ts', '/index.js']
 
+const isFile = (path: string): boolean => {
+  try {
+    return statSync(path).isFile()
+  } catch {
+    // No such file, or a name that the system does not permit.
+    return false
+  }
+}
+
 /**
  * Makes the cache entries of the test files at `paths`, and of the
  * project files that they import, in this process. The runner calls
@@ -248,10 +257,9 @@ export const prepareAll = (paths: string[]): void => {
       continue
     }
     for (const [, , name] of source.matchAll(IMPORT)) {
-      const base = resolve(dirname(path), name!)
-      const found = [base, base.replace(/\.[cm]?js$/, '')]
-        .flatMap(start => ENDS.map(end => start + end))
-        .find(file => statSync(file, { throwIfNoEntry: false })?.isFile())
+      // An import can have a query: './a.ts?copy'.
+      const base = resolve(dirname(path), name!.replace(/[?#].*$/, ''))
+      const found = [base, base.replace(/\.[cm]?js$/, '')].flatMap(start => ENDS.map(end => start + end)).find(isFile)
       if (found?.startsWith(root + sep) && !found.includes(`${sep}node_modules${sep}`)) queue.push(found)
     }
   }
