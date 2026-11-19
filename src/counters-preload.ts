@@ -85,23 +85,24 @@ if (counters?.transformed)
     real: NodeJS.Require,
     file: string,
   ): NodeJS.Require => {
-    // The `require` of a file that `import` loaded has no `resolve`
-    // on these versions.
-    const { resolve } = createRequire(file)
+    // On these versions, a file that `import` loaded gets a
+    // `require` of the ES module loader. It has no `resolve`, and
+    // on Node 22 it fails for a module that is not CommonJS.
+    const base = typeof real.resolve === 'function' ? real : createRequire(file)
     return Object.assign((name: string): unknown => {
-      if (!/^\.\.?(\/|$)/.test(name)) return real(name)
+      if (!/^\.\.?(\/|$)/.test(name)) return base(name)
       for (const other of [name, ...names(name)]) {
         let found: string
         try {
-          found = resolve(other)
+          found = base.resolve(other)
         } catch {
           continue
         }
-        return real(found)
+        return base(found)
       }
       // With no file, Node gives the error for the name as it is written.
-      return real(name)
-    }, real)
+      return base(name)
+    }, base)
   }
 // The processes that the tests start count too (D53).
 if (counters) announce()
