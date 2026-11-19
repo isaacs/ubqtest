@@ -2930,3 +2930,34 @@ The answers to Q49 and Q50, and a request with them.
 - Not done: `ubq convert` for `t.skip()` of `node:test` in a test
   body. It has a TODO as before.
 
+## D118. CI runs Node 26 on each system, and pinned versions on Linux (user, 2026-11-19)
+
+The user asked if CI on Node 26 or 27 has value, and said that
+Node 24 as the main version was "a weird choice". The assistant
+proposed the list below, and the user agreed.
+
+- **Node 26** on Linux, macOS, and Windows, with the suite on
+  Node, Bun, and Deno. Before, it was Node 24, and no job ran
+  Node 26.
+- **On Linux, three more Node jobs:** `latest` (27 now) for a
+  change of Node before it gets to an LTS line, **24.15.0**, and
+  **22.18.0** (the oldest that ubq runs on, D104).
+- **Why 24.15.0 and not "24".** The newest Node 24 has what Node
+  26 has. A Node 24 from before 24.18 does not find `./file.ts`
+  for `require('./file')`, and the CommonJS of the `transform`
+  key has its own `require` for that (D111). Only a run of the
+  assistant on its machine had tested that path.
+- **Why the version matters.** In the work on D111, Node 22.18,
+  Node 24.15, and Node 26 each loaded the same CommonJS file in a
+  different way.
+- **Windows has three jobs, not four.** The user: the jobs on
+  Windows take the most time, and each shell must run somewhere.
+  The Node job has PowerShell, and the Bun and Deno jobs have
+  bash. The Node job with bash is gone.
+- The `latest` job on macOS is gone: a change of Node shows on
+  Linux.
+- 12 test jobs, where there were 13.
+
+Assumption of the assistant: Node 26 is the LTS line now. It did
+not look that up.
+

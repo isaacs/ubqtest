@@ -419,6 +419,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - CI runs Node 26 on each system, and Node latest, 24.15.0, and
+    22.18.0 on Linux. Windows has three jobs (D118).
   - `skip()` in a test, `assert` outside a test, and each count
     with the noun for the count: `1 error`, `2 errors` (D117).
   - From the whosonfirst.ai report (D116): `ubq convert` keeps the

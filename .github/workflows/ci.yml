@@ -25,12 +25,22 @@ jobs:
         # runtimes: npm and the build need Node, and the suite has
         # tests that start each runtime.
         runtime: [node, bun, deno]
-        node: [24]
+        node: [26]
         shell: [bash]
+        # The jobs on Windows take the most time. The Node job there
+        # has PowerShell, and the Bun and Deno jobs have bash, so each
+        # shell runs on Windows.
+        exclude:
+          - { os: windows-latest, runtime: node, shell: bash }
         include:
+          - { os: windows-latest, runtime: node, node: 26, shell: pwsh }
+          # The newest Node: a change of Node shows here first.
           - { os: ubuntu-latest, runtime: node, node: latest, shell: bash }
-          - { os: macos-latest, runtime: node, node: latest, shell: bash }
-          - { os: windows-latest, runtime: node, node: 24, shell: pwsh }
+          # A Node 24 from before 24.18: a `require` with no file
+          # extension does not find a `.ts` file there, and the
+          # CommonJS of the `transform` key has its own `require` for
+          # that (D111).
+          - { os: ubuntu-latest, runtime: node, node: 24.15.0, shell: bash }
           # The oldest Node that ubq runs on (D100).
           - { os: ubuntu-latest, runtime: node, node: 22.18.0, shell: bash }
     defaults:
@@ -50,7 +60,7 @@ jobs:
       # The result is the same on each system. Each run of the suite
       # also checks the types of the project.
       - name: Type check
-        if: matrix.os == 'ubuntu-latest' && matrix.runtime == 'node' && matrix.node == 24
+        if: matrix.os == 'ubuntu-latest' && matrix.runtime == 'node' && matrix.node == 26
         run: npm run typecheck
       - name: Build
         run: npm run build
@@ -102,7 +112,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -139,7 +149,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
       - run: npm ci
       - uses: actions/download-artifact@v8
