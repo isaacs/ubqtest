@@ -207,6 +207,20 @@ t.test('load', async t => {
   mkdirSync(join(p.dir, 'spec'))
   writeFileSync(join(p.dir, 'spec/a.ts'), "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n")
   assert.match(p.ubq('convert', '--dry', 'spec/a.ts').out, /"include": \["spec\/\*\*\/\*\.ts"\]/)
+  // Tests of Playwright Test: the notes from the config of that tool.
+  writeFileSync(
+    join(p.dir, 'spec/page.ts'),
+    "import { test, expect } from '@playwright/test'\ntest('title', async ({ page }) => {\n  await expect(page).toHaveTitle('x')\n})\n",
+  )
+  writeFileSync(join(p.dir, 'playwright.config.ts'), "export default { use: { baseURL: 'http://localhost:4173' } }")
+  const pages = p.ubq('convert', '--dry', 'spec/page.ts').out
+  assert.match(pages, /^to convert spec\/page\.ts \(playwright\): 3 changes, 0 TODO$/m)
+  assert.match(
+    pages,
+    /^note: ubq does not read playwright\.config\.ts\. For the address of the pages and the server of the tests, add to "ubq" in package\.json: "browser": \{"url":"http:\/\/localhost:4173"\}$/m,
+  )
+  p.configure({ browser: { url: 'http://localhost:4173' } })
+  assert(!p.ubq('convert', '--dry', 'spec/page.ts').out.includes('playwright.config.ts'))
 })
 
 test('vitest: spy chains, calls of a spy, restore calls, and hooks that run one time', () => {
@@ -2323,6 +2337,349 @@ const [end, done, ended] = names
 test('typed', () => new Promise<void>(endTest => {
   later(() => endTest())
 }))`,
+    ],
+  )
+})
+
+test('Playwright Test: the page of a test, groups, checks that wait, and what has no certain form', () => {
+  const r = convert(
+    `import { test, expect, type Page, devices } from '@playwright/test';
+
+test.use({ locale: 'fr-FR' });
+
+test.describe('the counter', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/count.html');
+  });
+
+  test('counts', async ({ page }) => {
+    await page.goto('/count.html');
+    await page.getByRole('button', { name: 'Add' }).click();
+    await expect(page.locator('#total')).toHaveText('1');
+    await expect(page.locator('#total')).toHaveText(/^\\d$/);
+    await expect(page.locator('li')).toHaveText(['a', 'b']);
+    await expect(page.locator('#note')).toContainText('one (1)');
+    await expect(page).toHaveTitle(/Count/);
+    await expect(page).toHaveURL('https://example.com/count.html');
+    await expect(page).toHaveURL('/count.html');
+    await expect(page.getByRole('button')).toBeVisible();
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await expect(page.locator('input')).toBeDisabled();
+    await expect(page.locator('li')).toHaveCount(3);
+    await expect(page.locator('input')).toHaveValue('x');
+    await expect(page.locator('a')).toHaveAttribute('href', /count/);
+    await expect(page.locator('a')).toHaveClass(/active/);
+    await expect(page.locator('#total')).toHaveText('2', { timeout: 10_000 });
+    await expect(page.locator('li')).not.toHaveCount(3);
+    expect(await page.title()).toBe('Count');
+    expect.soft(await page.title()).toContain('Count');
+    await expect.poll(() => page.locator('li').count()).toBe(3);
+    await expect.poll(async () => rows(page)).toEqual({ a: 1 });
+    expect(a || b).toBeVisible();
+    await expect(page.locator('a')).toHaveAttribute('href');
+    await expect(page.locator('#note')).toContainText(note);
+  });
+
+  test('context and a name', async ({ page: tab, context }) => {
+    await context.addCookies([]);
+    expect(tab.url()).toBe('about:blank');
+  });
+
+  test('request', async ({ request }) => {
+    expect((await request.get('/api')).ok()).toBeTruthy();
+  });
+
+  test('no fixture', () => {
+    expect(1).toBe(1);
+  });
+
+  test.skip('later', async ({ page }) => {});
+  test.fixme('broken', async ({ page }) => {});
+
+  test('steps', async ({ page }) => {
+    test.skip(process.platform === 'win32', 'no links');
+    test.setTimeout(60_000);
+    await test.step('open', async () => {
+      await page.goto('/');
+    });
+  });
+});
+
+test.describe.serial('in order', () => {
+  test('one', async ({}) => {
+    expect(1).toBe(1);
+  });
+});
+
+const helper = async (page: Page) => page.title();
+
+test('a function with no block', async ({ page }) => page.goto('/'));
+test('a second argument', async ({ page }, info) => {
+  expect(info.title).toBe('a second argument');
+});
+test('no statement', async ({ page }) => {});
+test('not async', ({ context }) => {
+  expect(context.pages().length).toBe(1);
+});
+test.describe.parallel('at the same time', () => {
+  test('other names', async ({ page, ...rest }) => {
+    expect(rest).toBeTruthy();
+  });
+});
+`,
+    'a.spec.ts',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'playwright',
+      18,
+      `import { assert, describe, test } from 'ubqtest';
+import { browser } from 'ubqtest/browser';
+import type { Page } from 'playwright-core';
+import { devices } from 'playwright-core';
+
+// TODO(ubq): ubq has no test.use. browser(options) takes the options of a
+// context, such as viewport and locale: const page = await browser({
+// locale: 'fr-FR' }). The address of the pages is "browser": { "url": ...
+// } in the ubq configuration.
+test.use({ locale: 'fr-FR' });
+
+describe('the counter', () => {
+  // TODO(ubq): ubq has no hooks. Make a function that opens the page, and
+  // call it in each test: const open = async () => { const page = await
+  // browser(); await page.goto('/'); return page }. Use cleanup() for the
+  // work after a test.
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/count.html');
+  });
+
+  test('counts', async () => {
+    const page = await browser();
+    await page.goto('/count.html');
+    await page.getByRole('button', { name: 'Add' }).click();
+    await assert.eventually(() => page.locator('#total').textContent(), '1');
+    await assert.eventually(() => page.locator('#total').textContent(), /^\\d$/);
+    await assert.eventually(() => page.locator('li').allTextContents(), ['a', 'b']);
+    await assert.eventually(() => page.locator('#note').textContent(), /one \\(1\\)/);
+    await assert.eventually(() => page.title(), /Count/);
+    await assert.eventually(() => page.url(), 'https://example.com/count.html');
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect(page).toHaveURL('/count.html');
+    await assert.eventually(() => page.getByRole('button').isVisible(), true);
+    await assert.eventually(() => page.getByRole('dialog').isVisible(), false);
+    await assert.eventually(() => page.locator('input').isDisabled(), true);
+    await assert.eventually(() => page.locator('li').count(), 3);
+    await assert.eventually(() => page.locator('input').inputValue(), 'x');
+    await assert.eventually(() => page.locator('a').getAttribute('href'), /count/);
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect(page.locator('a')).toHaveClass(/active/);
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect(page.locator('#total')).toHaveText('2', { timeout: 10_000 });
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect(page.locator('li')).not.toHaveCount(3);
+    assert.equal(await page.title(), 'Count');
+    assert.contains(await page.title(), 'Count');
+    await assert.eventually(() => page.locator('li').count(), 3);
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect.poll(async () => rows(page)).toEqual({ a: 1 });
+    await assert.eventually(() => (a || b).isVisible(), true);
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect(page.locator('a')).toHaveAttribute('href');
+    // TODO(ubq): ubq has no expect. Read the value from the page, and wait
+    // for it: await assert.eventually(() => locator.getAttribute('class'),
+    // /active/). A check with a time limit of its own, or with not, has no
+    // certain form.
+    await expect(page.locator('#note')).toContainText(note);
+  });
+
+  test('context and a name', async () => {
+    const tab = await browser();
+    const context = tab.context();
+    await context.addCookies([]);
+    assert.equal(tab.url(), 'about:blank');
+  });
+
+  // TODO(ubq): ubq has no fixtures. The page is: const page = await
+  // browser(), from 'ubqtest/browser'. The context is page.context(). For
+  // request, use fetch. For a fixture of the project, call a function in
+  // the test.
+  test('request', async ({ request }) => {
+    assert((await request.get('/api')).ok());
+  });
+
+  test('no fixture', () => {
+    assert.equal(1, 1);
+  });
+
+  // TODO(ubq): Give the reason: { skip: 'the reason' }.
+  test('later', { skip: 'TODO(ubq): the reason' }, async () => {
+    const page = await browser();
+  });
+  // TODO(ubq): Give the reason: { skip: 'the reason' }.
+  test('broken', { skip: 'TODO(ubq): the reason' }, async () => {
+    const page = await browser();
+  });
+
+  test('steps', async () => {
+    const page = await browser();
+    // TODO(ubq): This call skips the test while it runs. Use the option of
+    // test(): test(name, { skip: condition && 'the reason' }, fn).
+    test.skip(process.platform === 'win32', 'no links');
+    // TODO(ubq): Use the option of test(): test(name, { timeout: ms },
+    // fn).
+    test.setTimeout(60_000);
+    // TODO(ubq): ubq has no steps. Put the code of the step in the test,
+    // with the name of the step in a comment.
+    await test.step('open', async () => {
+      await page.goto('/');
+    });
+  });
+});
+
+describe('in order', () => {
+  test('one', async () => {
+    assert.equal(1, 1);
+  });
+});
+
+const helper = async (page: Page) => page.title();
+
+// TODO(ubq): ubq has no fixtures. The page is: const page = await
+// browser(), from 'ubqtest/browser'. The context is page.context(). For
+// request, use fetch. For a fixture of the project, call a function in the
+// test.
+test('a function with no block', async ({ page }) => page.goto('/'));
+// TODO(ubq): ubq has no fixtures. The page is: const page = await
+// browser(), from 'ubqtest/browser'. The context is page.context(). For
+// request, use fetch. For a fixture of the project, call a function in the
+// test.
+test('a second argument', async ({ page }, info) => {
+  assert.equal(info.title, 'a second argument');
+});
+test('no statement', async () => {
+  const page = await browser();
+});
+test('not async', async () => {
+  const context = (await browser()).context();
+  assert.equal(context.pages().length, 1);
+});
+describe('at the same time', () => {
+  // TODO(ubq): ubq has no fixtures. The page is: const page = await
+  // browser(), from 'ubqtest/browser'. The context is page.context(). For
+  // request, use fetch. For a fixture of the project, call a function in
+  // the test.
+  test('other names', async ({ page, ...rest }) => {
+    assert(rest);
+  });
+});`,
+    ],
+  )
+})
+
+test('Playwright Test in a CommonJS file', () => {
+  const r = convert(
+    `const { test, expect } = require('@playwright/test')
+test('title', async ({ page }) => {
+  await expect(page).toHaveTitle('x')
+})
+`,
+    'c.spec.cjs',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'playwright',
+      0,
+      `const { assert, test } = require('ubqtest')
+const { browser } = require('ubqtest/browser')
+test('title', async () => {
+  const page = await browser()
+  await assert.eventually(() => page.title(), 'x')
+})`,
+    ],
+  )
+})
+
+test('Playwright Test: a file with its own name browser keeps the fixture, with a TODO', () => {
+  const r = convert(
+    `import { test, expect } from '@playwright/test'
+const browser = 1
+test('a name of the file', async ({ page }) => {
+  await expect(page).toHaveTitle('x')
+})
+`,
+    'd.spec.ts',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'playwright',
+      1,
+      `import { assert, test } from 'ubqtest'
+const browser = 1
+// TODO(ubq): ubq has no fixtures. The page is: const page = await
+// browser(), from 'ubqtest/browser'. The context is page.context(). For
+// request, use fetch. For a fixture of the project, call a function in the
+// test.
+test('a name of the file', async ({ page }) => {
+  await assert.eventually(() => page.title(), 'x')
+})`,
+    ],
+  )
+})
+
+test('the Playwright library with a different test tool: a TODO at the launch of the browser', () => {
+  const r = convert(
+    `import { test, expect, beforeAll } from 'vitest'
+import { chromium, type Browser } from 'playwright'
+let browser: Browser
+beforeAll(async () => {
+  browser = await chromium.launch()
+})
+test('title', async () => {
+  const page = await browser.newPage()
+  expect(await page.title()).toBe('')
+})
+`,
+    'b.test.ts',
+  )
+  assert.deepEqual(
+    [r?.framework, r?.todos.length, r?.code.join('\n')],
+    [
+      'vitest',
+      1,
+      `import { assert, test } from 'ubqtest'
+import { chromium, type Browser } from 'playwright'
+let browser: Browser
+{
+  // TODO(ubq): ubq starts the browser, and closes the page when the test
+  // ends: const page = await browser(), from 'ubqtest/browser'. Remove the
+  // launch, the new page, and the close.
+  browser = await chromium.launch()
+}
+test('title', async () => {
+  const page = await browser.newPage()
+  assert.equal(await page.title(), '')
+})`,
     ],
   )
 })

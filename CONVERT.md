@@ -1,7 +1,7 @@
 # ubq guide: convert
 
 How to move the tests of a project from tap, tape, ava, `node:test`, vitest,
-jest, `bun:test`, or mocha to `ubqtest`. This text comes from the installed
+jest, `bun:test`, mocha, or Playwright Test to `ubqtest`. This text comes from the installed
 package. `ubq guide convert` prints it. Read `ubq guide` first: it
 has the API and the rules of ubq.
 
@@ -686,6 +686,88 @@ does not convert `chai` or `sinon`. Write those assertions by hand
 with the tables above. The command does not change
 `this.timeout(ms)`, and writes no TODO for it. Change it by hand
 to `test(name, { timeout: ms }, fn)`.
+
+## Playwright Test
+
+For tests that import from `@playwright/test`. ubq has the page
+of Playwright, with Chromium: `browser()` from
+`'ubqtest/browser'`. Read "Tests in a browser" in `ubq guide`
+first. The project needs `playwright-core`, and `npx ubq browser
+install`. After the conversion, remove `@playwright/test`.
+
+| Playwright Test | ubq |
+| --- | --- |
+| `test(name, async ({ page }) => { ... })` | `test(name, async () => { const page = await browser() ... })` |
+| `async ({ page, context }) =>` | `const page = await browser()`, `const context = page.context()` |
+| `test.describe(name, fn)`, `test.describe.serial`, `test.describe.parallel` | `describe(name, fn)` |
+| `await expect(locator).toHaveText('a')`, `toHaveText(/a/)` | `await assert.eventually(() => locator.textContent(), 'a')` |
+| `await expect(locator).toHaveText(['a', 'b'])` | `await assert.eventually(() => locator.allTextContents(), ['a', 'b'])` |
+| `await expect(locator).toContainText('a')` | `await assert.eventually(() => locator.textContent(), /a/)` |
+| `toBeVisible()`, `toBeHidden()`, `toBeEnabled()`, `toBeDisabled()`, `toBeChecked()`, `toBeEditable()` | `await assert.eventually(() => locator.isVisible(), true)`, and the same with `isHidden`, `isEnabled`, `isDisabled`, `isChecked`, `isEditable` |
+| `not.toBeVisible()` and the others of that row | `await assert.eventually(() => locator.isVisible(), false)` |
+| `toHaveCount(n)`, `toHaveValue(v)`, `toHaveAttribute(name, v)` | `assert.eventually` with `locator.count()`, `locator.inputValue()`, `locator.getAttribute(name)` |
+| `await expect(page).toHaveTitle(t)`, `toHaveURL(u)` | `await assert.eventually(() => page.title(), t)`, `() => page.url(), u` |
+| `await expect.poll(fn).toBe(value)` | `await assert.eventually(fn, value)` |
+| `expect(value).toBe(x)`, `expect.soft(value)`, and the other checks of a value | the forms of "vitest, jest, and bun:test" above |
+| `import { type Page, devices } from '@playwright/test'` | the same names from `'playwright-core'` |
+
+Things to check by hand:
+
+- **`toHaveText` with text.** Playwright removes the spaces at
+  the ends of the text of the element, and makes each group of
+  spaces between words one space. `locator.textContent()` gives
+  the text as it is. If the new check fails with spaces or line
+  ends in the actual value, use a RegExp, or read
+  `locator.innerText()`. Do not remove the check.
+- **The time limit of a check.** `assert.eventually` waits 2000
+  ms. A check of Playwright waits 5000 ms, or the time of its
+  `{ timeout }` option. A check with that option has a TODO. If
+  the page needs more than 2000 ms, wait for the cause first, such
+  as `await page.waitForResponse(...)`, then assert.
+- **Hooks.** `test.beforeEach(async ({ page }) => { ... })` has a
+  TODO. Make a function that opens the page, and call it in each
+  test:
+
+  ```ts
+  const open = async () => {
+    const page = await browser()
+    await page.goto('/count.html')
+    return page
+  }
+  ```
+
+  The command puts `const page = await browser()` in each test
+  that had `page`. Change that line to `const page = await
+  open()`.
+- **Other fixtures.** A test that gets `request`, `browser`,
+  `browserName`, or a fixture that the project made with
+  `test.extend` has a TODO. For `request`, use `fetch`. For a
+  fixture of the project, call a function in the test, with
+  `cleanup()` for its end.
+- **`playwright.config`.** ubq does not read it. The command
+  prints a note with the `"browser"` key for `baseURL` and
+  `webServer`: `"ubq": { "browser": { "url": "http://localhost:4173",
+  "command": "npm run preview" } }`. Options of a context, such as
+  `viewport` and `locale` of `use` or of `test.use`, are the
+  argument of `browser()`. ubq runs the tests in Chromium only: if
+  the config has a project for Firefox or WebKit, tell the user.
+- **Tests run one at a time in a file**, and each test has a new
+  context. Test files run at the same time, as the workers of
+  Playwright do.
+- **`test.step`, `test.setTimeout`, `test.slow`, and a
+  `test.skip(condition, reason)` in a test** have a TODO. A step is
+  code of the test with a comment. The time limit and the skip
+  are options of `test`.
+- **Screenshots, traces, and video.** ubq keeps none. `toHaveScreenshot`
+  has no form in ubq: tell the user, and do not remove the test
+  with no answer.
+- **The names of the files.** Playwright Test runs `*.spec.ts`.
+  ubq runs `*.test.ts`: rename the files, or set `"include"`.
+
+A test that uses the Playwright library with a different test tool
+(`chromium.launch()` in a vitest file) converts as a test of that
+tool. The launch has a TODO: `browser()` starts the browser, and
+closes the page when the test ends.
 
 ## Hooks
 

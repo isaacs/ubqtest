@@ -418,6 +418,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `ubq convert` knows Playwright Test (D105): the page of a
+    test, and the checks that wait.
   - `assert.greaterThanOrEqual` and `assert.lessThanOrEqual`
     (D102). A `not measured` comment before the first code of a
     file: no test can load the file (D103). A CI job for Node
@@ -477,8 +479,6 @@ All entries are from 2026-11-11 to 2026-11-14.
   gives "the test process ended before the file did ... in test:
   t", with a stack frame of `src/workers-entry.ts`. On Node the
   same file gives a plain load error.
-- `ubq convert` for Playwright tests that use vitest, jest,
-  `@playwright/test`, or no test tool (asked by the user).
 
 ## Ideas for later
 
@@ -643,6 +643,9 @@ Convert:
 - A comment between the arguments of a changed call goes away.
 - `beforeAll` in a `describe`, `expect.any` outside a pattern,
   and `expect.arrayContaining` stay hand work.
+- Playwright Test: hooks, fixtures other than `page` and
+  `context`, a check with `not` on a value or with its own time
+  limit, and `playwright.config` stay hand work (D105).
 - A `t.plan(n)` of tap or tape with no `t.end()` in a test that
   has a callback stays, with a TODO. ava hooks, `t.context`, and
   macros stay hand work.

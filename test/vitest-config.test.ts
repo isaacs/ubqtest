@@ -6,7 +6,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
-import { setupMigrations, viteDefine, vitestWorkers } from '../src/vitest-config.ts'
+import { playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from '../src/vitest-config.ts'
 
 // See test/convert.test.ts for the reason of this form.
 const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
@@ -189,4 +189,29 @@ test('the define values of the vite and vitest configs', () => {
       'vite.config.ts has testTimeout: 60000. The time limit of a test in ubq is 5000 ms. To keep the limit of the old config, add to "ubq" in package.json: "timeout": 60000',
     ],
   })
+})
+
+test('the notes for a config of Playwright Test: the address of the pages, and other browsers', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ubq-playwright-'))
+  cleanup(() => rmSync(dir, { recursive: true }))
+  assert.deepEqual(playwrightNotes(dir, parse, children), [])
+  writeFileSync(
+    join(dir, 'playwright.config.ts'),
+    "export default defineConfig({ use: { baseURL: 'http://localhost:4173' }, webServer: { command: `npm run preview`, url: 'http://localhost:4173/health' }, projects: [{ name: 'firefox' }] })",
+  )
+  assert.deepEqual(playwrightNotes(dir, parse, children), [
+    'ubq does not read playwright.config.ts. For the address of the pages and the server of the tests, add to "ubq" in package.json: "browser": {"url":"http://localhost:4173","command":"npm run preview"}',
+    'playwright.config.ts names a browser that is not Chromium. ubq runs the tests in Chromium only. Tell the user.',
+  ])
+  // An address that is not text in the file.
+  writeFileSync(join(dir, 'playwright.config.ts'), 'export default { use: { baseURL: process.env.URL } }')
+  assert.deepEqual(playwrightNotes(dir, parse, children), [
+    'ubq does not read playwright.config.ts. If the tests load pages from a server, add its address to "ubq" in package.json: "browser": { "url": "http://localhost:3000", "command": "npm run dev" }',
+  ])
+  // Only the address of the server.
+  writeFileSync(join(dir, 'playwright.config.ts'), "export default { webServer: { url: 'http://localhost:1' } }")
+  assert.match(playwrightNotes(dir, parse, children)[0]!, /"browser": \{"url":"http:\/\/localhost:1"\}$/)
+  // A file that is not code.
+  writeFileSync(join(dir, 'playwright.config.ts'), 'export default {')
+  assert.deepEqual(playwrightNotes(dir, parse, children), [])
 })

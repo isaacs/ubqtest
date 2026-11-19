@@ -40,7 +40,7 @@ const PAGES: Page[] = [
     source: 'CONVERT.md',
     slug: 'convert',
     name: 'Convert a project',
-    about: 'How to move a project from tap, tape, ava, node:test, vitest, jest, bun:test, or mocha.',
+    about: 'How to move a project from tap, tape, ava, node:test, vitest, jest, bun:test, mocha, or Playwright Test.',
     group: 'use',
   },
   {

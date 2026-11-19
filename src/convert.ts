@@ -15,7 +15,7 @@ import { restorePlan } from './convert-restore.ts'
 import type { Node } from './instrument.ts'
 import { OLD_TOOL } from './doctor.ts'
 import { projectRoot, rel } from './project.ts'
-import { setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
+import { playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -23,7 +23,7 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 export interface Converted {
   /** The new text of the file. */
   code: string
-  /** `tap`, `tape`, `ava`, `node:test`, `vitest`, `jest`, `mocha`, or `bun:test`. */
+  /** `tap`, `tape`, `ava`, `node:test`, `vitest`, `jest`, `mocha`, `bun:test`, or `playwright`. */
   framework: string
   /** The count of rules that changed text. */
   changes: number
@@ -57,6 +57,30 @@ const FRAMEWORKS: Record<string, string> = {
   vitest: 'vitest',
   '@jest/globals': 'jest',
   'bun:test': 'bun:test',
+  '@playwright/test': 'playwright',
+}
+/** The packages of the Playwright library, which a test can use with any test tool. */
+const PLAYWRIGHT_LIBRARY = new Set(['playwright', 'playwright-core'])
+
+/**
+ * `expect(locator).name(expected)` of Playwright, which waits for
+ * the value: the method that reads the value. `true` is for a check
+ * with no expected value. `$1` is the first argument of the check.
+ */
+const WEB_FIRST: Record<string, [read: string, expected: true | number]> = {
+  toBeVisible: ['isVisible()', true],
+  toBeHidden: ['isHidden()', true],
+  toBeEnabled: ['isEnabled()', true],
+  toBeDisabled: ['isDisabled()', true],
+  toBeChecked: ['isChecked()', true],
+  toBeEditable: ['isEditable()', true],
+  toHaveCount: ['count()', 0],
+  toHaveValue: ['inputValue()', 0],
+  toHaveText: ['textContent()', 0],
+  toContainText: ['textContent()', 0],
+  toHaveTitle: ['title()', 0],
+  toHaveURL: ['url()', 0],
+  toHaveAttribute: ['getAttribute($1)', 1],
 }
 const ASSERT_MODULES = new Set(['node:assert', 'node:assert/strict', 'assert', 'assert/strict'])
 const HOOKS = new Set(['before', 'after', 'beforeEach', 'afterEach', 'beforeAll', 'afterAll'])
@@ -247,6 +271,18 @@ const TODO = {
     'ubq has no t.context. Make the values in a setup function, and call it in each test: const { value } = setup().',
   macro: 'ubq has no macros. Give test() a function that calls the macro function, with assert of ubqtest in it.',
   testTimeout: 'Use the option of test(): test(name, { timeout: ms }, fn).',
+  eventually:
+    "ubq has no expect. Read the value from the page, and wait for it: await assert.eventually(() => locator.getAttribute('class'), /active/). A check with a time limit of its own, or with not, has no certain form.",
+  fixture:
+    "ubq has no fixtures. The page is: const page = await browser(), from 'ubqtest/browser'. The context is page.context(). For request, use fetch. For a fixture of the project, call a function in the test.",
+  pageHook:
+    "ubq has no hooks. Make a function that opens the page, and call it in each test: const open = async () => { const page = await browser(); await page.goto('/'); return page }. Use cleanup() for the work after a test.",
+  step: 'ubq has no steps. Put the code of the step in the test, with the name of the step in a comment.',
+  use: 'ubq has no test.use. browser(options) takes the options of a context, such as viewport and locale: const page = await browser({ locale: \'fr-FR\' }). The address of the pages is "browser": { "url": ... } in the ubq configuration.',
+  skipIn:
+    "This call skips the test while it runs. Use the option of test(): test(name, { skip: condition && 'the reason' }, fn).",
+  launch:
+    "ubq starts the browser, and closes the page when the test ends: const page = await browser(), from 'ubqtest/browser'. Remove the launch, the new page, and the close.",
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
   rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
@@ -428,6 +464,13 @@ export const convertSource = (
     else if (imported === 'vi' || imported === 'jest') roles.set(local, 'vi')
     else if (imported === 'mock') roles.set(local, 'mock')
   }
+  /** Names of `@playwright/test` that the file keeps, from `playwright-core`. */
+  const libraryTypes: string[] = []
+  const libraryValues: string[] = []
+  /** True if a test of the file gets its page from `browser()`. */
+  let usesBrowser = false
+  /** The names of the browsers of the Playwright library in the file: `chromium`. */
+  const launchers = new Set<string>()
   /** The imports of `cloudflare:test`, and what becomes of their names. */
   const workersImports: Node[] = []
   /** `env`: the runtime has it in `cloudflare:workers`. */
@@ -466,6 +509,10 @@ export const convertSource = (
         continue
       }
       if (module in NOT_CONVERTED) other = NOT_CONVERTED[module]
+      if (PLAYWRIGHT_LIBRARY.has(module))
+        for (const s of node.specifiers as Node[])
+          if (/^(chromium|firefox|webkit)$/.test(String((s.imported as { name?: string } | undefined)?.name)))
+            launchers.add((s.local as { name: string }).name)
       if (!known(module)) {
         for (const s of node.specifiers as Node[])
           (s.type === 'ImportNamespaceSpecifier' ? namespaces : imported).set(
@@ -476,6 +523,15 @@ export const convertSource = (
       }
       if (FRAMEWORKS[module]) framework = FRAMEWORKS[module]
       removed.push(node)
+      if (module === '@playwright/test')
+        // The other names are in the library: `Page`, `devices`.
+        for (const s of node.specifiers as Node[]) {
+          const name = (s.imported as { name?: string } | undefined)?.name
+          if (name && name !== 'test' && name !== 'expect')
+            (node.importKind === 'type' || s.importKind === 'type' ? libraryTypes : libraryValues).push(
+              text(s).replace(/^type\s+/, ''),
+            )
+        }
       for (const s of node.specifiers as Node[]) {
         const local = (s.local as { name: string }).name
         const imported =
@@ -1309,6 +1365,56 @@ export const convertSource = (
   }
 
   // --- The rules ---
+  /**
+   * Playwright: test(name, async ({ page }) => {}). The page is a
+   * call of `browser()` now, at the start of the test.
+   */
+  const pageFixtures = (call: Node, fn: Node, path: Node[]): void => {
+    const body = fn.body as Node
+    const first = (fn.params as Node[])[0]!
+    const names =
+      first.type === 'ObjectPattern' && (fn.params as Node[]).length === 1
+        ? (first.properties as Node[]).map(p =>
+            p.type === 'Property' && !p.computed ? [nameOf(p.key as Node), nameOf(p.value as Node)] : [],
+          )
+        : undefined
+    const local = (key: string): string | undefined => names?.find(([k]) => k === key)?.[1]
+    if (
+      !names ||
+      body.type !== 'BlockStatement' ||
+      names.some(([key, value]) => !value || (key !== 'page' && key !== 'context')) ||
+      // A name of the file hides the import.
+      mentions(program, 'browser')
+    )
+      return todo(path, TODO.fixture)
+    const lines: string[] = []
+    if (local('page')) lines.push(`const ${local('page')} = await browser()`)
+    if (local('context'))
+      lines.push(
+        `const ${local('context')} = ${local('page') ? `${local('page')}.context()` : '(await browser()).context()'}`,
+      )
+    const inner = body.body as Node[]
+    const indent = inner.length ? indentAt(inner[0]!.start) : `${indentAt(call.start)}  `
+    // The form of the statements of the file.
+    const end = /;\s*$/m.test(source) ? ';' : ''
+    if (lines.length) {
+      usesBrowser = true
+      edits.push({
+        start: body.start + 1,
+        end: body.start + 1,
+        text:
+          lines.map(line => `\n${indent}${line}${end}`).join('') + (inner.length ? '' : `\n${indentAt(call.start)}`),
+      })
+      if (!fn.async && !madeAsync.has(fn)) {
+        edits.push({ start: fn.start, end: fn.start, text: 'async ' })
+        madeAsync.add(fn)
+      }
+    }
+    const span = paramSpan(fn)!
+    replace(span[0], span[1], '()')
+    changes++
+  }
+
   /** A test or a group: `it(...)`, `test(...)`, `t.test(...)`, `describe(...)`. */
   const definition = (call: Node, path: Node[], kind: 'test' | 'describe', fromTap: boolean): void => {
     const args = call.arguments as Node[]
@@ -1374,6 +1480,8 @@ export const convertSource = (
           edits.push({ start: body.end, end: body.end, text: ')' })
           changes++
         } else if (span) replace(span[0], span[1], '()')
+      } else if (framework === 'playwright' && kind === 'test' && (fn.params as Node[]).length) {
+        pageFixtures(call, fn, path)
       } else if (param && kind === 'test') {
         // The test object of node:test, or the done callback of jest.
         if (mentions(body, param))
@@ -1423,6 +1531,16 @@ export const convertSource = (
         !declares('require')
       )
         todo(path, TODO.require)
+    }
+    // chromium.launch() of the Playwright library, with any test tool.
+    if (node.type === 'CallExpression') {
+      const callee = node.callee as Node
+      if (
+        callee.type === 'MemberExpression' &&
+        nameOf(callee.property as Node) === 'launch' &&
+        launchers.has(nameOf(callee.object as Node)!)
+      )
+        todo(path, TODO.launch)
     }
     if (node.type === 'TSEnumDeclaration' && !node.declare) todo(path, TODO.enum)
     if (node.type === 'TSParameterProperty') todo(path, TODO.parameterProperty)
@@ -1583,12 +1701,51 @@ export const convertSource = (
       if (span) replace(span[0], span[1], '()')
     }
 
+    if (framework === 'playwright') {
+      // test.describe(name, fn), test.describe.serial(name, fn)
+      const group = (n: Node): boolean =>
+        n.type === 'MemberExpression' &&
+        roleOf(n.object as Node) === 'test' &&
+        nameOf(n.property as Node) === 'describe'
+      if (group(callee) || (group(object) && (method === 'serial' || method === 'parallel'))) {
+        definition(node, path, 'describe', false)
+        return args
+      }
+      const name = args[0]?.type === 'Literal' || args[0]?.type === 'TemplateLiteral'
+      const hint =
+        owner !== 'test'
+          ? undefined
+          : HOOKS.has(method)
+            ? TODO.pageHook
+            : method === 'step'
+              ? TODO.step
+              : method === 'use'
+                ? TODO.use
+                : method === 'setTimeout' || method === 'slow'
+                  ? TODO.testTimeout
+                  : (method === 'skip' || method === 'fixme') && !name
+                    ? TODO.skipIn
+                    : undefined
+      if (hint) {
+        todo(path, hint)
+        return undefined
+      }
+    }
     if (owner === 'tap') return tapCall(node, path, method)
     if (owner === 'assert') return assertCall(node, path, method)
     if (owner === 'test' || owner === 'describe') {
       // it.skip, describe.only, test.todo, test.each
       const base = owner
-      if (method === 'skip' && args[0]) {
+      const fn = args.find(a => FUNCTION.has(a.type))
+      if (
+        framework === 'playwright' &&
+        owner === 'test' &&
+        fn &&
+        (fn.params as Node[]).length &&
+        /^(skip|fixme|only)$/.test(method)
+      )
+        pageFixtures(node, fn, path)
+      if ((method === 'skip' || (method === 'fixme' && framework === 'playwright')) && args[0]) {
         replace(callee.start, callee.end, base)
         edits.push({ start: args[0].end, end: args[0].end, text: ", { skip: 'TODO(ubq): the reason' }" })
         todo(path, TODO.skip)
@@ -1750,7 +1907,39 @@ export const convertSource = (
       else break
       base = base.object as Node
     }
-    if (base.type !== 'CallExpression' || roleOf(base.callee as Node) !== 'expect') return undefined
+    // expect.soft(value), expect.poll(fn) of Playwright
+    const from = base.type === 'CallExpression' ? (base.callee as Node) : undefined
+    const form =
+      framework === 'playwright' && from?.type === 'MemberExpression' && roleOf(from.object as Node) === 'expect'
+        ? nameOf(from.property as Node)
+        : undefined
+    if (form === 'poll') {
+      const [fn, more] = base.arguments as Node[]
+      const want = args[0]
+      const value = want?.type === 'Literal' || want?.type === 'TemplateLiteral'
+      // A pattern of assert.eventually that is an object is partial,
+      // so only a plain value has the same check.
+      if (
+        not ||
+        promise ||
+        !fn ||
+        more ||
+        args.length !== 1 ||
+        !value ||
+        !/^(toBe|toEqual|toStrictEqual)$/.test(method)
+      ) {
+        todo(path, TODO.eventually)
+        return [...(base.arguments as Node[]), ...args]
+      }
+      replace(node.start, fn.start, 'assert.eventually(')
+      replace(fn.end, want!.start, ', ')
+      replace(want!.end, node.end, ')')
+      used.add('assert')
+      changes++
+      awaited(node, path)
+      return [fn, want!]
+    }
+    if (base.type !== 'CallExpression' || (roleOf(from) !== 'expect' && form !== 'soft')) return undefined
     const subject = (base.arguments as Node[])[0]
     if (!subject) {
       todo(path, 'expect() has no value. Write an assertion with assert.')
@@ -1766,9 +1955,52 @@ export const convertSource = (
             ? TODO.inline
             : method === 'toHaveProperty'
               ? TODO.path
-              : `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`,
+              : framework === 'playwright' && !(method in MATCHERS)
+                ? TODO.eventually
+                : `ubq has no ${not ? 'not.' : ''}${promise ? promise + '.' : ''}${method}. Write an assertion with assert, assert.equal, assert.deepEqual, or assert.match.`,
       )
       return undefined
+    }
+    // await expect(locator).toHaveText('x') of Playwright waits for
+    // the value: assert.eventually reads it again and again.
+    const web = framework === 'playwright' ? WEB_FIRST[method] : undefined
+    if (web) {
+      const [read, expected] = web
+      const want = expected === true ? undefined : args[expected]
+      // An argument after the expected value has options, such as a
+      // time limit.
+      const options = args[expected === true ? 0 : expected + 1]
+      const literal = want?.type === 'Literal' && typeof want.value === 'string'
+      if (
+        promise ||
+        options ||
+        (expected !== true && (!want || not)) ||
+        // Playwright reads a path from the base URL.
+        (method === 'toHaveURL' && literal && !/^\w+:/.test(want!.value as string)) ||
+        (method === 'toContainText' && !literal)
+      ) {
+        todo(path, TODO.eventually)
+        return undefined
+      }
+      const wrap = !SIMPLE.has(subject.type)
+      const close = wrap ? ')' : ''
+      replace(node.start, subject.start, `assert.eventually(() => ${wrap ? '(' : ''}`)
+      if (!want) replace(subject.end, node.end, `${close}.${read}, ${!not})`)
+      else if (expected === 1) {
+        replace(subject.end, args[0]!.start, `${close}.getAttribute(`)
+        replace(args[0]!.end, want.start, '), ')
+        replace(want.end, node.end, ')')
+      } else {
+        const list = method === 'toHaveText' && want.type === 'ArrayExpression'
+        replace(subject.end, want.start, `${close}.${list ? 'allTextContents()' : read}, `)
+        // The text is a part of the text of the element.
+        if (method === 'toContainText') messageRegExp(want)
+        replace(want.end, node.end, ')')
+      }
+      used.add('assert')
+      changes++
+      awaited(node, path)
+      return [subject, ...args.slice(0, expected === true ? 0 : expected + 1)]
     }
     // expect(list).toEqual(expect.arrayContaining(['a', 'b'])) is one
     // assert.contains for each element. The list must give the same
@@ -2120,6 +2352,17 @@ export const convertSource = (
         quote,
       ) + semi
     : ''
+  // The page of a test, and the names of the Playwright library
+  // that the file had from `@playwright/test`.
+  const more = [
+    usesBrowser &&
+      (commonJs ? "const { browser } = require('ubqtest/browser')" : "import { browser } from 'ubqtest/browser'"),
+    libraryTypes.length && `import type { ${libraryTypes.join(', ')} } from 'playwright-core'`,
+    libraryValues.length && `import { ${libraryValues.join(', ')} } from 'playwright-core'`,
+  ]
+    .filter(text => typeof text === 'string')
+    .map(text => `\n${text.replaceAll("'", quote)}${semi}`)
+    .join('')
   /** `;` if code is after a statement on its line: the new text must not join that code. */
   const before = (node: Node): string => {
     const end = source.indexOf('\n', node.end)
@@ -2127,7 +2370,7 @@ export const convertSource = (
   }
   removed.forEach((node, i) => {
     const join = before(node)
-    if (i === 0 && line) replace(node.start, node.end, line + (semi ? '' : join))
+    if (i === 0 && line) replace(node.start, node.end, line + more + (semi ? '' : join))
     else replace(node.start, source[node.end] === '\n' ? node.end + 1 : node.end, '')
   })
   if (!removed.length && line) {
@@ -2384,6 +2627,8 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   let failed = 0
   const unnamed: string[] = []
   let workers = 0
+  /** True if a file had tests of Playwright Test. */
+  let playwright = false
   const written: string[] = []
   /** Files that still name a test tool that the project removes. */
   const old: string[] = []
@@ -2402,6 +2647,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       continue
     }
     if (OLD_TOOL.test(result.code)) old.push(file)
+    if (result.framework === 'playwright') playwright = true
     changed++
     todos += result.todos.length
     written.push(file)
@@ -2528,6 +2774,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     )
   }
   for (const note of defined?.notes ?? []) out(`note: ${note}`)
+  if (playwright && !config().browser) for (const note of playwrightNotes(root, parse, children)) out(`note: ${note}`)
   // tap writes snapshots when npm starts it for a script named snap
   // or snapshot. In ubq, --update does that.
   try {

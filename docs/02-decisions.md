@@ -2411,3 +2411,34 @@ Changes to the tests of this repository, so that they pass there:
 Node that D100 works around are not specific to a system. No job
 for the versions between 22.18 and the newest 24.
 
+## D105. `ubq convert` knows Playwright Test (user, 2026-11-19)
+
+The user asked for a conversion of Playwright tests. ubq already
+has the page of Playwright: `browser()` of `'ubqtest/browser'`
+(D45). Each choice of form here is an assumption of the assistant.
+
+- **The page.** `test(name, async ({ page }) => {})` gets `const
+  page = await browser()` as its first statement, and `context`
+  is `page.context()`. A test with a different fixture has a TODO.
+- **Checks that wait.** `await expect(locator).toHaveText(x)`
+  becomes `await assert.eventually(() => locator.textContent(),
+  x)`, and the same for 12 other checks. A check with `not` on a
+  value, with a time limit of its own, or with no such form (a
+  class, a screenshot) has a TODO.
+- **`toHaveText` is more strict.** Playwright changes the spaces
+  of the text before it compares, and the new check does not. A
+  check that depends on that fails, with the two values. This is
+  the safe side: the command does not make a check weaker.
+- **Hooks** of `test` have a TODO, with the form of a function
+  that opens the page. The command does not make that function.
+- **The config.** The command prints a note with the `"browser"`
+  key from `baseURL` and `webServer` of `playwright.config`, and a
+  note if the config names Firefox or WebKit. It writes no key.
+- **The Playwright library with a different test tool.** The file
+  converts as a file of that tool. `chromium.launch()` has a TODO.
+  A file with no test tool is not a test file for the command.
+
+Checked with a real browser: a converted file of 2 tests ran, and
+the one that depends on the spaces of `toHaveText` failed with
+the two values.
+

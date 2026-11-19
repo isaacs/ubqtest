@@ -236,6 +236,52 @@ export const viteDefine = (
 }
 
 /**
+ * What a project with tests of Playwright Test must set by hand:
+ * notes from the `playwright.config` file at the project root.
+ * ubq does not read that file.
+ */
+export const playwrightNotes = (root: string, parse: Parse, children: Children): string[] => {
+  const notes: string[] = []
+  for (const file of NAMES.map(name => name.replace('vitest', 'playwright'))) {
+    if (!existsSync(join(root, file))) continue
+    const source = readFileSync(join(root, file), 'utf8')
+    let program: Node
+    try {
+      program = parse(source, join(root, file))
+    } catch {
+      continue
+    }
+    const browser: { url?: string; command?: string } = {}
+    const text = (node: Node | undefined): string | undefined => {
+      try {
+        const value = node && plain(node)
+        return typeof value === 'string' ? value : undefined
+      } catch {
+        return undefined
+      }
+    }
+    /** The address of the server, if the config has no base URL. */
+    let server: string | undefined
+    const walk = (node: Node): void => {
+      browser.url ??= text(get(node, 'baseURL'))
+      server ??= text(get(get(node, 'webServer'), 'url'))
+      browser.command ??= text(get(get(node, 'webServer'), 'command'))
+      for (const child of children(node)) walk(child)
+    }
+    walk(program)
+    browser.url ??= server
+    notes.push(
+      browser.url
+        ? `ubq does not read ${file}. For the address of the pages and the server of the tests, add to "ubq" in package.json: "browser": ${JSON.stringify(browser)}`
+        : `ubq does not read ${file}. If the tests load pages from a server, add its address to "ubq" in package.json: "browser": { "url": "http://localhost:3000", "command": "npm run dev" }`,
+    )
+    if (/firefox|webkit|safari/i.test(source))
+      notes.push(`${file} names a browser that is not Chromium. ubq runs the tests in Chromium only. Tell the user.`)
+  }
+  return notes
+}
+
+/**
  * The D1 bindings that a vitest setup file applies migrations to
  * (`applyD1Migrations(env.DB, ...)`), and true if the file does no
  * other work.

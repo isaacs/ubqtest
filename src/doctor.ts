@@ -15,7 +15,7 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 
 /** A name of a test tool that a project removes after the change to ubq. */
 export const OLD_TOOL =
-  /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|tape|ava|mocha)\1/
+  /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|tape|ava|mocha|@playwright\/test)\1/
 
 /** `// ...` and `/* ... *\/` comments, and commas before `}` or `]`. */
 const plainJson = (text: string): string =>
