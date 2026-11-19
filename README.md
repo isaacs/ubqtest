@@ -197,8 +197,10 @@ comment with the instruction.
   `require('./file')` with no extension needs Node 24.18 or
   later of Node 24, or Node 26.5 or later.
 - On Node, TypeScript runs with its types removed and no other
-  change. Source with `enum`, `namespace`, or parameter
-  properties does not load on Node. Bun runs it.
+  change. Source with `enum`, `namespace`, parameter
+  properties, or decorators does not load on Node. Bun runs it,
+  and with the `transform` key a compiler of the project
+  (`typescript` or `@swc/core`) makes the JavaScript for Node.
 - `.tsx` and `.jsx` files run on Bun and Deno, with coverage.
 - Tests of one file run one at a time.
 - A test that starts a command or a server as a child process

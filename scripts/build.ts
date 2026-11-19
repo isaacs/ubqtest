@@ -24,6 +24,7 @@ const entries = [
   'bun-preload',
   'bun-coverage',
   'instrument',
+  'transform',
   'watchdog',
   'warm',
 ]

@@ -11,7 +11,10 @@ export interface Counting {
   /** True for a file of the project that can have counters. */
   wants(path: string): boolean
   /** The source with counters, or undefined if the file runs as it is. */
-  change(path: string, source: string | undefined): { source: string; js: boolean } | undefined
+  change(
+    path: string,
+    source: string | undefined,
+  ): { source: string; js: boolean; format?: 'commonjs' | 'module' } | undefined
   /** The same for JavaScript that the runtime made from a JSX file, with a source map. */
   compiled?(path: string, made: string): string | undefined
 }
@@ -100,6 +103,6 @@ export const withCounters = <T extends Loaded>(
   // The cache can have the source with no types. Node then does
   // not load its code that removes types.
   // ubq: not measured: this module loads before the counters start
-  const format = result.format === 'commonjs-typescript' ? 'commonjs' : 'module'
+  const format = changed.format ?? (result.format === 'commonjs-typescript' ? 'commonjs' : 'module')
   return { ...result, source: changed.source, ...(changed.js && { format }) }
 }

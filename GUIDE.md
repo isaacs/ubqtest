@@ -899,8 +899,9 @@ limits of older versions:
 TypeScript runs with no build
 step, so the code must use only syntax that can be erased: no
 `enum`, no `namespace`, no parameter properties. Node also does
-not run decorators (`@Injectable()`): a project that has them,
-such as a NestJS project, runs its tests on Bun. In
+not run decorators (`@Injectable()`). A project with such syntax,
+such as a NestJS project, sets the `transform` key: see "Source
+that Node cannot run". In
 `tsconfig.json`, set `"allowImportingTsExtensions": true`,
 `"noEmit": true`, and `"erasableSyntaxOnly": true`. If the project
 builds JavaScript from that tsconfig (for example with tshy), set
@@ -910,12 +911,67 @@ It needs TypeScript 5.7 or later. Do not set
 such syntax: the type checker then reports them in each run.
 `ubq doctor` asks for the option only if no file has the syntax.
 
-If the source of a project has syntax that cannot be erased,
-`ubq doctor` names the files. Ask the person who owns the project
-to choose: change that syntax, run the tests on Bun (`bun
-node_modules/ubqtest/cli.js`), which runs such syntax, or test a
-build of the source. With Bun or a build, do not set
-`"erasableSyntaxOnly"`.
+### Source that Node cannot run
+
+If the source of a project has syntax that cannot be erased
+(`enum`, `namespace`, a parameter property, a decorator), `ubq
+doctor` names the files. The person who owns the project chooses
+one of three. Do not choose for them: a compiler in the test run,
+or a change of runtime, is a surprise to a maintainer.
+
+1. **The TypeScript of the project.** `ubq convert
+   --transform=typescript` sets `"transform": "typescript"` in the
+   `ubq` key of `package.json`. The `typescript` package of the
+   project then makes the JavaScript of each TypeScript file, one
+   file at a time, as `ts-jest` with `isolatedModules` does. It
+   needs TypeScript 5 or 6: TypeScript 7 has no function that
+   compiles one file. The cost is about 4 ms for a file of 10 KB,
+   one time for each change of the file: the result is in
+   `.ubq/`. A process that must compile a file also loads the
+   compiler, which is about 110 ms.
+2. **swc.** `ubq convert --transform=swc` installs `@swc/core` as
+   a devDependency with the package manager of the project, and
+   sets `"transform": "swc"`. It is about 10 times faster (0.4 ms
+   for the same file, and 20 ms to load), and it is a second
+   compiler: its JavaScript is not in each case the JavaScript of
+   `tsc`.
+3. **Bun.** `bun node_modules/ubqtest/cli.js` runs such syntax
+   with no key. Coverage on Bun has gaps that coverage on Node
+   does not have. On Bun, a class with decorators does not load
+   if a parameter of its constructor has a type that the file
+   imports with no `import type`.
+
+With each of the three, do not set `"erasableSyntaxOnly"`.
+
+With the `transform` key, on Node:
+
+- The compiler gets these options from the `tsconfig.ubq.json` or
+  `tsconfig.json` of the folder of the file, or of the nearest
+  folder above it: `experimentalDecorators`,
+  `emitDecoratorMetadata`, `useDefineForClassFields` (and
+  `target`, for its default), `verbatimModuleSyntax`,
+  `esModuleInterop`, and `module`.
+- The JavaScript is CommonJS if `module` is `commonjs`, or if it
+  is `node16` or `nodenext` and the package does not have
+  `"type": "module"`. If not, it is an ES module. A CommonJS test
+  file has `require` and `__dirname`, and no `import.meta`.
+- The compiler removes an import that the file uses only as a
+  type. It reads one file at a time, so it does not know if a
+  name of a different file is a type. With
+  `emitDecoratorMetadata`, a type of a constructor parameter is
+  a value in the JavaScript. In CommonJS that is not a problem.
+  In an ES module, the import of an interface for such a
+  parameter must be `import type`, or the file does not load.
+- The compiler does not check types. The type check of the run
+  does that, as before.
+- A stack trace, a failure block, and coverage have the lines of
+  the source.
+- `mockImport` works for CommonJS and for ES modules. In a
+  CommonJS instance, a dependency that is an ES module is not a
+  new instance.
+- Bun and Deno compile TypeScript themselves, and do not read
+  the key.
+- `.tsx` files are not compiled. Node does not run them.
 
 Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.

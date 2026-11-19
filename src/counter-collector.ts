@@ -9,9 +9,11 @@ import { fileURLToPath } from 'node:url'
 import { addCoverage, type Collector, flatten, sourceCoverage } from './coverage.ts'
 import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
+import { config } from './config.ts'
 import type { Instrumented } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
-import { builtSources, mapOf, type SourceRegions, sourceRegions } from './source-map.ts'
+import { builtSources, mapOf, type SourceRegions, sourcePlace, sourceRegions } from './source-map.ts'
+import type { Transformer } from './transform.ts'
 
 /** Changes when the form of the changed source or the regions changes. */
 const CACHE_VERSION = 5
@@ -52,6 +54,28 @@ const parse = (): typeof import('./instrument.ts').instrument | undefined => {
   }
   return instrument
 }
+const TRANSFORM = import.meta.url.endsWith('.ts') ? './transform.ts' : './transform.js'
+let transform: Transformer | undefined | null = null
+/**
+ * The transformer of the project, if its configuration has the
+ * `transform` key. Bun and Deno compile TypeScript themselves, so
+ * they have none.
+ */
+export const transformer = (): Transformer | undefined => {
+  if (transform === null) {
+    const compiler = process.versions.bun || process.versions.deno ? undefined : config().transform
+    transform = compiler
+      ? (nodeModule.createRequire(import.meta.url)(TRANSFORM) as typeof import('./transform.ts')).transformer(
+          projectRoot(),
+          compiler,
+        )
+      : undefined
+  }
+  return transform
+}
+
+/** A TypeScript file that Node can run with its types removed. Not `.tsx`. */
+const TS = /\.[cm]?ts$/
 /** True if the runtime cannot load the parser. */
 let noParser = false
 /** The file of the parser. In the repository of ubq it is a project file. */
@@ -73,7 +97,17 @@ export interface Counters {
    * if the parser cannot read the source: the file then runs with no
    * counters, and coverage is not complete.
    */
-  change(path: string, source: string | undefined): { source: string; js: boolean; imports: number } | undefined
+  change(
+    path: string,
+    source: string | undefined,
+  ): { source: string; js: boolean; imports: number; format?: 'commonjs' | 'module' } | undefined
+  /**
+   * The result of a load hook for a TypeScript file of a project
+   * with the `transform` key, and undefined for each other file.
+   * Node does not read such a file itself: it stops at syntax that
+   * it cannot remove. Absent in a project with no such key.
+   */
+  transformed?(path: string): { source: string; format: 'commonjs' | 'module'; shortCircuit: true } | undefined
   /**
    * The same for JavaScript that the runtime made from a project
    * file, with an inline source map. The regions get the places of
@@ -83,8 +117,13 @@ export interface Counters {
 }
 
 /** The cache entry of a file. `root` is the project that the file belongs to. */
-export const cachePath = (file: string, source: string, root = projectRoot(), map = ''): string =>
-  join(root, '.ubq', 'counters', hash('sha1', `${CACHE_VERSION}\0${file}\0${source}${map && '\0' + map}`) + '.json')
+export const cachePath = (file: string, source: string, root = projectRoot(), map = '', stamp = ''): string =>
+  join(
+    root,
+    '.ubq',
+    'counters',
+    hash('sha1', `${CACHE_VERSION}\0${file}\0${source}${map && '\0' + map}${stamp && '\0\0' + stamp}`) + '.json',
+  )
 
 /**
  * The source map of a built file of the project, if it has one. A
@@ -109,18 +148,22 @@ export const currentSources = (result: Instrumented, root = projectRoot()): Sour
   })
 
 /**
- * The column in the source of a column in the changed source of a
- * project file, for a process that did not load the file: the
- * runner reads the stack of a stuck test process. Reads the cache.
+ * The place in the source of a place in the code of a project file
+ * that ran, for a process that did not load the file: the runner
+ * reads the stack of a stuck test process. Reads the cache. The
+ * code that ran has counters, and with the `transform` key it is
+ * the JavaScript of a compiler.
  */
-export const columnFromCache = (file: string, line: number, column: number): number => {
+export const placeFromCache = <T extends { file: string; line: number; column: number }>(frame: T): T => {
   try {
-    const source = readFileSync(join(projectRoot(), file), 'utf8')
-    const { shifts } = JSON.parse(readFileSync(cachePath(file, source), 'utf8')) as Instrumented
-    return originalColumn(shifts[line], column)
+    const source = readFileSync(join(projectRoot(), frame.file), 'utf8')
+    const stamp = transformer()?.stamp(join(projectRoot(), frame.file))
+    const entry = JSON.parse(readFileSync(cachePath(frame.file, source, undefined, '', stamp), 'utf8')) as Instrumented
+    const { line, column } = (entry.format && sourcePlace(entry.js!, frame.line, frame.column)) || frame
+    return { ...frame, line, column: originalColumn(entry.shifts[line], column) }
     // ubq: not measured: this module loads before the counters start
   } catch {
-    return column
+    return frame
   }
 }
 
@@ -156,8 +199,10 @@ export const cached = (
   from?: string,
   /** The source map of the file, if it is a built file (`builtMap`). */
   map?: ReturnType<typeof mapOf>,
+  /** The compiler of the project makes the source with no types. `from` is then present. */
+  compiler?: Transformer,
 ): Instrumented | undefined => {
-  const path = cachePath(file, source, root, map?.text)
+  const path = cachePath(file, source, root, map?.text, compiler?.stamp(from!))
   let result: Instrumented | undefined
   try {
     result = JSON.parse(readFileSync(path, 'utf8')) as Instrumented
@@ -183,7 +228,9 @@ export const cached = (
         const sources = builtSources(result.regions, source, map, root, (text, name) => parse()?.(text, name)?.regions)
         if (sources) result.sources = sources
       }
-      if (needsJs) result.js = withoutTypes(result.code)
+      // ubq: not measured: this module loads before the counters start
+      if (needsJs && compiler) Object.assign(result, compiler.compile(result.code, from!))
+      else if (needsJs) result.js = withoutTypes(result.code)
       mkdirSync(join(root, '.ubq', 'counters'), { recursive: true })
       // Other processes read the cache at the same time, so the
       // file must be complete when it gets its name.
@@ -209,8 +256,9 @@ export const prepareCounters = (path: string): boolean => {
   try {
     const file = rel(path)
     const source = readFileSync(path, 'utf8')
-    const had = existsSync(cachePath(file, source))
-    return !!cached(file, source, true) && !had
+    const compiler = transformer()
+    const had = existsSync(cachePath(file, source, undefined, '', compiler?.stamp(path)))
+    return !!cached(file, source, true, undefined, path, undefined, compiler) && !had
     // ubq: not measured: this module loads before the counters start
   } catch {
     // The file went away.
@@ -241,6 +289,7 @@ const isFile = (path: string): boolean => {
  */
 export const prepareAll = (paths: string[]): void => {
   const root = projectRoot()
+  const compiler = transformer()
   const seen = new Set<string>()
   const queue = [...paths]
   for (let path = queue.pop(); path !== undefined; path = queue.pop()) {
@@ -250,7 +299,7 @@ export const prepareAll = (paths: string[]): void => {
     try {
       source = readFileSync(path, 'utf8')
       // The key and the arguments of the load hook of a test process.
-      cached(rel(path), source, true, root, path, builtMap(path, source))
+      cached(rel(path), source, true, root, path, builtMap(path, source), compiler)
       // ubq: not measured: each path is a file that exists
     } catch {
       // The test process reports a file that it cannot load.
@@ -291,6 +340,7 @@ export const startCounters = (): Counters | undefined => {
 
   const root = projectRoot() + sep
   const modules = `${sep}node_modules${sep}`
+  const compiler = transformer()
 
   shared[KEY] = {
     // Coverage is not complete if a project file has no counters.
@@ -356,22 +406,40 @@ export const startCounters = (): Counters | undefined => {
         source === undefined
           ? undefined // ubq: not measured: this module loads before the counters start
           : changed === undefined
-            ? cached(file, source, true, projectRoot(), path, builtMap(path, source))
+            ? cached(file, source, true, projectRoot(), path, builtMap(path, source), compiler)
             : parse()?.(changed, file)
       if (!result) {
         unread++
         return undefined
       }
+      // The source of a mutation check is not in the cache.
+      if (compiler && result.js === undefined && TS.test(path))
+        // ubq: not measured: this module loads before the counters start
+        Object.assign(result, compiler.compile(result.code, path))
       use(file, result)
       const sources = currentSources(result)
       if (sources?.length) built.set(file, sources)
       // A source changed after the build: the run has no coverage of it.
       if (sources && sources.length < result.sources!.length) unread++
       shifts.set(file, result.shifts)
-      const { imports } = result
+      const { imports, format } = result
       return result.js === undefined
         ? { source: result.code, js: false, imports }
-        : { source: result.js, js: true, imports }
+        : { source: result.js, js: true, imports, format }
     },
+    transformed:
+      // ubq: not measured: this module loads before the counters start
+      compiler &&
+      function (this: Counters, path) {
+        // ubq: not measured: this module loads before the counters start
+        if (!TS.test(path) || !this.wants(path)) return undefined
+        // ubq: not measured: this module loads before the counters start
+        const source = readFileSync(path, 'utf8')
+        const changed = this.change(path, source)
+        if (changed?.format) return { source: changed.source, format: changed.format, shortCircuit: true }
+        // With no counters, the file still needs its JavaScript.
+        const made = compiler.compile(source, path)
+        return { source: made.js, format: made.format, shortCircuit: true }
+      },
   }
 }

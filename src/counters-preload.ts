@@ -79,7 +79,15 @@ const counters = startCounters()
 if (counters) announce()
 if (counters)
   registerHooks({
-    load: (url, context, next) =>
-      (builtin(url, context) as ReturnType<typeof next> | undefined) ??
-      withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined)),
+    load: counters.transformed
+      ? // The `transform` key: this hook reads each TypeScript file of the project.
+        (url, context, next) =>
+          (builtin(url, context) as ReturnType<typeof next> | undefined) ??
+          // ubq: not measured: this module loads before the counters start
+          (url.startsWith('file:') ? counters.transformed!(fileURLToPath(url.replace(/\?.*$/, ''))) : undefined) ??
+          // ubq: not measured: this module loads before the counters start
+          withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined))
+      : (url, context, next) =>
+          (builtin(url, context) as ReturnType<typeof next> | undefined) ??
+          withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined)),
   })

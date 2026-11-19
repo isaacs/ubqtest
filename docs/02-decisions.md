@@ -2621,3 +2621,90 @@ does not wait for a second report.
   conversion. The comment in the file and the note are the
   record for this one. Q44 asks.
 
+## D111. The `transform` key: a compiler of the project for source that Node cannot run (user, 2026-11-19)
+
+The answer to Q41. It replaces D92 for one case: TypeScript
+syntax that Node cannot erase. ubq still has no plugins, and no
+transform that changes what the code does.
+
+The user: "As long as the cost is only paid by projects (such as
+a Nest app) that use such syntax, that is acceptable. Any test
+framework would pay that cost." "It seems like we need a way to
+add such a hook, and accept the complexity of managing
+sourcemaps."
+
+- **The key.** `"transform": "typescript"` or `"transform":
+  "swc"` in the `ubq` key. With no key, no process loads the code
+  of the transform.
+- **The choice is of the person who owns the project.** `ubq
+  doctor` names the files with such syntax, and has the three
+  choices in its FIX line: the TypeScript of the project, swc, or
+  Bun. `ubq convert --transform=<name>` sets the key. For swc it
+  runs the package manager of the project to add `@swc/core`, if
+  the project does not have it.
+- **TypeScript 7 has no function that compiles one file** (the
+  package has only `version` and unstable entry points).
+  `"typescript"` needs version 5 or 6 (`transpileModule`). The
+  error says so, and names swc.
+- **Where.** The cache entry of a file (`.ubq/counters/`) has the
+  JavaScript of the compiler in place of the source with its
+  types removed. The compiler gets the source with counters, so
+  coverage has the places of the source with no map. The key of
+  the entry also has the compiler, its version, and the options.
+  A file is compiled one time for each change.
+- **Each TypeScript file of the project is compiled**, also a
+  file with no such syntax. The compiler removes an import that
+  is only a type, and Node does not. Two rules in one project
+  would not load.
+- **Options** come from the `tsconfig.ubq.json` or `tsconfig.json`
+  of the folder of the file, or the nearest folder above it: the
+  rule of the type check (D110). ubq reads them with its own
+  code, and does not load the compiler for that. The target of
+  the JavaScript is ES2022 in each case.
+- **CommonJS or ES module** is what `tsc` makes for the project:
+  CommonJS if `module` is `commonjs`, or `node16`/`nodenext` in a
+  package with no `"type": "module"`. This is necessary, and not
+  only for compatibility: with `emitDecoratorMetadata`, the type
+  of a constructor parameter is a value in the JavaScript. A
+  compiler of one file cannot know that the name is an
+  interface. In an ES module the import of that name then fails
+  when the file loads, which is the fault that the report had on
+  Bun (313 files). In CommonJS it is `undefined`, and the
+  metadata has `Object`.
+- **Stack traces.** The JavaScript has an inline source map, and
+  the process turns on the source maps of Node. For the stack of
+  a stuck process, which the inspector gives with the places of
+  the JavaScript, the runner reads the map from the cache.
+- **`mockImport` for CommonJS.** Node has one CommonJS module for
+  each file. The load hook gives each CommonJS module of an
+  instance a `require` of its own (`src/mock.ts`). This also
+  makes `mockImport` work for a project of plain CommonJS files.
+- **`ubq convert`** with the key writes no TODO for an `enum` or
+  a parameter property, and keeps `require` and `__dirname` in a
+  file whose JavaScript is CommonJS.
+- **Node only.** Bun and Deno compile TypeScript themselves.
+
+Limits, with the reason:
+
+- No `.tsx` on Node: Node has no loader for that file name. Not
+  asked.
+- `tsconfig` options that are not in the list above do not
+  change the JavaScript (`paths`, `baseUrl`, `jsx`). A project
+  that imports by `paths` at run time needs its own resolver, as
+  before.
+- A circular import of two classes with metadata in an ES
+  module can read a class before it has a value. It is a limit
+  of ES modules, and `tsc` output has it too.
+
+Measured on this machine (Node 26.5, macOS), on the 73
+source files of ubq (695 KB), in one process:
+
+| Compiler | Load, and the first file | Each file |
+| --- | --- | --- |
+| typescript 5.9.3 | 114 ms | 4.4 ms |
+| @swc/core 1.16.22 | 20 ms | 0.4 ms |
+
+The assistant said "about 1 ms for each file" in Q41. That was
+too low for TypeScript. The key of the cache for a file costs
+less than 0.001 ms after the first file of a folder.
+

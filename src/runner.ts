@@ -21,7 +21,7 @@ import type { Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
-import { columnFromCache, prepareAll } from './counter-collector.ts'
+import { placeFromCache, prepareAll, transformer } from './counter-collector.ts'
 import { uncoveredCount } from './query.ts'
 import { startCoverage } from './coverage.ts'
 import {
@@ -407,7 +407,7 @@ export const loadFailure = (text: string): Failure | undefined => {
       `the test file did not load: ${error[1]}` +
       // Node removes types and makes no other change.
       (/strip-only mode/.test(error[1]!)
-        ? '. Node runs only TypeScript syntax that can be erased. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source.'
+        ? '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.'
         : ''),
     ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
   }
@@ -513,7 +513,7 @@ export const runFile = async (
       }
       const frames = url ? await pausedStack(url, child.pid!, projectRoot()) : []
       // With source counters, the columns are those of the changed source.
-      const stack = V8 ? frames : frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) }))
+      const stack = V8 ? frames : frames.map(placeFromCache)
       send({
         type: 'test-end',
         id: start.id,
@@ -854,6 +854,13 @@ export const run = async (args: string[]): Promise<number> => {
   // A project with no cache of source with counters: a new copy of
   // the project, or a job in CI. One process makes the cache, before
   // the test processes start.
+  // The compiler of the `transform` key. A project that does not
+  // have it cannot run a test file.
+  try {
+    transformer()
+  } catch (error) {
+    throw new UsageError((error as Error).message)
+  }
   if (!lone && !V8 && !existsSync(join(projectRoot(), '.ubq', 'counters')))
     prepareAll(files.map(f => join(projectRoot(), f.file)))
   const checking = typeCheck(

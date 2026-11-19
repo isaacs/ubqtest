@@ -275,7 +275,7 @@ test('a type error for syntax that Node cannot run has a hint', () => {
   assert.deepEqual(lines.slice(at, at + 5), [
     'TYPE enum.test.ts',
     "  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
-    '  hint: Node cannot run this syntax. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, remove "erasableSyntaxOnly" from the tsconfig.',
+    '  hint: Node cannot run this syntax with only its types removed. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.',
     '  at enum.test.ts:2:6',
     '  > enum E {',
   ])

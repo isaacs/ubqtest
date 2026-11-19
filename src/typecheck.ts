@@ -3,10 +3,11 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join, matchesGlob, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import type { TypeCheckError } from './events.ts'
 import type { Checking } from './plain.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
+import { listed, OWN_CONFIG, plainJson, type Tsconfig } from './tsconfig.ts'
 
 /**
  * The `tsc` program of the project. Undefined if the project has
@@ -69,38 +70,6 @@ export const expectedOf = (source: string, at: number): string | undefined => {
   }
   return undefined
 }
-
-/** `// ...` and `/* ... *\/` comments, and commas before `}` or `]`. */
-export const plainJson = (text: string): string =>
-  text
-    .replace(/("(?:\\.|[^"\\])*")|\/\/.*|\/\*[\s\S]*?\*\//g, (_, string) => string ?? '')
-    .replace(/,(\s*[}\]])/g, '$1')
-
-/** The parts of a tsconfig file that say which files it has. */
-export interface Tsconfig {
-  include?: string[]
-  files?: string[]
-  exclude?: string[]
-  extends?: string | string[]
-  references?: { path: string }[]
-}
-
-/** True if the lists of the config of `dir` (`files`, `include`, `exclude`) have the file. */
-export const listed = (json: Tsconfig, dir: string, file: string): boolean => {
-  const path = relative(dir, file).split('\\').join('/')
-  // A name with no pattern is a file or a folder.
-  const match = (globs: string[]): boolean =>
-    globs.some(glob => {
-      const name = glob.replace(/^\.\//, '').replace(/\/$/, '')
-      return name === '.' || name === '' || matchesGlob(path, name) || matchesGlob(path, `${name}/**`)
-    })
-  if (json.exclude && match(json.exclude)) return false
-  if (json.files?.some(name => name.replace(/^\.\//, '') === path)) return true
-  return json.include ? match(json.include) : !json.files
-}
-
-/** The config of a folder that ubq reads, if the folder has it, and not `tsconfig.json`. */
-export const OWN_CONFIG = 'tsconfig.ubq.json'
 
 /**
  * The config that ubq makes for a folder whose `tsconfig.json` has
@@ -270,7 +239,7 @@ const check = (
         // The option that reports this syntax is for Node.
         if (error.code === 'TS1294')
           error.message +=
-            '\nhint: Node cannot run this syntax. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, remove "erasableSyntaxOnly" from the tsconfig.'
+            '\nhint: Node cannot run this syntax with only its types removed. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.'
         const source = error.at && read(error.at.file)
         if (!source) continue
         let at = 0

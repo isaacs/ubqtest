@@ -419,6 +419,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - The `transform` key: the typescript or swc package of the
+    project makes the JavaScript of source that Node cannot run,
+    with `mockImport` for CommonJS (D111).
   - The type check writes `tsconfig.ubq.json` for a folder whose
     `tsconfig.json` has only references (D110).
   - `spy.results(a, b)`, and `toHaveBeenCalledWith` is a check

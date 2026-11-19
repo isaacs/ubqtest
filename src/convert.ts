@@ -15,6 +15,8 @@ import { restorePlan } from './convert-restore.ts'
 import type { Node } from './instrument.ts'
 import { OLD_TOOL } from './doctor.ts'
 import { projectRoot, rel } from './project.ts'
+import { type Transformer, transformer } from './transform.ts'
+import { setupTransform } from './transform-setup.ts'
 import { playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
@@ -338,6 +340,21 @@ const TODO = {
     'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
   dom: 'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
 } as const
+
+/** The compiler of the `transform` key. Undefined if the project has no such key. Null before the first use. */
+let compiler: Transformer | undefined | null = null
+/** True if the compiler of the project makes CommonJS from the file. */
+const commonjs = (file: string): boolean => {
+  if (compiler === null)
+    try {
+      const key = config().transform
+      compiler = key ? transformer(projectRoot(), key) : undefined
+    } catch {
+      // `ubq doctor` reports a configuration that is not correct.
+      compiler = undefined
+    }
+  return compiler?.format(resolve(file)) === 'commonjs'
+}
 
 /** The TODO text for a function of `vi` or `jest`. */
 const VI: Record<string, string> = {
@@ -1068,8 +1085,10 @@ export const convertSource = (
    * that the file declares below it, and that name has no value yet
    * at this place.
    */
-  // A file with an import is an ES module, on each runtime.
-  const esm = (program.body as Node[]).some(n => n.type === 'ImportDeclaration')
+  // A file with an import is an ES module, on each runtime. With
+  // the `transform` key, the compiler of the project can make
+  // CommonJS from it, which has `require` and `__dirname`.
+  const esm = !commonjs(file) && (program.body as Node[]).some(n => n.type === 'ImportDeclaration')
   const META = new Map([
     ['__dirname', 'import.meta.dirname'],
     ['__filename', 'import.meta.filename'],
@@ -1577,8 +1596,8 @@ export const convertSource = (
     }
     // jest.Mocked<Service>, vi.Mock: a type of the old tool.
     if (node.type === 'TSQualifiedName' && roleOf(node.left as Node) === 'vi') todo(path, TODO.mockType)
-    if (node.type === 'TSEnumDeclaration' && !node.declare) todo(path, TODO.enum)
-    if (node.type === 'TSParameterProperty') todo(path, TODO.parameterProperty)
+    if (!compiler && node.type === 'TSEnumDeclaration' && !node.declare) todo(path, TODO.enum)
+    if (!compiler && node.type === 'TSParameterProperty') todo(path, TODO.parameterProperty)
     const meta = esm && META.get(nameOf(node) ?? '')
     if (meta && !declares(nameOf(node)!)) {
       // { __dirname } has the name as its key and as its value.
@@ -2663,6 +2682,8 @@ const TYPES = /\.d\.[cm]?ts$/
 
 /** `ubq convert <files or folders>`. Prints the report with `out`. Returns the exit code. */
 export const convertCommand = (args: string[], out: (text: string) => void): number => {
+  const compiler = args.find(a => a.startsWith('--transform'))
+  if (compiler !== undefined) return setupTransform(compiler.slice('--transform='.length), out)
   const dry = args.includes('--dry')
   const paths = args.filter(a => a !== '--dry')
   if (!paths.length || paths.some(p => p.startsWith('--')))

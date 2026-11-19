@@ -188,6 +188,29 @@ export const mapOf = (made: string, path: string): { map: SourceMap; text: strin
 }
 
 /**
+ * The place in the source (line and column from 1) of a place in
+ * JavaScript that has an inline source map with one source.
+ * Undefined with no map, or with no point of the map before the
+ * place.
+ */
+export const sourcePlace = (
+  made: string,
+  line: number,
+  column: number,
+): { line: number; column: number } | undefined => {
+  const mappings = mapOf(made, '')?.map.mappings
+  if (!mappings) return undefined
+  // An offset that has the line and the column of the source.
+  const WIDTH = 1e6
+  const lines = { length: Infinity } as unknown as number[]
+  const at = lineStarts(made)[line - 1]! + column - 1
+  const point = allPoints(mappings, made, () => new Proxy(lines, { get: (_, n) => +(n as string) * WIDTH })).findLast(
+    ([offset]) => offset <= at,
+  )
+  return point && { line: Math.floor(point[2] / WIDTH) + 1, column: (point[2] % WIDTH) + 1 }
+}
+
+/**
  * The source files of the project that the map of a built file
  * names (D55), each with its own regions and the counters of the
  * built file that count for each region. A built file is a bundle,

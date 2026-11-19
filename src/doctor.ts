@@ -4,11 +4,13 @@ import { existsSync, globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 // Not a named import: Bun does not have the function that removes types.
 import * as nodeModule from 'node:module'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { type Config, config, isBuild } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError, workspaces } from './runner.ts'
-import { listed, OWN_CONFIG, ownConfig, plainJson, type Tsconfig } from './typecheck.ts'
+import { transformer } from './transform.ts'
+import { listed, OWN_CONFIG, plainJson, type Tsconfig, tsOptions } from './tsconfig.ts'
+import { ownConfig } from './typecheck.ts'
 import { vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
@@ -19,31 +21,11 @@ export const OLD_TOOL =
   /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|tape|ava|mocha|@playwright\/test)\1/
 
 /**
- * The compilerOptions of a tsconfig file, with the options of each
- * config that it extends. Throws if a file cannot be read.
+ * The choice for a project with source that Node cannot run with
+ * only its types removed. The person who owns the project makes it.
  */
-const tsOptions = (file: string): Record<string, unknown> => {
-  const json = JSON.parse(plainJson(readFileSync(file, 'utf8')))
-  const options: Record<string, unknown> = {}
-  for (const base of [json.extends ?? []].flat() as string[])
-    Object.assign(options, tsOptions(tsBase(base, dirname(file))))
-  return Object.assign(options, json.compilerOptions)
-}
-
-/** The file of a base config: a path, or a config in a package. */
-const tsBase = (base: string, dir: string): string => {
-  if (base.startsWith('.') || isAbsolute(base)) {
-    const path = resolve(dir, base)
-    return existsSync(path) || path.endsWith('.json') ? path : `${path}.json`
-  }
-  const require = createRequire(join(dir, 'tsconfig.json'))
-  if (base.endsWith('.json')) return require.resolve(base)
-  try {
-    return require.resolve(`${base}/tsconfig.json`)
-  } catch {
-    return require.resolve(`${base}.json`)
-  }
-}
+export const HARD_CHOICE =
+  'Do not choose for the person who owns the project. Ask them to choose one of three. (1) Compile with the typescript package of the project (version 5 or 6): ubq convert --transform=typescript. A file of 10 KB then costs about 4 ms, one time for each change of the file. (2) Compile with swc, which is about 10 times faster: ubq convert --transform=swc, which installs @swc/core as a devDependency. (3) Run the tests on Bun (bun node_modules/ubqtest/cli.js). Coverage on Bun has gaps that coverage on Node does not have, and on Bun a class with decorators does not load if a parameter of its constructor has a type that the file imports with no "import type". With each of the three, tsconfig.json does not set "erasableSyntaxOnly".'
 
 /**
  * False if the tsconfig file names its files, and the test file is
@@ -141,8 +123,11 @@ export const doctor = (out: (text: string) => void): number => {
     /(^|[\\/])(node_modules$|\.)/.test(path) || existsSync(join(root, path, 'package.json'))
 
   let workers: Config['workers']
+  let transform: Config['transform']
   try {
     workers = config().workers
+    // Bun and Deno compile TypeScript themselves.
+    if (!v.bun && !v.deno) transform = config().transform
   } catch {
     // The check of the test files above reports this.
   }
@@ -220,9 +205,17 @@ export const doctor = (out: (text: string) => void): number => {
     )
   }
 
+  if (transform)
+    try {
+      transformer(root, transform)
+      ok(`transform: ${transform}`)
+    } catch (error) {
+      fix((error as Error).message)
+    }
   // Node removes the types of a file and makes no other change.
   // Bun has no function that does only that, and runs each syntax.
-  const strip = nodeModule.stripTypeScriptTypes
+  // With the `transform` key, a compiler makes the JavaScript.
+  const strip = transform ? undefined : nodeModule.stripTypeScriptTypes
   const hard: string[] = []
   if (strip) {
     // Node prints a warning the first time that a program removes types.
@@ -277,7 +270,7 @@ export const doctor = (out: (text: string) => void): number => {
       : ''
   if (hard.length)
     fix(
-      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
+      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. ${HARD_CHOICE}`,
     )
 
   // The type check reads the tsconfig.json of each folder from a
@@ -322,7 +315,7 @@ export const doctor = (out: (text: string) => void): number => {
           compilerOptions: {
             noEmit: true,
             allowImportingTsExtensions: true,
-            ...(!v.bun && !hard.length && { erasableSyntaxOnly: true }),
+            ...(!v.bun && !hard.length && !transform && { erasableSyntaxOnly: true }),
           },
           include: ['.'],
         }
@@ -353,7 +346,7 @@ export const doctor = (out: (text: string) => void): number => {
         [
           'allowImportingTsExtensions',
           // Not for a project that must run on Bun.
-          ...(v.bun || hard.length ? [] : (['erasableSyntaxOnly'] as const)),
+          ...(v.bun || hard.length || transform ? [] : (['erasableSyntaxOnly'] as const)),
           ...(emits ? (['rewriteRelativeImportExtensions'] as const) : []),
         ] as const
       ).filter(key => options[key] !== true)

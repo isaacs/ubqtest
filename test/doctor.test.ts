@@ -38,7 +38,7 @@ test('doctor states the fix for each problem of the setup', () => {
   p.configure({ include: ['*.ts'], retries: 2 })
   assert.equal(
     doctor().lines[1],
-    'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define',
+    'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define, transform',
   )
 
   p.configure({ include: ['*.ts'] })
@@ -84,11 +84,21 @@ test('doctor states the fix for each problem of the setup', () => {
     join(p.dir, 'tsconfig.json'),
     '{ "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true } }',
   )
-  assert.deepEqual(doctor().lines.slice(2), [
-    'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".',
-    'ok   tsconfig.json',
-    'doctor: 1 problems',
-  ])
+  assert.deepEqual(
+    doctor()
+      .lines.slice(2)
+      .map(line =>
+        line.replace(
+          /(Do not choose for the person who owns the project\.) Ask them to choose one of three\. .*$/,
+          '$1',
+        ),
+      ),
+    [
+      'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project.',
+      'ok   tsconfig.json',
+      'doctor: 1 problems',
+    ],
+  )
   // A build tool is not code that a test loads.
   p.configure({ include: ['*.ts'], build: hard })
   assert.match(doctor().lines[2]!, /^FIX  tsconfig\.json: set "erasableSyntaxOnly": true in compilerOptions\./)

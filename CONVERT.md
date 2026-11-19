@@ -119,13 +119,18 @@ names, do one of these:
   change. Source with `enum`, `namespace`, a decorator, or a parameter property
   (`constructor(private x: number)`) does not load. `ubq doctor`
   names the files that have such syntax. Node 26 has no option to
-  run it. Stop, and ask the user to choose: change that syntax,
-  run the tests on Bun (`bun node_modules/ubqtest/cli.js`), or
-  test a build of the source (slower, and each run needs a build
-  first). Do not choose for the user: a change of runtime or a
-  build step is a surprise to a maintainer. With Bun or a build,
-  the tsconfig does not set `erasableSyntaxOnly`: with that
-  option, the type checker reports the syntax in each run.
+  run it. Stop, and ask the user to choose one of the three in
+  the `FIX` line: `ubq convert --transform=typescript`, `ubq
+  convert --transform=swc`, or Bun. "Source that Node cannot run"
+  in `ubq guide` has what each one costs. Do not choose for the
+  user: a compiler in the test run or a change of runtime is a
+  surprise to a maintainer. Do this before step 3: with the
+  `transform` key, `ubq convert` does not write a TODO for an
+  `enum` or a parameter property, and in a project whose
+  JavaScript is CommonJS it keeps `require` and `__dirname`.
+  With each of the three, the tsconfig does not set
+  `erasableSyntaxOnly`: with that option, the type checker
+  reports the syntax in each run.
   `ubq doctor` also says which of the files the tests import. If
   the user changes only those, do not set `erasableSyntaxOnly`:
   the other files still have the syntax.
@@ -164,7 +169,8 @@ names, do one of these:
   `import.meta.filename`. It writes a TODO for `require(...)`,
   for an `enum`, and for a parameter property in a test file.
   Change these in the test file: this is not the source of the
-  project.
+  project. Not with the `transform` key: see "Imports of the
+  source" above.
 - The type check of ubq reads the `tsconfig.json` of each folder
   from a test file up to the project root, and no other file
   name. If the project has the options of its tests in a file

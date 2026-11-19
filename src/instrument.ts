@@ -28,6 +28,11 @@ export interface Instrumented {
    */
   js?: string
   /**
+   * The module system of `js`, if a compiler of the project made it
+   * (the `transform` key). It then has an inline source map.
+   */
+  format?: 'commonjs' | 'module'
+  /**
    * The line where the last `import` statement ends. 0 with no
    * such statement. -1 if the file has an `export` statement.
    * The host of a Workers test puts the code after this line in a

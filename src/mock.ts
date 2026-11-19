@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { dirname, isAbsolute, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SOURCE } from './counters.ts'
 import { projectRoot, rel } from './project.ts'
 import { callSite } from './stack.ts'
@@ -72,6 +73,67 @@ const mockSource = (id: string, dep: string): string => {
     // `import fs from 'node:fs'` reads the names from the default export.
     ...(keys.includes('default') ? [] : ['export default m']),
   ].join('\n')
+}
+
+const REQUIRE = Symbol.for('ubq.mockRequire')
+/** Set while a CommonJS module of a mocked instance loads: the number of the mock. */
+let loading: string | undefined
+/** Mock number, then the path of a CommonJS file, then its module in that instance. */
+const instances = new Map<string, Map<string, { exports: unknown }>>()
+/** Mock number, then the files of the instance that are in the middle of their load. */
+const started = new Map<string, Set<string>>()
+
+type Require = NodeJS.Require
+
+/**
+ * The `require` of a CommonJS module in mocked instance `id`. Node
+ * does not give the resolve hook the URL of the instance for a
+ * `require`, and it keeps one module for each file. So this
+ * function gives the mock of a mocked dependency, and loads a new
+ * module for each project file, one time for each instance.
+ */
+const mockRequire = (id: string, real: Require): Require => {
+  const mocks = table.get(id)!
+  const made = instances.get(id) ?? instances.set(id, new Map()).get(id)!
+  const busy = started.get(id) ?? started.set(id, new Set()).get(id)!
+  const instance = (file: string): unknown => {
+    const have = made.get(file)
+    if (have) return have.exports
+    // A cycle: the module that is in the middle of its load.
+    if (busy.has(file)) return real.cache[file]!.exports
+    const shared = real.cache[file]
+    delete real.cache[file]
+    const before = loading
+    loading = id
+    busy.add(file)
+    try {
+      return real(file)
+    } finally {
+      loading = before
+      busy.delete(file)
+      const mine = real.cache[file]
+      if (mine) made.set(file, mine)
+      // The module of the code that is not in the instance.
+      if (shared) real.cache[file] = shared
+      else delete real.cache[file]
+    }
+  }
+  const required = (name: string): unknown => {
+    let file: string
+    try {
+      file = real.resolve(name)
+    } catch {
+      // The error of Node for a name that is no file.
+      return real(name)
+    }
+    // A module of the runtime has a name, and not a path.
+    const url = isAbsolute(file) ? pathToFileURL(file).href : file.startsWith('node:') ? file : `node:${file}`
+    const mock = mocks.get(url)
+    // `import x from` reads `default` only from a module with this mark.
+    if (mock) return 'default' in mock ? { __esModule: true, ...mock } : mock
+    return isAbsolute(file) && CODE.test(file) && ownCode(url) ? instance(file) : real(name)
+  }
+  return Object.assign(required, real) as Require
 }
 
 // `from '...'`, `import '...'`, `import('...')`
@@ -152,6 +214,7 @@ const register = (): void => {
     throw new Error('mockImport does not work on this runtime yet. It needs module.registerHooks.')
   registered = true
   ;(globalThis as Record<symbol, unknown>)[KEY] = table
+  ;(globalThis as Record<symbol, unknown>)[REQUIRE] = mockRequire
   if (bun) return registerBun()
   nodeModule.registerHooks({
     resolve(specifier, context, next) {
@@ -174,8 +237,24 @@ const register = (): void => {
     },
     load(url, context, next) {
       if (url.startsWith(STUB)) return { format: 'module', source: '', shortCircuit: true }
-      if (!url.startsWith(MOCK))
-        return (builtin(url, context) as ReturnType<typeof next> | undefined) ?? next(url, context)
+      if (!url.startsWith(MOCK)) {
+        const result = (builtin(url, context) as ReturnType<typeof next> | undefined) ?? next(url, context)
+        if (result.format !== 'commonjs' || !ownCode(url)) return result
+        const subject = /\?mock=(\d+)$/.exec(url)?.[1]
+        if (subject) {
+          // Node has one CommonJS module for each file, with no
+          // regard to the query. This hook loads the module of the
+          // instance, and gives a module with its exports.
+          const file = fileURLToPath(url.slice(0, url.lastIndexOf('?')))
+          const exports = mockRequire(subject, nodeModule.createRequire(file))(file)
+          table.get(subject)!.set(url, (Object(exports) === exports ? exports : { default: exports }) as never)
+          return { format: 'module', source: mockSource(subject, url), shortCircuit: true }
+        }
+        if (!loading || typeof result.source !== 'string') return result
+        // After the directive, if the code has one: it must stay first.
+        const own = `require = globalThis[Symbol.for('ubq.mockRequire')](${JSON.stringify(loading)}, require);`
+        return { ...result, source: result.source.replace(/^\s*(?:(['"])use strict\1;?)?/, start => start + own) }
+      }
       const rest = url.slice(MOCK.length)
       const id = rest.slice(0, rest.indexOf(':'))
       return { format: 'module', source: mockSource(id, rest.slice(id.length + 1)), shortCircuit: true }

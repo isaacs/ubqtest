@@ -7,7 +7,7 @@
 import { spawnSync } from 'node:child_process'
 import { writeSync } from 'node:fs'
 import { parentPort, workerData } from 'node:worker_threads'
-import { columnFromCache } from './counter-collector.ts'
+import { placeFromCache } from './counter-collector.ts'
 import type { Failure, Location, Sink, UbqEvent } from './events.ts'
 import { GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 
@@ -56,7 +56,7 @@ const stuck = async (id: string, timeout: number, at?: Location): Promise<void> 
   // With source counters, the columns are those of the changed source.
   const stack =
     // ubq: not measured: SIGKILL ends it before it writes coverage
-    data.counters ? frames.map(f => ({ ...f, column: columnFromCache(f.file, f.line, f.column) })) : frames
+    data.counters ? frames.map(placeFromCache) : frames
   const failure: Failure = {
     kind: 'timeout',
     message: stuckMessage(timeout),

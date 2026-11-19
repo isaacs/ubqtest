@@ -331,6 +331,14 @@ the real dependency.
   have, the call fails with an error that names the export to add.
 - A mock with no `default` export gets one: the mock object. So
   `import fs from 'node:fs'` works with a mock of named exports.
+- A CommonJS module is in the instance too (D111): the JavaScript
+  of the `transform` key can be CommonJS. Node keeps one module
+  for each file, and a `require` does not go through the resolve
+  hook with the URL of the instance. So the load hook gives each
+  CommonJS module of an instance its own `require`, which gives
+  the mock of a mocked dependency, and loads a new module for
+  each project file, one time for each instance. In a CommonJS
+  instance, a dependency that is an ES module is not new.
 
 Built in `src/mock.ts`. Node and Deno use the hooks of
 `module.registerHooks`. Bun has no such hooks, so the library uses

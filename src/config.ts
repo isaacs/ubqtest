@@ -26,6 +26,8 @@ export interface Config {
   workers?: { config: string; include: string[]; vars?: Record<string, unknown> }[]
   /** Global values that the source reads, as the `define` of vite gives them (D83). */
   define?: Record<string, unknown>
+  /** The compiler for source that Node cannot run with only its types removed (D111). */
+  transform?: 'typescript' | 'swc'
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -83,6 +85,7 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
     define,
     'an object of names and JSON values, such as { "__DEBUG_BUILD__": true }. Each name is a global name: a dot is not permitted',
   ],
+  transform: [v => v === 'typescript' || v === 'swc', '"typescript" or "swc"'],
 }
 
 let cached: Config | undefined
