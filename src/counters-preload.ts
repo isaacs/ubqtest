@@ -86,9 +86,9 @@ if (counters?.transformed)
     file: string,
   ): NodeJS.Require => {
     // On these versions, a file that `import` loaded gets a
-    // `require` of the ES module loader. It has no `resolve`, and
-    // on Node 22 it fails for a module that is not CommonJS.
-    const base = typeof real.resolve === 'function' ? real : createRequire(file)
+    // `require` of the ES module loader, which has no `cache`. On
+    // Node 22 it fails for a module that is not CommonJS.
+    const base = real.cache ? real : createRequire(file)
     return Object.assign((name: string): unknown => {
       if (!/^\.\.?(\/|$)/.test(name)) return base(name)
       for (const other of [name, ...names(name)]) {
