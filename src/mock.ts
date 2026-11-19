@@ -2,7 +2,7 @@
 // dependencies replaced. See docs/05-api.md, section 6.
 import { readFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 import { SOURCE } from './counters.ts'
 import { projectRoot, rel } from './project.ts'
 import { callSite } from './stack.ts'
@@ -58,7 +58,10 @@ const STUB = 'ubqstub:'
 const MOCK = 'ubqmock:'
 
 /** Project code gets a new instance for each mock. Packages and builtins do not. */
-const ownCode = (url: string): boolean => url.startsWith('file:') && !/[\\/]node_modules[\\/]/.test(url)
+/** The folder of this library. With a link to the package, it is not in `node_modules`. */
+const LIBRARY = new URL('.', import.meta.url).href
+const ownCode = (url: string): boolean =>
+  url.startsWith('file:') && !/[\\/]node_modules[\\/]/.test(url) && !url.startsWith(LIBRARY)
 
 /** The source of the module that replaces dependency `dep` in mock `id`. */
 const mockSource = (id: string, dep: string): string => {
@@ -180,6 +183,26 @@ const register = (): void => {
   })
 }
 
+/**
+ * The error for an import of `name` in the file at `path` that
+ * names no file. Its stack has one frame: the import statement.
+ */
+const notFound = (name: string, path: string): Error => {
+  // Node gives the full path of the file that is not there. Bun gives
+  // the name as the import has it.
+  // ubq: not measured: the tests of this file run on Node
+  const shown = isAbsolute(name) ? rel(name) : name
+  const error = new Error(`Cannot find module '${shown}' imported from ${rel(path)}`)
+  const lines = readFileSync(path, 'utf8').split('\n')
+  // The import names the file by its last part, with any path before it.
+  const last = name.slice(name.lastIndexOf('/') + 1)
+  const line = lines.findIndex(text => /\b(import|from|require)\b/.test(text) && text.includes(last))
+  // ubq: not measured: each import of the tests has its name on one line
+  if (line >= 0)
+    error.stack = `${error.name}: ${error.message}\n    at ${path}:${line + 1}:${lines[line]!.indexOf(last) + 1}`
+  return error
+}
+
 const SHAPE = "must be an arrow function of the form () => import('...')"
 
 /**
@@ -240,6 +263,12 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
   try {
     return await loaded
   } catch (error) {
+    // An import in the new instance that names no file. The place of
+    // the failure is that import, and the names are as in the project.
+    const lost = /^Cannot find (?:module|package) '([^']+)' imported from (\S+?)(?:\?mock=\d+)?$/.exec(
+      String((error as { message?: unknown } | null)?.message),
+    )
+    if (lost) throw notFound(lost[1]!, lost[2]!)
     // The module under test imports a name that the mock does not have.
     const message = error instanceof SyntaxError ? error.message : ''
     const node = /module '([^']+)' does not provide an export named '([^']+)'/.exec(message)

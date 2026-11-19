@@ -418,6 +418,11 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `mockImport`: an import in the new instance that names no
+    file fails at the import statement, with the names of the
+    project. With a link to the ubqtest package, the new instance
+    gets the library of the test, not a second copy.
+  - The end of a test file waits for the end of its events pipe.
   - `ubq convert` knows Playwright Test (D105): the page of a
     test, and the checks that wait.
   - `assert.greaterThanOrEqual` and `assert.lessThanOrEqual`
