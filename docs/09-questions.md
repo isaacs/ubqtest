@@ -10,7 +10,7 @@ answer to Q7 is D38. The answer to Q8 is D39. The answer to Q9 is
 D45. The answer to Q10 is D48. The answers to Q11 are D49 and D50.
 The answer to Q12 is D57. The answer to Q13 is D58. The answer
 to Q14 is D61. The answers to Q15, Q16, Q18, and Q20 are D60. The answer to Q19
-is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90. The answer to Q31 is D91. The answer to Q32 is D92. The answer to Q33 is D93. The answer to Q34 is D94. The answer to Q35 is D95. The answer to Q36 is D103. The answer to Q37 is D102. The answer to Q38 is D104.
+is D66. The answer to Q21 is D83. The answer to Q22 is D80. The answer to Q24 is D82. The answer to Q25 is D81. The answer to Q26 is D84. The answer to Q23 is D85. The answer to Q17 is D86. The answer to Q27 is D87. The answer to Q28 is D88. The answer to Q29 is D89. The answer to Q30 is D90. The answer to Q31 is D91. The answer to Q32 is D92. The answer to Q33 is D93. The answer to Q34 is D94. The answer to Q35 is D95. The answer to Q36 is D103. The answer to Q37 is D102. The answer to Q38 is D104. The answer to Q39 is D107.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -25,33 +25,6 @@ D78 to D86 did not decide.
 
 Q36 to Q38 came from `20-seldo-feedback-0.0.18.md`.
 
-Q39 comes from the benchmark of `bench/`, after D106. The
-profile of a run found no large cost in the code of ubq: the
-runner is busy for 70 ms, and a test process takes 17 ms more
-than a `node` process with no program. The costs that stay are
-those of the design: a process for each test file (D9, D34) is a
-third of the CPU time, and that is decided.
+Q39 came from the benchmark of `bench/`.
 
-## Q39. More test processes at the same time than CPUs
-
-The runner starts as many test processes at the same time as the
-machine has CPUs. A test that waits (a timer, a child process, a
-request) uses no CPU while it waits.
-
-Measured with the 20 files of the benchmark, same CPU time in
-each row:
-
-| Processes at the same time | 2 CPUs: wall ms | 4 CPUs: wall ms |
-| --- | ---: | ---: |
-| the count of CPUs (now) | 792 | 484 |
-| CPUs + 1 | 716 | 517 |
-| 2 x CPUs | 699 | 478 |
-
-1. The count of CPUs + 1.
-2. Two times the count of CPUs.
-3. No change.
-
-The agent would do 1. It gives 10% on a small machine, such as a
-free CI machine, where tests wait. The risk: with more processes
-than CPUs, each test gets less CPU, so a test near its time limit
-can go over it. 2 has more of that risk for 2% more.
+No question is open.

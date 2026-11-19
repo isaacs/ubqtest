@@ -84,42 +84,42 @@ Node v24.22.3. ubqtest 0.0.19, vitest 5.1.1, ava 8.4.0, tape 5.11.0, mocha 12.0.
 
 | Command | 2 CPUs, 2 GB: wall s | CPU s | MB | 4 CPUs, 4 GB: wall s | CPU s | MB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ubq | 0.78 | 1.27 | 67 | 0.47 | 1.28 | 67 |
-| ubq, with no state of a run before | 1.00 | 1.66 | 125 | 0.70 | 1.73 | 115 |
-| ubq, with the type check | 0.82 | 1.37 | 84 | 0.49 | 1.44 | 85 |
-| vitest | 2.15 | 2.34 | 134 | 0.92 | 2.45 | 134 |
-| vitest, no isolation | 0.93 | 0.86 | 131 | 0.59 | 1.05 | 134 |
-| ava | 1.58 | 2.81 | 173 | 1.22 | 2.92 | 172 |
-| tape | 0.89 | 0.85 | 138 | 0.86 | 0.88 | 139 |
-| mocha | 0.80 | 0.74 | 120 | 0.76 | 0.75 | 121 |
-| mocha, parallel | 0.79 | 1.29 | 100 | 0.60 | 1.31 | 101 |
+| ubq | 0.74 | 1.32 | 68 | 0.48 | 1.28 | 67 |
+| ubq, with no state of a run before | 0.97 | 1.71 | 125 | 0.71 | 1.73 | 115 |
+| ubq, with the type check | 0.79 | 1.40 | 83 | 0.48 | 1.45 | 85 |
+| vitest | 2.13 | 2.36 | 134 | 0.91 | 2.45 | 134 |
+| vitest, no isolation | 0.90 | 0.85 | 130 | 0.59 | 1.06 | 131 |
+| ava | 1.56 | 2.81 | 175 | 1.23 | 2.96 | 175 |
+| tape | 0.86 | 0.85 | 139 | 0.87 | 0.89 | 137 |
+| mocha | 0.76 | 0.72 | 119 | 0.76 | 0.76 | 120 |
+| mocha, parallel | 0.80 | 1.27 | 100 | 0.59 | 1.32 | 100 |
 
 ### All 20 files, with coverage
 
 | Command | 2 CPUs, 2 GB: wall s | CPU s | MB | 4 CPUs, 4 GB: wall s | CPU s | MB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ubq | 0.74 | 1.21 | 67 | 0.51 | 1.29 | 68 |
-| vitest | 2.52 | 2.77 | 155 | 1.09 | 2.88 | 154 |
-| ava with c8 | 2.01 | 3.57 | 182 | 1.64 | 3.71 | 187 |
-| tape with c8 | 1.13 | 1.18 | 143 | 1.08 | 1.21 | 141 |
-| mocha with c8 | 0.98 | 1.01 | 123 | 0.93 | 1.04 | 122 |
+| ubq | 0.68 | 1.23 | 67 | 0.49 | 1.28 | 68 |
+| vitest | 2.50 | 2.77 | 153 | 1.09 | 2.90 | 155 |
+| ava with c8 | 2.02 | 3.57 | 185 | 1.64 | 3.71 | 188 |
+| tape with c8 | 1.08 | 1.16 | 142 | 1.08 | 1.21 | 141 |
+| mocha with c8 | 0.94 | 1.00 | 124 | 0.93 | 1.04 | 121 |
 
 ### One file (21 tests, 210 plain assertions)
 
 | Command | 2 CPUs, 2 GB: wall s | CPU s | MB | 4 CPUs, 4 GB: wall s | CPU s | MB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ubq | 0.06 | 0.07 | 69 | 0.06 | 0.06 | 69 |
-| ubq, the file as a program | 0.11 | 0.14 | 98 | 0.10 | 0.15 | 99 |
-| vitest | 0.25 | 0.28 | 125 | 0.24 | 0.31 | 126 |
+| ubq | 0.06 | 0.07 | 69 | 0.06 | 0.07 | 69 |
+| ubq, the file as a program | 0.12 | 0.14 | 98 | 0.10 | 0.16 | 100 |
+| vitest | 0.25 | 0.29 | 126 | 0.24 | 0.30 | 126 |
 | ava | 0.21 | 0.25 | 117 | 0.20 | 0.26 | 118 |
-| tape | 0.11 | 0.12 | 86 | 0.09 | 0.13 | 86 |
+| tape | 0.11 | 0.13 | 85 | 0.09 | 0.13 | 86 |
 | mocha | 0.12 | 0.14 | 90 | 0.11 | 0.14 | 91 |
 <!-- /results -->
 
 ## What the results say about ubq
 
-- **Wall time.** ubq is the fastest with 4 CPUs (0.47 s), and
-  level with mocha with 2 CPUs (0.78 s and 0.80 s). mocha runs
+- **Wall time.** ubq is the fastest with 4 CPUs (0.48 s), and
+  level with mocha with 2 CPUs (0.74 s and 0.76 s). mocha runs
   each file in one process, with no isolation and no coverage.
   With coverage for each tool, ubq is the fastest in the two
   budgets.
@@ -129,8 +129,8 @@ Node v24.22.3. ubqtest 0.0.19, vitest 5.1.1, ava 8.4.0, tape 5.11.0, mocha 12.0.
   each test file. Of the tools that give each file its own
   process or thread, ubq uses the least: vitest uses 2.3 to 2.5
   s, and ava 2.8 to 2.9 s.
-- **A run with no state**, as a job in CI, takes 1.00 s with 2
-  CPUs, and 1.66 s of CPU.
+- **A run with no state**, as a job in CI, takes 0.97 s with 2
+  CPUs, and 1.71 s of CPU.
 - **One file.** `ubq <file>` takes 0.06 s. No other tool is
   below 0.09 s.
 
@@ -198,6 +198,7 @@ The largest cost that stays is the start of Node for each test
 file. That is the design (D9, D34): a file cannot change a second
 file, and a file that hangs stops only itself.
 
-One decision for the user is in `docs/09-questions.md` (Q39):
-more test processes at the same time than CPUs, which gives 10%
-of wall time with 2 CPUs.
+The runner starts one more test process at the same time than
+the machine has CPUs (D107): a test that waits uses no CPU. With
+2 CPUs, the 20 files went from 0.78 s to 0.74 s in the full
+benchmark.

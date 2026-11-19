@@ -2473,3 +2473,25 @@ with no state went from 1.79 s and 3.31 s of CPU to 1.00 s and
 with `process.getBuiltinModule`, to save the time of the ESM form
 of `node:fs`, gave no gain in 60 runs of each form.
 
+## D107. One more test process at the same time than the machine has CPUs (user, 2026-11-19)
+
+Q39. The runner started as many test processes at the same time
+as the machine has CPUs. A test that waits for a timer, a child
+process, or a request uses no CPU while it waits. The user chose
+the count of CPUs + 1.
+
+Measured with the 20 files of the benchmark, with the same CPU
+time in each row:
+
+| Processes at the same time | 2 CPUs: wall ms | 4 CPUs: wall ms |
+| --- | ---: | ---: |
+| the count of CPUs | 792 | 484 |
+| CPUs + 1 | 716 | 517 |
+| 2 x CPUs | 699 | 478 |
+
+The numbers for 4 CPUs differ less than two runs of one row do.
+Two times the count gives 2% more with 2 CPUs, and each test
+then gets less CPU, so a test near its time limit can go over
+it. The mutation check keeps the count of CPUs: its test
+processes do not wait.
+

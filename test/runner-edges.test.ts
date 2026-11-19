@@ -220,7 +220,8 @@ test('waits', { timeout: 60_000 }, async () => {
   assert(true)
 })
 `
-  const count = availableParallelism() + 1
+  // The runner starts one more process than the CPUs (D107).
+  const count = availableParallelism() + 2
   for (let i = 0; i < count; i++) writeFileSync(join(p.dir, `s${i}.test.ts`), slow)
   const t0 = Date.now()
   const r = p.ubq('--max-time', '2000', ...Array.from({ length: count }, (_, i) => `s${i}.test.ts`))

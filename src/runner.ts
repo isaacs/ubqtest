@@ -943,7 +943,9 @@ export const run = async (args: string[]): Promise<number> => {
   const deadline = maxTime === undefined ? undefined : setTimeout(() => limit.abort(reason), maxTime)
   const runAll = async (to: Sink): Promise<void> => {
     const queue = [...ordered]
-    const jobs = Math.min(availableParallelism(), queue.length)
+    // One more than the CPUs: a test that waits for a timer or for a
+    // child process uses no CPU while it waits (D107).
+    const jobs = Math.min(availableParallelism() + 1, queue.length)
     await Promise.all(
       Array.from({ length: jobs }, async () => {
         for (let next = queue.shift(); next; next = queue.shift()) {

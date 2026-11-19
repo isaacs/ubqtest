@@ -18,128 +18,128 @@
     {
       "group": "all files",
       "name": "ubq",
-      "wall s, median": 0.78,
-      "wall s, min": 0.72,
-      "wall s, max": 1.29,
-      "cpu s, median": 1.27,
-      "memory MB": 67
+      "wall s, median": 0.74,
+      "wall s, min": 0.69,
+      "wall s, max": 1.11,
+      "cpu s, median": 1.32,
+      "memory MB": 68
     },
     {
       "group": "all files",
       "name": "ubq, with no state of a run before",
-      "wall s, median": 1,
-      "wall s, min": 0.98,
-      "wall s, max": 1.11,
-      "cpu s, median": 1.66,
+      "wall s, median": 0.97,
+      "wall s, min": 0.94,
+      "wall s, max": 1.05,
+      "cpu s, median": 1.71,
       "memory MB": 125
     },
     {
       "group": "all files",
       "name": "ubq, with the type check",
-      "wall s, median": 0.82,
-      "wall s, min": 0.8,
-      "wall s, max": 0.86,
-      "cpu s, median": 1.37,
-      "memory MB": 84
+      "wall s, median": 0.79,
+      "wall s, min": 0.75,
+      "wall s, max": 0.85,
+      "cpu s, median": 1.4,
+      "memory MB": 83
     },
     {
       "group": "all files",
       "name": "vitest",
-      "wall s, median": 2.15,
-      "wall s, min": 2.13,
-      "wall s, max": 2.18,
-      "cpu s, median": 2.34,
+      "wall s, median": 2.13,
+      "wall s, min": 2.12,
+      "wall s, max": 2.24,
+      "cpu s, median": 2.36,
       "memory MB": 134
     },
     {
       "group": "all files",
       "name": "vitest, no isolation",
-      "wall s, median": 0.93,
-      "wall s, min": 0.91,
-      "wall s, max": 0.94,
-      "cpu s, median": 0.86,
-      "memory MB": 131
+      "wall s, median": 0.9,
+      "wall s, min": 0.9,
+      "wall s, max": 0.92,
+      "cpu s, median": 0.85,
+      "memory MB": 130
     },
     {
       "group": "all files",
       "name": "ava",
-      "wall s, median": 1.58,
-      "wall s, min": 1.56,
+      "wall s, median": 1.56,
+      "wall s, min": 1.53,
       "wall s, max": 1.6,
       "cpu s, median": 2.81,
-      "memory MB": 173
+      "memory MB": 175
     },
     {
       "group": "all files",
       "name": "tape",
-      "wall s, median": 0.89,
-      "wall s, min": 0.88,
-      "wall s, max": 0.91,
+      "wall s, median": 0.86,
+      "wall s, min": 0.85,
+      "wall s, max": 0.88,
       "cpu s, median": 0.85,
-      "memory MB": 138
+      "memory MB": 139
     },
     {
       "group": "all files",
       "name": "mocha",
-      "wall s, median": 0.8,
-      "wall s, min": 0.78,
-      "wall s, max": 0.81,
-      "cpu s, median": 0.74,
-      "memory MB": 120
+      "wall s, median": 0.76,
+      "wall s, min": 0.73,
+      "wall s, max": 0.77,
+      "cpu s, median": 0.72,
+      "memory MB": 119
     },
     {
       "group": "all files",
       "name": "mocha, parallel",
-      "wall s, median": 0.79,
-      "wall s, min": 0.72,
-      "wall s, max": 0.87,
-      "cpu s, median": 1.29,
+      "wall s, median": 0.8,
+      "wall s, min": 0.77,
+      "wall s, max": 0.82,
+      "cpu s, median": 1.27,
       "memory MB": 100
     },
     {
       "group": "all files, with coverage",
       "name": "ubq",
-      "wall s, median": 0.74,
-      "wall s, min": 0.72,
-      "wall s, max": 0.83,
-      "cpu s, median": 1.21,
+      "wall s, median": 0.68,
+      "wall s, min": 0.67,
+      "wall s, max": 0.7,
+      "cpu s, median": 1.23,
       "memory MB": 67
     },
     {
       "group": "all files, with coverage",
       "name": "vitest",
-      "wall s, median": 2.52,
-      "wall s, min": 2.5,
-      "wall s, max": 2.55,
+      "wall s, median": 2.5,
+      "wall s, min": 2.48,
+      "wall s, max": 2.53,
       "cpu s, median": 2.77,
-      "memory MB": 155
+      "memory MB": 153
     },
     {
       "group": "all files, with coverage",
       "name": "ava with c8",
-      "wall s, median": 2.01,
-      "wall s, min": 1.98,
-      "wall s, max": 2.08,
+      "wall s, median": 2.02,
+      "wall s, min": 1.99,
+      "wall s, max": 2.05,
       "cpu s, median": 3.57,
-      "memory MB": 182
+      "memory MB": 185
     },
     {
       "group": "all files, with coverage",
       "name": "tape with c8",
-      "wall s, median": 1.13,
-      "wall s, min": 1.11,
-      "wall s, max": 1.15,
-      "cpu s, median": 1.18,
-      "memory MB": 143
+      "wall s, median": 1.08,
+      "wall s, min": 1.07,
+      "wall s, max": 1.11,
+      "cpu s, median": 1.16,
+      "memory MB": 142
     },
     {
       "group": "all files, with coverage",
       "name": "mocha with c8",
-      "wall s, median": 0.98,
-      "wall s, min": 0.96,
-      "wall s, max": 0.99,
-      "cpu s, median": 1.01,
-      "memory MB": 123
+      "wall s, median": 0.94,
+      "wall s, min": 0.92,
+      "wall s, max": 0.98,
+      "cpu s, median": 1,
+      "memory MB": 124
     },
     {
       "group": "one file",
@@ -153,7 +153,7 @@
     {
       "group": "one file",
       "name": "ubq, the file as a program",
-      "wall s, median": 0.11,
+      "wall s, median": 0.12,
       "wall s, min": 0.11,
       "wall s, max": 0.12,
       "cpu s, median": 0.14,
@@ -163,17 +163,17 @@
       "group": "one file",
       "name": "vitest",
       "wall s, median": 0.25,
-      "wall s, min": 0.24,
-      "wall s, max": 0.25,
-      "cpu s, median": 0.28,
-      "memory MB": 125
+      "wall s, min": 0.25,
+      "wall s, max": 0.27,
+      "cpu s, median": 0.29,
+      "memory MB": 126
     },
     {
       "group": "one file",
       "name": "ava",
       "wall s, median": 0.21,
       "wall s, min": 0.21,
-      "wall s, max": 0.22,
+      "wall s, max": 0.21,
       "cpu s, median": 0.25,
       "memory MB": 117
     },
@@ -183,8 +183,8 @@
       "wall s, median": 0.11,
       "wall s, min": 0.1,
       "wall s, max": 0.11,
-      "cpu s, median": 0.12,
-      "memory MB": 86
+      "cpu s, median": 0.13,
+      "memory MB": 85
     },
     {
       "group": "one file",
