@@ -2553,5 +2553,11 @@ decision. Each choice here is an assumption of the assistant.
   `mockImport`, `mockImport` on Bun and a dependency that cannot
   load, and output with no test in the store on Bun: the report
   has no small case, and Bun 1.4.4 is not on this machine.
-- The parser and `<T>() =>` in a `.tsx` file: not confirmed.
+- Some `.spec.ts` files that do not parse, with a position that
+  is not the position in the source: the report has no sample.
+
+Done after the first commit of D108: `<T extends object>() =>`
+in a `.tsx` file parses. `ubq doctor` names decorators. On Bun,
+the console is output of its test. `ubq check` does not list a
+test file. Q42 has the results of a test with the configs of Nx.
 

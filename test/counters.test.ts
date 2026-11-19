@@ -125,3 +125,14 @@ test('assert at the start of the line after an import is a statement', async () 
   const body = parse("import a from './a.json' assert { type: 'json' }\n", 'a.ts').body as { type: string }[]
   assert.equal(body.length, 1)
 })
+
+test('an arrow function with one type parameter parses in a .tsx file', async () => {
+  const { parse } = await import('../src/instrument.ts')
+  const body = parse('const f = <T extends object>(v: T): T => v\nconst el = <a>{f}</a>\n', 'a.tsx').body as {
+    declarations: { init: { type: string } }[]
+  }[]
+  assert.deepEqual(
+    body.map(n => n.declarations[0]!.init.type),
+    ['ArrowFunctionExpression', 'JSXElement'],
+  )
+})

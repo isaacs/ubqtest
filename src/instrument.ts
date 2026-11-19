@@ -64,6 +64,11 @@ const ownLine = (Base: never) =>
       if (this.value === 'assert' && /[\n\r\u2028\u2029]/.test(this.input.slice(this.lastTokEnd, this.start))) return
       super.parseMaybeImportAttributes(node)
     }
+    // The plugin refuses an arrow function with one type parameter
+    // and no comma in a file with JSX. TypeScript takes
+    // `<T extends object>() => ...` in a `.tsx` file, and reports
+    // the forms that it does not take.
+    reportReservedArrowTypeParam(): void {}
   }
 const parser = Parser.extend(tsPlugin() as never, ownLine as never)
 // In a `.tsx` or `.jsx` file, `<` can start an element. In a `.ts`
