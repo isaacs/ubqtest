@@ -230,7 +230,7 @@ ubq check --diff=<commit> the same, with the lines that differ from that commit 
   git repository.
 
 Each problem is a line that names the command to run. The last
-line is the result: `fail: 2 failed tests, 1 test files to run
+line is the result: `fail: 2 failed tests, 1 test file to run
 again`, or `pass: 17 tests pass on the code as it is now, and each
 change ran in a test.` A result of `ubq` that is older than your
 last change is not a result of your change. Run `ubq check` before
@@ -318,6 +318,7 @@ report blocks again.
 ```ts
 test(name, fn)
 test(name, { skip?: string | false, timeout?: number }, fn)
+// fn gets { signal, skip }. skip('reason') ends the test as skipped, for a condition that the test knows only while it runs.
 describe(name, fn)                 // a name prefix for its tests. fn is sync.
 describe(name, { skip?, timeout? }, fn)
 
@@ -384,6 +385,13 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   time limit. Pass it to `fetch` and to child processes.
 - `skip` is the reason, as text: `{ skip: 'needs a GPU' }`. A
   condition: `{ skip: process.platform === 'win32' && 'needs fork' }`.
+  For a condition that the test knows only while it runs, the
+  test function gets `skip`: `test('x', async ({ skip }) => { if
+  (!(await ready())) skip('the service is not there') ... })`.
+- An assertion outside a test is a function that throws if its
+  check fails: at the top level of a file, or in a `cleanup()` of
+  the file. A failure there is an `ERROR` block of the file, with
+  the values. `assert.snapshot` needs a test.
 - Tests of a file run one at a time, in the order of the file.
 - `fakeClock` replaces the global timers and `Date`. On Node, it
   also replaces a name that a file imported from `node:timers` or

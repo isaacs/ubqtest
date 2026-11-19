@@ -9,6 +9,7 @@ import { DatabaseSync } from './sqlite.ts'
 import { UsageError } from './config.ts'
 import { projectRoot } from './project.ts'
 import { stateDir } from './store.ts'
+import { counted } from './counted.ts'
 
 type Status = 'pass' | 'fail' | 'skip'
 
@@ -117,10 +118,10 @@ export const compare = (base: Baseline, now: Map<string, Status>, errors: Set<st
   for (const file of errors) (base.errors.has(file) ? old : fresh).push(`ERROR ${file}`)
   const gone = [...base.tests.keys()].filter(id => !now.has(id)).length
   const parts = [
-    `${fresh.length} new failures`,
+    counted`${fresh.length} new failure|failures`,
     `${old.length} failed in the baseline too`,
     `${fixed.length} fixed`,
-    ...(gone ? [`${gone} tests of the baseline did not run`] : []),
+    ...(gone ? [counted`${gone} test|tests of the baseline did not run`] : []),
   ]
   const lines = [`baseline ${base.ref} (${base.commit}): ${parts.join(', ')}`]
   const list = (head: string, ids: string[]): void => {

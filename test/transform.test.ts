@@ -186,7 +186,7 @@ test('the modules of an instance', async () => {
     // Coverage has the places of the source.
     assert.deepEqual(p.ubq('uncovered', 'src/service.ts').out.split('\n').slice(0, 2), [
       'src/service.ts:24:3  never(): number { (+2 lines)',
-      '1 uncovered ranges in src/service.ts',
+      '1 uncovered range in src/service.ts',
     ])
     // The JavaScript is in the cache, with its module system.
     const entries = readdirSync(join(p.dir, '.ubq/counters')).map(
@@ -344,7 +344,7 @@ test('ubq convert --transform sets the key, and installs swc with the package ma
   // With no key, `ubq doctor` has the question for the user.
   assert.match(
     p.ubq('doctor').out,
-    /^FIX  1 files have TypeScript syntax that Node cannot run .*: src\/kind\.ts\. .* Ask them to choose one of three\. \(1\) .* ubq convert --transform=typescript\. .* \(2\) .* ubq convert --transform=swc, .* \(3\) Run the tests on Bun /m,
+    /^FIX  1 file has TypeScript syntax that Node cannot run .*: src\/kind\.ts\. .* Ask them to choose one of three\. \(1\) .* ubq convert --transform=typescript\. .* \(2\) .* ubq convert --transform=swc, .* \(3\) Run the tests on Bun /m,
   )
   const set = p.ubq('convert', '--transform=typescript')
   assert.deepEqual(

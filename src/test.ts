@@ -23,6 +23,21 @@ import type { WatchData, WatchMessage } from './watchdog.ts'
 export interface TestContext {
   /** Aborts when the test times out. */
   readonly signal: AbortSignal
+  /**
+   * Ends the test as skipped, with the reason. For a condition
+   * that the test knows only while it runs. A condition that is
+   * known before is the `skip` option. A test that has a failure
+   * at this point is a failure.
+   *
+   * ```ts
+   * test('wraps long lines', async ({ skip }) => {
+   *   const lines = await measure(page)
+   *   if (lines < 3) skip('the page has no paragraph of three lines')
+   *   assert.lessThan(width(page), 80)
+   * })
+   * ```
+   */
+  skip(reason: string): never
 }
 
 /**
@@ -250,6 +265,9 @@ const start = (): void => {
   })
 }
 
+/** What `skip()` of a test throws, to end the test function. */
+const SKIP = Symbol('skip')
+
 /** A hook of an other test tool, such as one that `ubq convert` left with a TODO. */
 const HOOK = /^(before|after)(Each|All)? is not defined$/
 
@@ -326,6 +344,8 @@ const runCleanups = async (
     } catch (error) {
       const cause = error === TIMEOUT ? undefined : errorFailure(error)
       failure ??= {
+        // An assertion in a cleanup function: its values and its diff.
+        ...cause,
         kind: 'cleanup',
         message: cause
           ? `a cleanup function failed: ${cause.message}`
@@ -407,9 +427,16 @@ const runOne = async (entry: Entry): Promise<void> => {
   const envBefore = { ...process.env }
   const cwdBefore = process.cwd()
   let controller: AbortController | undefined
+  /** The reason of a `skip()` call of the test. */
+  let skipped: string | undefined
   const ctx: TestContext = {
     get signal() {
       return (controller ??= new AbortController()).signal
+    },
+    skip(reason) {
+      if (typeof reason !== 'string' || !reason) throw new TypeError('skip() needs the reason, as text')
+      skipped = reason
+      throw SKIP
     },
   }
   active = state
@@ -436,7 +463,7 @@ const runOne = async (entry: Entry): Promise<void> => {
         ...(pending.length && { pending }),
       }
       controller?.abort(new Error('test timed out'))
-    } else state.failure ??= errorFailure(error)
+    } else if (error !== SKIP) state.failure ??= errorFailure(error)
   }
   clearTimeout(timer)
   // A timer cannot stop a function that does not await. The limit
@@ -454,7 +481,7 @@ const runOne = async (entry: Entry): Promise<void> => {
       message: 'assert.rejects was not awaited. Write: await assert.rejects(...)',
       ...(entry.at && { at: entry.at }),
     }
-  if (!state.failure && state.asserts === 0)
+  if (!state.failure && state.asserts === 0 && skipped === undefined)
     state.failure = {
       kind: 'no-assertions',
       message: 'the test ran no assertions',
@@ -471,13 +498,15 @@ const runOne = async (entry: Entry): Promise<void> => {
   const ms = now() - t0
   state.ended = true
   active = undefined
-  watch({ end: state.failure ? 'fail' : 'pass' })
+  const status = state.failure ? 'fail' : skipped === undefined ? 'pass' : 'skip'
+  watch({ end: status })
   emit({
     type: 'test-end',
     id: entry.id,
-    status: state.failure ? 'fail' : 'pass',
+    status,
     ms,
     asserts: state.asserts,
+    ...(status === 'skip' && { reason: skipped }),
     // A failure with no place of its own has the place of its test()
     // call: a value that is not an error has no stack, and Bun gives
     // no place for a failure in a body that is one expression.
@@ -599,8 +628,9 @@ const stray = (error: unknown): void => {
     })
   }
   if (active) return active.fail(errorFailure(error))
-  // ubq: not measured: an assertion outside a test fails the file first
-  if (error instanceof AssertionFailure) return
+  // The test of the assertion has the failure.
+  // ubq: not measured: a failed assertion of a test rejects the promise of the test
+  if (error instanceof AssertionFailure && !error.outside) return
   start()
   failedOutside = true
   emit({ type: 'file-error', file: file!, failure: errorFailure(error) })

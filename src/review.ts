@@ -15,6 +15,7 @@ import { lineDiff } from './since.ts'
 import { stale, testFiles, testsOfLines } from './query.ts'
 import { snapshotEntries } from './snapshot.ts'
 import { openStore } from './store.ts'
+import { counted } from './counted.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -173,7 +174,7 @@ export const reviewCommand = (args: string[], out: (line: string) => void): numb
   for (const item of items) for (const line of item) out(line)
   for (const note of notes) out(note)
   // A note says that the review is not complete: not "nothing to do".
-  if (items.length) out(`review: ${items.length} changes to review, since ${from}`)
+  if (items.length) out(counted`review: ${items.length} change|changes to review, since ${from}`)
   else if (!notes.length) out('review: nothing to do')
   return items.length ? 1 : 0
 }
@@ -337,7 +338,7 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
 
   if (converted)
     notes.push(
-      `note: ${converted} files had no ubq tests at ${from}, and have them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.`,
+      counted`note: ${converted} file|files had no ubq tests at ${from}, and has|have them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.`,
     )
   if (old.length)
     notes.push(

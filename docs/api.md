@@ -52,7 +52,7 @@ the order of the alphabet.
   - [`SpyCall`](#spycall)
   - [`SpyFunction`](#spyfunction)
   - [`TestContext`](#testcontext)
-    - [`TestContext.signal`](#testcontext-signal)
+    - [`TestContext.signal`](#testcontext-signal), [`TestContext.skip`](#testcontext-skip)
   - [`TestFn`](#testfn)
   - [`TestOptions`](#testoptions)
     - [`TestOptions.skip`](#testoptions-skip), [`TestOptions.timeout`](#testoptions-timeout)
@@ -791,6 +791,25 @@ Aborts when the test times out.
 
 ```ts
 readonly signal: AbortSignal;
+```
+
+#### `TestContext.skip`
+
+Ends the test as skipped, with the reason. For a condition
+that the test knows only while it runs. A condition that is
+known before is the `skip` option. A test that has a failure
+at this point is a failure.
+
+```ts
+test('wraps long lines', async ({ skip }) => {
+  const lines = await measure(page)
+  if (lines < 3) skip('the page has no paragraph of three lines')
+  assert.lessThan(width(page), 80)
+})
+```
+
+```ts
+skip(reason: string): never;
 ```
 
 ### `TestFn`

@@ -198,7 +198,7 @@ test('ubq review: a change in the ubq key shows each line of the key', () => {
       '      ],',
       '      "timeout": 100',
       '    }',
-      'review: 1 changes to review, since the last commit',
+      'review: 1 change to review, since the last commit',
       '',
     ].join('\n'),
   )
@@ -219,7 +219,7 @@ test('ubq review --diff: from where the branch left the commit', () => {
   assert.equal(r.code, 1)
   assert.equal(
     r.out,
-    'removed: test/math.test.ts > math > neg (test/math.test.ts:9 in HASH)\nreview: 1 changes to review, since main\n',
+    'removed: test/math.test.ts > math > neg (test/math.test.ts:9 in HASH)\nreview: 1 change to review, since main\n',
   )
 })
 
@@ -377,7 +377,7 @@ test('ubq review: a file that had the tests of a different tool is not compared,
     [r.code, r.out],
     [
       0,
-      'note: 1 files had no ubq tests at the last commit, and have them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.\n',
+      'note: 1 file had no ubq tests at the last commit, and has them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.\n',
     ],
   )
 })

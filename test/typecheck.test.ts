@@ -157,14 +157,14 @@ test('${name}', () => {
   const one = p.ubq('second/second.test.ts')
   assert.deepEqual(
     [one.code, one.out.includes('first.test.ts'), one.last],
-    [1, false, 'fail: 0 failed, 1 passed, 1 type errors, 1 type errors in other files'],
+    [1, false, 'fail: 0 failed, 1 passed, 1 type error, 1 type error in other files'],
   )
   // The run does not print the error of the other file. The store
   // has it, and `ubq failures` prints it.
   const stored = p.ubq('failures')
   assert.deepEqual(
     [stored.out.includes('at second/second.test.ts:2:7'), stored.out.includes('at first.test.ts:2:7'), stored.last],
-    [true, true, 'fail: 0 failed, 1 passed, 1 type errors, 1 type errors in other files'],
+    [true, true, 'fail: 0 failed, 1 passed, 1 type error, 1 type error in other files'],
   )
 })
 
@@ -351,7 +351,7 @@ test('a tsconfig.json with only references: ubq makes tsconfig.ubq.json, one tim
     '  at apps/app/src/three.spec.ts:3:7',
     '  > const text: string = 0 as unknown as typeof common.add',
   ])
-  assert.match(first.last!, /^fail: 0 failed, 1 passed, 1 type errors$/)
+  assert.match(first.last!, /^fail: 0 failed, 1 passed, 1 type error$/)
   const made = join(p.dir, 'apps/app/tsconfig.ubq.json')
   assert.deepEqual(JSON.parse(readFileSync(made, 'utf8').replace(/^\/\/.*\n/gm, '')), {
     extends: './tsconfig.spec.json',
@@ -433,7 +433,7 @@ test('with the skipTypecheck key, a run does not check the types', () => {
     join(p.dir, 'wrong.test.ts'),
     "import { assert, test } from 'ubqtest'\nconst n: number = 'x' as never as string\ntest('runs', () => assert(n))\n",
   )
-  assert.equal(p.ubq('wrong.test.ts').last, 'fail: 0 failed, 1 passed, 1 type errors')
+  assert.equal(p.ubq('wrong.test.ts').last, 'fail: 0 failed, 1 passed, 1 type error')
   p.configure({ skipTypecheck: true })
   assert.equal(p.ubq('wrong.test.ts').last, 'pass: 0 failed, 1 passed')
   assert.equal(p.ubq('wrong.test.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')

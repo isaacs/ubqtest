@@ -845,7 +845,9 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     [
       "import { assert } from 'ubqtest'",
       '',
-      '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
+      '// TODO(ubq): This assertion is in no test. It runs when the file loads,',
+      '// and a failure is an error of the file, not of a test. If it is a check',
+      '// of the code under test, put it in a test().',
       'assert.equal(1, 1)',
     ],
   ],

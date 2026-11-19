@@ -1,6 +1,7 @@
 // Values as text, and the differences between two values.
 import { inspect, isDeepStrictEqual } from 'node:util'
 import { COUNTER_NAME } from './counters.ts'
+import { counted } from './counted.ts'
 
 const MAX_TEXT = 4000
 const MAX_DIFFS = 8
@@ -16,7 +17,9 @@ export const show = (value: unknown): string => {
     maxStringLength: 1000,
     sorted: true,
   })
-  return text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT)}… (${text.length - MAX_TEXT} more characters)` : text
+  return text.length > MAX_TEXT
+    ? counted`${text.slice(0, MAX_TEXT)}… (${text.length - MAX_TEXT} more character|characters)`
+    : text
 }
 
 /** One difference between an actual value and an expected value. */
@@ -38,7 +41,7 @@ export const showDiffs = (diffs: Diff[], more = 0): string => {
     out.push(`${pad}expected: ${indent(d.expected, pad.length + 10)}`)
     if (d.note) out.push(`${pad}note: ${d.note}`)
   }
-  if (more) out.push(`… and ${more} more differences`)
+  if (more) out.push(counted`… and ${more} more difference|differences`)
   return out.join('\n')
 }
 

@@ -136,7 +136,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     ])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
       'src/add.ts:4:22  (): number => 0',
-      '1 uncovered ranges in 1 of the 1 files that tests ran',
+      '1 uncovered range in 1 of the 1 file that tests ran',
     ])
   })
 
@@ -191,7 +191,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     assert.deepEqual(run('uncovered'), [
       [
         "src/index.ts:33:32  return new Response('this line has no test')",
-        '1 uncovered ranges in 1 of the 2 files that tests ran',
+        '1 uncovered range in 1 of the 2 files that tests ran',
       ],
       '',
     ])

@@ -86,7 +86,7 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
   ])
   // An update of one test keeps the snapshots of the other tests.
   assert.deepEqual(out('--update', 'snap.ts > text'), [
-    'updated 1 snapshots: ubq-snapshots/snap.ts.snap',
+    'updated 1 snapshot: ubq-snapshots/snap.ts.snap',
     'pass: 0 failed, 1 passed, 1 not selected',
   ])
   assert.match(readFileSync(snap, 'utf8'), /a: 'one',[^]*\nexports\[`text 1`\] = `\ntwo\n`\n$/)
@@ -105,7 +105,7 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
   )
   assert.equal(
     p.ubq('--update', 'snap.ts > words').out.split('\n')[0],
-    'updated 1 snapshots: ubq-snapshots/snap.ts.snap',
+    'updated 1 snapshot: ubq-snapshots/snap.ts.snap',
   )
   const text = readFileSync(snap, 'utf8')
   assert.deepEqual(
@@ -163,11 +163,11 @@ test('ubq --update with no file writes the snapshots of all tests', () => {
   )
   // A run with no --update does not write.
   assert.equal(p.ubq().last, 'fail: 2 failed, 0 passed')
-  assert.equal(p.ubq('--update', 'a.test.ts').out.split('\n')[0], 'updated 1 snapshots: ubq-snapshots/a.test.ts.snap')
+  assert.equal(p.ubq('--update', 'a.test.ts').out.split('\n')[0], 'updated 1 snapshot: ubq-snapshots/a.test.ts.snap')
   const all = p.ubq('--update')
   assert.deepEqual(
     [all.out.split('\n')[0], all.last],
-    ['updated 1 snapshots: ubq-snapshots/b.test.ts.snap', 'pass: 0 failed, 2 passed'],
+    ['updated 1 snapshot: ubq-snapshots/b.test.ts.snap', 'pass: 0 failed, 2 passed'],
   )
   assert.equal(p.ubq().last, 'pass: 0 failed, 2 passed')
 })

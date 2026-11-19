@@ -419,11 +419,12 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `skip()` in a test, `assert` outside a test, and each count
+    with the noun for the count: `1 error`, `2 errors` (D117).
   - From the whosonfirst.ai report (D116): `ubq convert` keeps the
     message of an assertion, `prepareContext` for a browser that
     the test starts, the output of a file that calls
-    `process.exit`, and an error for an unknown option. Q49 and
-    Q50 are open.
+    `process.exit`, and an error for an unknown option.
   - `exports.default.fetch()` of `cloudflare:workers` calls the
     Worker under test, as `SELF` of the vitest plugin did (D115).
   - The `skipTypecheck` key, the `env` key, and a hint for an

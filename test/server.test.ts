@@ -12,7 +12,7 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
 test('a run with the server gives the same text, with test processes of the server', { timeout: 120_000 }, async () => {
   const p = project()
   const status = (): { pid: number; used: number; prepared: number } => {
-    const m = /^server: pid (\d+), 8 test processes wait, (\d+) used, (\d+) changed files prepared\n/.exec(
+    const m = /^server: pid (\d+), 8 test processes wait, (\d+) used, (\d+) changed files? prepared\n/.exec(
       p.ubq('server').out,
     )
     assert(m, 'the status line')

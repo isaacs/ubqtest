@@ -12,6 +12,7 @@ import { transformer } from './transform.ts'
 import { listed, OWN_CONFIG, plainJson, type Tsconfig, tsOptions } from './tsconfig.ts'
 import { ownConfig } from './typecheck.ts'
 import { vitestWorkers } from './vitest-config.ts'
+import { counted } from './counted.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -74,7 +75,7 @@ export const doctor = (out: (text: string) => void): number => {
   const projects = workspaces()
   if (projects.length)
     out(
-      `note this folder is the root of a monorepo with ${projects.length} projects (${projects.slice(0, 3).join(', ')}${projects.length > 3 ? ', ...' : ''}). ubq runs the tests of one project: run ubq and ubq doctor in the folder of a project. At the root, ubq runs each project, one after the other, only if the root has no test files of its own.`,
+      counted`note this folder is the root of a monorepo with ${projects.length} project|projects (${projects.slice(0, 3).join(', ')}${projects.length > 3 ? ', ...' : ''}). ubq runs the tests of one project: run ubq and ubq doctor in the folder of a project. At the root, ubq runs each project, one after the other, only if the root has no test files of its own.`,
     )
 
   try {
@@ -87,7 +88,7 @@ export const doctor = (out: (text: string) => void): number => {
   let tests: string[] = []
   try {
     tests = select([]).map(s => s.file)
-    if (tests.length) ok(`${tests.length} test files`)
+    if (tests.length) ok(counted`${tests.length} test file|files`)
     else
       fix(
         'no test files. The name of a test file must end in .test.ts (or .test.js, .test.mts, ...). Rename the files, or set "ubq": { "include": ["test/**/*.ts"] } in package.json.',
@@ -107,7 +108,7 @@ export const doctor = (out: (text: string) => void): number => {
   )
   if (other.length)
     fix(
-      `${other.length} test files do not import ubqtest: ${other.slice(0, 5).join(', ')}${other.length > 5 ? `, and ${other.length - 5} more` : ''}. Convert each test file: ubq convert <file>. Remove each file that is not a test file, or add it to "ubq": { "exclude": [...] } in package.json.`,
+      counted`${other.length} test file|files does|do not import ubqtest: ${other.slice(0, 5).join(', ')}${other.length > 5 ? `, and ${other.length - 5} more` : ''}. Convert each test file: ubq convert <file>. Remove each file that is not a test file, or add it to "ubq": { "exclude": [...] } in package.json.`,
     )
 
   let workersPool = false
@@ -201,7 +202,7 @@ export const doctor = (out: (text: string) => void): number => {
   if (stray.length) {
     const more = stray.length > 5 ? `, and ${stray.length - 5} more` : ''
     fix(
-      `${stray.length} files have tests, and "ubq" with no arguments does not run them: ${stray.slice(0, 5).join(', ')}${more}. Give each one a name that ends in .test.ts, or add them to "ubq": { "include": [...] } in package.json.`,
+      counted`${stray.length} file|files has|have tests, and "ubq" with no arguments does not run them: ${stray.slice(0, 5).join(', ')}${more}. Give each one a name that ends in .test.ts, or add them to "ubq": { "include": [...] } in package.json.`,
     )
   }
 
@@ -270,7 +271,7 @@ export const doctor = (out: (text: string) => void): number => {
       : ''
   if (hard.length)
     fix(
-      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. ${HARD_CHOICE}`,
+      counted`${hard.length} file|files has|have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. ${HARD_CHOICE}`,
     )
 
   // The type check reads the tsconfig.json of each folder from a
@@ -320,7 +321,7 @@ export const doctor = (out: (text: string) => void): number => {
           include: ['.'],
         }
     fix(
-      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and no config of its folder that it references has these files. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
+      counted`${bare.length} test file|files is|are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and no config of its folder that it references has these files. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
     )
   }
   // With no TypeScript test file, the config of the project.
@@ -358,6 +359,6 @@ export const doctor = (out: (text: string) => void): number => {
     }
   }
 
-  out(`doctor: ${problems} problems`)
+  out(counted`doctor: ${problems} problem|problems`)
   return problems
 }

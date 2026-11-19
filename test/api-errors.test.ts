@@ -273,7 +273,7 @@ test('each kind of failed assertion has a report with the two values and the pla
   writeFileSync(join(p.dir, 'asserts.test.ts'), asserts)
   writeFileSync(
     join(p.dir, 'outside.test.ts'),
-    "import { assert, test } from 'ubqtest'\nassert.equal(1, 1)\ntest('a', () => assert(true))\n",
+    "import { assert, test } from 'ubqtest'\nassert.equal(1, 2)\ntest('a', () => assert(true))\n",
   )
   const r = p.ubq()
   const blocks = new Set(r.out.split('\n\n'))
@@ -281,10 +281,13 @@ test('each kind of failed assertion has a report with the two values and the pla
   const fail = (name: string, line: number, ...lines: string[]): void =>
     has(`FAIL asserts.test.ts > ${name}`, ...lines, `  rerun: ubq asserts.test.ts:${line}`)
   has(
+    // An assertion that is in no test fails the file, with its values.
     'ERROR outside.test.ts',
-    '  Error: assert was called outside a test',
+    '  expected values to be equal',
     '  at outside.test.ts:2:8',
-    '  > assert.equal(1, 1)',
+    '  > assert.equal(1, 2)',
+    '  actual:   1',
+    '  expected: 2',
   )
   fail(
     'throws: a message that does not match',
@@ -409,7 +412,7 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  at asserts.test.ts:67:3',
     '  > assert(false)',
   )
-  assert.equal(r.last, 'fail: 1 errors, 15 failed, 1 passed')
+  assert.equal(r.last, 'fail: 1 error, 15 failed, 1 passed')
 })
 
 test('a snapshot file that cannot be written, two open timers, and a changed variable', () => {

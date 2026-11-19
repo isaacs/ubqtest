@@ -75,8 +75,8 @@ test('a source that changed after the build has no coverage until the next build
   assert.deepEqual(p.uncovered(), [
     'lib/index.ts:4:21  { (+2 lines)',
     'lib/index.ts:10:22  (): number => 0',
-    '2 uncovered ranges in 1 of the 1 files that tests ran',
-    'note: coverage is not complete for 1 test files: out.test.ts (partial). Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>',
+    '2 uncovered ranges in 1 of the 1 file that tests ran',
+    'note: coverage is not complete for 1 test file: out.test.ts (partial). Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>',
   ])
   p.build(false)
   assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')

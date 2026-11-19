@@ -8,6 +8,7 @@ import { now, setTimeout } from './real.ts'
 import { checkSnapshot } from './snapshot.ts'
 import { userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
+import { counted } from './counted.ts'
 
 /** The count of `isDeepEqual` calls that a failure of `assert` shows. */
 const MAX_COMPARED = 8
@@ -15,10 +16,13 @@ const MAX_COMPARED = 8
 /** Thrown by a failed assertion. The test state already has the failure. */
 export class AssertionFailure extends Error {
   failure: Failure
-  constructor(failure: Failure) {
+  /** True for an assertion that failed outside a test: no test has the failure. */
+  outside: boolean
+  constructor(failure: Failure, outside = false) {
     super(failure.message)
     this.name = 'AssertionFailure'
     this.failure = failure
+    this.outside = outside
   }
 }
 
@@ -266,10 +270,25 @@ export interface Assert {
 /**
  * Counts one assertion for the current test. Returns undefined if the
  * test already ended: the caller must then do nothing more.
+ *
+ * Outside a test, an assertion is a function that throws if its
+ * check fails (D117): at the top level of a file, or in a cleanup
+ * function of the file. It then gets a state that no test has.
  */
 const begin = (): TestState | undefined => {
   const state = current.getStore()
-  if (!state) throw new Error('assert was called outside a test')
+  if (!state)
+    return {
+      id: '',
+      asserts: 0,
+      ended: false,
+      late: false,
+      unawaited: new Set(),
+      cleanups: [],
+      kept: [],
+      // ubq: not measured: only a test with a promise that waits has a use for it
+      fail() {},
+    }
   if (state.ended) {
     if (!state.failure && !state.late) {
       state.late = true
@@ -316,7 +335,7 @@ const fail = (
   // Recorded before the throw, so that a `catch` in the test cannot
   // hide the failure.
   state.failure ??= failure
-  throw new AssertionFailure(failure)
+  throw new AssertionFailure(failure, !state.id)
 }
 
 /** Why `error` does not fit `expected`, or undefined if it fits. */
@@ -409,7 +428,7 @@ const containsFailure = (
         else hi = mid - 1
       }
       at = actual.indexOf(wanted.slice(0, length))
-      if (length) note.push(`the first ${length} characters of the expected text are at index ${at}`)
+      if (length) note.push(counted`the first ${length} character|characters of the expected text are at index ${at}`)
     }
     shown = excerpt(actual, at, note)
   }
@@ -618,6 +637,7 @@ const methods = {
   snapshot(value: unknown, message?: string): void {
     const state = begin()
     if (!state) return
+    if (!state.id) throw new Error('assert.snapshot was called outside a test. A snapshot has the name of its test.')
     const file = state.id.slice(0, state.id.indexOf(' > '))
     const result = checkSnapshot(file, state.id, value)
     if (!result.ok)

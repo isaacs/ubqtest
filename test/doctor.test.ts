@@ -94,9 +94,9 @@ test('doctor states the fix for each problem of the setup', () => {
         ),
       ),
     [
-      'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project.',
+      'FIX  1 file has TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project.',
       'ok   tsconfig.json',
-      'doctor: 1 problems',
+      'doctor: 1 problem',
     ],
   )
   // A build tool is not code that a test loads.
@@ -123,7 +123,7 @@ test('doctor states the fix for each problem of the setup', () => {
 
   writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:test'\n")
   // The file still imports the old tool.
-  assert.match(doctor().lines[2]!, /^FIX  1 test files do not import ubqtest: worker\.ts\. Convert each test file/)
+  assert.match(doctor().lines[2]!, /^FIX  1 test file does not import ubqtest: worker\.ts\. Convert each test file/)
   writeFileSync(join(p.dir, 'worker.ts'), "import { env } from 'cloudflare:workers'\n")
   // With no vitest config: one entry for each wrangler config, as JSON on its own lines.
   assert.match(
@@ -409,7 +409,7 @@ test('doctor: the tsconfig.json that has the test files', () => {
   )
   assert.match(
     lines().join('\n'),
-    /^FIX  1 test files are in no tsconfig\.json: test\/deep\/b\.test\.ts\..*\nFIX  test\/tsconfig\.json: set "allowImportingTsExtensions": true and "erasableSyntaxOnly": true in compilerOptions\./,
+    /^FIX  1 test file is in no tsconfig\.json: test\/deep\/b\.test\.ts\..*\nFIX  test\/tsconfig\.json: set "allowImportingTsExtensions": true and "erasableSyntaxOnly": true in compilerOptions\./,
   )
   rmSync(join(p.dir, 'test/tsconfig.json'))
   // A list of files, a folder with a pattern, and a config with references.
@@ -437,7 +437,7 @@ test('doctor: the tsconfig.json that has the test files', () => {
   p.configure({ include: ['root.test.ts'] })
   writeFileSync(join(p.dir, 'tsconfig.json'), `{ ${options}, "include": ["src"] }`)
   assert.deepEqual(lines(), [
-    'FIX  1 test files are in no tsconfig.json: root.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. Add them to "include" of tsconfig.json.',
+    'FIX  1 test file is in no tsconfig.json: root.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. Add them to "include" of tsconfig.json.',
   ])
   // More files than the line names.
   for (const n of [1, 2, 3, 4, 5]) writeFileSync(join(p.dir, `test/n${n}.test.ts`), source)

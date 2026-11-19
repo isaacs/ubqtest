@@ -322,7 +322,7 @@ test('a run prints no note on code that no test ran; the summary of a step has t
     assert.equal(r.stdout, `pass: 0 failed, ${files.length} passed (run ${r.stdout.match(/run (\d+)/)![1]})\n`)
     return /^- .* ran in no test.*$/m.exec(readFileSync(file, 'utf8'))?.[0]
   }
-  assert.equal(note('a.test.ts'), '- 1 ranges of code in the files of this run ran in no test: `ubq uncovered`')
+  assert.equal(note('a.test.ts'), '- 1 range of code in the files of this run ran in no test: `ubq uncovered`')
   // With full coverage, there is no note.
   writeFileSync(
     join(p.dir, 'b.test.ts'),

@@ -2890,8 +2890,43 @@ Not done, with the reason:
   TODO. The change of D84 is correct for each test, and starts a
   server when the file loads, which a run of one test also
   needs. No change.
-- "1 type errors": each count of ubq has the form `N things`. No
-  change.
+- "1 type errors": no change here. D117 changed it.
 - Q49 and Q50 are decisions for the user.
 - Tests of one file run one at a time (D9, D34).
+
+## D117. `skip()` in a test, `assert` outside a test, and counts with the correct noun (user, 2026-11-19)
+
+The answers to Q49 and Q50, and a request with them.
+
+- **`skip(reason)`** is a member of the argument of a test
+  function: `test('x', ({ skip }) => ...)`. It ends the test as
+  skipped, with the reason. The `skip` option stays for a
+  condition that is known when the file loads. A test that has a
+  failure when it calls `skip()` is a failure. A test that is
+  skipped in this way does not need an assertion. The reason is
+  necessary, as text.
+- **`assert` works outside a test.** The user: "what's the harm
+  in having assert() allowed outside a test? Could it just be a
+  normal assertion function that throws if the condition isn't
+  met?" It is that now. The rule was there because a failure
+  needed a test to belong to. A failure at the top level of a
+  file, or in a `cleanup()` of the file, is an ERROR block of the
+  file, with the values and the diff of the assertion. A failure
+  of an assertion in a cleanup function of a test keeps its
+  values too. `assert.snapshot` needs a test: a snapshot has the
+  name of its test.
+- **`ubq convert`** still writes a TODO for an assertion that is
+  in no test: it runs when the file loads, and a file with only
+  such assertions has no tests.
+- **Counts.** The user: "This is now the 3rd or 4th time an agent
+  has raised the `1 errors found` problem." Each text with a
+  count now has the noun, and the verb, for the count: `1 error`,
+  `2 errors`, `1 file has`, `2 files have`. One template tag does
+  it, `counted` in `src/counted.ts`: a pair of words with `|`
+  between them is the word for one, then the word for each other
+  count, and the count is the last number before the pair. 72
+  texts in 16 files use it. A program that reads the last line of
+  a run must read `1 error` and `2 errors`.
+- Not done: `ubq convert` for `t.skip()` of `node:test` in a test
+  body. It has a TODO as before.
 

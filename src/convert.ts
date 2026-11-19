@@ -18,6 +18,7 @@ import { projectRoot, rel } from './project.ts'
 import { type Transformer, transformer } from './transform.ts'
 import { setupTransform } from './transform-setup.ts'
 import { playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
+import { counted } from './counted.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -305,7 +306,8 @@ const TODO = {
     "ubq starts the browser, and closes the page when the test ends: const page = await browser(), from 'ubqtest/browser'. Remove the launch, the new page, and the close.",
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
-  rootAssert: 'ubq needs each assertion in a test. Put this in a test().',
+  rootAssert:
+    'This assertion is in no test. It runs when the file loads, and a failure is an error of the file, not of a test. If it is a check of the code under test, put it in a test().',
   message:
     'This call is not an assertion now, so it has no place for the message, and the message was not text. If it named the case, put the case in the name of a test: call test() in the loop, one test for each case.',
   failLoop:
@@ -2831,7 +2833,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       unnamed.push(file)
     if (/from\s+['"](cloudflare:|ubqtest\/workers)/.test(result.code)) workers++
     out(
-      `${dry ? 'to convert' : 'converted'} ${file} (${result.framework}): ${result.changes} changes, ${result.todos.length} TODO`,
+      counted`${dry ? 'to convert' : 'converted'} ${file} (${result.framework}): ${result.changes} change|changes, ${result.todos.length} TODO`,
     )
     // The text of a hint is long, and many places have the same
     // one. A place has the number of its hint and the first
@@ -2844,11 +2846,16 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   }
   if (hints.length) out('hints:')
   hints.forEach((text, i) => out(`  [${i + 1}] ${text}`))
-  const parts = [`${changed} files ${dry ? 'to change' : 'changed'}`, `${todos} TODO comments`]
-  if (failed) parts.push(`${failed} files not converted (see the lines above)`)
+  const parts = [
+    counted`${changed} file|files ${dry ? 'to change' : 'changed'}`,
+    counted`${todos} TODO comment|comments`,
+  ]
+  if (failed) parts.push(counted`${failed} file|files not converted (see the lines above)`)
   if (unknown.length) {
     const more = unknown.length > 10 ? `, and ${unknown.length - 10} more` : ''
-    parts.push(`${unknown.length} files with no known test tool (${unknown.slice(0, 10).join(', ')}${more})`)
+    parts.push(
+      counted`${unknown.length} file|files with no known test tool (${unknown.slice(0, 10).join(', ')}${more})`,
+    )
   }
   out(`convert: ${parts.join(', ')}`)
   if (unnamed.length && !config().include) {
@@ -2862,7 +2869,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
         : [...new Set(unnamed.filter(u => u.startsWith(`${f}/`)).map(end))].sort().map(e => `${f}/**/*${e}`),
     )
     out(
-      `note: ${unnamed.length} of these files have tests, and do not have a name that ubq runs (*.test.ts): ${unnamed.slice(0, 5).join(', ')}${unnamed.length > 5 ? ', ...' : ''}. Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
+      counted`note: ${unnamed.length} of these files has|have tests, and does|do not have a name that ubq runs (*.test.ts): ${unnamed.slice(0, 5).join(', ')}${unnamed.length > 5 ? ', ...' : ''}. Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,
     )
   }
   for (const path of [...unknown.map(file => resolve(root, file)), ...types])
@@ -2927,7 +2934,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
         )
   } else if (workers && !config().workers)
     out(
-      `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
+      counted`note: ${workers} of these files is|are tests of a Cloudflare Worker. Such a file must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
   // Vite puts each define value in the source. ubq sets it as a
   // global (D83). vitest sets each value of `test.env` in the

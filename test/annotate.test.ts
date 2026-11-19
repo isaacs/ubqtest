@@ -137,7 +137,7 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const ubq = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { cwd: p.dir, encoding: 'utf8', env })
   ubq('a.test.ts', 'b.test.ts')
   const md = readFileSync(file, 'utf8').split('\n')
-  assert.equal(md[0], '### ubq: fail: 1 errors, 21 failed, 0 passed (run 1)')
+  assert.equal(md[0], '### ubq: fail: 1 error, 21 failed, 0 passed (run 1)')
   assert.equal(md[2], '| | Test or file | Failure | At | Run again |')
   assert.match(
     md[4]!,
@@ -152,7 +152,7 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const second = readFileSync(file, 'utf8').split('### ')[2]!
   assert.match(
     second,
-    /^ubq: pass: 0 failed, 1 passed \(run 2\)\n\n- 1 ranges of code in the files of this run ran in no test: `ubq uncovered`\n\n$/,
+    /^ubq: pass: 0 failed, 1 passed \(run 2\)\n\n- 1 range of code in the files of this run ran in no test: `ubq uncovered`\n\n$/,
   )
   // A second print of stored failures writes no summary.
   const before = readFileSync(file, 'utf8')
@@ -192,5 +192,5 @@ test('the summary of a step has type errors, and the count of those in files tha
   })
   const md = readFileSync(file, 'utf8')
   assert.match(md, /^\| TYPE \| a\.test\.ts \| TS2322: .* \| a\.test\.ts:2:7 \|  \|$/m)
-  assert.match(md, /^- 1 type errors in files that this run did not use\.$/m)
+  assert.match(md, /^- 1 type error in files that this run did not use\.$/m)
 })

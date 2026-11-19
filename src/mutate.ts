@@ -16,6 +16,7 @@ import { projectRoot, rel, stateDir } from './project.ts'
 import { coversAt, coveredFiles, testReach } from './query.ts'
 import { runFile } from './runner.ts'
 import { fileHash } from './store.ts'
+import { counted } from './counted.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
 const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './instrument.js'
@@ -211,7 +212,7 @@ export const mutate = async (db: DatabaseSync, args: string[], out: (text: strin
   }
   if (named)
     out('For each change: add an assertion that the change breaks to the first test, or a new test next to it.')
-  const parts = [`${survivors.length} of ${jobs.length} changes survived`]
+  const parts = [counted`${survivors.length} of ${jobs.length} change|changes survived`]
   if (uncovered) parts.push(`${uncovered} more are in code that no passing test runs (ubq uncovered)`)
   out(`mutate: ${parts.join(', ')}`)
   return 0

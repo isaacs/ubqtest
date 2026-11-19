@@ -55,7 +55,7 @@ test('a Worker with D1, a Durable Object, and a scheduled handler', slow, () => 
   // Coverage of each test, from the source of the Worker.
   assert.deepEqual(p.ubq('uncovered').out.slice(0, 2), [
     "src/index.ts:33:32  return new Response('this line has no test')",
-    '1 uncovered ranges in 1 of the 2 files that tests ran',
+    '1 uncovered range in 1 of the 2 files that tests ran',
   ])
   // Also the test that sends a request with `exports.default.fetch`.
   assert.deepEqual(p.ubq('covers', 'src/text.ts:1').out.slice(0, 3), [

@@ -92,6 +92,11 @@ test(name: string, options: { skip?: string | false; timeout?: number }, fn): vo
   (`test/parse.ts > parse > circle`).
 - `timeout` is in milliseconds. The default is 5000, the same as
   Vitest and Jest.
+- `skip(reason)` of the argument ends the test as skipped, with
+  the reason (D117). It is for a condition that the test knows
+  only while it runs: the `skip` option is for one that is known
+  when the file loads. A test with a failure at that point is a
+  failure.
 - `signal` aborts when the test times out. Pass it to `fetch`,
   child processes, and timers, so that they stop with the test.
 - `skip` takes the reason as a string. The summary prints each

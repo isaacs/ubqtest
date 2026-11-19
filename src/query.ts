@@ -6,6 +6,7 @@ import type { Failure, TypeCheckError } from './events.ts'
 import { projectRoot } from './project.ts'
 import { isBuild, isHelper, UsageError } from './config.ts'
 import { fileHash, RUN_ENV } from './store.ts'
+import { counted } from './counted.ts'
 
 type Span = [start: number, end: number]
 
@@ -378,7 +379,7 @@ export interface RunRow {
 /** The counts of a run, as the summary line has them: `1 errors, 2 failed, 10 passed, 1 skipped`. */
 export const runCounts = (row: RunRow): string[] => {
   const parts = [`${row.fail} failed`, `${row.pass} passed`]
-  if (row.errors) parts.unshift(`${row.errors} errors`)
+  if (row.errors) parts.unshift(counted`${row.errors} error|errors`)
   if (row.skip) parts.push(`${row.skip} skipped`)
   if (row.unselected) parts.push(`${row.unselected} not selected`)
   return parts

@@ -6,6 +6,7 @@ import type { Failure, Location, Repeat, Since, Sink, TestId } from './events.ts
 import { annotation, inActions } from './annotate.ts'
 import { paint } from './color.ts'
 import { projectRoot } from './project.ts'
+import { counted } from './counted.ts'
 
 const sourceLine = (at: Location): string | undefined => {
   try {
@@ -79,7 +80,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   const shown = (): boolean => ++failures <= FAILURES || ci || all
   const repeats = new Map<TestId, Repeat>()
   const rate = (r: Repeat, what: string): string =>
-    `  failed ${r.fails} of ${r.runs} times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
+    counted`  failed ${r.fails} of ${r.runs} time|times.${r.fails < r.runs ? ` The first ${what}:` : ''}`
 
   /** The command that runs a test again. */
   const rerunOf = (id: TestId): string => {
@@ -105,7 +106,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
       const all = text.split('\n')
       const shown = ci ? all : all.slice(-OUTPUT_LINES)
       const cut = all.length - shown.length
-      lines.push(`  output${cut ? ` (last ${shown.length} of ${all.length} lines)` : ''}:`)
+      lines.push(`  output${cut ? counted` (last ${shown.length} of ${all.length} line|lines)` : ''}:`)
       lines.push(indent(shown.map(l => `| ${l}`).join('\n')))
     }
     for (const frame of failure.stack?.slice(1) ?? []) lines.push(`  at ${loc(frame)}`)
@@ -172,7 +173,8 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
           )
         break
       case 'file-end':
-        if (event.updated) write(`updated ${event.updated} snapshots: ubq-snapshots/${event.file}.snap\n`)
+        if (event.updated)
+          write(counted`updated ${event.updated} snapshot|snapshots: ubq-snapshots/${event.file}.snap\n`)
         break
       case 'hang': {
         const lines = [`HANG ${event.id}`]
@@ -203,19 +205,19 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
       case 'run-end': {
         if (failures > FAILURES && !ci && !all)
           write(
-            `and ${failures - FAILURES} more failures.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
+            counted`and ${failures - FAILURES} more failure|failures.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
           )
         if (typeErrors > TYPE_ERRORS && !all)
           write(
-            `and ${typeErrors - TYPE_ERRORS} more type errors.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
+            counted`and ${typeErrors - TYPE_ERRORS} more type error|errors.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
           )
         if (skips.length) write(skips.join('\n') + '\n')
         const parts = [`${event.fail} failed`, `${event.pass} passed`]
-        if (event.errors) parts.unshift(`${event.errors} errors`)
+        if (event.errors) parts.unshift(counted`${event.errors} error|errors`)
         if (event.skip) parts.push(`${event.skip} skipped`)
         if (event.unselected) parts.push(`${event.unselected} not selected`)
-        if (event.types) parts.push(`${event.types} type errors`)
-        if (event.otherTypes) parts.push(`${event.otherTypes} type errors in other files`)
+        if (event.types) parts.push(counted`${event.types} type error|errors`)
+        if (event.otherTypes) parts.push(counted`${event.otherTypes} type error|errors in other files`)
         const stored = run === undefined ? '' : ` (run ${run})`
         const status = event.code ? 'fail' : 'pass'
         const result = `${status}: ${parts.join(', ')}${stored}`
@@ -236,9 +238,12 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
               )
             md.push('')
           }
-          if (event.otherTypes) md.push(`- ${event.otherTypes} type errors in files that this run did not use.`)
+          if (event.otherTypes)
+            md.push(counted`- ${event.otherTypes} type error|errors in files that this run did not use.`)
           if (event.uncovered)
-            md.push(`- ${event.uncovered} ranges of code in the files of this run ran in no test: \`ubq uncovered\``)
+            md.push(
+              counted`- ${event.uncovered} range|ranges of code in the files of this run ran in no test: \`ubq uncovered\``,
+            )
           try {
             appendFileSync(summary, md.join('\n').trimEnd() + '\n\n')
           } catch {

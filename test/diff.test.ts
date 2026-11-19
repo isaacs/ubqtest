@@ -40,7 +40,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
   assert.deepEqual(p.lines('covers', 'src/shape.ts:8'), ['pass.ts > load', 'pass.ts > parse > unknown input'])
   assert.deepEqual(p.lines('uncovered', 'src/shape.ts'), [
     'src/shape.ts:12:22  (): number => 1',
-    '1 uncovered ranges in src/shape.ts',
+    '1 uncovered range in src/shape.ts',
   ])
   // A change in code that no test ran.
   p.edit('never = (): number => 1', 'never = (): number => 2')
@@ -83,7 +83,7 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   assert.deepEqual(p.lines('uncovered', '--diff'), [
     "src/shape.ts:7:38  ? { kind: 'square', side: 3 }",
     'src/new.ts  no test loads this file',
-    '1 uncovered ranges in the changed lines of 1 files, 1 changed files that no test loads',
+    '1 uncovered range in the changed lines of 1 file, 1 changed file that no test loads',
   ])
   assert.deepEqual(p.lines('mutate', '--diff'), [
     'mutate: 0 of 4 changes survived, 1 more are in code that no passing test runs (ubq uncovered)',
@@ -99,7 +99,7 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   writeFileSync(join(p.dir, 'src/new.ts'), 'export const fresh = 1\n')
   assert.deepEqual(p.lines('uncovered', '--diff=HEAD~1', 'src/shape.ts'), [
     "src/shape.ts:7:38  ? { kind: 'square', side: 3 }",
-    '1 uncovered ranges in the changed lines of 1 files',
+    '1 uncovered range in the changed lines of 1 file',
   ])
   assert.deepEqual(p.lines('uncovered', '--diff=nope'), ["ubq: --diff: fatal: bad revision 'nope'"])
 })

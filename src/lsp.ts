@@ -12,6 +12,7 @@ import { projectRoot } from './project.ts'
 import { covers, coversAt, stale, uncovered } from './query.ts'
 import { DatabaseSync } from './sqlite.ts'
 import { fileHash } from './store.ts'
+import { counted } from './counted.ts'
 
 interface Message {
   id?: number | string
@@ -147,7 +148,7 @@ const hoverOf = (file: string, text: string, position: Position): object | null 
     const shown = all.slice(0, HOVER_TESTS).map(t => `- ${t}`)
     if (all.length > HOVER_TESTS)
       shown.push(`- and ${all.length - HOVER_TESTS} more: ubq covers ${file}:${position.line + 1}`)
-    const count = all.length === 1 ? '1 test ran' : `${all.length} tests ran`
+    const count = counted`${all.length} test|tests ran`
     return { contents: { kind: 'markdown', value: `${count} this code:\n${shown.join('\n')}` } }
   }) ?? null
 

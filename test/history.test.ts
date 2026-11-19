@@ -21,7 +21,7 @@ test('history shows the result of a test in each run, and says if the test is fl
   p.ubq('pass.ts')
   let r = p.ubq('history', a)
   assert.deepEqual([r.code, r.err], [0, ''])
-  assert.deepEqual(lines(r.out), ['run 1  TIME  pass N ms', '0 failed, 1 passed in 1 runs'])
+  assert.deepEqual(lines(r.out), ['run 1  TIME  pass N ms', '0 failed, 1 passed in 1 run'])
 
   // The code changes, and then the test fails: not flaky.
   appendFileSync(join(p.dir, 'flip.ts'), '\n// a change\n')
@@ -71,7 +71,7 @@ test('diff shows the tests with a different status in two runs', () => {
   assert.deepEqual(lines(r.out), [
     'fail flip.ts > group > a (was pass in run 1)',
     '  expected values to be equal',
-    'run 1 to run 2: 1 new failures, 2 the same, 6 only in run 1',
+    'run 1 to run 2: 1 new failure, 2 the same, 6 only in run 1',
     'details: ubq failures 2',
   ])
   const back = p.ubq('diff', '2', '1')
@@ -93,7 +93,7 @@ test('diff shows the tests with a different status in two runs', () => {
         'ERROR pass.ts (no error in run 3)',
         'fail flip.ts > group > a (did not run in run 3)',
         '  expected values to be equal',
-        'run 3 to run 4: 1 new failures, 1 new file errors, 6 the same, 3 only in run 4',
+        'run 3 to run 4: 1 new failure, 1 new file errors, 6 the same, 3 only in run 4',
         'details: ubq failures 4',
       ],
     ],
@@ -144,12 +144,12 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   // The store has one run, with the first failure of each test.
   assert.deepEqual(lines(p.ubq('history', flaky).out), [
     'run 1  TIME  fail N ms  failed 2 of 7 times: expected values to differ, both are 0',
-    '1 failed, 0 passed in 1 runs',
+    '1 failed, 0 passed in 1 run',
     'flaky: the test failed 2 of 7 times in run 1',
   ])
   assert.deepEqual(lines(p.ubq('show', flaky).out).slice(0, 3), [
     `fail ${flaky}`,
-    '  run 1, 1 assertions, N ms',
+    '  run 1, 1 assertion, N ms',
     '  failed 2 of 7 times',
   ])
   assert.equal(p.ubq('failures').last, 'fail: 2 failed, 4 passed')
@@ -280,7 +280,7 @@ test('--baseline shows only the failures that the commit does not have', () => {
   assert.deepEqual(
     out.slice(-6).map(l => l.replace(/\(\w{7}\)/, '(COMMIT)')),
     [
-      'baseline HEAD (COMMIT): 2 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run',
+      'baseline HEAD (COMMIT): 2 new failures, 1 failed in the baseline too, 1 fixed, 1 test of the baseline did not run',
       "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
       '  two.test.ts > old failure',
       'fixed:',
@@ -305,11 +305,11 @@ test('--baseline shows only the failures that the commit does not have', () => {
   )
   assert.match(
     p.ubq('--baseline', 'HEAD').out,
-    /\nbaseline HEAD \(\w+\): 3 new failures, 1 failed in the baseline too, 1 fixed, 1 tests of the baseline did not run\n/,
+    /\nbaseline HEAD \(\w+\): 3 new failures, 1 failed in the baseline too, 1 fixed, 1 test of the baseline did not run\n/,
   )
   assert.match(
     p.ubq('--baseline', 'HEAD', 'new.test.ts').out,
-    /\nbaseline HEAD \(\w+\): 1 new failures, 0 failed in the baseline too, 0 fixed\n/,
+    /\nbaseline HEAD \(\w+\): 1 new failure, 0 failed in the baseline too, 0 fixed\n/,
   )
 
   const err = (...args: string[]) => [p.ubq(...args).code, p.ubq(...args).err]
@@ -342,7 +342,7 @@ test('--baseline shows only the failures that the commit does not have', () => {
       'baseline HEAD (COMMIT): 0 new failures, 1 failed in the baseline too, 0 fixed',
       "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
       '  ERROR broken.test.ts',
-      'fail: 1 errors, 0 failed, 0 passed',
+      'fail: 1 error, 0 failed, 0 passed',
     ],
   )
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: p.dir, encoding: 'utf8' }).stdout.trim()

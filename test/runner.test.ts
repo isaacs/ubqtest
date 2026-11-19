@@ -70,7 +70,7 @@ test('process.exit in a test is an error, not a silent end', () => {
   )
   const r = ubq(['exit.ts', 'pass.ts'])
   assert.equal(r.code, 1)
-  assert.equal(r.out.at(-1), 'fail: 1 errors, 0 failed, 6 passed, 1 skipped')
+  assert.equal(r.out.at(-1), 'fail: 1 error, 0 failed, 6 passed, 1 skipped')
 })
 
 test('a process that dies is an error that names the test', () => {
@@ -169,7 +169,7 @@ test('hangs: a promise that never settles, a timeout, a process that stays alive
     '  > await new Promise(resolve => setTimeout(resolve, 3000))',
     '',
   ])
-  assert.equal(r.out.at(-1), 'fail: 1 errors, 3 failed, 1 passed')
+  assert.equal(r.out.at(-1), 'fail: 1 error, 3 failed, 1 passed')
   // The store has them too.
   assert(ubq(['failures']).out.includes('  Timeout opened at hang.ts:18:32'))
   assert.deepEqual(ubq(['show', 'hang.ts > times out with a timer']).out.slice(5, 7), [
@@ -184,7 +184,7 @@ test('the hangRerun switch turns the rerun off', () => {
   cpSync(join(cwd, 'hang.ts'), join(p.dir, 'hang.ts'))
   p.configure({ hangRerun: false })
   const off = p.ubq('hang.ts')
-  assert.deepEqual([off.last, off.out.includes('HANG ')], ['fail: 1 errors, 3 failed, 1 passed', false])
+  assert.deepEqual([off.last, off.out.includes('HANG ')], ['fail: 1 error, 3 failed, 1 passed', false])
 })
 
 test('a loop that does not return is stopped, with the line of the loop', () => {
@@ -202,7 +202,7 @@ test('a loop that does not return is stopped, with the line of the loop', () => 
       /ERROR busy\.ts\n  ubq stopped the process\. The tests after the stuck test did not run\./,
     )
   }
-  assert.equal(ubq(['busy.ts', 'pass.ts']).out.at(-1), 'fail: 1 errors, 1 failed, 6 passed, 1 skipped')
+  assert.equal(ubq(['busy.ts', 'pass.ts']).out.at(-1), 'fail: 1 error, 1 failed, 6 passed, 1 skipped')
   // The V8 collector, in a test process and in the process of the runner.
   const v8 = { UBQ_COVERAGE: 'v8' }
   assert.deepEqual(ubq(['busy.ts', 'pass.ts'], v8).out.slice(2, 4), ['  at busy.ts:5:3', '  > while (true) x += n'])

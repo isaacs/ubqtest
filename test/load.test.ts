@@ -30,8 +30,8 @@ test('a test file that does not load is an error of the file, with the place', (
     "  the test file did not load: Cannot find module 'nope.ts' imported from missing.ts",
   ]
   // One file runs in the process of the runner.
-  assert.deepEqual(blocks('bad.ts'), [1, ...bad, 'fail: 1 errors, 0 failed, 0 passed'])
-  assert.deepEqual(blocks('missing.ts'), [1, ...missing, 'fail: 1 errors, 0 failed, 0 passed'])
+  assert.deepEqual(blocks('bad.ts'), [1, ...bad, 'fail: 1 error, 0 failed, 0 passed'])
+  assert.deepEqual(blocks('missing.ts'), [1, ...missing, 'fail: 1 error, 0 failed, 0 passed'])
   // In a child process.
   assert.deepEqual(
     blocks('--seed', '1', 'bad.ts', 'missing.ts', 'pass.ts').sort(),
@@ -323,6 +323,86 @@ test('with coverage that is not complete, ubq uncovered does not say only "none"
   assert.equal(spawnSync('node', ['one.test.ts'], { cwd: p.dir, encoding: 'utf8' }).status, 0)
   assert.deepEqual(p.ubq('uncovered', 'src/one.ts').out.split('\n').slice(0, 2), [
     'uncovered: none in the coverage of the store, which is not complete',
-    'note: coverage is not complete for 1 test files: one.test.ts (partial). Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>',
+    'note: coverage is not complete for 1 test file: one.test.ts (partial). Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>',
   ])
+})
+
+test('a skip that the test decides, and an assertion that is in no test', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'skips.ts'),
+    `import { assert, cleanup, test } from 'ubqtest'
+// An assertion that passes at the top level does nothing more.
+assert.equal(1, 1)
+const seen: string[] = []
+cleanup(() => assert.deepEqual(seen, ['a', 'b']))
+test('skips while it runs', ({ skip }) => {
+  seen.push('a')
+  if (seen.length) skip('nothing to measure')
+  assert.equal(1, 2)
+})
+test('fails then skips', ({ skip }) => {
+  try {
+    assert.equal(1, 2)
+  } catch {}
+  skip('too late')
+})
+test('no reason', ({ skip }) => (skip as () => never)())
+test('passes', () => assert(true))
+`,
+  )
+  writeFileSync(
+    join(p.dir, 'top.ts'),
+    "import { assert, test } from 'ubqtest'\nassert.equal(1, 2, 'at the top level')\ntest('never', () => assert(true))\n",
+  )
+  writeFileSync(
+    join(p.dir, 'snap.ts'),
+    "import { assert, test } from 'ubqtest'\nassert.snapshot(1)\ntest('never', () => assert(true))\n",
+  )
+  assert.deepEqual(p.ubq('skips.ts').out.split('\n'), [
+    'FAIL skips.ts > fails then skips',
+    '  expected values to be equal',
+    '  at skips.ts:13:12',
+    '  > assert.equal(1, 2)',
+    '  actual:   1',
+    '  expected: 2',
+    '  rerun: ubq skips.ts:11',
+    '',
+    'FAIL skips.ts > no reason',
+    '  TypeError: skip() needs the reason, as text',
+    '  at skips.ts:17:54',
+    "  > test('no reason', ({ skip }) => (skip as () => never)())",
+    '  rerun: ubq skips.ts:17',
+    '',
+    // The failure of the file has the values of the assertion.
+    'ERROR skips.ts',
+    '  a cleanup function failed: expected values to be deeply equal',
+    '  at skips.ts:5:22',
+    "  > cleanup(() => assert.deepEqual(seen, ['a', 'b']))",
+    '  .length',
+    '    actual:   1',
+    '    expected: 2',
+    '  [1]',
+    '    actual:   (missing)',
+    "    expected: 'b'",
+    '',
+    'skip skips.ts > skips while it runs: nothing to measure',
+    'fail: 1 error, 2 failed, 1 passed, 1 skipped (run 1)',
+    '',
+  ])
+  // In a child process too.
+  const lines = p.ubq('top.ts', 'snap.ts').out.split('\n')
+  assert.deepEqual(lines.slice(lines.indexOf('ERROR top.ts'), lines.indexOf('ERROR top.ts') + 6), [
+    'ERROR top.ts',
+    '  at the top level: expected values to be equal',
+    '  at top.ts:2:8',
+    "  > assert.equal(1, 2, 'at the top level')",
+    '  actual:   1',
+    '  expected: 2',
+  ])
+  assert.equal(
+    lines[lines.indexOf('ERROR snap.ts') + 1],
+    '  Error: assert.snapshot was called outside a test. A snapshot has the name of its test.',
+  )
 })

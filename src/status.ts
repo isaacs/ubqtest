@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { Sink } from './events.ts'
 import { projectRoot } from './project.ts'
 import { clearTimeout, setTimeout, time } from './real.ts'
+import { counted } from './counted.ts'
 
 /** The most time between a change and its write. */
 const WRITE_MS = 250
@@ -156,7 +157,7 @@ export const status = (out: (line: string) => void): number => {
     }
     out(`run ${now.run}: ${now.command.join(' ')} (pid ${now.pid}, ${seconds(at - now.time)})`)
     const parts = [`${now.fail} failed`, `${now.pass} passed`]
-    if (now.errors) parts.unshift(`${now.errors} errors`)
+    if (now.errors) parts.unshift(counted`${now.errors} error|errors`)
     if (now.skip) parts.push(`${now.skip} skipped`)
     out(`${now.ended} of ${now.files} ${now.files === 1 ? 'file' : 'files'} ended: ${parts.join(', ')}`)
     for (const file of Object.keys(now.running).sort()) {

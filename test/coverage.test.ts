@@ -63,7 +63,7 @@ test('a run with preload has full coverage', () => {
     'src/calc.ts:12:17  (): string => { (+2 lines)',
     "src/calc.ts:15:22  : () => 'other'",
     'src/calc.ts:18:8  function never(): number { (+3 lines)',
-    '4 uncovered ranges in 1 of the 1 files that tests ran',
+    '4 uncovered ranges in 1 of the 1 file that tests ran',
   ])
 })
 
@@ -99,7 +99,7 @@ test('a plain run states that coverage can be incomplete', () => {
   run('node', 'test/calc.test.ts')
   assert.match(
     ubq('uncovered').out.at(-1)!,
-    /^note: coverage is not complete for 1 test files: test\/calc\.test\.ts \(partial\)/,
+    /^note: coverage is not complete for 1 test file: test\/calc\.test\.ts \(partial\)/,
   )
 })
 
@@ -157,14 +157,14 @@ test('adds', () => {
     [
       'lib/add.ts:2:22  (): number => 0',
       "lib/add.ts:3:63  ? '?'",
-      '2 uncovered ranges in 1 of the 1 files that tests ran (1 test helpers and 1 build files are not in this list)',
-      'note: 1 of these ranges are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide',
+      '2 uncovered ranges in 1 of the 1 file that tests ran (1 test helper and 1 build file are not in this list)',
+      'note: 1 of these ranges is on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide',
     ],
   ])
   // A file that the command names is in the list.
   assert.deepEqual(uncovered('test/scenario.ts'), [
     1,
-    ["test/scenario.ts:2:23  (): string => 'off'", '1 uncovered ranges in test/scenario.ts'],
+    ["test/scenario.ts:2:23  (): string => 'off'", '1 uncovered range in test/scenario.ts'],
   ])
   // The `helpers` key replaces the folder names.
   p.configure({ helpers: [], build: [] })
@@ -209,7 +209,7 @@ test('a "ubq: not measured:" comment with a reason takes a range out of the list
       1,
       [
         'lib/parts.ts:7:16  { (+3 lines)',
-        '1 uncovered ranges in 1 of the 1 files that tests ran',
+        '1 uncovered range in 1 of the 1 file that tests ran',
         '2 ranges with a "ubq: not measured:" comment are not in this list',
       ],
     ],

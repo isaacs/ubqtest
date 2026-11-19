@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { UsageError } from './config.ts'
 import { DatabaseSync } from './sqlite.ts'
 import { ENV, fileHash, openStore } from './store.ts'
+import { counted } from './counted.ts'
 
 /** The store file for an argument: the file itself, a `.ubq` folder, or a project folder. */
 const storeFile = (arg: string): string => {
@@ -75,7 +76,7 @@ export const mergeCommand = (args: string[], out: (text: string) => void): numbe
     const names = [...differ].sort()
     out(
       // ubq: not measured: no test merges more than 5 changed files
-      `note: ${names.length} files are not the same here as in a store that was merged: ${names.slice(0, 5).join(', ')}${names.length > 5 ? ', ...' : ''}. Coverage of a file counts only if the file has the same content. Make each store from the same commit.`,
+      counted`note: ${names.length} file|files is|are not the same here as in a store that was merged: ${names.slice(0, 5).join(', ')}${names.length > 5 ? ', ...' : ''}. Coverage of a file counts only if the file has the same content. Make each store from the same commit.`,
     )
   }
   return 0

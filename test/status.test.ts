@@ -72,7 +72,7 @@ test('ubq status names the files that run, and the test that runs in each', asyn
 
   const { child, done, until } = start(p.dir, 'slow.test.ts', 'fast.test.ts', 'bad.test.ts')
   const head = `run 1: ubq slow.test.ts fast.test.ts bad.test.ts (pid ${child.pid}, N s)`
-  const ended = '2 of 3 files ended: 1 errors, 0 failed, 1 passed, 1 skipped'
+  const ended = '2 of 3 files ended: 1 error, 0 failed, 1 passed, 1 skipped'
   // The file loads.
   assert.deepEqual(await until(l => l[1] === ended), [head, ended, 'slow.test.ts, N s'])
   // Its test runs.

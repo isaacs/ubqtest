@@ -196,7 +196,7 @@ test('minus', async () => {
   assert.equal(both.last, 'pass: 0 failed, 2 passed', both.out + both.err)
   assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), [
     "src/app.js:2:22  () => 'never'",
-    '1 uncovered ranges in src/app.js',
+    '1 uncovered range in src/app.js',
     '',
   ])
   assert.deepEqual(p.ubq('covers', 'src/app.js:3').out.split('\n'), ['app.test.ts > minus', 'app.test.ts > title', ''])

@@ -17,7 +17,7 @@ const cases: [file: string, code: number, summary: string][] = [
   ['pass', 0, 'pass: 0 failed, 5 passed, 1 skipped'],
   ['fail', 1, 'fail: 15 failed, 0 passed'],
   ['empty', 2, 'fail: 0 failed, 0 passed'],
-  ['load-error', 1, 'fail: 1 errors, 0 failed, 1 passed'],
+  ['load-error', 1, 'fail: 1 error, 0 failed, 1 passed'],
   ['mock', 1, 'fail: 2 failed, 2 passed'],
 ]
 

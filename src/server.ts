@@ -13,6 +13,7 @@ import { prepareCounters } from './counter-collector.ts'
 import { dial, frame, type Request, socketAddress, socketPath, stamp } from './pool.ts'
 import { projectRoot, stateDir } from './project.ts'
 import { coverageArgs } from './runner.ts'
+import { counted } from './counted.ts'
 
 /** Test processes that wait. More do not help an edit loop, and each one has memory. */
 const POOL = 8
@@ -55,7 +56,7 @@ const ask = async (type: 'status' | 'stop'): Promise<string | undefined> => {
 
 const describe = (text: string): string => {
   const s = JSON.parse(text) as Status
-  return `server: pid ${s.pid}, ${s.warm} test processes wait, ${s.used} used, ${s.prepared} changed files prepared`
+  return counted`server: pid ${s.pid}, ${s.warm} test process|processes waits|wait, ${s.used} used, ${s.prepared} changed file|files prepared`
 }
 
 /** `ubq server` and `ubq server stop`. Returns the exit code. */

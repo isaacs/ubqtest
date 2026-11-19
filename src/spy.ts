@@ -1,5 +1,6 @@
 // `spy` and `spyOn`. See docs/05-api.md, section 6.
 import { cleanup } from './fixtures.ts'
+import { counted } from './counted.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 /** A function with any arguments and any result. */
@@ -86,7 +87,7 @@ const results = <R>(...list: (R | Error)[]): Spy<() => R> => {
   return make(() => {
     if (next === list.length)
       throw new Error(
-        `call ${next + 1} of a spy that has ${list.length} results. Give spy.results() a result for each call.`,
+        counted`call ${next + 1} of a spy that has ${list.length} result|results. Give spy.results() a result for each call.`,
       )
     const one = list[next++]
     if (one instanceof Error) throw one

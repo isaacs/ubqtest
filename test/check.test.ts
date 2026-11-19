@@ -14,7 +14,7 @@ const TEST = `import { assert, test } from 'ubqtest'
 import { add } from '../src/math.ts'
 test('add', () => assert.equal(add(1, 2), 3))
 `
-const PASS = 'pass: 1 tests pass on the code as it is now'
+const PASS = 'pass: 1 test passes on the code as it is now'
 
 /** A project with one source file and one test file, in git if `git` is true. */
 const setup = (git = true) => {
@@ -56,8 +56,8 @@ test('ubq check: no run, a pass, code that changed, and a run of the changed tes
   writeFileSync(p.file('lib/math.ts'), SRC.replace('a + b', 'b + a'))
   r = p.ubq('check')
   assert.equal(r.code, 1)
-  assert.match(r.out, /^1 test files to run again: test\/math\.test\.ts\. Run: ubq --changed$/m)
-  assert.equal(r.last, 'fail: 1 test files to run again')
+  assert.match(r.out, /^1 test file to run again: test\/math\.test\.ts\. Run: ubq --changed$/m)
+  assert.equal(r.last, 'fail: 1 test file to run again')
 
   assert.equal(p.ubq('--changed').code, 0)
   assert.equal(p.ubq('check').code, 0)
@@ -100,7 +100,7 @@ test('ubq check: failed tests, file errors, and new test files', () => {
   writeFileSync(p.file('test/more.test.ts'), TEST.replace('../src/', '../lib/'))
   r = p.ubq('check')
   assert.equal(r.code, 1)
-  assert.equal(r.last, 'fail: 1 test files to run again')
+  assert.equal(r.last, 'fail: 1 test file to run again')
   assert.equal(p.ubq('--changed').code, 0)
   assert.equal(p.ubq('check').code, 0)
 })
@@ -151,7 +151,7 @@ test('ubq check: a pass counts each test, and lists the changes to the tests to 
       'assertions changed: test/math.test.ts > add (test/math.test.ts:3)',
       '  - assert.equal(add(1, 2), 3)',
       '  + assert.equal(add(2, 1), 3)',
-      'pass: 1 tests pass on the code as it is now, and each change ran in a test.',
+      'pass: 1 test passes on the code as it is now, and each change ran in a test.',
       '',
     ].join('\n'),
   )
@@ -168,12 +168,12 @@ test('ubq check: changed lines that no test runs, and changed files that no test
   assert.equal(
     r.out,
     [
-      '1 uncovered ranges in changed lines:',
+      '1 uncovered range in changed lines:',
       '  lib/math.ts:2:20  (a: number, b: number): number => a * b',
       'Write a test that runs them. All of them: ubq uncovered --diff. For code that no test can reach, a comment: // ubq: not measured: <reason>',
-      '1 changed files that no test loads: lib/other.ts',
+      '1 changed file that no test loads: lib/other.ts',
       'Write a test that loads each one. For a file that no test can load, a comment before its first code: // ubq: not measured: <reason>',
-      'fail: 1 uncovered ranges in changed lines, 1 changed files that no test loads',
+      'fail: 1 uncovered range in changed lines, 1 changed file that no test loads',
       '',
     ].join('\n'),
   )
@@ -185,7 +185,7 @@ test('ubq check: changed lines that no test runs, and changed files that no test
   assert.equal(p.ubq('check').code, 0)
   r = p.ubq('check', '--diff=HEAD~1')
   assert.equal(r.code, 1)
-  assert.match(r.out, /uncovered ranges in changed lines:\n.*\n.*ubq uncovered --diff=HEAD~1\./)
+  assert.match(r.out, /uncovered range in changed lines:\n.*\n.*ubq uncovered --diff=HEAD~1\./)
 
   // A comment marks code that no test can reach.
   writeFileSync(
@@ -206,9 +206,9 @@ test('ubq check: changed lines that no test runs, and changed files that no test
   // A comment before the first code of a file: no test can load
   // the file. A comment after code is for a range only.
   p.ubq('--changed')
-  assert.match(p.ubq('check', '--diff=HEAD~1').out, /^1 changed files that no test loads: lib\/other\.ts$/m)
+  assert.match(p.ubq('check', '--diff=HEAD~1').out, /^1 changed file that no test loads: lib\/other\.ts$/m)
   writeFileSync(p.file('lib/other.ts'), 'export const one = 1\n// ubq: not measured: the entry of a worker\n')
-  assert.match(p.ubq('check', '--diff=HEAD~1').out, /^1 changed files that no test loads: lib\/other\.ts$/m)
+  assert.match(p.ubq('check', '--diff=HEAD~1').out, /^1 changed file that no test loads: lib\/other\.ts$/m)
   writeFileSync(
     p.file('lib/other.ts'),
     '#!/usr/bin/env node\n/* The worker. */\n\n// ubq: not measured: the entry of a worker\nexport const one = 1\n',
@@ -225,7 +225,7 @@ test('ubq check: the lines are checked only when the results are current', () =>
     SRC.replace('a + b', 'b + a') + 'export const mul = (a: number, b: number): number => a * b\n',
   )
   const r = p.ubq('check')
-  assert.equal(r.last, 'fail: 1 test files to run again')
+  assert.equal(r.last, 'fail: 1 test file to run again')
   assert(!r.out.includes('ran in no test'))
 })
 
@@ -328,8 +328,8 @@ test('ubq check: a run in progress, a store with no run, and type errors', () =>
   symlinkSync(join(modules, 'typescript'), p.file('node_modules/typescript'), 'junction')
   assert.equal(p.ubq().code, 1)
   r = p.ubq('check')
-  assert.match(r.out, /^1 type errors\. To see them: ubq failures \d+$/m)
-  assert.equal(r.last, 'fail: 1 type errors')
+  assert.match(r.out, /^1 type error\. To see them: ubq failures \d+$/m)
+  assert.equal(r.last, 'fail: 1 type error')
 })
 
 test('ubq check: a test file with no coverage runs again only if it changed', () => {
@@ -340,5 +340,5 @@ test('ubq check: a test file with no coverage runs again only if it changed', ()
   db.close()
   assert.equal(p.ubq('check').code, 0)
   appendFileSync(p.file('test/math.test.ts'), '// more\n')
-  assert.equal(p.ubq('check').last, 'fail: 1 test files to run again')
+  assert.equal(p.ubq('check').last, 'fail: 1 test file to run again')
 })

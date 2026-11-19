@@ -42,6 +42,7 @@ import { sinceLine, textSink } from './sink-text.ts'
 import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
 import { openStore } from './store.ts'
+import { counted } from './counted.ts'
 
 /**
  * For each coding agent: its names for `ubq skill <agent>`, the
@@ -309,8 +310,8 @@ const main = async (args: string[]): Promise<number> => {
       else {
         // The same parts as the last line of the run.
         const parts = runCounts(row)
-        if (types.length) parts.push(`${types.length} type errors`)
-        if (others.length) parts.push(`${others.length} type errors in other files`)
+        if (types.length) parts.push(counted`${types.length} type error|errors`)
+        if (others.length) parts.push(counted`${others.length} type error|errors in other files`)
         out(`${paint(row.code ? 'fail' : 'pass')}: ${parts.join(', ')} (run ${row.id})`)
       }
       return row.code ?? 1
@@ -331,10 +332,10 @@ const main = async (args: string[]): Promise<number> => {
         )
       }
       out(`${paint(t.status)} ${t.id}`)
-      out(`  run ${t.run}, ${t.asserts} assertions, ${t.ms.toFixed(1)} ms`)
+      out(counted`  run ${t.run}, ${t.asserts} assertion|assertions, ${t.ms.toFixed(1)} ms`)
       const env = envChange(db, t.run)
       if (env) out(`  ${env}`)
-      if (t.repeats) out(`  failed ${t.fails} of ${t.repeats} times`)
+      if (t.repeats) out(counted`  failed ${t.fails} of ${t.repeats} time|times`)
       if (t.line !== null) out(`  test at ${t.file}:${t.line}`)
       if (t.reason) out(`  skip reason: ${t.reason}`)
       if (t.failure) {
@@ -369,7 +370,7 @@ const main = async (args: string[]): Promise<number> => {
       const width = String(rows.at(-1)!.run).length
       for (const r of rows) {
         const time = new Date(r.time).toISOString().slice(0, 19).replace('T', ' ') + 'Z'
-        const rate = r.repeats ? `failed ${r.fails} of ${r.repeats} times` : ''
+        const rate = r.repeats ? counted`failed ${r.fails} of ${r.repeats} time|times` : ''
         const first = r.failure?.message.split('\n')[0]
         const message = rate || first ? `  ${[rate, first].filter(Boolean).join(': ')}` : ''
         out(
@@ -378,12 +379,12 @@ const main = async (args: string[]): Promise<number> => {
       }
       const count = (status: string): number => rows.filter(r => r.status === status).length
       const skipped = count('skip') ? `, ${count('skip')} skipped` : ''
-      out(`${count('fail')} failed, ${count('pass')} passed${skipped} in ${rows.length} runs`)
+      out(counted`${count('fail')} failed, ${count('pass')} passed${skipped} in ${rows.length} run|runs`)
       const f = flake(rows)
       if (f)
         out(
           'run' in f
-            ? `flaky: the test failed ${f.fails} of ${f.repeats} times in run ${f.run}`
+            ? counted`flaky: the test failed ${f.fails} of ${f.repeats} time|times in run ${f.run}`
             : `flaky: the test passed in run ${f.pass} and failed in run ${f.fail}, and the code that it loaded was the same in the two runs`,
         )
       return 0
@@ -420,7 +421,7 @@ const main = async (args: string[]): Promise<number> => {
       const fixed = d.changes.filter(c => c.from === 'fail' && c.to === 'pass').length
       const other = d.changes.length - failed - fixed
       const changed = [
-        ...(failed ? [`${failed} new failures`] : []),
+        ...(failed ? [counted`${failed} new failure|failures`] : []),
         ...(fixed ? [`${fixed} fixed`] : []),
         ...(other ? [`${other} other changes`] : []),
         ...(d.newErrors.length ? [`${d.newErrors.length} new file errors`] : []),
@@ -450,7 +451,7 @@ const main = async (args: string[]): Promise<number> => {
       for (const t of tests.slice(0, SHOWN)) out(`${t.ms.toFixed(1).padStart(8)} ms  ${t.id}`)
       const sum = (rows: { ms: number }[]): string => rows.reduce((n, t) => n + t.ms, 0).toFixed(1)
       out(
-        `the ${Math.min(SHOWN, tests.length)} slowest of ${tests.length} tests took ${sum(tests.slice(0, SHOWN))} ms of ${sum(tests)} ms (run ${run})`,
+        counted`the ${Math.min(SHOWN, tests.length)} slowest of ${tests.length} test|tests took ${sum(tests.slice(0, SHOWN))} ms of ${sum(tests)} ms (run ${run})`,
       )
       return 0
     }
@@ -507,7 +508,7 @@ const main = async (args: string[]): Promise<number> => {
           total++
           listed.add(f)
           if (ELSEWHERE.test(u.sourceLine)) elsewhere++
-          const more = u.moreLines ? ` (+${u.moreLines} lines)` : ''
+          const more = u.moreLines ? counted` (+${u.moreLines} line|lines)` : ''
           // In GitHub Actions, also in the view of the changes (D71).
           if (actions)
             process.stdout.write(
@@ -532,27 +533,28 @@ const main = async (args: string[]): Promise<number> => {
         // With coverage that is not complete, "none" is not known.
         out(weak.length ? 'uncovered: none in the coverage of the store, which is not complete' : 'uncovered: none')
       else if (diff) {
-        const none = unloaded.length ? `, ${unloaded.length} changed files that no test loads` : ''
-        out(`${total} uncovered ranges in the changed lines of ${files.length} files${none}`)
-      } else if (rest[0]) out(`${total} uncovered ranges in ${files[0]}`)
+        const none = unloaded.length ? counted`, ${unloaded.length} changed file|files that no test loads` : ''
+        out(counted`${total} uncovered range|ranges in the changed lines of ${files.length} file|files${none}`)
+      } else if (rest[0]) out(counted`${total} uncovered range|ranges in ${files[0]}`)
       // A file with no uncovered range is not in the list.
       else
         out(
-          `${total} uncovered ranges in ${listed.size} of the ${files.length} files that tests ran` +
+          counted`${total} uncovered range|ranges in ${listed.size} of the ${files.length} file|files that tests ran` +
             (helpers || built
-              ? ` (${[helpers && `${helpers} test helpers`, built && `${built} build files`].filter(Boolean).join(' and ')} are not in this list)`
+              ? ` (${[helpers && counted`${helpers} test helper|helpers`, built && counted`${built} build file|files`].filter(Boolean).join(' and ')} ${helpers + built === 1 ? 'is' : 'are'} not in this list)`
               : ''),
         )
-      if (notMeasured) out(`${notMeasured} ranges with a "ubq: not measured:" comment are not in this list`)
+      if (notMeasured)
+        out(counted`${notMeasured} range|ranges with a "ubq: not measured:" comment is|are not in this list`)
       // One run cannot run such code. The reader must know the way.
       if (elsewhere)
         out(
-          `note: ${elsewhere} of these ranges are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide`,
+          counted`note: ${elsewhere} of these ranges is|are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide`,
         )
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')
         out(
-          `note: coverage is not complete for ${weak.length} test files: ${names}. Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>`,
+          counted`note: coverage is not complete for ${weak.length} test file|files: ${names}. Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>`,
         )
       }
       // For a check in CI: code of the program that no test runs.

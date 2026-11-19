@@ -13,6 +13,7 @@ import { reviewItems } from './review.ts'
 import { LAST_RESULTS, selectChanged, selectFailed, UsageError } from './runner.ts'
 import { runsInProgress } from './status.ts'
 import { fileHash, openStore, stateDir } from './store.ts'
+import { counted } from './counted.ts'
 
 /** The most items of one kind that the report names. */
 const SHOWN = 10
@@ -69,14 +70,14 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     const { files } = selectChanged(store)
     const again = files.map(f => f.file).filter(f => !none.has(f) || fileHash(f) !== none.get(f))
     if (again.length) {
-      report.push(`${again.length} test files to run again: ${list(again)}. Run: ubq --changed`)
-      summary.push(`${again.length} test files to run again`)
+      report.push(counted`${again.length} test file|files to run again: ${list(again)}. Run: ubq --changed`)
+      summary.push(counted`${again.length} test file|files to run again`)
     }
 
     const types = typeErrors(db, run).length
     if (types) {
-      report.push(`${types} type errors. To see them: ubq failures ${run}`)
-      summary.push(`${types} type errors`)
+      report.push(counted`${types} type error|errors. To see them: ubq failures ${run}`)
+      summary.push(counted`${types} type error|errors`)
     }
 
     // The changed lines that no test runs. Only on current
@@ -92,25 +93,27 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
         if (tests.has(file) || isHelper(file) || isBuild(file) || !hasCoverage(db, file) || stale(db, file)) continue
         for (const u of uncovered(db, file))
           if (!u.notMeasured && groups.some(([first, last]) => first <= u.line + u.moreLines && last >= u.line))
-            lines.push(`  ${u.file}:${u.line}:${u.column}  ${u.text}${u.moreLines ? ` (+${u.moreLines} lines)` : ''}`)
+            lines.push(
+              `  ${u.file}:${u.line}:${u.column}  ${u.text}${u.moreLines ? counted` (+${u.moreLines} line|lines)` : ''}`,
+            )
       }
       const unloaded = unloadedChanges(db, diff)
       if (lines.length) {
         report.push(
-          `${lines.length} uncovered ranges in changed lines:\n` +
+          counted`${lines.length} uncovered range|ranges in changed lines:\n` +
             lines.slice(0, SHOWN).join('\n') +
             (lines.length > SHOWN ? `\n  and ${lines.length - SHOWN} more` : '') +
             '\nWrite a test that runs them. All of them: ubq uncovered --diff' +
             (commit === 'HEAD' ? '' : `=${commit}`) +
             '. For code that no test can reach, a comment: // ubq: not measured: <reason>',
         )
-        summary.push(`${lines.length} uncovered ranges in changed lines`)
+        summary.push(counted`${lines.length} uncovered range|ranges in changed lines`)
       }
       if (unloaded.length) {
         report.push(
-          `${unloaded.length} changed files that no test loads: ${list(unloaded)}\nWrite a test that loads each one. For a file that no test can load, a comment before its first code: // ubq: not measured: <reason>`,
+          counted`${unloaded.length} changed file|files that no test loads: ${list(unloaded)}\nWrite a test that loads each one. For a file that no test can load, a comment before its first code: // ubq: not measured: <reason>`,
         )
-        summary.push(`${unloaded.length} changed files that no test loads`)
+        summary.push(counted`${unloaded.length} changed file|files that no test loads`)
       }
     }
     if (summary.length) return { report, summary }
@@ -132,7 +135,7 @@ const checkResult = (commit: string | undefined): { report: string[]; summary: s
   const { report, summary, passed } = problems(commit)
   const result = summary.length
     ? `fail: ${summary.join(', ')}`
-    : `pass: ${passed} tests pass on the code as it is now${commit ? ', and each change ran in a test' : ''}.`
+    : counted`pass: ${passed} test|tests passes|pass on the code as it is now${commit ? ', and each change ran in a test' : ''}.`
   return { report, summary, result }
 }
 

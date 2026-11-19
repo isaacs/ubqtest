@@ -84,7 +84,7 @@ test('later', { skip: 'not now' }, () => assert(true))
     'fail many.test.ts > broken (did not run in run 4)',
     '  expected values to be equal',
     'pass many.test.ts > later (was skip in run 4)',
-    'run 4 to run 5: 1 new failures, 1 other changes, 1 only in run 5',
+    'run 4 to run 5: 1 new failure, 1 other changes, 1 only in run 5',
     'details: ubq failures 5',
   ])
   // A failure: the place of the test, the place of the failure, and

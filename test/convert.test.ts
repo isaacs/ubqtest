@@ -80,7 +80,9 @@ t.equal(1, 1)
     '// TODO(ubq): ubq has no hooks. Make a setup function and call it in each',
     '// test. Use cleanup() for the work after a test.',
     't.beforeEach(() => {})',
-    '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
+    '// TODO(ubq): This assertion is in no test. It runs when the file loads,',
+    '// and a failure is an error of the file, not of a test. If it is a check',
+    '// of the code under test, put it in a test().',
     'assert.equal(1, 1)',
   ])
   assert.deepEqual([r.framework, r.todos.map(t => t.line)], ['tap', [21, 24]])
@@ -186,13 +188,13 @@ t.test('load', async t => {
   const dry = p.ubq('convert', '--dry', 'old.ts')
   assert.deepEqual(dry.out.split('\n').slice(0, 2), [
     'to convert old.ts (tap): 9 changes, 0 TODO',
-    'convert: 1 files to change, 0 TODO comments',
+    'convert: 1 file to change, 0 TODO comments',
   ])
   assert.match(readFileSync(file, 'utf8'), /from 'tap'/)
   assert.deepEqual(p.ubq('convert', 'old.ts').out.split('\n'), [
     'converted old.ts (tap): 9 changes, 0 TODO',
-    'convert: 1 files changed, 0 TODO comments',
-    'note: 1 of these files have tests, and do not have a name that ubq runs (*.test.ts): old.ts. Rename them, or add to package.json: "ubq": { "include": ["old.ts"] }. Use "exclude" for files in that folder that are not test files.',
+    'convert: 1 file changed, 0 TODO comments',
+    'note: 1 of these files has tests, and does not have a name that ubq runs (*.test.ts): old.ts. Rename them, or add to package.json: "ubq": { "include": ["old.ts"] }. Use "exclude" for files in that folder that are not test files.',
     'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
     '',
   ])
@@ -200,7 +202,7 @@ t.test('load', async t => {
   // A second conversion finds nothing to do.
   assert.equal(
     p.ubq('convert', 'old.ts').out,
-    'convert: 0 files changed, 0 TODO comments, 1 files with no known test tool (old.ts)\n',
+    'convert: 0 files changed, 0 TODO comments, 1 file with no known test tool (old.ts)\n',
   )
   assert.deepEqual([p.ubq('convert').code, p.ubq('convert', 'nope').code], [4, 4])
   assert.match(p.ubq('guide', 'convert').out, /^# ubq guide: convert\n/)
@@ -1503,7 +1505,7 @@ test('the report names c8 and istanbul comments, and a file with only top-level 
       .out.split('\n')
       .filter(line => line.startsWith('note: 1 of') || line.startsWith('note: ubq does not')),
     [
-      'note: 1 of these files have tests, and do not have a name that ubq runs (*.test.ts): old/top.ts. Rename them, or add to package.json: "ubq": { "include": ["old/**/*.ts"] }. Use "exclude" for files in that folder that are not test files.',
+      'note: 1 of these files has tests, and does not have a name that ubq runs (*.test.ts): old/top.ts. Rename them, or add to package.json: "ubq": { "include": ["old/**/*.ts"] }. Use "exclude" for files in that folder that are not test files.',
       'note: ubq does not read c8 or istanbul ignore comments: src/a.ts:1, src/a.ts:4, src/a.ts:6, src/a.ts:7, src/a.ts:8, and 1 more. At each range that no test can run, write: // ubq: not measured: <reason>',
     ],
   )
@@ -1533,7 +1535,9 @@ test('a file with no line end at its end, and a file of one line', () => {
       "test('a', () => {",
       '  assert(1)',
       '})',
-      '// TODO(ubq): ubq needs each assertion in a test. Put this in a test().',
+      '// TODO(ubq): This assertion is in no test. It runs when the file loads,',
+      '// and a failure is an error of the file, not of a test. If it is a check',
+      '// of the code under test, put it in a test().',
       "assert(2, 'last')",
     ],
   )
@@ -1566,7 +1570,7 @@ test('the report of the command for files that it cannot change, and for many fi
   const lines = p.ubq('convert', '--dry', 'old', 'plain').out.split('\n')
   assert.match(lines[0]!, /^not converted old\/bad\.test\.js: /)
   assert.deepEqual(lines.slice(-4), [
-    'convert: 6 files to change, 0 TODO comments, 1 files not converted (see the lines above), 11 files with no known test tool (plain/file00.js, plain/file01.js, plain/file02.js, plain/file03.js, plain/file04.js, plain/file05.js, plain/file06.js, plain/file07.js, plain/file08.js, plain/file09.js, and 1 more)',
+    'convert: 6 files to change, 0 TODO comments, 1 file not converted (see the lines above), 11 files with no known test tool (plain/file00.js, plain/file01.js, plain/file02.js, plain/file03.js, plain/file04.js, plain/file05.js, plain/file06.js, plain/file07.js, plain/file08.js, plain/file09.js, and 1 more)',
     'note: 6 of these files have tests, and do not have a name that ubq runs (*.test.ts): old/deep/spec1.js, old/deep/spec2.js, old/deep/spec3.js, old/deep/spec4.js, old/deep/spec5.js, .... Rename them, or add to package.json: "ubq": { "include": ["old/**/*.js"] }. Use "exclude" for files in that folder that are not test files.',
     'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
     '',
@@ -1581,7 +1585,7 @@ test('a Workers project with no vitest config, and one whose package.json is not
   writeFileSync(join(p.dir, 'w.test.ts'), old)
   assert.match(
     p.ubq('convert', '--dry', 'w.test.ts').out,
-    /\nnote: 1 of these files are tests of a Cloudflare Worker\. They must run in the Workers runtime\. Add to package\.json: "ubq": \{ "workers": /,
+    /\nnote: 1 of these files is tests of a Cloudflare Worker\. Such a file must run in the Workers runtime\. Add to package\.json: "ubq": \{ "workers": /,
   )
   // A vitest config whose setup file is not there, and a package.json that the command cannot write.
   writeFileSync(
