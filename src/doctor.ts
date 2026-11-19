@@ -246,7 +246,12 @@ export const doctor = (out: (text: string) => void): number => {
       if (!/(?<!\.d)\.[cm]?ts$/.test(file)) continue
       try {
         if (isBuild(file)) continue
-        strip(readFileSync(join(root, file), 'utf8'))
+        const source = readFileSync(join(root, file), 'utf8')
+        strip(source)
+        // A decorator is JavaScript syntax that Node does not have
+        // yet: a line that starts with `@Name`. A line of a doc
+        // comment starts with `*`.
+        if (/^[ \t]*@[A-Za-z_$][\w$.]*[ \t]*(\(|$)/m.test(source)) hard.push(file)
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX') hard.push(file)
       }
@@ -286,7 +291,7 @@ export const doctor = (out: (text: string) => void): number => {
       : ''
   if (hard.length)
     fix(
-      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): ${some(hard)}.${which} Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
+      `${hard.length} files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".`,
     )
 
   // The type check reads the tsconfig.json of each folder from a

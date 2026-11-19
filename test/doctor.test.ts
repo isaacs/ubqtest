@@ -71,6 +71,12 @@ test('doctor states the fix for each problem of the setup', () => {
   // its tsconfig does not need the option that refuses the syntax.
   const hard = ['hard', 'h2', 'h3', 'h4', 'h5', 'h6'].map(name => `src/${name}.ts`)
   for (const file of hard) writeFileSync(join(p.dir, file), 'export enum E {\n  A,\n}\n')
+  // A decorator, with a doc comment that is not one.
+  writeFileSync(
+    join(p.dir, 'src/h6.ts'),
+    '/**\n * @param x\n */\n@Injectable()\nexport class S {\n  @Inject(T) t = 1\n}\n',
+  )
+  writeFileSync(join(p.dir, 'src/doc.ts'), '/**\n * @param x a value\n */\nexport const f = (x: number): number => x\n')
   p.configure({ include: ['*.ts'], build: hard.slice(1) })
   writeFileSync(join(p.dir, 'src/types.d.ts'), 'export enum D {\n  A,\n}\n')
   const full = readFileSync(join(p.dir, 'tsconfig.json'), 'utf8')
@@ -79,7 +85,7 @@ test('doctor states the fix for each problem of the setup', () => {
     '{ "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true } }',
   )
   assert.deepEqual(doctor().lines.slice(2), [
-    'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, or a parameter property): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".',
+    'FIX  1 files have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project. Ask them: change this syntax, run the tests on Bun (bun node_modules/ubqtest/cli.js), or test a build of the source. With Bun or a build, tsconfig.json does not set "erasableSyntaxOnly".',
     'ok   tsconfig.json',
     'doctor: 1 problems',
   ])
@@ -89,7 +95,7 @@ test('doctor states the fix for each problem of the setup', () => {
   p.configure({ include: ['*.ts'] })
   assert.match(
     doctor().lines[2]!,
-    /^FIX  6 files have TypeScript syntax that Node cannot run \(enum, namespace, or a parameter property\): src\/h2\.ts, src\/h3\.ts, src\/h4\.ts, src\/h5\.ts, src\/h6\.ts, and 1 more\. /,
+    /^FIX  6 files have TypeScript syntax that Node cannot run \(enum, namespace, a parameter property, or a decorator\): src\/h2\.ts, src\/h3\.ts, src\/h4\.ts, src\/h5\.ts, src\/h6\.ts, and 1 more\. /,
   )
   // The files with such syntax that a test imports, also through a
   // file with no such syntax.

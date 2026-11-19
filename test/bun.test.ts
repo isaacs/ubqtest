@@ -306,3 +306,37 @@ describe('bun', () => {
     )
   })
 })
+
+test(
+  'on Bun, the output of the console is output of its test, also in a run of one file',
+  { skip: !bun && 'bun is not installed' },
+  () => {
+    const p = project()
+    cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+    writeFileSync(
+      join(p.dir, 'logs.test.ts'),
+      `import { assert, test } from 'ubqtest'
+test('passes', () => {
+  console.log('from a test that passes')
+  console.error('to stderr')
+  assert(true)
+})
+test('fails', () => {
+  console.warn('from a test that fails')
+  assert.equal(1, 2)
+})
+`,
+    )
+    // One file runs in the process of the runner.
+    const r = spawnSync('bun', [cli, 'logs.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
+    assert.deepEqual(
+      [r.stdout.includes('from a test that passes'), r.stderr, /^ {2}\| from a test that fails$/m.test(r.stdout)],
+      [false, '', true],
+    )
+    const rows = spawnSync('bun', [cli, 'sql', "select test, text from output where text like '%passes%'"], {
+      cwd: p.dir,
+      encoding: 'utf8',
+    }).stdout
+    assert.equal(rows, '{"test":"logs.test.ts > passes","text":"from a test that passes\\n"}\n')
+  },
+)

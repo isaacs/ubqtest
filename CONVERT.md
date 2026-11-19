@@ -116,7 +116,7 @@ names, do one of these:
   works only after a build. Import the source (`'../src/index.ts'`):
   then a run needs no build, and coverage has the source lines.
 - Node runs TypeScript with the types removed, and no other
-  change. Source with `enum`, `namespace`, or a parameter property
+  change. Source with `enum`, `namespace`, a decorator, or a parameter property
   (`constructor(private x: number)`) does not load. `ubq doctor`
   names the files that have such syntax. Node 26 has no option to
   run it. Stop, and ask the user to choose: change that syntax,

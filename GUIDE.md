@@ -880,7 +880,9 @@ limits of older versions:
 
 TypeScript runs with no build
 step, so the code must use only syntax that can be erased: no
-`enum`, no `namespace`, no parameter properties. In
+`enum`, no `namespace`, no parameter properties. Node also does
+not run decorators (`@Injectable()`): a project that has them,
+such as a NestJS project, runs its tests on Bun. In
 `tsconfig.json`, set `"allowImportingTsExtensions": true`,
 `"noEmit": true`, and `"erasableSyntaxOnly": true`. If the project
 builds JavaScript from that tsconfig (for example with tshy), set

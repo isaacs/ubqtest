@@ -16,6 +16,7 @@ export const startCapture = (file: () => string): void => {
       return true
     }) as typeof process.stdout.write
   }
-  // The console of Deno does not write through `process.stdout`.
-  if (process.versions.deno) globalThis.console = new Console(process.stdout, process.stderr)
+  // The console of Deno and of Bun does not write through
+  // `process.stdout`.
+  if (process.versions.deno || process.versions.bun) globalThis.console = new Console(process.stdout, process.stderr)
 }
