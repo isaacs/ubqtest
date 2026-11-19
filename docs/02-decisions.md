@@ -2771,3 +2771,34 @@ Not done, with the reason:
   the old tool. That is correct: the helper cannot load with the
   old tool gone.
 
+## D114. The `skipTypecheck` key, the `env` key, and a hint for an alias (user, 2026-11-19)
+
+The answers to Q45, Q46, and Q47.
+
+- **`"skipTypecheck": true`**: no run checks the types. It
+  changes D38 for a project that asks for it. The assistant
+  proposed an option of the command for one run, so that the
+  check was hard to leave off. The user: "'cli flag vs config' is
+  not the place to be opinionated. People will just put the cli
+  flag in their package.json test script anyway, and then they
+  have to remember which thing goes where. Flags that set policy
+  are configuration; they belong in the config."
+- **A rule from that answer**: a setting that is a rule of the
+  project is a key of the configuration. An option of the command
+  is for what one run selects.
+- **`"env": { "MODE": "dev" }`**: each test process gets the
+  values before the test file loads, in the same place as the
+  `define` values. Each value is text. A value of the key is
+  before a value of the shell (choice of the assistant: vitest
+  does the same, and a test must have the same result on each
+  machine). `ubq convert` writes the key from `test.env` of a
+  vitest config.
+- **No `alias` key** (D92 stays). The user: "can we detect this
+  and guide the user to a solution?" A test file that does not
+  load because of a name that is no package gets a hint, if the
+  `paths` of the tsconfig have the name, or if a vite or vitest
+  config at the root has an alias. The hint names the config, and
+  the forms that the runtime finds: the `imports` key of
+  `package.json`, a package of the workspace, a relative path.
+  `ubq convert` has a note for an alias of the old config.
+

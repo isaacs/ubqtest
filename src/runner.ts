@@ -39,6 +39,7 @@ import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
 import { type Checking, ownTypeErrors, TYPES } from './plain.ts'
 import { startBrowserServer } from './browser-server.ts'
+import { OWN_CONFIG, tsOptions } from './tsconfig.ts'
 import { typeCheck } from './typecheck.ts'
 import { compare, runBaseline, type Baseline } from './baseline.ts'
 import { headCommit } from './git.ts'
@@ -378,6 +379,42 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
 }
 
 /**
+ * A hint for an import of a name that the runtime does not find,
+ * if a config of the project maps the name to a path: `paths` of a
+ * tsconfig, or an alias of a vite config. The type checker or the
+ * old test tool found the name, and the runtime does not.
+ */
+const aliasHint = (message: string): string => {
+  const name = /Cannot find (?:package|module) '([^'./][^']*)'/.exec(message)?.[1]
+  if (!name) return ''
+  const root = projectRoot()
+  const fix =
+    'Use a name that the runtime finds: the "imports" key of package.json ("#name": "./path", and import "#name"), a package of the workspace, or a relative path.'
+  for (const file of [OWN_CONFIG, 'tsconfig.json']) {
+    let paths: Record<string, unknown> = {}
+    try {
+      paths = (tsOptions(join(root, file)).paths ?? {}) as Record<string, unknown>
+    } catch {
+      // No such config, or one that this code cannot read.
+    }
+    const key = Object.keys(paths).find(k => k === name || (k.endsWith('/*') && name.startsWith(k.slice(0, -1))))
+    if (key)
+      return `\nhint: ${file} has "paths" for "${key}". The type checker reads "paths", and the runtime does not. ${fix}`
+  }
+  for (const tool of ['vitest', 'vite'])
+    for (const end of ['ts', 'mts', 'js', 'mjs']) {
+      const file = `${tool}.config.${end}`
+      try {
+        if (/\balias\b/.test(readFileSync(join(root, file), 'utf8')))
+          return `\nhint: ${file} has an alias for imports, and ubq does not read it. ${fix}`
+      } catch {
+        // No such config.
+      }
+    }
+  return ''
+}
+
+/**
  * The failure of a test file that did not load, from the text that
  * the runtime wrote: the line of the error, and its place if the
  * place is in the project. Undefined if the text has no such line.
@@ -407,6 +444,7 @@ export const loadFailure = (text: string): Failure | undefined => {
     kind: 'error',
     message:
       `the test file did not load: ${error[1]}` +
+      aliasHint(error[1]!) +
       // Node removes types and makes no other change.
       (/strip-only mode/.test(error[1]!)
         ? '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.'
@@ -865,10 +903,12 @@ export const run = async (args: string[]): Promise<number> => {
   }
   if (!lone && !V8 && !existsSync(join(projectRoot(), '.ubq', 'counters')))
     prepareAll(files.map(f => join(projectRoot(), f.file)))
-  const checking = typeCheck(
-    lone,
-    files.map(f => f.file),
-  )
+  const checking = config().skipTypecheck
+    ? undefined
+    : typeCheck(
+        lone,
+        files.map(f => f.file),
+      )
   // The user named what to run. The type errors of files that the
   // run does not use are counted, and do not fail it (D49).
   if (checking) checking.partial = rest.length > 0 || flags.length > 0

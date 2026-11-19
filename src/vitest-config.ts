@@ -164,8 +164,9 @@ export const viteDefine = (
   root: string,
   parse: Parse,
   children: Children,
-): { define: Record<string, unknown>; notes: string[] } | undefined => {
+): { define: Record<string, unknown>; env: Record<string, string>; notes: string[] } | undefined => {
   const define: Record<string, unknown> = {}
+  const env: Record<string, string> = {}
   const notes: string[] = []
   let found = false
   for (const file of [...NAMES, ...NAMES.map(name => name.replace('vitest', 'vite'))]) {
@@ -179,8 +180,8 @@ export const viteDefine = (
     let spread = false
     let plugins = false
     let limit: unknown
-    /** The names of `test.env`, and of the aliases for imports. */
-    const env: string[] = []
+    /** The names of `test.env` with a value that is not plain text, and of the aliases for imports. */
+    const hard: string[] = []
     const alias: string[] = []
     const names = (object: Node | undefined): string[] =>
       object?.type === 'ObjectExpression'
@@ -195,7 +196,16 @@ export const viteDefine = (
       const known = (e: Node | null): boolean =>
         e?.type === 'CallExpression' && (e.callee as Node & { name?: string }).name === 'cloudflareTest'
       if (list && !(list.type === 'ArrayExpression' && (list.elements as (Node | null)[]).every(known))) plugins = true
-      env.push(...names(get(get(node, 'test'), 'env')))
+      const given = get(get(node, 'test'), 'env')
+      if (given?.type === 'ObjectExpression')
+        for (const property of given.properties as Node[]) {
+          const key = keyOf(property)
+          const value = property.value as Node | undefined
+          if (key !== undefined && value?.type === 'Literal' && value.value !== null && typeof value.value !== 'object')
+            env[key] = String(value.value)
+          else hard.push(key ?? 'a computed key')
+        }
+      else if (given) hard.push('not a plain object')
       alias.push(...names(get(get(node, 'test'), 'alias')), ...names(get(get(node, 'resolve'), 'alias')))
       const timeout = node.type === 'ObjectExpression' ? get(node, 'testTimeout') : undefined
       if (timeout?.type === 'Literal' && typeof timeout.value === 'number') limit = timeout.value
@@ -238,9 +248,9 @@ export const viteDefine = (
       notes.push(
         `${file} has testTimeout: ${limit}. The time limit of a test in ubq is 5000 ms. To keep the limit of the old config, add to "ubq" in package.json: "timeout": ${limit}`,
       )
-    if (env.length)
+    if (hard.length)
       notes.push(
-        `${file} has test.env (${env.join(', ')}). ubq has no key for the environment of the tests. Set each value in the test script of package.json and in CI, or in the test with env() of ubqtest.`,
+        `${file} has values in test.env that are not plain text (${hard.join(', ')}). Add them to "env" in "ubq" in package.json by hand.`,
       )
     if (alias.length)
       notes.push(
@@ -251,7 +261,7 @@ export const viteDefine = (
         `${file} spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.`,
       )
   }
-  return found || notes.length ? { define, notes } : undefined
+  return found || notes.length || Object.keys(env).length ? { define, env, notes } : undefined
 }
 
 /**

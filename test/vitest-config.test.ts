@@ -139,6 +139,7 @@ test('the define values of the vite and vitest configs', () => {
   writeFileSync(join(dir, 'vitest.config.ts'), "import base from '../vite.config'\nexport default { ...base }")
   assert.deepEqual(viteDefine(dir, parse, children), {
     define: {},
+    env: {},
     notes: [
       'vitest.config.ts spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.',
     ],
@@ -161,6 +162,7 @@ test('the define values of the vite and vitest configs', () => {
   )
   assert.deepEqual(viteDefine(dir, parse, children), {
     define: { __DEBUG_BUILD__: true, VERSION: '1.2', LIMIT: 3, FLAGS: { a: [true] }, NAME: 'x' },
+    env: {},
     notes: [
       'vitest.config.ts spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.',
       'process.env.MODE of define in vite.config.ts is not a global name. ubq sets only global names. Set it in the test by hand.',
@@ -177,6 +179,7 @@ test('the define values of the vite and vitest configs', () => {
   writeFileSync(join(dir, 'vite.config.ts'), 'export default { plugins: [strip()], test: {} }')
   assert.deepEqual(viteDefine(dir, parse, children), {
     define: {},
+    env: {},
     notes: [
       'vite.config.ts has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.',
     ],
@@ -185,6 +188,7 @@ test('the define values of the vite and vitest configs', () => {
   writeFileSync(join(dir, 'vite.config.ts'), 'export default { test: { testTimeout: 60000 } }')
   assert.deepEqual(viteDefine(dir, parse, children), {
     define: {},
+    env: {},
     notes: [
       'vite.config.ts has testTimeout: 60000. The time limit of a test in ubq is 5000 ms. To keep the limit of the old config, add to "ubq" in package.json: "timeout": 60000',
     ],
@@ -216,21 +220,26 @@ test('the notes for a config of Playwright Test: the address of the pages, and o
   assert.deepEqual(playwrightNotes(dir, parse, children), [])
 })
 
-test('the env and the aliases of a vitest config are notes', () => {
+test('the env of a vitest config, and a note for its aliases', () => {
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-vite-')))
   cleanup(() => rmSync(dir, { recursive: true, force: true }))
   writeFileSync(
     join(dir, 'vitest.config.ts'),
     `export default defineConfig({
-  resolve: { alias: { '@lib': path.resolve('lib') } },
-  test: { env: { MODE: 'dev', [name]: '1' }, alias: list },
+  resolve: { alias: { '@lib': path.resolve('lib'), [name]: 'x' } },
+  test: { env: { MODE: 'dev', LIMIT: 3, [name]: '1', SECRET: process.env.SECRET }, alias: list },
 })`,
   )
   assert.deepEqual(viteDefine(dir, parse, children), {
     define: {},
+    env: { MODE: 'dev', LIMIT: '3' },
     notes: [
-      'vitest.config.ts has test.env (MODE, a computed key). ubq has no key for the environment of the tests. Set each value in the test script of package.json and in CI, or in the test with env() of ubqtest.',
-      'vitest.config.ts has an alias for imports (not a plain object, @lib). ubq does not change the name of an import. Use a name that the runtime finds: a relative path, the "imports" key of package.json, or a package of the workspace.',
+      'vitest.config.ts has values in test.env that are not plain text (a computed key, SECRET). Add them to "env" in "ubq" in package.json by hand.',
+      'vitest.config.ts has an alias for imports (not a plain object, @lib, a computed key). ubq does not change the name of an import. Use a name that the runtime finds: a relative path, the "imports" key of package.json, or a package of the workspace.',
     ],
   })
+  writeFileSync(join(dir, 'vitest.config.ts'), 'export default { test: { env: values } }')
+  assert.deepEqual(viteDefine(dir, parse, children)?.notes, [
+    'vitest.config.ts has values in test.env that are not plain text (not a plain object). Add them to "env" in "ubq" in package.json by hand.',
+  ])
 })

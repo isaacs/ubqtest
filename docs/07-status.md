@@ -419,6 +419,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - The `skipTypecheck` key, the `env` key, and a hint for an
+    import of a name of an alias or of `paths` (D114).
   - From the vitest monorepo report (D113): no test files from
     `dist` by default, a hint for TS6305, and two forms and two
     notes in `ubq convert`. Q45 to Q48 are open.

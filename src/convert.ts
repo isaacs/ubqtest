@@ -2894,23 +2894,25 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       `note: ${workers} of these files are tests of a Cloudflare Worker. They must run in the Workers runtime. Add to package.json: "ubq": { "workers": [{ "config": "wrangler.jsonc", "include": ["test/**/*.test.ts"] }] }, with the path of the wrangler config and the globs of these files.`,
     )
   // Vite puts each define value in the source. ubq sets it as a
-  // global (D83).
-  const defined = config().define ? undefined : viteDefine(root, parse, children)
-  if (defined && Object.keys(defined.define).length) {
+  // global (D83). vitest sets each value of `test.env` in the
+  // environment of the tests, and so does ubq (D114).
+  const defined = viteDefine(root, parse, children)
+  for (const key of ['define', 'env'] as const) {
+    if (!defined || config()[key] || !Object.keys(defined[key]).length) continue
     const pkgPath = join(root, 'package.json')
     let wrote = false
     if (!dry)
       try {
         const text = readFileSync(pkgPath, 'utf8')
         const pkg = JSON.parse(text) as { ubq?: Record<string, unknown> }
-        pkg.ubq = { ...pkg.ubq, define: defined.define }
+        pkg.ubq = { ...pkg.ubq, [key]: defined[key] }
         writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
         wrote = true
       } catch {
         // No package.json that is JSON. The text below has the key.
       }
     out(
-      `${wrote ? 'wrote "ubq.define" to package.json' : 'add to "ubq" in package.json'}: "define": ${JSON.stringify(defined.define)}`,
+      `${wrote ? `wrote "ubq.${key}" to package.json` : 'add to "ubq" in package.json'}: "${key}": ${JSON.stringify(defined[key])}`,
     )
   }
   for (const note of defined?.notes ?? []) out(`note: ${note}`)

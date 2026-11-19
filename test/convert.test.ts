@@ -1804,8 +1804,8 @@ test('vitest: convert writes the define values of the vite config, and the tests
     define: { __DEBUG_BUILD__: true },
   })
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
-  // The key is there: no line.
-  assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [])
+  // The key is there: only the note.
+  assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [note])
   // A package.json that is not JSON: the command prints the key.
   writeFileSync(join(p.dir, 'package.json'), '{')
   assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [
@@ -2922,4 +2922,28 @@ it('x', () => {
     '  assert.deepEqual(v, { a: expect.stringMatching(/y/i) })',
   ])
   assert.equal(r!.todos.length, 1)
+})
+
+test('vitest: convert writes the env values of the vitest config, and the tests then run', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'vitest.config.ts'),
+    "export default { test: { env: { UBQ_TEST_MODE: 'dev', UBQ_TEST_KEY: process.env.KEY } } }\n",
+  )
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    "import { expect, it } from 'vitest'\nconst mode = process.env.UBQ_TEST_MODE\nit('a', () => {\n  expect(mode).toBe('dev')\n})\n",
+  )
+  assert.deepEqual(
+    p
+      .ubq('convert', 'old.ts')
+      .out.split('\n')
+      .filter(line => /env/.test(line)),
+    [
+      'wrote "ubq.env" to package.json: "env": {"UBQ_TEST_MODE":"dev"}',
+      'note: vitest.config.ts has values in test.env that are not plain text (UBQ_TEST_KEY). Add them to "env" in "ubq" in package.json by hand.',
+    ],
+  )
+  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
 })

@@ -228,3 +228,64 @@ test('${name}', () => assert.deepEqual([two(), typeof kind], [2, 'function']))
   ])
   assert(entries.every(entry => !entry.js?.includes(': number')))
 })
+
+test('the values of the env key are in the environment before the source loads', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.configure({ env: { UBQ_TEST_MODE: 'dev' } })
+  const file =
+    "import { assert, test } from 'ubqtest'\nconst mode = process.env.UBQ_TEST_MODE\ntest('mode', () => assert.equal(mode, 'dev'))\n"
+  writeFileSync(join(p.dir, 'mode.ts'), file)
+  writeFileSync(join(p.dir, 'mode2.ts'), file)
+  // In the process of the runner, in a child process, and as a plain program.
+  assert.equal(p.ubq('mode.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('mode.ts', 'mode2.ts').last, 'pass: 0 failed, 2 passed')
+  // The value of the key is before a value of the shell: a test
+  // has the same result on each machine.
+  const plain = spawnSync('node', ['mode.ts'], {
+    cwd: p.dir,
+    encoding: 'utf8',
+    env: { ...process.env, UBQ_TEST_MODE: 'prod' },
+  })
+  assert.equal(plain.status, 0, plain.stderr)
+  p.configure({ env: { UBQ_TEST_MODE: 1 } })
+  assert.equal(
+    p.ubq('mode.ts').err,
+    'ubq: "ubq.env" in package.json must be an object of names and text values, such as { "MODE": "dev" }\n',
+  )
+})
+
+test('an import of a name that only a config maps to a path has a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const file =
+    "import { assert, test } from 'ubqtest'\nimport { one } from '@lib/one'\ntest('one', () => assert.equal(one, 1))\n"
+  writeFileSync(join(p.dir, 'alias.ts'), file)
+  writeFileSync(join(p.dir, 'alias2.ts'), file)
+  const fix =
+    'Use a name that the runtime finds: the "imports" key of package.json ("#name": "./path", and import "#name"), a package of the workspace, or a relative path.'
+  const hint = (...files: string[]): string | undefined =>
+    p
+      .ubq(...files)
+      .out.split('\n')
+      .find(line => line.startsWith('  hint: '))
+  // No config has the name.
+  assert.equal(hint('alias.ts'), undefined)
+  writeFileSync(join(p.dir, 'vite.config.ts'), "export default { resolve: { alias: { '@lib': './lib' } } }\n")
+  const vite = `  hint: vite.config.ts has an alias for imports, and ubq does not read it. ${fix}`
+  // In the process of the runner, and in a child process.
+  assert.equal(hint('alias.ts'), vite)
+  assert.equal(hint('alias.ts', 'alias2.ts'), vite)
+  // A tsconfig with no paths: the hint of the vite config.
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "include": ["none.d.ts"] }')
+  assert.equal(hint('alias.ts'), vite)
+  writeFileSync(
+    join(p.dir, 'base.json'),
+    '{ "compilerOptions": { "paths": { "@lib/*": ["./lib/*"], "@x": ["./x.ts"] } } }',
+  )
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "./base.json", "include": ["none.d.ts"] }')
+  assert.equal(
+    hint('alias.ts'),
+    `  hint: tsconfig.json has "paths" for "@lib/*". The type checker reads "paths", and the runtime does not. ${fix}`,
+  )
+})

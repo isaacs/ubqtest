@@ -28,6 +28,10 @@ export interface Config {
   define?: Record<string, unknown>
   /** The compiler for source that Node cannot run with only its types removed (D111). */
   transform?: 'typescript' | 'swc'
+  /** Values of the environment for each test process, as `test.env` of vitest gives them (D114). */
+  env?: Record<string, string>
+  /** True if a run does not check the types (D114). */
+  skipTypecheck?: boolean
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -86,6 +90,12 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
     'an object of names and JSON values, such as { "__DEBUG_BUILD__": true }. Each name is a global name: a dot is not permitted',
   ],
   transform: [v => v === 'typescript' || v === 'swc', '"typescript" or "swc"'],
+  env: [
+    v =>
+      typeof v === 'object' && !!v && !Array.isArray(v) && Object.values(v).every(value => typeof value === 'string'),
+    'an object of names and text values, such as { "MODE": "dev" }',
+  ],
+  skipTypecheck: [v => typeof v === 'boolean', 'true or false'],
 }
 
 let cached: Config | undefined
@@ -115,13 +125,15 @@ export const config = (): Config => {
 }
 
 /**
- * Sets each value of the `define` key on `globalThis`. A test
- * process does this before the test file loads, and the library
- * does it again for a test file that runs as a plain program.
+ * Sets each value of the `define` key on `globalThis`, and each
+ * value of the `env` key in the environment. A test process does
+ * this before the test file loads, and the library does it again
+ * for a test file that runs as a plain program.
  */
 export const setDefines = (): void => {
   for (const [name, value] of Object.entries(config().define ?? {}))
     (globalThis as Record<string, unknown>)[name] = value
+  Object.assign(process.env, config().env)
 }
 
 /**

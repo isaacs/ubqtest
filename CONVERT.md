@@ -151,14 +151,24 @@ names, do one of these:
   of vitest), `ubq convert` prints a note with the `"timeout"` key
   to add. A test that takes more than its limit fails, also a
   test that does not await.
-- `test.env` of a vitest config has no key in ubq, and the
-  command prints a note with its names. Set each value in the
-  test script of `package.json` and in CI, or in the test with
-  `env()`.
+- `test.env` of a vitest config is the `env` key of the ubq
+  configuration: `"ubq": { "env": { "MODE": "dev" } }`. The
+  command writes the key from the values that are plain text,
+  and prints a note for the others.
 - An alias for imports (`resolve.alias`, `test.alias`) has no key
   in ubq, and the command prints a note. ubq does not change the
-  name of an import: use a relative path, the `imports` key of
-  `package.json`, or a package of the workspace.
+  name of an import: use the `imports` key of `package.json`
+  (`"#lib": "./lib/index.ts"`, and `import '#lib'`), a package of
+  the workspace, or a relative path. A test file that imports a
+  name of an alias, or of the `paths` of a tsconfig, does not
+  load, and the failure has a hint with the config that has the
+  name.
+- The old tool did not check the types of the tests, and ubq
+  does in each run. A large conversion can have hundreds of type
+  errors. They are real, but you can do the tests first: set
+  `"skipTypecheck": true` in the `ubq` key, make the tests pass,
+  then remove the key and correct the types. Tell the user if
+  the key stays.
 - Vite puts each value of its `define` in the source, such as
   `__DEBUG_BUILD__`. With ubq, the source throws `ReferenceError:
   __DEBUG_BUILD__ is not defined`. Give the values in the

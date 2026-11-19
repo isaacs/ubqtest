@@ -402,3 +402,32 @@ test('a referenced project that is not built has a hint', () => {
     '  hint: the tsconfig has "references", and the checker reads a referenced project from its build output, which is not there or is old. Build the referenced projects (tsc -b), in CI too, before the tests.',
   )
 })
+
+test('with the skipTypecheck key, a run does not check the types', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const name of ['typescript', '@typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        target: 'esnext',
+        strict: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+        types: ['node'],
+      },
+      include: ['wrong.test.ts'],
+    }),
+  )
+  writeFileSync(
+    join(p.dir, 'wrong.test.ts'),
+    "import { assert, test } from 'ubqtest'\nconst n: number = 'x' as never as string\ntest('runs', () => assert(n))\n",
+  )
+  assert.equal(p.ubq('wrong.test.ts').last, 'fail: 0 failed, 1 passed, 1 type errors')
+  p.configure({ skipTypecheck: true })
+  assert.equal(p.ubq('wrong.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('wrong.test.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')
+})

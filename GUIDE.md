@@ -73,6 +73,8 @@ of that file.
 Each run also runs the type checker, if the project has
 `tsconfig.json` and the `typescript` package. Each type error is a
 `TYPE` block, and the run fails. The tests run in any case.
+`"skipTypecheck": true` in the `ubq` key turns the check off: the
+project then runs its type checker as a separate step.
 
 - A folder with its own `tsconfig.json` is checked too, if a test
   file of the run is in it.
@@ -849,7 +851,11 @@ can be wrong. `ubq <test file>` on Bun does not need it), and
 `browser` (see "Tests in a browser"), `workers` (see "Tests
 of a Cloudflare Worker"), and `define` (global values that the
 source reads, as the `define` of vite gives them: `"define": {
-"__DEBUG__": true }`). A folder
+"__DEBUG__": true }`). `env` has values of the environment
+for each test process (`"env": { "MODE": "dev" }`): a value of
+the key is before a value of the shell. `skipTypecheck` (`true`)
+turns off the type check of each run. `transform` is in "Source
+that Node cannot run". A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace: the folders of `workspaces` in
