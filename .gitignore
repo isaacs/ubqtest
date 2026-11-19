@@ -7,6 +7,7 @@ _site/
 vscode/out/
 vscode/.vscode-test/
 *.vsix
+/private
 
 bench/suite/
 bench/results/*.log
