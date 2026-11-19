@@ -201,6 +201,19 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
     `import { assert, test } from 'ubqtest'\ntest('one', () => assert(true))\n`,
   )
   assert.equal(p.ubq().out.split('\n').at(-2), 'workspaces: 2 passed')
+  // pnpm has the list in its own file. A pattern with ! leaves a
+  // folder out.
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module' }))
+  assert.equal(p.ubq().code, 2)
+  writeFileSync(
+    join(p.dir, 'pnpm-workspace.yaml'),
+    'minimumReleaseAge: 1440\npackages:\n  - \'packages/*\' # each project\n  - "!packages/b"\ncatalog:\n  - not/a/package\n',
+  )
+  assert.equal(p.ubq().out.split('\n').at(-2), 'workspaces: 1 passed')
+  assert.match(
+    p.ubq('doctor').out,
+    /^note this folder is the root of a monorepo with 2 projects \(packages\/a, packages\/empty\)\. ubq runs the tests of one project: /m,
+  )
   // No workspace has tests.
   for (const name of ['a', 'b']) rmSync(join(p.dir, 'packages', name, 'one.test.ts'))
   assert.equal(p.ubq().code, 2)

@@ -827,7 +827,8 @@ source reads, as the `define` of vite gives them: `"define": {
 "__DEBUG__": true }`). A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
-`ubq` runs each workspace.
+`ubq` runs each workspace: the folders of `workspaces` in
+`package.json`, or of `packages` in `pnpm-workspace.yaml`.
 
 Build output and build tools are not source of the program. `ubq
 uncovered` does not list them. With no `build` key, they are the

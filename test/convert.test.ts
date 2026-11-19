@@ -1991,7 +1991,8 @@ describe.each([['a'], ['b']])('group %s', s => {
 
 test('a name with the mark of a test ID in it has a TODO', () => {
   assert.deepEqual(
-    convert("import { describe, it } from 'vitest'\nit('a > b', () => {})\ndescribe(`c > ${d}`, () => {})\n")?.todos.length,
+    convert("import { describe, it } from 'vitest'\nit('a > b', () => {})\ndescribe(`c > ${d}`, () => {})\n")?.todos
+      .length,
     2,
   )
 })

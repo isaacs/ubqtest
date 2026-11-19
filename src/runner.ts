@@ -668,8 +668,36 @@ const imports = (file: string): boolean => {
   }
 }
 
-/** The folders of the `workspaces` of the root `package.json` that are projects. */
-const workspaces = (): string[] => {
+/**
+ * The `packages` list of `pnpm-workspace.yaml`: the lines of the
+ * form `  - 'apps/*'` below the `packages:` key. Undefined if the
+ * root has no such file.
+ */
+const pnpmPackages = (root: string): string[] | undefined => {
+  let text: string
+  try {
+    text = readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8')
+  } catch {
+    return undefined
+  }
+  const out: string[] = []
+  let inList = false
+  for (const line of text.split(/\r?\n/)) {
+    const item = /^\s+-\s+(['"]?)(.+?)\1\s*(#.*)?$/.exec(line)
+    if (/^packages\s*:/.test(line)) inList = true
+    else if (inList && item) out.push(item[2]!)
+    // A key at the start of a line ends the list.
+    else if (/^\S/.test(line)) inList = false
+  }
+  return out
+}
+
+/**
+ * The folders of the workspaces of the root that are projects: from
+ * `workspaces` of `package.json` (npm, yarn, bun), or from
+ * `pnpm-workspace.yaml`.
+ */
+export const workspaces = (): string[] => {
   const root = projectRoot()
   let field: unknown
   try {
@@ -677,9 +705,13 @@ const workspaces = (): string[] => {
   } catch {
     return []
   }
-  const patterns = Array.isArray(field) ? field : (field as { packages?: unknown } | undefined)?.packages
-  if (!Array.isArray(patterns)) return []
-  return globSync(patterns as string[], { cwd: root })
+  const listed = Array.isArray(field) ? field : (field as { packages?: unknown } | undefined)?.packages
+  const all = (Array.isArray(listed) ? (listed as string[]) : pnpmPackages(root)) ?? []
+  // A pattern with `!` leaves folders out.
+  const patterns = all.filter(pattern => !pattern.startsWith('!'))
+  const not = all.filter(pattern => pattern.startsWith('!')).map(pattern => pattern.slice(1))
+  if (!patterns.length) return []
+  return globSync(patterns, { cwd: root, exclude: not })
     .filter(dir => !dir.includes('node_modules') && existsSync(join(root, dir, 'package.json')))
     .map(dir => dir.split(sep).join('/'))
     .sort()

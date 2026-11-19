@@ -7,7 +7,7 @@ import * as nodeModule from 'node:module'
 import { dirname, isAbsolute, join, matchesGlob, relative, resolve } from 'node:path'
 import { type Config, config, isBuild } from './config.ts'
 import { projectRoot } from './project.ts'
-import { select, UsageError } from './runner.ts'
+import { select, UsageError, workspaces } from './runner.ts'
 import { vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
@@ -63,6 +63,9 @@ const tsIncludes = (config: string, file: string): boolean => {
   } catch {
     return true
   }
+  // A config with only references to other configs, as Nx makes:
+  // `tsc -p` of this file checks no file.
+  if (Array.isArray(json.files) && !json.files.length && !json.include?.length) return false
   if (json.references || (json.extends && !json.include && !json.files)) return true
   const path = relative(dirname(config), file).split('\\').join('/')
   // A name with no pattern is a file or a folder.
@@ -98,6 +101,13 @@ export const doctor = (out: (text: string) => void): number => {
 
   if (existsSync(join(root, 'package.json'))) ok(`project: ${root}`)
   else fix(`no package.json at or above ${root}. The folder of package.json is the project. Run: npm init -y`)
+  // The root of a monorepo: each folder with a package.json is its
+  // own project.
+  const projects = workspaces()
+  if (projects.length)
+    out(
+      `note this folder is the root of a monorepo with ${projects.length} projects (${projects.slice(0, 3).join(', ')}${projects.length > 3 ? ', ...' : ''}). ubq runs the tests of one project: run ubq and ubq doctor in the folder of a project. At the root, ubq runs each project, one after the other, only if the root has no test files of its own.`,
+    )
 
   try {
     createRequire(join(root, 'package.json')).resolve('ubqtest')
@@ -297,10 +307,22 @@ export const doctor = (out: (text: string) => void): number => {
   const main = join(root, 'tsconfig.json')
   if (bare.length && existsSync(main)) {
     const folder = bare[0]!.includes('/') ? bare[0]!.slice(0, bare[0]!.indexOf('/')) : undefined
-    const base =
-      existsSync(join(root, 'tsconfig.test.json')) && tsIncludes(join(root, 'tsconfig.test.json'), join(root, bare[0]!))
+    let solution = false
+    try {
+      const json = JSON.parse(plainJson(readFileSync(main, 'utf8'))) as { files?: unknown[]; references?: unknown }
+      solution = !!json.references && Array.isArray(json.files) && !json.files.length
+    } catch {
+      // Not JSON: the type checker reports it.
+    }
+    // The config of the tests: `tsconfig.spec.json` is its name in
+    // a project of Nx.
+    const base = ['tsconfig.test.json', 'tsconfig.spec.json'].find(
+      name => existsSync(join(root, name)) && tsIncludes(join(root, name), join(root, bare[0]!)),
+    )
     const made = base
-      ? { extends: '../tsconfig.test.json' }
+      ? // A config with `composite` reports each file that its list
+        // does not have (TS6307).
+        { extends: `../${base}`, ...(solution && { compilerOptions: { composite: false } }) }
       : {
           extends: '../tsconfig.json',
           compilerOptions: {
@@ -311,7 +333,7 @@ export const doctor = (out: (text: string) => void): number => {
           include: ['.'],
         }
     fix(
-      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
+      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and ubq runs "tsc -p tsconfig.json", which does not build references: the type check reads no file. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
     )
   }
   // With no TypeScript test file, the config of the project.

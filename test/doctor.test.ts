@@ -354,6 +354,22 @@ test('doctor: the tsconfig.json that has the test files', () => {
   // A config for the tests with a different name.
   writeFileSync(join(p.dir, 'tsconfig.test.json'), `{ ${options}, "include": ["test/**/*"] }`)
   assert.deepEqual(lines(), [`${start}{"extends":"../tsconfig.test.json"}${end}`])
+  // A project of Nx: tsconfig.json has only references, and the
+  // config of the tests is tsconfig.spec.json.
+  const before = readFileSync(join(p.dir, 'tsconfig.json'), 'utf8')
+  rmSync(join(p.dir, 'tsconfig.test.json'))
+  writeFileSync(join(p.dir, 'tsconfig.spec.json'), `{ ${options}, "include": ["test/**/*"] }`)
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    '{ "files": [], "include": [], "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.spec.json" }] }',
+  )
+  assert.match(
+    lines()[0]!,
+    /are in no tsconfig\.json: .*\. tsconfig\.json has only "references" to other configs, and ubq runs "tsc -p tsconfig\.json", which does not build references: the type check reads no file\. .* Add test\/tsconfig\.json: \{"extends":"\.\.\/tsconfig\.spec\.json","compilerOptions":\{"composite":false\}\}\./,
+  )
+  writeFileSync(join(p.dir, 'tsconfig.json'), before)
+  rmSync(join(p.dir, 'tsconfig.spec.json'))
+  writeFileSync(join(p.dir, 'tsconfig.test.json'), `{ ${options}, "include": ["test/**/*"] }`)
   // The options are checked in the config that has the tests.
   writeFileSync(join(p.dir, 'test/tsconfig.json'), '{ "extends": "../tsconfig.test.json" }')
   assert.deepEqual(lines(), ['ok   test/tsconfig.json'])
@@ -374,7 +390,10 @@ test('doctor: the tsconfig.json that has the test files', () => {
     ['"include": ["./test/"]', true],
     ['"include": ["test/*/*.js"]', false],
     ['"include": ["."], "exclude": ["test"]', false],
-    ['"files": [], "references": [{ "path": "./src" }]', true],
+    // References with a list of its own: the check cannot know.
+    ['"include": ["lib"], "references": [{ "path": "./src" }]', true],
+    // Only references: `tsc -p` of this file reads no file.
+    ['"files": [], "references": [{ "path": "./src" }]', false],
   ] as const) {
     writeFileSync(join(p.dir, 'tsconfig.json'), `{ ${options}, ${config} }`)
     assert.deepEqual(
