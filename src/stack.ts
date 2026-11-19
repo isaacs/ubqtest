@@ -12,7 +12,8 @@ const own = import.meta.dirname + sep
 // Bun omits the column of some frames: `at /a/b.ts:1`
 // Bun on Windows gives the path with its drive: `at fn (C:\a\b.ts:1:2)`
 // A path can have spaces: `at fn (/a b/c.ts:1:2)`
-const frame = /(?:\(|at (?:async )?)((?:file:\/\/)?(?:\/|[A-Za-z]:[\\/])[^()]+?):(\d+)(?::(\d+))?\)?$/
+// A path can have `(` and `)`, as a route folder has: `at fn (/a/($id)/c.ts:1:2)`
+const frame = /(?:\(|at (?:async )?)((?:file:\/\/)?(?:\/|[A-Za-z]:[\\/]).+?):(\d+)(?::(\d+))?\)?$/
 
 /** The frames of `stack` that are in user code, innermost first. */
 export const userFrames = (stack: string | undefined, limit = 6): Location[] => {

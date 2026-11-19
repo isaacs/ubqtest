@@ -131,7 +131,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     // With a repeat, the runner starts a process for the file. That is
     // the code of the runner for this runtime.
     assert.deepEqual(sh(cmd, ...args, ubq, '--repeat', '2').lines, [
-      'repeat 2: 0 failed some times, 0 failed each time, 2 failed no times',
+      'repeat 2: 0 failed some times, 0 failed each time, 2 passed each time',
       'pass: 0 failed, 2 passed',
     ])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [

@@ -27,6 +27,13 @@ const FAILURES = 20
 /** The most rows of the table of failures in the summary of a step of GitHub Actions. */
 const SUMMARY_ROWS = 20
 
+/**
+ * An argument of a command, as a shell reads it. A path can have
+ * `$`, `(`, or a space: a person or an agent copies the command.
+ */
+export const shellArg = (text: string): string =>
+  /^[\w./:@+,=-]+$/.test(text) ? text : `'${text.replaceAll("'", "'\\''")}'`
+
 const loc = (at: Location): string => `${at.file}:${at.line}:${at.column}`
 
 const indent = (text: string): string => '  ' + text.replaceAll('\n', '\n  ')
@@ -42,7 +49,7 @@ export const sinceLine = (s: Since, id: TestId): string => {
     ? `since run ${s.run}, where it passed, these lines that it runs changed: ${places(s.changed)}`
     : s.loaded
       ? `since run ${s.run}, where it passed, no line that it runs changed. These lines that ran while its file loaded changed: ${places(s.loaded)}`
-      : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 '${id}'`
+      : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 ${shellArg(id)}`
 }
 
 /**
@@ -78,7 +85,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   const rerunOf = (id: TestId): string => {
     const at = starts.get(id)
     // ubq: not measured: each test of the tests has a line
-    return at ? `ubq ${at.file}:${at.line}` : `ubq '${id}'`
+    return `ubq ${shellArg(at ? `${at.file}:${at.line}` : id)}`
   }
 
   const block = (head: string, failure: Failure, id?: TestId, repeat?: Repeat, kept: string[] = []): void => {
@@ -105,14 +112,16 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
     for (const dir of kept) lines.push(`  testdir: ${dir}`)
     if (failure.since && id !== undefined) lines.push(`  ${sinceLine(failure.since, id)}`)
     const at = id === undefined ? undefined : starts.get(id)
-    if (at) lines.push(`  rerun: ubq ${at.file}:${at.line}`)
+    if (at) lines.push(`  rerun: ubq ${shellArg(`${at.file}:${at.line}`)}`)
     if (annotate)
       write(
         annotation(
           'error',
           failure.at,
           head,
-          [failure.message, failure.diff, at && `rerun: ubq ${at.file}:${at.line}`].filter(Boolean).join('\n'),
+          [failure.message, failure.diff, at && `rerun: ubq ${shellArg(`${at.file}:${at.line}`)}`]
+            .filter(Boolean)
+            .join('\n'),
         ),
       )
     write(lines.join('\n') + '\n\n')
@@ -148,7 +157,7 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (shown()) block(`FAIL ${event.id}`, event.failure, event.id, repeats.get(event.id))
         break
       case 'file-error':
-        row('ERROR', event.file, event.failure, `ubq ${event.file}`)
+        row('ERROR', event.file, event.failure, `ubq ${shellArg(event.file)}`)
         if (shown()) block(`ERROR ${event.file}`, event.failure, undefined, event.repeat)
         break
       case 'file-end':

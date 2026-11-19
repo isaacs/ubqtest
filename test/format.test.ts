@@ -183,3 +183,11 @@ test('diffDeep goes into an object one time, also in a cycle', () => {
     ['.n'],
   )
 })
+
+test('an argument of a command has quotes if a shell reads a character of it', async () => {
+  const { shellArg } = await import('../src/sink-text.ts')
+  assert.deepEqual(
+    ['test/a.test.ts:12', 'app/($id)/a.test.ts:5', 'app/$id.test.ts:55', "a b > it's", 'a.test.ts > one'].map(shellArg),
+    ['test/a.test.ts:12', "'app/($id)/a.test.ts:5'", "'app/$id.test.ts:55'", "'a b > it'\\''s'", "'a.test.ts > one'"],
+  )
+})

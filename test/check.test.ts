@@ -86,6 +86,14 @@ test('ubq check: failed tests, file errors, and new test files', () => {
   assert.match(r.out, /^After a fix, run: ubq --failed$/m)
   assert.equal(r.last, 'fail: 11 failed tests, 1 file errors')
 
+  // A file that the configuration now leaves out has no result to
+  // correct: not for the check, and not for --failed.
+  p.configure({ exclude: ['test/broken.*'] })
+  assert.equal(p.ubq('check').last, 'fail: 11 failed tests')
+  p.configure({ exclude: ['test/b*'] })
+  assert.equal(p.ubq('--failed').code, 2)
+  p.configure()
+
   rmSync(p.file('test/bad.test.ts'))
   rmSync(p.file('test/broken.test.ts'))
   // A test file that never ran.

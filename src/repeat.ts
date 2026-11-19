@@ -128,7 +128,7 @@ export const repeater = (times: number, send: Sink): Repeater => {
       const all = [...tests.values()]
       const always = all.filter(t => t.fails === t.runs).length
       const never = all.filter(t => t.fails === 0).length
-      return `repeat ${times}: ${all.length - always - never} failed some times, ${always} failed each time, ${never} failed no times`
+      return `repeat ${times}: ${all.length - always - never} failed some times, ${always} failed each time, ${never} passed each time`
     },
   }
 }

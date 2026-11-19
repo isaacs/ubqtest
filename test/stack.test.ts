@@ -22,3 +22,15 @@ test('a path that has a space', () => {
     { file: 'a b/c d.ts', line: 8, column: 9 },
   ])
 })
+
+test('a path that has ( and ), as the folder of a route has', () => {
+  const path = fileURLToPath(new URL('../app/($accountId)/voice.ts', import.meta.url))
+  assert.deepEqual(
+    userFrames(`Error: x\n    at fn (${path}:5:2)\n    at ${path}:6:7\n    at async load (${path}:8:9)`),
+    [
+      { file: 'app/($accountId)/voice.ts', line: 5, column: 2 },
+      { file: 'app/($accountId)/voice.ts', line: 6, column: 7 },
+      { file: 'app/($accountId)/voice.ts', line: 8, column: 9 },
+    ],
+  )
+})

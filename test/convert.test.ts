@@ -207,6 +207,14 @@ t.test('load', async t => {
   mkdirSync(join(p.dir, 'spec'))
   writeFileSync(join(p.dir, 'spec/a.ts'), "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n")
   assert.match(p.ubq('convert', '--dry', 'spec/a.ts').out, /"include": \["spec\/\*\*\/\*\.ts"\]/)
+  // Files with a name such as a.spec.ts: the glob has that end, so
+  // that a source file in the folder is not a test file.
+  for (const name of ['spec/b.spec.ts', 'spec/c.spec.tsx'])
+    writeFileSync(join(p.dir, name), "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n")
+  assert.match(
+    p.ubq('convert', '--dry', 'spec/b.spec.ts', 'spec/c.spec.tsx').out,
+    /"include": \["spec\/\*\*\/\*\.spec\.ts","spec\/\*\*\/\*\.spec\.tsx"\]/,
+  )
   // Tests of Playwright Test: the notes from the config of that tool.
   writeFileSync(
     join(p.dir, 'spec/page.ts'),
@@ -1978,6 +1986,13 @@ describe.each([['a'], ['b']])('group %s', s => {
       'old.ts > group a > in',
       'old.ts > group b > in',
     ],
+  )
+})
+
+test('a name with the mark of a test ID in it has a TODO', () => {
+  assert.deepEqual(
+    convert("import { describe, it } from 'vitest'\nit('a > b', () => {})\ndescribe(`c > ${d}`, () => {})\n")?.todos.length,
+    2,
   )
 })
 

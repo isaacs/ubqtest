@@ -16,7 +16,7 @@ import {
 } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { join, matchesGlob, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -185,7 +185,12 @@ export const selectFailed = (store: Store): Selected[] => {
     .all() as { file: string }[]
   // A file error can stop tests before they run: run the full file.
   for (const { file } of errors) byFile.set(file, { file, lines: [], ids: [] })
-  return [...byFile.values()].filter(s => existsSync(join(projectRoot(), s.file)))
+  // A file that is gone, or that the configuration now leaves out,
+  // has no result to correct.
+  const { exclude = [] } = config()
+  return [...byFile.values()].filter(
+    s => existsSync(join(projectRoot(), s.file)) && !exclude.some(pattern => matchesGlob(s.file, pattern)),
+  )
 }
 
 const runtime = (): RunStart['runtime'] => {
@@ -630,7 +635,9 @@ export const runFile = async (
               // of the library itself sends events.
               (started || signal
                 ? `the test process ended before the file did (${signal ?? `exit code ${code}`})`
-                : `the test process ended before the file loaded ubqtest (exit code ${code}). A test file must import 'ubqtest'.`) +
+                : imports(file)
+                  ? `the test process ended while the file loaded (exit code ${code}), before its first test. A module that the file imports ended the process, or the file did.`
+                  : `the test process ended before the file loaded ubqtest (exit code ${code}). A test file must import 'ubqtest'.`) +
               (open ? `, in test: ${open}` : '') +
               (stderr.trim() ? `\n${stderr.trim().split('\n').slice(-12).join('\n')}` : ''),
           },
@@ -649,6 +656,16 @@ export const runFile = async (
       }
     })
   })
+}
+
+/** True if the text of a test file names the library. */
+const imports = (file: string): boolean => {
+  try {
+    return /['"]ubqtest['"]/.test(readFileSync(join(projectRoot(), file), 'utf8'))
+    // ubq: not measured: the runner started a process for a file that exists
+  } catch {
+    return false
+  }
 }
 
 /** The folders of the `workspaces` of the root `package.json` that are projects. */

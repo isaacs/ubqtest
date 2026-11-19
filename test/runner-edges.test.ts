@@ -28,6 +28,18 @@ test('a lone file that loads ubqtest, then throws or exits', () => {
     p.ubq('plain.test.ts').out,
     /^  the test process ended before the file loaded ubqtest \(exit code 0\)\. A test file must import 'ubqtest'\.$/m,
   )
+  // A module that the file imports ends the process, before the
+  // library loads. The file has the import, so the message does not
+  // say that it has none.
+  writeFileSync(join(p.dir, 'ends.js'), 'process.exit(0)\n')
+  writeFileSync(
+    join(p.dir, 'ended.test.ts'),
+    "import './ends.js'\nimport { test } from 'ubqtest'\ntest('t', () => {})\n",
+  )
+  assert.match(
+    p.ubq('ended.test.ts').out,
+    /^  the test process ended while the file loaded \(exit code 0\), before its first test\. A module that the file imports ended the process, or the file did\.$/m,
+  )
   const exits = p.ubq('exits.test.ts')
   assert.deepEqual(
     [exits.code, exits.out.split('\n').slice(0, 2)],

@@ -271,6 +271,8 @@ const TODO = {
     'ubq has no t.context. Make the values in a setup function, and call it in each test: const { value } = setup().',
   macro: 'ubq has no macros. Give test() a function that calls the macro function, with assert of ubqtest in it.',
   testTimeout: 'Use the option of test(): test(name, { timeout: ms }, fn).',
+  separator:
+    'The name of a test or of a group must not have " > " in it: ubq puts it between the names of the groups in the ID of a test. Use a different mark, such as " - ".',
   eventually:
     "ubq has no expect. Read the value from the page, and wait for it: await assert.eventually(() => locator.getAttribute('class'), /active/). A check with a time limit of its own, or with not, has no certain form.",
   fixture:
@@ -1421,6 +1423,13 @@ export const convertSource = (
     const callee = call.callee as Node
     const fn = args.find(a => FUNCTION.has(a.type))
     let name: 'test' | 'describe' = kind
+    // The ID of a test is `file > group > test`.
+    const title = args[0]
+    if (
+      (title?.type === 'Literal' && typeof title.value === 'string' && title.value.includes(' > ')) ||
+      (title?.type === 'TemplateLiteral' && text(title).includes(' > '))
+    )
+      todo(path, TODO.separator)
     // ava: test(name, macro, value)
     if (!fn && framework === 'ava' && args.length > 1) todo(path, TODO.macro)
     if (fn) {
@@ -2682,8 +2691,13 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   out(`convert: ${parts.join(', ')}`)
   if (unnamed.length && !config().include) {
     const folders = [...new Set(unnamed.map(f => f.split('/')[0]!))]
-    const globs = folders.map(f =>
-      unnamed.includes(f) ? f : `${f}/**/*.${/\.[cm]?tsx?$/.test(unnamed[0]!) ? 'ts' : 'js'}`,
+    // The end that the names share, such as `.spec.ts`. A glob for
+    // each file of the folder would make each source file a test file.
+    const end = (file: string): string => /(\.[\w-]+)?\.[cm]?[jt]sx?$/.exec(file)![0]
+    const globs = folders.flatMap(f =>
+      unnamed.includes(f)
+        ? [f]
+        : [...new Set(unnamed.filter(u => u.startsWith(`${f}/`)).map(end))].sort().map(e => `${f}/**/*${e}`),
     )
     out(
       `note: ${unnamed.length} of these files have tests, and do not have a name that ubq runs (*.test.ts): ${unnamed.slice(0, 5).join(', ')}${unnamed.length > 5 ? ', ...' : ''}. Rename them, or add to package.json: "ubq": { "include": ${JSON.stringify(globs)} }. Use "exclude" for files in that folder that are not test files.`,

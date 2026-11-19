@@ -136,7 +136,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
     '  expected: 2',
     '  rerun: ubq sometimes.ts:19',
     '',
-    'repeat 7: 1 failed some times, 1 failed each time, 4 failed no times',
+    'repeat 7: 1 failed some times, 1 failed each time, 4 passed each time',
     'For the same test order, run: ubq --seed 5',
     'fail: 2 failed, 4 passed',
   ])
@@ -181,14 +181,14 @@ test('--repeat runs the tests many times and counts the failures of each test', 
     [
       0,
       [
-        'repeat 3: 0 failed some times, 0 failed each time, 1 failed no times',
+        'repeat 3: 0 failed some times, 0 failed each time, 1 passed each time',
         'pass: 0 failed, 1 passed, 2 not selected',
       ],
     ],
   )
   assert.match(
     p.ubq('--failed', '--repeat', '2').out,
-    /\nrepeat 2: \d failed some times, 1 failed each time, 0 failed no times\n/,
+    /\nrepeat 2: \d failed some times, 1 failed each time, 0 passed each time\n/,
   )
 
   // A file error.

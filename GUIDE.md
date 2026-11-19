@@ -183,6 +183,8 @@ of the run. The summary is on the page of the run, above the logs.
   that test one more time, and a `HANG` block names the line that
   opened each thing: `Timeout opened at test/a.test.ts:18:32`.
 - Two tests with the same name in one group are an error.
+- The name of a test or of a group must not have ` > ` in it: the
+  ID of a test is `file > group > test`.
 - A call to `process.exit` in a test file is an error.
 
 Do not weaken a test to get a pass. Each of these rules catches a
