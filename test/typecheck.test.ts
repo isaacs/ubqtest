@@ -1,5 +1,5 @@
 // Type checks next to the tests, in each run of a TypeScript project.
-import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
@@ -279,4 +279,88 @@ test('a type error for syntax that Node cannot run has a hint', () => {
     '  at enum.test.ts:2:6',
     '  > enum E {',
   ])
+})
+
+test('a tsconfig.json with only references: ubq makes tsconfig.ubq.json, one time, and reads it', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const name of ['typescript', '@typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  // A monorepo as Nx makes it: the base config at the root, and in
+  // each project a config with only references.
+  const write = (file: string, value: unknown): void =>
+    writeFileSync(join(p.dir, file), typeof value === 'string' ? value : JSON.stringify(value))
+  for (const dir of ['libs/common/src', 'apps/app/src']) mkdirSync(join(p.dir, dir), { recursive: true })
+  write('tsconfig.base.json', {
+    compilerOptions: {
+      module: 'nodenext',
+      target: 'esnext',
+      strict: true,
+      composite: true,
+      declaration: true,
+      emitDeclarationOnly: true,
+      allowImportingTsExtensions: true,
+      skipLibCheck: true,
+      types: ['node'],
+      paths: { '@x/common': ['./libs/common/src/index.ts'] },
+    },
+  })
+  for (const dir of ['libs/common', 'apps/app']) {
+    // With a comment and a last comma, as a tsconfig file can have.
+    write(
+      `${dir}/tsconfig.json`,
+      '{\n  // the projects\n  "extends": "../../tsconfig.base.json", "files": [], "include": [],\n  "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.spec.json" }, { "path": "../other" },],\n}',
+    )
+    write(`${dir}/tsconfig.lib.json`, {
+      extends: './tsconfig.json',
+      compilerOptions: { outDir: '../../dist/lib' },
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.spec.ts'],
+    })
+    write(`${dir}/tsconfig.spec.json`, {
+      extends: ['./tsconfig'],
+      include: ['src/**/*.spec.ts'],
+      references: [{ path: './tsconfig.lib.json' }, { path: '../../libs/common/tsconfig.lib.json' }],
+    })
+  }
+  write('libs/common/src/index.ts', 'export const add = (a: number, b: number): number => a + b\n')
+  // The source of a different project, by a path of `paths`.
+  write(
+    'apps/app/src/three.spec.ts',
+    "import { assert, test } from 'ubqtest'\nimport type * as common from '@x/common'\nconst text: string = 0 as unknown as typeof common.add\ntest('three', () => assert.equal<unknown>(text, 0))\n",
+  )
+  p.configure({ include: ['**/src/**/*.spec.ts'] })
+  const first = p.ubq('apps/app/src/three.spec.ts')
+  assert.equal(
+    first.err,
+    'note: ubq wrote apps/app/tsconfig.ubq.json for its type check. apps/app/tsconfig.json has only "references", and "tsc -p" of it reads no file. The new file extends apps/app/tsconfig.spec.json. Commit it.\n',
+  )
+  // The one error is the error of the test file: no TS6305 for the
+  // project that is not built, and no TS6059 for a file out of the
+  // folder.
+  assert.deepEqual(first.out.split('\n').slice(0, 4), [
+    'TYPE apps/app/src/three.spec.ts',
+    "  TS2322: Type '(a: number, b: number) => number' is not assignable to type 'string'.",
+    '  at apps/app/src/three.spec.ts:3:7',
+    '  > const text: string = 0 as unknown as typeof common.add',
+  ])
+  assert.match(first.last!, /^fail: 0 failed, 1 passed, 1 type errors$/)
+  const made = join(p.dir, 'apps/app/tsconfig.ubq.json')
+  assert.deepEqual(JSON.parse(readFileSync(made, 'utf8').replace(/^\/\/.*\n/gm, '')), {
+    extends: './tsconfig.spec.json',
+    compilerOptions: { composite: false, noEmit: true, rootDir: '../..' },
+  })
+  // No config for a folder with no test file of the run.
+  assert(!existsSync(join(p.dir, 'libs/common/tsconfig.ubq.json')))
+  // The file is of the project now: ubq reads it, and does not write it.
+  writeFileSync(made, readFileSync(made, 'utf8').replace('"noEmit": true', '"noEmit": true, "noImplicitAny": false'))
+  write(
+    'apps/app/src/three.spec.ts',
+    "import { assert, test } from 'ubqtest'\nconst f = (a) => a\ntest('three', () => assert.equal(f(1), 1))\n",
+  )
+  const second = p.ubq('apps/app/src/three.spec.ts')
+  assert.deepEqual([second.err, second.last], ['', 'pass: 0 failed, 1 passed'])
+  assert.match(readFileSync(made, 'utf8'), /"noImplicitAny": false/)
+  // `ubq doctor` reads the options of the same file.
+  assert.match(p.ubq('doctor').out, /^FIX  apps\/app\/tsconfig\.ubq\.json: set /m)
 })

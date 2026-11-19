@@ -1,9 +1,9 @@
 // Type checks next to the tests: the runner starts the type checker
 // of the project, and reports each error as an event.
 import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join, resolve, sep } from 'node:path'
+import { dirname, join, matchesGlob, relative, resolve, sep } from 'node:path'
 import type { TypeCheckError } from './events.ts'
 import type { Checking } from './plain.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
@@ -70,31 +70,135 @@ export const expectedOf = (source: string, at: number): string | undefined => {
   return undefined
 }
 
-/**
- * The folders with a `tsconfig.json` that have a test file of the
- * run in them: the project root, and each folder from a test file
- * up to the root. A project with a second program in a folder (a
- * second Worker) has a config there for its files.
- */
-const configFolders = (root: string, files: string[]): string[] => {
-  const folders = new Set<string>()
-  const add = (dir: string): void => {
-    if (existsSync(join(dir, 'tsconfig.json'))) folders.add(dir)
-  }
-  add(root)
-  for (const file of files)
-    for (let dir = dirname(join(root, file)); dir.startsWith(root + sep); dir = dirname(dir)) add(dir)
-  return [...folders]
+/** `// ...` and `/* ... *\/` comments, and commas before `}` or `]`. */
+export const plainJson = (text: string): string =>
+  text
+    .replace(/("(?:\\.|[^"\\])*")|\/\/.*|\/\*[\s\S]*?\*\//g, (_, string) => string ?? '')
+    .replace(/,(\s*[}\]])/g, '$1')
+
+/** The parts of a tsconfig file that say which files it has. */
+export interface Tsconfig {
+  include?: string[]
+  files?: string[]
+  exclude?: string[]
+  extends?: string | string[]
+  references?: { path: string }[]
 }
 
-/** Runs the checker on the config of one folder. */
+/** True if the lists of the config of `dir` (`files`, `include`, `exclude`) have the file. */
+export const listed = (json: Tsconfig, dir: string, file: string): boolean => {
+  const path = relative(dir, file).split('\\').join('/')
+  // A name with no pattern is a file or a folder.
+  const match = (globs: string[]): boolean =>
+    globs.some(glob => {
+      const name = glob.replace(/^\.\//, '').replace(/\/$/, '')
+      return name === '.' || name === '' || matchesGlob(path, name) || matchesGlob(path, `${name}/**`)
+    })
+  if (json.exclude && match(json.exclude)) return false
+  if (json.files?.some(name => name.replace(/^\.\//, '') === path)) return true
+  return json.include ? match(json.include) : !json.files
+}
+
+/** The config of a folder that ubq reads, if the folder has it, and not `tsconfig.json`. */
+export const OWN_CONFIG = 'tsconfig.ubq.json'
+
+/**
+ * The config that ubq makes for a folder whose `tsconfig.json` has
+ * only references to other configs, as each project of Nx has
+ * (D110). `tsc -p` of such a file reads no file. The new config
+ * extends the referenced config of the folder that has a test
+ * file of `files` (absolute paths). `extends` does not copy
+ * `references`, so the checker reads the source of the other
+ * projects, and they need no build. Undefined if the folder has no
+ * such config.
+ */
+export const ownConfig = (folder: string, files: string[]): { base: string; text: string } | undefined => {
+  // Undefined for a file that is absent, or that this code cannot
+  // read: the checker reports it.
+  const read = (file: string): Tsconfig | undefined => {
+    try {
+      const text = readFileSync(file, 'utf8')
+      // Most configs have no references: no parse for them.
+      return file.endsWith(`${sep}tsconfig.json`) && !text.includes('"references"')
+        ? undefined
+        : (JSON.parse(plainJson(text)) as Tsconfig)
+    } catch {
+      return undefined
+    }
+  }
+  const json = read(join(folder, 'tsconfig.json'))
+  if (!json || !Array.isArray(json.files) || json.files.length || json.include?.length) return undefined
+  const inside = files.filter(file => file.startsWith(folder + sep))
+  for (const { path } of json.references ?? []) {
+    const base = resolve(folder, path)
+    const config = dirname(base) === folder && base.endsWith('.json') ? read(base) : undefined
+    if (!config || !inside.some(file => listed(config, folder, file))) continue
+    // A path of `paths` can go to a different project. With the
+    // root of the monorepo as `rootDir`, that is not TS6059. The
+    // base config of the monorepo is at its root.
+    let top = folder
+    const up = (file: string, config: Tsconfig | undefined): void => {
+      for (const name of [config?.extends ?? []].flat()) {
+        const next = resolve(dirname(file), name.endsWith('.json') ? name : `${name}.json`)
+        if (folder.startsWith(dirname(next) + sep) && dirname(next).length < top.length) top = dirname(next)
+        // A config of the folder extends the tsconfig.json of the folder.
+        if (next !== join(folder, 'tsconfig.json')) up(next, read(next))
+        else up(next, json)
+      }
+    }
+    up(base, config)
+    const options = { composite: false, noEmit: true, rootDir: relative(folder, top).split(sep).join('/') || '.' }
+    return {
+      base,
+      text: `// ubq made this file for its type check. The tsconfig.json of this
+// folder has only "references", and "tsc --noEmit -p" of it reads
+// no file. Change this file as the project needs, and commit it.
+${JSON.stringify({ extends: `./${relative(folder, base)}`, compilerOptions: options }, null, 2)}
+`,
+    }
+  }
+  return undefined
+}
+
+/**
+ * The config files that have a test file of the run in their
+ * folder: one of the project root, and one of each folder from a
+ * test file up to the root. A project with a second program in a
+ * folder (a second Worker) has a config there for its files. The
+ * file of a folder is `tsconfig.ubq.json`, or `tsconfig.json`.
+ */
+const configFiles = (root: string, files: string[]): string[] => {
+  const configs = new Map<string, string>()
+  const paths = files.map(file => join(root, file))
+  const add = (dir: string): void => {
+    if (configs.has(dir) || !existsSync(join(dir, 'tsconfig.json'))) return
+    const own = join(dir, OWN_CONFIG)
+    const made = existsSync(own) ? undefined : ownConfig(dir, paths)
+    if (made)
+      try {
+        writeFileSync(own, made.text)
+        process.stderr.write(
+          `note: ubq wrote ${rel(own)} for its type check. ${rel(join(dir, 'tsconfig.json'))} has only "references", and "tsc -p" of it reads no file. The new file extends ${rel(made.base)}. Commit it.\n`,
+        )
+      } catch {
+        // ubq: not measured: a folder that the run cannot write to
+      }
+    configs.set(dir, existsSync(own) ? own : join(dir, 'tsconfig.json'))
+  }
+  add(root)
+  for (const file of paths) for (let dir = dirname(file); dir.startsWith(root + sep); dir = dirname(dir)) add(dir)
+  return [...configs.values()]
+}
+
+/** Runs the checker on one config file. */
 const check = (
   tsc: string[],
   root: string,
-  folder: string,
+  config: string,
 ): { child?: ChildProcess; errors: Promise<TypeCheckError[]> } => {
   // The checker keeps its data for the next run. Each config has
   // its own file.
+  const folder = dirname(config)
   const name = folder === root ? 'tsbuildinfo' : `tsbuildinfo-${rel(folder).replaceAll('/', '-')}`
   const failed = (error: Error): TypeCheckError[] => [
     { type: 'type-error', code: 'ubq', message: `the type checker did not start: ${error.message}` },
@@ -112,7 +216,7 @@ const check = (
         '--tsBuildInfoFile',
         join(stateDir(), 'types', name),
         '-p',
-        folder,
+        config,
       ],
       { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] },
     )
@@ -158,7 +262,7 @@ const check = (
         errors.push({
           type: 'type-error',
           code: 'ubq',
-          message: `the type checker of ${rel(join(folder, 'tsconfig.json'))} stopped with ${signal ?? `exit code ${code}`}, and its result is not complete. Run again.${stderr.trim() ? '\n' + stderr.trim().slice(-500) : ''}`,
+          message: `the type checker of ${rel(config)} stopped with ${signal ?? `exit code ${code}`}, and its result is not complete. Run again.${stderr.trim() ? '\n' + stderr.trim().slice(-500) : ''}`,
         })
       // The expected value of an assertion has the type of the
       // actual value. The message of tsc names only a "parameter".
@@ -195,9 +299,9 @@ const check = (
 export const typeCheck = (background = false, files: string[] = []): Checking | undefined => {
   const root = projectRoot()
   const tsc = compiler(root)
-  const folders = tsc ? configFolders(root, files) : []
-  if (!tsc || !folders.length) return undefined
-  const checks = folders.map(folder => check(tsc, root, folder))
+  const configs = tsc ? configFiles(root, files) : []
+  if (!tsc || !configs.length) return undefined
+  const checks = configs.map(config => check(tsc, root, config))
   type Handle = { ref?(): void; unref?(): void }
   const handles: Handle[] = checks.flatMap(({ child }) =>
     child ? [child, child.stdout as Handle, child.stderr as Handle] : [],

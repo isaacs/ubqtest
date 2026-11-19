@@ -352,7 +352,7 @@ test('doctor: the tsconfig.json that has the test files', () => {
   // The config of the source does not have the test files.
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "compilerOptions": { "noEmit": true }, "include": ["src"] }')
   const start =
-    'FIX  2 test files are in no tsconfig.json: test/a.test.ts, test/deep/b.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. Add test/tsconfig.json: '
+    'FIX  2 test files are in no tsconfig.json: test/a.test.ts, test/deep/b.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. Add test/tsconfig.json: '
   const end = '. Do not add the test files to the tsconfig.json of the source.'
   assert.deepEqual(lines(), [
     `${start}{"extends":"../tsconfig.json","compilerOptions":{"noEmit":true,"allowImportingTsExtensions":true,"erasableSyntaxOnly":true},"include":["."]}${end}`,
@@ -361,7 +361,8 @@ test('doctor: the tsconfig.json that has the test files', () => {
   writeFileSync(join(p.dir, 'tsconfig.test.json'), `{ ${options}, "include": ["test/**/*"] }`)
   assert.deepEqual(lines(), [`${start}{"extends":"../tsconfig.test.json"}${end}`])
   // A project of Nx: tsconfig.json has only references, and the
-  // config of the tests is tsconfig.spec.json.
+  // config of the tests is tsconfig.spec.json. The type check makes
+  // its own config from that one.
   const before = readFileSync(join(p.dir, 'tsconfig.json'), 'utf8')
   rmSync(join(p.dir, 'tsconfig.test.json'))
   writeFileSync(join(p.dir, 'tsconfig.spec.json'), `{ ${options}, "include": ["test/**/*"] }`)
@@ -369,10 +370,23 @@ test('doctor: the tsconfig.json that has the test files', () => {
     join(p.dir, 'tsconfig.json'),
     '{ "files": [], "include": [], "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.spec.json" }] }',
   )
+  assert.deepEqual(lines(), ['ok   tsconfig.spec.json'])
+  // No referenced config has the test files.
+  writeFileSync(join(p.dir, 'tsconfig.spec.json'), `{ ${options}, "include": ["spec/**/*"] }`)
   assert.match(
     lines()[0]!,
-    /are in no tsconfig\.json: .*\. tsconfig\.json has only "references" to other configs, and ubq runs "tsc -p tsconfig\.json", which does not build references: the type check reads no file\. .* Add test\/tsconfig\.json: \{"extends":"\.\.\/tsconfig\.spec\.json","compilerOptions":\{"composite":false\}\}\./,
+    /are in no tsconfig\.json: .*\. tsconfig\.json has only "references" to other configs, and no config of its folder that it references has these files\. .* Add test\/tsconfig\.json: \{"extends":"\.\.\/tsconfig\.json",/,
   )
+  // The config that the type check made.
+  writeFileSync(join(p.dir, 'tsconfig.ubq.json'), `{ ${options}, "include": ["test/**/*"] }`)
+  assert.deepEqual(lines(), ['ok   tsconfig.ubq.json'])
+  // It is the config of the folder, also if it does not have the files.
+  writeFileSync(join(p.dir, 'tsconfig.ubq.json'), `{ ${options}, "include": ["spec/**/*"] }`)
+  assert.match(lines()[0]!, /^FIX  2 test files are in no tsconfig\.json: /)
+  rmSync(join(p.dir, 'tsconfig.ubq.json'))
+  // No files, and the word is only in a comment.
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "files": [] /* no "references" */ }')
+  assert.match(lines()[0]!, /^FIX  2 test files are in no tsconfig\.json: /)
   writeFileSync(join(p.dir, 'tsconfig.json'), before)
   rmSync(join(p.dir, 'tsconfig.spec.json'))
   writeFileSync(join(p.dir, 'tsconfig.test.json'), `{ ${options}, "include": ["test/**/*"] }`)
@@ -413,7 +427,7 @@ test('doctor: the tsconfig.json that has the test files', () => {
   p.configure({ include: ['root.test.ts'] })
   writeFileSync(join(p.dir, 'tsconfig.json'), `{ ${options}, "include": ["src"] }`)
   assert.deepEqual(lines(), [
-    'FIX  1 test files are in no tsconfig.json: root.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. Add them to "include" of tsconfig.json.',
+    'FIX  1 test files are in no tsconfig.json: root.test.ts. The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. Add them to "include" of tsconfig.json.',
   ])
   // More files than the line names.
   for (const n of [1, 2, 3, 4, 5]) writeFileSync(join(p.dir, `test/n${n}.test.ts`), source)

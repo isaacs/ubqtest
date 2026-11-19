@@ -171,6 +171,12 @@ names, do one of these:
   such as `tsconfig.test.json`, `ubq doctor` gives the
   `test/tsconfig.json` to add. Do not add the test files to the
   `tsconfig.json` of the source.
+- In a project of an Nx monorepo, `tsconfig.json` has only
+  `references`. The first run writes `tsconfig.ubq.json` in that
+  folder for the type check, and prints a note. It extends
+  `tsconfig.spec.json`. Commit it. If that config has `"types":
+  ["jest"]`, set `"types"` in the new file to the types that the
+  tests need now.
 - In a package with no `"type": "module"`, Node prints the
   warning `MODULE_TYPELESS_PACKAGE_JSON` for each test file. The
   tests run. Do not add `"type": "module"` to stop the warning:

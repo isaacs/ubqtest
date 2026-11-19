@@ -2588,3 +2588,36 @@ The answers to Q40 and Q43.
   the last call, and a correct test could fail.
   `toHaveBeenLastCalledWith` is the check of the last call.
 
+## D110. ubq makes `tsconfig.ubq.json` for a project with references (user, 2026-11-19)
+
+The answer to Q42. An Nx monorepo is a frequent form, so this
+does not wait for a second report.
+
+- A `tsconfig.json` with `"files": []`, no `include`, and
+  `references` gives `tsc -p` no file. For a folder with such a
+  file, the type check writes `tsconfig.ubq.json` in that folder,
+  one time, and reads it.
+- The file extends the first referenced config of the same
+  folder whose lists have a test file of the run. It sets
+  `composite: false`, `noEmit: true`, and `rootDir` to the folder
+  of the highest config of the `extends` chain, which is the root
+  of the monorepo for a project of Nx.
+- `extends` does not copy `references`. So the checker reads the
+  source of the other projects by `paths`, and they need no
+  build: no TS6305, and with the `rootDir`, no TS6059.
+- The file is at the place of `tsconfig.json`, not in `.ubq/`:
+  the project commits it, and can change it. ubq does not write
+  it a second time. A comment at its start says what made it,
+  and why.
+- The run prints one note on stderr when it writes the file.
+- The rule for each folder: the check reads `tsconfig.ubq.json`
+  if the folder has it, and `tsconfig.json` if not. (Choice of
+  the assistant: one rule, also for a file that the user makes.)
+- If no referenced config of the folder has the test files, ubq
+  writes nothing, and `ubq doctor` has the FIX line as before.
+- `tsc -b` is not an option: it does not take `--noEmit` with
+  references (TS6310), and without it writes build output.
+- Not done: a `.ubq/CONVERT.md` with each decision of a
+  conversion. The comment in the file and the note are the
+  record for this one. Q44 asks.
+

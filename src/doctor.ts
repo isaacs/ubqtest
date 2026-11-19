@@ -4,10 +4,11 @@ import { existsSync, globSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 // Not a named import: Bun does not have the function that removes types.
 import * as nodeModule from 'node:module'
-import { dirname, isAbsolute, join, matchesGlob, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { type Config, config, isBuild } from './config.ts'
 import { projectRoot } from './project.ts'
 import { select, UsageError, workspaces } from './runner.ts'
+import { listed, OWN_CONFIG, ownConfig, plainJson, type Tsconfig } from './typecheck.ts'
 import { vitestWorkers } from './vitest-config.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
@@ -16,12 +17,6 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 /** A name of a test tool that a project removes after the change to ubq. */
 export const OLD_TOOL =
   /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|tape|ava|mocha|@playwright\/test)\1/
-
-/** `// ...` and `/* ... *\/` comments, and commas before `}` or `]`. */
-const plainJson = (text: string): string =>
-  text
-    .replace(/("(?:\\.|[^"\\])*")|\/\/.*|\/\*[\s\S]*?\*\//g, (_, string) => string ?? '')
-    .replace(/,(\s*[}\]])/g, '$1')
 
 /**
  * The compilerOptions of a tsconfig file, with the options of each
@@ -57,7 +52,7 @@ const tsBase = (base: string, dir: string): string => {
  * from a base config.
  */
 const tsIncludes = (config: string, file: string): boolean => {
-  let json: { include?: string[]; files?: string[]; exclude?: string[]; extends?: unknown; references?: unknown }
+  let json: Tsconfig
   try {
     json = JSON.parse(plainJson(readFileSync(config, 'utf8')))
   } catch {
@@ -67,16 +62,7 @@ const tsIncludes = (config: string, file: string): boolean => {
   // `tsc -p` of this file checks no file.
   if (Array.isArray(json.files) && !json.files.length && !json.include?.length) return false
   if (json.references || (json.extends && !json.include && !json.files)) return true
-  const path = relative(dirname(config), file).split('\\').join('/')
-  // A name with no pattern is a file or a folder.
-  const match = (globs: string[]): boolean =>
-    globs.some(glob => {
-      const name = glob.replace(/^\.\//, '').replace(/\/$/, '')
-      return name === '.' || name === '' || matchesGlob(path, name) || matchesGlob(path, `${name}/**`)
-    })
-  if (json.exclude && match(json.exclude)) return false
-  if (json.files?.some(name => name.replace(/^\.\//, '') === path)) return true
-  return json.include ? match(json.include) : !json.files
+  return listed(json, dirname(config), file)
 }
 
 /** Prints one line for each check. Returns the count of problems. */
@@ -303,7 +289,12 @@ export const doctor = (out: (text: string) => void): number => {
     let found: string | undefined
     for (let dir = dirname(join(root, file)); !found; dir = dirname(dir)) {
       const config = join(dir, 'tsconfig.json')
-      if (existsSync(config) && tsIncludes(config, join(root, file))) found = config
+      const own = join(dir, OWN_CONFIG)
+      // The type check reads the config of ubq, or makes it from a
+      // config that the tsconfig.json of the folder references.
+      if (existsSync(own)) found = tsIncludes(own, join(root, file)) ? own : undefined
+      else if (existsSync(config))
+        found = tsIncludes(config, join(root, file)) ? config : ownConfig(dir, [join(root, file)])?.base
       if (dir === root) break
     }
     if (found) configs.add(found)
@@ -325,9 +316,7 @@ export const doctor = (out: (text: string) => void): number => {
       name => existsSync(join(root, name)) && tsIncludes(join(root, name), join(root, bare[0]!)),
     )
     const made = base
-      ? // A config with `composite` reports each file that its list
-        // does not have (TS6307).
-        { extends: `../${base}`, ...(solution && { compilerOptions: { composite: false } }) }
+      ? { extends: `../${base}` }
       : {
           extends: '../tsconfig.json',
           compilerOptions: {
@@ -338,7 +327,7 @@ export const doctor = (out: (text: string) => void): number => {
           include: ['.'],
         }
     fix(
-      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and ubq runs "tsc -p tsconfig.json", which does not build references: the type check reads no file. If the check then reports TS6059 for a file of a different project, set "rootDir" in the new config to the root of the monorepo. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
+      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and no config of its folder that it references has these files. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root (tsconfig.ubq.json, if the folder has one), and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
     )
   }
   // With no TypeScript test file, the config of the project.
