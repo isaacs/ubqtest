@@ -8,26 +8,365 @@ test fails if it is not current.
 For how to use the API, with examples and the rules of a test,
 read [GUIDE.md](../GUIDE.md) (`ubq guide`).
 
-## Functions
+The package has three entry points. A test file imports most
+names from `'ubqtest'`. `'ubqtest/browser'` is for a test of
+front-end code, and `'ubqtest/workers'` is for a test of a
+Cloudflare Worker. In each part of this page, the items are in
+the order of the alphabet.
+
+## Contents
+
+- [`ubqtest`](#ubqtest)
+  - [`assert`](#assert)
+    - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [Names that `assert` does not have](#names-that-assert-does-not-have)
+  - [`cleanup`](#cleanup)
+  - [`describe`](#describe)
+  - [`env`](#env)
+  - [`fakeClock`](#fakeclock)
+  - [`isDeepEqual`](#isdeepequal)
+  - [`mockImport`](#mockimport)
+  - [`spy`](#spy)
+  - [`spyOn`](#spyon)
+  - [`stub`](#stub)
+  - [`test`](#test)
+    - [Names that `test` does not have](#names-that-test-does-not-have)
+  - [`testdir`](#testdir)
+- [`ubqtest/browser`](#ubqtest-browser)
+  - [`browser`](#browser)
+- [`ubqtest/workers`](#ubqtest-workers)
+  - [`executionContext`](#executioncontext)
+  - [`migrate`](#migrate)
+  - [`scheduledController`](#scheduledcontroller)
+- [Types](#types)
+  - [`Assert`](#assert-2)
+  - [`FakeClock`](#fakeclock-1)
+    - [`FakeClock[Symbol.dispose]`](#fakeclock-symbol-dispose), [`FakeClock.now`](#fakeclock-now), [`FakeClock.restore`](#fakeclock-restore), [`FakeClock.runAll`](#fakeclock-runall), [`FakeClock.set`](#fakeclock-set), [`FakeClock.tick`](#fakeclock-tick), [`FakeClock.timers`](#fakeclock-timers)
+  - [`FakeClockOptions`](#fakeclockoptions)
+    - [`FakeClockOptions.now`](#fakeclockoptions-now)
+  - [`Files`](#files)
+  - [`MockOf`](#mockof)
+  - [`Pattern`](#pattern)
+  - [`Spy`](#spy-1)
+  - [`SpyCall`](#spycall)
+  - [`TestContext`](#testcontext)
+    - [`TestContext.signal`](#testcontext-signal)
+  - [`TestFn`](#testfn)
+  - [`TestOptions`](#testoptions)
+    - [`TestOptions.skip`](#testoptions-skip), [`TestOptions.timeout`](#testoptions-timeout)
+- [Types of the signatures](#types-of-the-signatures)
+  - [`AnyFn`](#anyfn)
+  - [`Checked`](#checked)
+  - [`CheckedError`](#checkederror)
+  - [`CleanupFn`](#cleanupfn)
+  - [`Describe`](#describe-1)
+  - [`ErrorMatch`](#errormatch)
+  - [`Hint`](#hint)
+  - [`Keys`](#keys)
+  - [`Loader`](#loader)
+  - [`MethodKeys`](#methodkeys)
+  - [`Obj`](#obj)
+  - [`Predicate`](#predicate)
+  - [`Prim`](#prim)
+  - [`Same`](#same)
+  - [`Test`](#test-1)
+  - [`Val`](#val)
+
+## `ubqtest`
+
+Import from `'ubqtest'`.
 
 ### `assert`
 
+The assertions. `assert(value)` passes if `value` is truthy, and
+each method is one check. A failed assertion throws, and the test
+stops there. The report has the place, the source line, and the
+values. Each assertion takes a `message` as its last argument: it
+goes before the text of the failure.
+
+A test must run one assertion or more.
+
+#### `assert()`
+
+Passes if `value` is truthy. Narrows the type of `value`.
+
 ```ts
-const assert: Assert;
+const user = find('ann')
+assert(user)
+assert(user.kind === 'admin')
+assert(error instanceof RangeError, 'the kind of error')
 ```
 
-### `isDeepEqual`
+```ts
+assert(value: unknown, message?: string): asserts value;
+```
 
-True if the two values are deeply equal, by the rules of
-`assert.deepEqual`: the same structure, values, and prototypes.
-It is not an assertion. Use it for a condition that
-`assert.deepEqual` cannot state, such as "the list has an element
-that equals this": `assert(list.some(item => isDeepEqual(item,
-expected)))`. If that assertion fails, the report shows the values
-of each call.
+#### `assert.close`
+
+Passes if `value` is near `target`: the difference is less than
+`10 ** -precision / 2`. The default `precision` is 2, a difference
+of less than 0.005. Two values that are equal pass.
 
 ```ts
-const isDeepEqual: (a: unknown, b: unknown) => boolean;
+assert.close(0.1 + 0.2, 0.3)
+assert.close(ratio, 1.15, 6)
+```
+
+```ts
+assert.close(value: number, target: number, precision?: number, message?: string): void;
+```
+
+#### `assert.contains`
+
+Passes if the text `actual` has the text `expected` in it, or if
+an element of the iterable `actual` is `expected`. Fails on null
+and undefined. For long text, a failure shows the part near
+the longest start of `expected` that the text has.
+
+```ts
+assert.contains(page, 'Welcome')
+assert.contains(new Set(roles), 'admin')
+```
+
+```ts
+assert.contains(actual: string | null | undefined, expected: string, message?: string): void;
+assert.contains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void;
+```
+
+#### `assert.deepEqual`
+
+Passes if both have the same structure, values, and prototypes.
+It is strict: `1` is not `'1'`, and a class instance is not a
+plain object. A failure shows each difference with its path.
+
+```ts
+assert.deepEqual(parse('a=1'), { a: '1' })
+```
+
+```ts
+assert.deepEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void;
+```
+
+#### `assert.equal`
+
+Passes if `Object.is(actual, expected)`. It does not narrow the
+type of `actual`: a test often reads a value again after the
+code under test changed it. To narrow, use `assert(a === b)`.
+`expected` must have the type of `actual`. To compare two
+different types on purpose: `assert.equal<unknown>(a, b)`.
+
+```ts
+assert.equal(add(1, 2), 3)
+```
+
+```ts
+assert.equal<T>(actual: T, expected: NoInfer<T>, message?: string): void;
+```
+
+#### `assert.eventually`
+
+As `match`, for a value that changes with time, such as the text
+of a page. Calls `fn` again and again until its value matches
+`pattern`. Fails after 2000 ms with the last value. The result
+must be awaited.
+
+```ts
+await assert.eventually(() => page.title(), 'Done')
+```
+
+```ts
+assert.eventually<T, const P extends Pattern<Awaited<T>>>(fn: () => T, pattern: P & Checked<P>, message?: string): Promise<void>;
+```
+
+#### `assert.fail`
+
+Fails the test.
+
+```ts
+if (kind === 'never') assert.fail('this case cannot occur')
+```
+
+```ts
+assert.fail(message: string): never;
+```
+
+#### `assert.greaterThan`
+
+Passes if `value > target`. A failure shows the two values.
+
+```ts
+assert.greaterThan(items.length, 0)
+```
+
+```ts
+assert.greaterThan(value: number | bigint, target: number | bigint, message?: string): void;
+```
+
+#### `assert.greaterThanOrEqual`
+
+Passes if `value >= target`. A failure shows the two values.
+
+```ts
+assert.greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
+```
+
+#### `assert.lessThan`
+
+Passes if `value < target`. A failure shows the two values.
+
+```ts
+assert.lessThan(elapsed, 100)
+```
+
+```ts
+assert.lessThan(value: number | bigint, target: number | bigint, message?: string): void;
+```
+
+#### `assert.lessThanOrEqual`
+
+Passes if `value <= target`. A failure shows the two values.
+
+```ts
+assert.lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
+```
+
+#### `assert.match`
+
+Passes if `actual` has the shape of `pattern`. Each key in the
+pattern must match. Extra keys in `actual` are fine. A RegExp
+tests a string. A function in the pattern gets the value at
+its place, and the value matches if the function returns
+true: `{ id: (v: unknown) => typeof v === 'number' }`. A key
+that `actual` does not have gives `undefined`. To compare a
+function as a value, use `assert.equal`. An array in the
+pattern must have the same length as the array in `actual`.
+
+```ts
+assert.match(user, { name: /^A/, roles: ['admin'] })
+assert.match(line, /^pass: /)
+```
+
+```ts
+assert.match<T, const P extends Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void;
+```
+
+#### `assert.notContains`
+
+The opposite of `contains`. Fails on null and undefined.
+
+```ts
+assert.notContains(actual: string | null | undefined, expected: string, message?: string): void;
+assert.notContains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void;
+```
+
+#### `assert.notEqual`
+
+Passes if not `Object.is(actual, expected)`.
+
+```ts
+assert.notEqual(nextId(), firstId)
+```
+
+```ts
+assert.notEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void;
+```
+
+#### `assert.rejects`
+
+As `throws`, for a promise, or for a function that returns one.
+The result must be awaited: a test that does not await it
+fails. It resolves to the value that the promise rejected with.
+
+```ts
+await assert.rejects(load('gone'), /not found/)
+```
+
+```ts
+assert.rejects<const P extends ErrorMatch>(promise: PromiseLike<unknown> | (() => PromiseLike<unknown>), expected: P & CheckedError<P>, message?: string): Promise<Error>;
+```
+
+#### `assert.snapshot`
+
+Passes if the text of `value` is the text in the snapshot file
+of the test file. `ubq --update <test>` writes the file. The
+files are in `ubq-snapshots/`: commit them.
+
+```ts
+assert.snapshot(value: unknown, message?: string): void;
+```
+
+#### `assert.throws`
+
+Passes if `fn` throws an error that fits `expected`: a RegExp
+tests the message, a class tests `instanceof`, an object is a
+`match` pattern. `expected` is required. Returns the error.
+
+```ts
+assert.throws(() => parse('?'), /unknown shape/)
+const error = assert.throws(() => parse('?'), RangeError)
+assert.throws(() => open(path), { code: 'ENOENT' })
+```
+
+```ts
+assert.throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error;
+```
+
+#### Names that `assert` does not have
+
+Each of these names is a compile error, with the name to use in its place.
+
+| Name | Use |
+| --- | --- |
+| `assert.deepStrictEqual` | Use assert.deepEqual (it is always strict) |
+| `assert.matchSnapshot` | Use assert.snapshot(value) |
+| `assert.ok` | Use assert(value) |
+| `assert.strictEqual` | Use assert.equal (it is always strict) |
+| `assert.toMatchSnapshot` | Use assert.snapshot(value) |
+
+### `cleanup`
+
+Runs `fn` when the test ends. Outside a test: when the file ends.
+The functions run in reverse order. An error in one fails the test.
+
+```ts
+const server = listen(0)
+cleanup(() => server.close())
+```
+
+```ts
+const cleanup: (fn: CleanupFn) => void;
+```
+
+### `describe`
+
+A group of tests. Its name is a part of the ID of each test in
+it: `file > group > test`. `fn` runs while the file loads, and it
+must not be async. The options are the default for each test of
+the group.
+
+```ts
+describe('parse', () => {
+  test('a circle', () => {
+    assert.equal(parse('c')?.kind, 'circle')
+  })
+})
+```
+
+```ts
+describe(name: string, fn: () => void): void;
+describe(name: string, options: TestOptions, fn: () => void): void;
+```
+
+### `env`
+
+Sets environment variables, or deletes them with `undefined`.
+The old values come back when the test ends.
+
+```ts
+env({ NODE_ENV: 'production', DEBUG: undefined })
+```
+
+```ts
+const env: (vars: Record<string, string | undefined>) => void;
 ```
 
 ### `fakeClock`
@@ -48,37 +387,18 @@ assert.equal(done.calls.length, 1)
 const fakeClock: (options?: FakeClockOptions) => FakeClock;
 ```
 
-### `cleanup`
+### `isDeepEqual`
 
-Runs `fn` when the test ends. Outside a test: when the file ends.
-The functions run in reverse order. An error in one fails the test.
-
-```ts
-const cleanup: (fn: CleanupFn) => void;
-```
-
-### `env`
-
-Sets environment variables, or deletes them with `undefined`.
-The old values come back when the test ends.
+True if the two values are deeply equal, by the rules of
+`assert.deepEqual`: the same structure, values, and prototypes.
+It is not an assertion. Use it for a condition that
+`assert.deepEqual` cannot state, such as "the list has an element
+that equals this": `assert(list.some(item => isDeepEqual(item,
+expected)))`. If that assertion fails, the report shows the values
+of each call.
 
 ```ts
-const env: (vars: Record<string, string | undefined>) => void;
-```
-
-### `stub`
-
-Sets `object[key]` to `value`. The old property comes back when
-the test ends: its value or its getter, or no property if the
-object had none of its own. For a function, `spyOn` also records
-the calls.
-
-```ts
-stub(globalThis, 'navigator', { userAgent: 'test' })
-```
-
-```ts
-const stub: <T extends object, K extends PropertyKey>(object: T, key: K, value: K extends keyof T ? T[K] : unknown) => void;
+const isDeepEqual: (a: unknown, b: unknown) => boolean;
 ```
 
 ### `mockImport`
@@ -99,7 +419,19 @@ const mockImport: <M, const D extends readonly unknown[]>(subject: Loader<M>, mo
 
 ### `spy`
 
-A function that records each call in `calls`, and then calls `impl`.
+A function that records each call in `calls`, and then calls
+`impl`. With no `impl`, it takes any arguments and returns
+`undefined`.
+
+```ts
+const send = spy((to: string) => to.length)
+notify(send)
+assert.equal(send.calls.length, 1)
+assert.deepEqual(send.calls[0]?.args, ['ann'])
+```
+
+For a result that changes, the function reads a variable, or
+takes the next value of a list: `spy(() => results.shift())`.
 
 ```ts
 const spy: <F extends AnyFn = AnyFn>(impl?: F) => Spy<F>;
@@ -109,23 +441,71 @@ const spy: <F extends AnyFn = AnyFn>(impl?: F) => Spy<F>;
 
 Replaces the method `key` of `object` with a spy. The spy calls
 `impl`, or the original method. The original comes back when the
-test ends.
+test ends. A second `spyOn` on the same key replaces the first.
+
+```ts
+const log = spyOn(console, 'log', () => {})
+greet('ann')
+assert.deepEqual(log.calls[0]?.args, ['hello, ann'])
+```
 
 ```ts
 const spyOn: <T extends object, K extends MethodKeys<T>>(object: T, key: K, impl?: T[K]) => Spy<T[K] & AnyFn>;
 ```
 
-### `describe`
+### `stub`
+
+Sets `object[key]` to `value`. The old property comes back when
+the test ends: its value or its getter, or no property if the
+object had none of its own. For a function, `spyOn` also records
+the calls.
 
 ```ts
-const describe: Describe;
+stub(globalThis, 'navigator', { userAgent: 'test' })
+```
+
+```ts
+const stub: <T extends object, K extends PropertyKey>(object: T, key: K, value: K extends keyof T ? T[K] : unknown) => void;
 ```
 
 ### `test`
 
+Defines a test. The tests of a file run one at a time, in the
+order of the file, after the file loaded. A test passes if its
+function ends, or its promise resolves, with no failed assertion
+and no error. It must run one assertion or more.
+
 ```ts
-const test: Test;
+test('adds two numbers', () => {
+  assert.equal(add(1, 2), 3)
+})
+test('loads the user', { timeout: 10_000 }, async ({ signal }) => {
+  assert.match(await load('ann', { signal }), { name: 'Ann' })
+})
+test('reads the log', { skip: !hasGit && 'git is not installed' }, () => {
+  assert.contains(log(), 'first commit')
+})
 ```
+
+ubq has no hooks, no `test.only`, and no `test.each`. Call a
+setup function in the test, select a test on the command line
+(`ubq <file>:<line>`), and call `test` in a loop.
+
+```ts
+test(name: string, fn: TestFn): void;
+test(name: string, options: TestOptions, fn: TestFn): void;
+```
+
+#### Names that `test` does not have
+
+Each of these names is a compile error, with the name to use in its place.
+
+| Name | Use |
+| --- | --- |
+| `test.each` | Use a for loop around test() |
+| `test.only` | ubq has no .only. Select tests on the command line: ubq \<file>:\<line> |
+| `test.skip` | Use test(name, { skip: "reason" }, fn) |
+| `test.todo` | Use test(name, { skip: "todo: reason" }, fn) |
 
 ### `testdir`
 
@@ -134,8 +514,17 @@ Makes a new folder with `files` in it and returns its path:
 when the test ends. If the test fails, the folder stays.
 
 ```ts
+const dir = testdir({ 'package.json': '{}', src: { 'a.ts': 'export {}' } })
+assert.deepEqual(list(dir), ['package.json', 'src/a.ts'])
+```
+
+```ts
 const testdir: (files?: Files) => string;
 ```
+
+## `ubqtest/browser`
+
+Import from `'ubqtest/browser'`.
 
 ### `browser`
 
@@ -158,6 +547,10 @@ such as `viewport` or `locale`.
 const browser: (options?: BrowserContextOptions) => Promise<Page>;
 ```
 
+## `ubqtest/workers`
+
+Import from `'ubqtest/workers'`.
+
 ### `executionContext`
 
 Makes the third argument of a handler: `worker.fetch(request,
@@ -171,6 +564,16 @@ const executionContext: () => ExecutionContext & {
 };
 ```
 
+### `migrate`
+
+Applies the migrations of a D1 database to its local copy.
+`binding` is the name of the database in the wrangler config,
+such as `'DB'`. The files come from its `migrations_dir`.
+
+```ts
+const migrate: (binding: string) => Promise<void>;
+```
+
 ### `scheduledController`
 
 Makes the first argument of a `scheduled` handler.
@@ -182,142 +585,88 @@ const scheduledController: (options?: {
 }) => ScheduledController;
 ```
 
-### `migrate`
-
-Applies the migrations of a D1 database to its local copy.
-`binding` is the name of the database in the wrangler config,
-such as `'DB'`. The files come from its `migrations_dir`.
-
-```ts
-const migrate: (binding: string) => Promise<void>;
-```
-
 ## Types
+
+The types that the package exports.
 
 ### `Assert`
 
-```ts
-interface Assert {
-    /** Passes if `value` is truthy. Narrows the type of `value`. */
-    (value: unknown, message?: string): asserts value;
-    /**
-     * Passes if `Object.is(actual, expected)`. It does not narrow the
-     * type of `actual`: a test often reads a value again after the
-     * code under test changed it. To narrow, use `assert(a === b)`.
-     */
-    equal<T>(actual: T, expected: NoInfer<T>, message?: string): void;
-    /** Passes if not `Object.is(actual, expected)`. */
-    notEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void;
-    /** Passes if both have the same structure, values, and prototypes. */
-    deepEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void;
-    /** Passes if `value > target`. A failure shows the two values. */
-    greaterThan(value: number | bigint, target: number | bigint, message?: string): void;
-    /** Passes if `value < target`. A failure shows the two values. */
-    lessThan(value: number | bigint, target: number | bigint, message?: string): void;
-    /** Passes if `value >= target`. A failure shows the two values. */
-    greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
-    /** Passes if `value <= target`. A failure shows the two values. */
-    lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
-    /**
-     * Passes if `value` is near `target`: the difference is less than
-     * `10 ** -precision / 2`. The default `precision` is 2, a difference
-     * of less than 0.005. Two values that are equal pass.
-     */
-    close(value: number, target: number, precision?: number, message?: string): void;
-    /**
-     * Passes if `actual` has the shape of `pattern`. Each key in the
-     * pattern must match. Extra keys in `actual` are fine. A RegExp
-     * tests a string. A function in the pattern gets the value at
-     * its place, and the value matches if the function returns
-     * true: `{ id: (v: unknown) => typeof v === 'number' }`. A key
-     * that `actual` does not have gives `undefined`. To compare a
-     * function as a value, use `assert.equal`.
-     */
-    match<T, const P extends Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void;
-    /**
-     * Passes if the text `actual` has the text `expected` in it, or if
-     * an element of the iterable `actual` is `expected`. Fails on null
-     * and undefined.
-     */
-    contains(actual: string | null | undefined, expected: string, message?: string): void;
-    contains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void;
-    /** The opposite of `contains`. Fails on null and undefined. */
-    notContains(actual: string | null | undefined, expected: string, message?: string): void;
-    notContains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void;
-    /**
-     * Passes if `fn` throws an error that fits `expected`: a RegExp
-     * tests the message, a class tests `instanceof`, an object is a
-     * `match` pattern. Returns the error.
-     */
-    throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error;
-    /** As `throws`, for a promise. The result must be awaited. */
-    rejects<const P extends ErrorMatch>(promise: PromiseLike<unknown> | (() => PromiseLike<unknown>), expected: P & CheckedError<P>, message?: string): Promise<Error>;
-    /**
-     * As `match`, for a value that changes with time, such as the text
-     * of a page. Calls `fn` again and again until its value matches
-     * `pattern`. Fails after 2000 ms with the last value. The result
-     * must be awaited.
-     */
-    eventually<T, const P extends Pattern<Awaited<T>>>(fn: () => T, pattern: P & Checked<P>, message?: string): Promise<void>;
-    /**
-     * Passes if the text of `value` is the text in the snapshot file
-     * of the test file. `ubq --update <test>` writes the file.
-     */
-    snapshot(value: unknown, message?: string): void;
-    /** Fails the test. */
-    fail(message: string): never;
-    toMatchSnapshot: Hint<'Use assert.snapshot(value)'>;
-    matchSnapshot: Hint<'Use assert.snapshot(value)'>;
-    ok: Hint<'Use assert(value)'>;
-    strictEqual: Hint<'Use assert.equal (it is always strict)'>;
-    deepStrictEqual: Hint<'Use assert.deepEqual (it is always strict)'>;
-}
-```
-
-### `Pattern`
-
-A partial shape: listed keys must match, a RegExp tests a string,
-and a function is a predicate for the value at its place.
-
-```ts
-type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | Predicate;
-```
+The type of [`assert`](#assert). Its members are in that part.
 
 ### `FakeClock`
 
+The clock that `fakeClock()` returns.
+
+#### `FakeClock[Symbol.dispose]`
+
+The same as `restore()`, for `using clock = fakeClock()`.
+
 ```ts
-interface FakeClock {
-    /** The time of the clock, in milliseconds since 1970. */
-    readonly now: number;
-    /** The count of timers that wait. */
-    readonly timers: number;
-    /**
-     * Moves the clock forward by `ms`. Each timer that is due runs, in
-     * the order of its time. Promise callbacks run after each timer.
-     * `tick(0)` runs only the `setImmediate` callbacks.
-     */
-    tick(ms: number): Promise<void>;
-    /**
-     * Sets the time of `Date`, forward or back, and runs no timer.
-     * `performance.now()`, `process.hrtime()`, and the timers do not
-     * change: a timer runs after the same count of milliseconds.
-     */
-    set(time: number | Date): void;
-    /** Moves the clock from timer to timer until no timer waits. */
-    runAll(): Promise<void>;
-    /** Puts the real timers and clocks back. The end of the test does this too. */
-    restore(): void;
-    [Symbol.dispose](): void;
-}
+[Symbol.dispose](): void;
+```
+
+#### `FakeClock.now`
+
+The time of the clock, in milliseconds since 1970.
+
+```ts
+readonly now: number;
+```
+
+#### `FakeClock.restore`
+
+Puts the real timers and clocks back. The end of the test does this too.
+
+```ts
+restore(): void;
+```
+
+#### `FakeClock.runAll`
+
+Moves the clock from timer to timer until no timer waits.
+
+```ts
+runAll(): Promise<void>;
+```
+
+#### `FakeClock.set`
+
+Sets the time of `Date`, forward or back, and runs no timer.
+`performance.now()`, `process.hrtime()`, and the timers do not
+change: a timer runs after the same count of milliseconds.
+
+```ts
+set(time: number | Date): void;
+```
+
+#### `FakeClock.tick`
+
+Moves the clock forward by `ms`. Each timer that is due runs, in
+the order of its time. Promise callbacks run after each timer.
+`tick(0)` runs only the `setImmediate` callbacks.
+
+```ts
+tick(ms: number): Promise<void>;
+```
+
+#### `FakeClock.timers`
+
+The count of timers that wait.
+
+```ts
+readonly timers: number;
 ```
 
 ### `FakeClockOptions`
 
+The options of `fakeClock`.
+
+#### `FakeClockOptions.now`
+
+The time at the start. The default is the real time.
+
 ```ts
-interface FakeClockOptions {
-    /** The time at the start. The default is the real time. */
-    now?: number | Date;
-}
+now?: number | Date;
 ```
 
 ### `Files`
@@ -342,9 +691,19 @@ type MockOf<T> = {
 };
 ```
 
+### `Pattern`
+
+A partial shape: listed keys must match, a RegExp tests a string,
+and a function is a predicate for the value at its place.
+
+```ts
+type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | Predicate;
+```
+
 ### `Spy`
 
-A function that records each call.
+A function that records each call in `calls`. It has the type of the
+function that it replaces.
 
 ```ts
 type Spy<F extends AnyFn = AnyFn> = F & {
@@ -354,7 +713,8 @@ type Spy<F extends AnyFn = AnyFn> = F & {
 
 ### `SpyCall`
 
-One call of a spy. `error` is present if the call threw.
+One call of a spy: its arguments, and its result. `error` is present,
+and `result` is not, if the call threw.
 
 ```ts
 interface SpyCall<F extends AnyFn> {
@@ -366,14 +726,19 @@ interface SpyCall<F extends AnyFn> {
 
 ### `TestContext`
 
+The argument of a test function.
+
+#### `TestContext.signal`
+
+Aborts when the test times out.
+
 ```ts
-interface TestContext {
-    /** Aborts when the test times out. */
-    readonly signal: AbortSignal;
-}
+readonly signal: AbortSignal;
 ```
 
 ### `TestFn`
+
+The function of a test. It can return a promise.
 
 ```ts
 type TestFn = (ctx: TestContext) => void | Promise<void>;
@@ -381,67 +746,37 @@ type TestFn = (ctx: TestContext) => void | Promise<void>;
 
 ### `TestOptions`
 
-```ts
-interface TestOptions {
-    /** The reason to skip the test. `false` runs the test. */
-    skip?: string | false;
-    /** Milliseconds. The default is 5000. */
-    timeout?: number;
-}
-```
+The options of `test` and of `describe`. A group gives its options to
+its tests.
 
-### `CleanupFn`
+#### `TestOptions.skip`
 
-`limit` is a time limit in milliseconds, in place of the default one.
+The reason to skip the test. `false` runs the test.
 
 ```ts
-type CleanupFn = (() => void | Promise<void>) & {
-    limit?: number;
-};
+skip?: string | false;
 ```
 
-### `Loader`
+#### `TestOptions.timeout`
+
+The time limit of the test in milliseconds. The default is 5000, or
+the `timeout` of the configuration.
 
 ```ts
-type Loader<M> = () => Promise<M>;
+timeout?: number;
 ```
+
+## Types of the signatures
+
+The package does not export these types. The signatures above
+use them, so a reader needs them.
 
 ### `AnyFn`
 
+A function with any arguments and any result.
+
 ```ts
 type AnyFn = (...args: any[]) => any;
-```
-
-### `MethodKeys`
-
-The keys of `T` whose values are functions.
-
-```ts
-type MethodKeys<T> = {
-    [K in keyof T]-?: T[K] extends AnyFn ? K : never;
-}[keyof T];
-```
-
-### `Describe`
-
-```ts
-interface Describe {
-    (name: string, fn: () => void): void;
-    (name: string, options: TestOptions, fn: () => void): void;
-}
-```
-
-### `Test`
-
-```ts
-interface Test {
-    (name: string, fn: TestFn): void;
-    (name: string, options: TestOptions, fn: TestFn): void;
-    skip: Hint<'Use test(name, { skip: "reason" }, fn)'>;
-    todo: Hint<'Use test(name, { skip: "todo: reason" }, fn)'>;
-    only: Hint<'ubq has no .only. Select tests on the command line: ubq <file>:<line>'>;
-    each: Hint<'Use a for loop around test()'>;
-}
 ```
 
 ### `Checked`
@@ -460,18 +795,36 @@ type Checked<P> = P extends (...args: never[]) => unknown ? P extends Predicate 
 } : P : P;
 ```
 
-### `ErrorMatch`
-
-```ts
-type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>;
-```
-
 ### `CheckedError`
 
 At the top level, a RegExp or a class is not a pattern.
 
 ```ts
 type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => Error) ? unknown : Checked<P>;
+```
+
+### `CleanupFn`
+
+The function of `cleanup`. `limit` is a time limit in milliseconds, in
+place of the default one.
+
+```ts
+type CleanupFn = (() => void | Promise<void>) & {
+    limit?: number;
+};
+```
+
+### `Describe`
+
+The type of [`describe`](#describe). Its members are in that part.
+
+### `ErrorMatch`
+
+What `assert.throws` and `assert.rejects` compare an error with: a
+RegExp for the message, a class, or a `match` pattern.
+
+```ts
+type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>;
 ```
 
 ### `Hint`
@@ -485,13 +838,36 @@ type Hint<S extends string> = {
 };
 ```
 
-### `Prim`
+### `Keys`
+
+The keys of each member of a union.
 
 ```ts
-type Prim<T> = T extends string ? T | RegExp : T;
+type Keys<T> = T extends unknown ? keyof T : never;
+```
+
+### `Loader`
+
+A function that imports a module: `() => import('../src/a.ts')`.
+
+```ts
+type Loader<M> = () => Promise<M>;
+```
+
+### `MethodKeys`
+
+The keys of `T` whose values are functions.
+
+```ts
+type MethodKeys<T> = {
+    [K in keyof T]-?: T[K] extends AnyFn ? K : never;
+}[keyof T];
 ```
 
 ### `Obj`
+
+The pattern of an object: each key is optional. The pattern of an array
+has each element.
 
 ```ts
 type Obj<O> = [O] extends [never] ? never : [O] extends [readonly unknown[]] ? {
@@ -509,19 +885,30 @@ A function in a pattern: it tests the value at its place.
 type Predicate = (value: unknown) => boolean;
 ```
 
+### `Prim`
+
+The pattern of a value that is not an object: the value, or a RegExp for
+a string.
+
+```ts
+type Prim<T> = T extends string ? T | RegExp : T;
+```
+
 ### `Same`
+
+True if `A` and `B` are the same type.
 
 ```ts
 type Same<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => (V extends B ? 1 : 2) ? true : false;
 ```
 
-### `Keys`
+### `Test`
 
-```ts
-type Keys<T> = T extends unknown ? keyof T : never;
-```
+The type of [`test`](#test). Its members are in that part.
 
 ### `Val`
+
+The type of the key `K` in the members of a union that have it.
 
 ```ts
 type Val<T, K> = T extends unknown ? (K extends keyof T ? T[K] : never) : never;

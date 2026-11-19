@@ -6,6 +6,7 @@ import { createRequire } from 'node:module'
 import { cleanup } from './fixtures.ts'
 import { setImmediate as realSetImmediate } from './real.ts'
 
+/** The clock that `fakeClock()` returns. */
 export interface FakeClock {
   /** The time of the clock, in milliseconds since 1970. */
   readonly now: number
@@ -27,9 +28,11 @@ export interface FakeClock {
   runAll(): Promise<void>
   /** Puts the real timers and clocks back. The end of the test does this too. */
   restore(): void
+  /** The same as `restore()`, for `using clock = fakeClock()`. */
   [Symbol.dispose](): void
 }
 
+/** The options of `fakeClock`. */
 export interface FakeClockOptions {
   /** The time at the start. The default is the real time. */
   now?: number | Date

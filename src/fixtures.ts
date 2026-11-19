@@ -7,7 +7,10 @@ import { projectRoot, rel, stateDir } from './project.ts'
 import { current, fileCleanups, type TestState } from './state.ts'
 import { notInWorkerd } from './workerd.ts'
 
-/** `limit` is a time limit in milliseconds, in place of the default one. */
+/**
+ * The function of `cleanup`. `limit` is a time limit in milliseconds, in
+ * place of the default one.
+ */
 export type CleanupFn = (() => void | Promise<void>) & { limit?: number }
 
 export { fileCleanups }
@@ -37,6 +40,11 @@ const add = (name: string, fn: CleanupFn): void => {
 /**
  * Runs `fn` when the test ends. Outside a test: when the file ends.
  * The functions run in reverse order. An error in one fails the test.
+ *
+ * ```ts
+ * const server = listen(0)
+ * cleanup(() => server.close())
+ * ```
  */
 export const cleanup = (fn: CleanupFn): void => {
   if (typeof fn !== 'function') throw new TypeError('cleanup() needs a function')
@@ -46,6 +54,10 @@ export const cleanup = (fn: CleanupFn): void => {
 /**
  * Sets environment variables, or deletes them with `undefined`.
  * The old values come back when the test ends.
+ *
+ * ```ts
+ * env({ NODE_ENV: 'production', DEBUG: undefined })
+ * ```
  */
 export const env = (vars: Record<string, string | undefined>): void => {
   const old = Object.keys(vars).map(name => [name, process.env[name]] as const)

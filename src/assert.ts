@@ -40,10 +40,15 @@ class MustAwait<T> extends Promise<T> {
   }
 }
 
+/**
+ * What `assert.throws` and `assert.rejects` compare an error with: a
+ * RegExp for the message, a class, or a `match` pattern.
+ */
 type ErrorMatch = RegExp | (abstract new (...args: any[]) => Error) | Record<string, unknown>
 
 /** A function in a pattern: it tests the value at its place. */
 type Predicate = (value: unknown) => boolean
+/** True if `A` and `B` are the same type. */
 type Same<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ? 1 : 2 ? true : false
 /**
  * The pattern `P`, with a function that is not a predicate made a
@@ -66,9 +71,19 @@ type Checked<P> = P extends (...args: never[]) => unknown
 /** At the top level, a RegExp or a class is not a pattern. */
 type CheckedError<P> = P extends RegExp | (abstract new (...args: any[]) => Error) ? unknown : Checked<P>
 
+/** The keys of each member of a union. */
 type Keys<T> = T extends unknown ? keyof T : never
+/** The type of the key `K` in the members of a union that have it. */
 type Val<T, K> = T extends unknown ? (K extends keyof T ? T[K] : never) : never
+/**
+ * The pattern of a value that is not an object: the value, or a RegExp for
+ * a string.
+ */
 type Prim<T> = T extends string ? T | RegExp : T
+/**
+ * The pattern of an object: each key is optional. The pattern of an array
+ * has each element.
+ */
 type Obj<O> = [O] extends [never]
   ? never
   : [O] extends [readonly unknown[]]
@@ -80,22 +95,64 @@ type Obj<O> = [O] extends [never]
  */
 export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | Predicate
 
+/** The type of `assert`. */
 export interface Assert {
-  /** Passes if `value` is truthy. Narrows the type of `value`. */
+  /**
+   * Passes if `value` is truthy. Narrows the type of `value`.
+   *
+   * ```ts
+   * const user = find('ann')
+   * assert(user)
+   * assert(user.kind === 'admin')
+   * assert(error instanceof RangeError, 'the kind of error')
+   * ```
+   */
   (value: unknown, message?: string): asserts value
   /**
    * Passes if `Object.is(actual, expected)`. It does not narrow the
    * type of `actual`: a test often reads a value again after the
    * code under test changed it. To narrow, use `assert(a === b)`.
+   * `expected` must have the type of `actual`. To compare two
+   * different types on purpose: `assert.equal<unknown>(a, b)`.
+   *
+   * ```ts
+   * assert.equal(add(1, 2), 3)
+   * ```
    */
   equal<T>(actual: T, expected: NoInfer<T>, message?: string): void
-  /** Passes if not `Object.is(actual, expected)`. */
+  /**
+   * Passes if not `Object.is(actual, expected)`.
+   *
+   * ```ts
+   * assert.notEqual(nextId(), firstId)
+   * ```
+   */
   notEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void
-  /** Passes if both have the same structure, values, and prototypes. */
+  /**
+   * Passes if both have the same structure, values, and prototypes.
+   * It is strict: `1` is not `'1'`, and a class instance is not a
+   * plain object. A failure shows each difference with its path.
+   *
+   * ```ts
+   * assert.deepEqual(parse('a=1'), { a: '1' })
+   * ```
+   */
   deepEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void
-  /** Passes if `value > target`. A failure shows the two values. */
+  /**
+   * Passes if `value > target`. A failure shows the two values.
+   *
+   * ```ts
+   * assert.greaterThan(items.length, 0)
+   * ```
+   */
   greaterThan(value: number | bigint, target: number | bigint, message?: string): void
-  /** Passes if `value < target`. A failure shows the two values. */
+  /**
+   * Passes if `value < target`. A failure shows the two values.
+   *
+   * ```ts
+   * assert.lessThan(elapsed, 100)
+   * ```
+   */
   lessThan(value: number | bigint, target: number | bigint, message?: string): void
   /** Passes if `value >= target`. A failure shows the two values. */
   greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void
@@ -105,6 +162,11 @@ export interface Assert {
    * Passes if `value` is near `target`: the difference is less than
    * `10 ** -precision / 2`. The default `precision` is 2, a difference
    * of less than 0.005. Two values that are equal pass.
+   *
+   * ```ts
+   * assert.close(0.1 + 0.2, 0.3)
+   * assert.close(ratio, 1.15, 6)
+   * ```
    */
   close(value: number, target: number, precision?: number, message?: string): void
   /**
@@ -114,13 +176,25 @@ export interface Assert {
    * its place, and the value matches if the function returns
    * true: `{ id: (v: unknown) => typeof v === 'number' }`. A key
    * that `actual` does not have gives `undefined`. To compare a
-   * function as a value, use `assert.equal`.
+   * function as a value, use `assert.equal`. An array in the
+   * pattern must have the same length as the array in `actual`.
+   *
+   * ```ts
+   * assert.match(user, { name: /^A/, roles: ['admin'] })
+   * assert.match(line, /^pass: /)
+   * ```
    */
   match<T, const P extends Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void
   /**
    * Passes if the text `actual` has the text `expected` in it, or if
    * an element of the iterable `actual` is `expected`. Fails on null
-   * and undefined.
+   * and undefined. For long text, a failure shows the part near
+   * the longest start of `expected` that the text has.
+   *
+   * ```ts
+   * assert.contains(page, 'Welcome')
+   * assert.contains(new Set(roles), 'admin')
+   * ```
    */
   contains(actual: string | null | undefined, expected: string, message?: string): void
   contains<T>(actual: Iterable<T> | null | undefined, expected: T, message?: string): void
@@ -130,10 +204,24 @@ export interface Assert {
   /**
    * Passes if `fn` throws an error that fits `expected`: a RegExp
    * tests the message, a class tests `instanceof`, an object is a
-   * `match` pattern. Returns the error.
+   * `match` pattern. `expected` is required. Returns the error.
+   *
+   * ```ts
+   * assert.throws(() => parse('?'), /unknown shape/)
+   * const error = assert.throws(() => parse('?'), RangeError)
+   * assert.throws(() => open(path), { code: 'ENOENT' })
+   * ```
    */
   throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error
-  /** As `throws`, for a promise. The result must be awaited. */
+  /**
+   * As `throws`, for a promise, or for a function that returns one.
+   * The result must be awaited: a test that does not await it
+   * fails. It resolves to the value that the promise rejected with.
+   *
+   * ```ts
+   * await assert.rejects(load('gone'), /not found/)
+   * ```
+   */
   rejects<const P extends ErrorMatch>(
     promise: PromiseLike<unknown> | (() => PromiseLike<unknown>),
     expected: P & CheckedError<P>,
@@ -144,6 +232,10 @@ export interface Assert {
    * of a page. Calls `fn` again and again until its value matches
    * `pattern`. Fails after 2000 ms with the last value. The result
    * must be awaited.
+   *
+   * ```ts
+   * await assert.eventually(() => page.title(), 'Done')
+   * ```
    */
   eventually<T, const P extends Pattern<Awaited<T>>>(
     fn: () => T,
@@ -152,10 +244,17 @@ export interface Assert {
   ): Promise<void>
   /**
    * Passes if the text of `value` is the text in the snapshot file
-   * of the test file. `ubq --update <test>` writes the file.
+   * of the test file. `ubq --update <test>` writes the file. The
+   * files are in `ubq-snapshots/`: commit them.
    */
   snapshot(value: unknown, message?: string): void
-  /** Fails the test. */
+  /**
+   * Fails the test.
+   *
+   * ```ts
+   * if (kind === 'never') assert.fail('this case cannot occur')
+   * ```
+   */
   fail(message: string): never
   toMatchSnapshot: Hint<'Use assert.snapshot(value)'>
   matchSnapshot: Hint<'Use assert.snapshot(value)'>
@@ -543,6 +642,15 @@ const methods = {
   deepStrictEqual: hint('Use assert.deepEqual (it is always strict)'),
 }
 
+/**
+ * The assertions. `assert(value)` passes if `value` is truthy, and
+ * each method is one check. A failed assertion throws, and the test
+ * stops there. The report has the place, the source line, and the
+ * values. Each assertion takes a `message` as its last argument: it
+ * goes before the text of the failure.
+ *
+ * A test must run one assertion or more.
+ */
 export const assert: Assert = Object.assign(assertFn, methods) as Assert
 
 /**

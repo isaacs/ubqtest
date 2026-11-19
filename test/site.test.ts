@@ -68,7 +68,16 @@ test('each page has a markdown copy, and each link of the site goes to a file', 
   assert.match(section('fakeclock'), /<a href="#spy">spy<\/a>\(\)/)
   assert.match(section('spy-1'), /calls: <a href="#spycall">SpyCall<\/a>/)
   // Not the name that the item declares.
-  assert.match(section('fakeclock-1'), /interface<\/span> FakeClock \{/)
+  assert.match(section('spy-1'), /type<\/span> Spy&lt;/)
+  // Each link of the contents goes to a heading of the page.
+  const ids = new Set([...api.matchAll(/ id="([^"]+)"/g)].map(m => m[1]))
+  const links = [...api.matchAll(/href="#([^"]+)"/g)].map(m => m[1]!)
+  assert.greaterThan(links.length, 100)
+  assert.deepEqual(
+    links.filter(link => !ids.has(link)),
+    [],
+  )
+  assert(links.includes('assert-greaterthanorequal'))
 })
 
 test('the store page names each table and each column of the store', () => {

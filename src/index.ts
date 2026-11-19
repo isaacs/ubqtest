@@ -19,6 +19,11 @@ export { describe, test, type TestContext, type TestFn, type TestOptions } from 
  * Makes a new folder with `files` in it and returns its path:
  * `.ubq/testdir/<test file>/<test name>`. The folder is removed
  * when the test ends. If the test fails, the folder stays.
+ *
+ * ```ts
+ * const dir = testdir({ 'package.json': '{}', src: { 'a.ts': 'export {}' } })
+ * assert.deepEqual(list(dir), ['package.json', 'src/a.ts'])
+ * ```
  */
 export const testdir = (files?: Files): string => makeTestdir(currentFile(), files)
 

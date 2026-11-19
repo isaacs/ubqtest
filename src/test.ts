@@ -19,20 +19,30 @@ import { current, moreCoverage, type TestState } from './state.ts'
 import { workerd } from './workerd.ts'
 import type { WatchData, WatchMessage } from './watchdog.ts'
 
+/** The argument of a test function. */
 export interface TestContext {
   /** Aborts when the test times out. */
   readonly signal: AbortSignal
 }
 
+/**
+ * The options of `test` and of `describe`. A group gives its options to
+ * its tests.
+ */
 export interface TestOptions {
   /** The reason to skip the test. `false` runs the test. */
   skip?: string | false
-  /** Milliseconds. The default is 5000. */
+  /**
+   * The time limit of the test in milliseconds. The default is 5000, or
+   * the `timeout` of the configuration.
+   */
   timeout?: number
 }
 
+/** The function of a test. It can return a promise. */
 export type TestFn = (ctx: TestContext) => void | Promise<void>
 
+/** The type of `test`. */
 export interface Test {
   (name: string, fn: TestFn): void
   (name: string, options: TestOptions, fn: TestFn): void
@@ -42,6 +52,7 @@ export interface Test {
   each: Hint<'Use a for loop around test()'>
 }
 
+/** The type of `describe`. */
 export interface Describe {
   (name: string, fn: () => void): void
   (name: string, options: TestOptions, fn: () => void): void
@@ -131,6 +142,28 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   }
 }
 
+/**
+ * Defines a test. The tests of a file run one at a time, in the
+ * order of the file, after the file loaded. A test passes if its
+ * function ends, or its promise resolves, with no failed assertion
+ * and no error. It must run one assertion or more.
+ *
+ * ```ts
+ * test('adds two numbers', () => {
+ *   assert.equal(add(1, 2), 3)
+ * })
+ * test('loads the user', { timeout: 10_000 }, async ({ signal }) => {
+ *   assert.match(await load('ann', { signal }), { name: 'Ann' })
+ * })
+ * test('reads the log', { skip: !hasGit && 'git is not installed' }, () => {
+ *   assert.contains(log(), 'first commit')
+ * })
+ * ```
+ *
+ * ubq has no hooks, no `test.only`, and no `test.each`. Call a
+ * setup function in the test, select a test on the command line
+ * (`ubq <file>:<line>`), and call `test` in a loop.
+ */
 export const test: Test = Object.assign(testFn, {
   skip: hint('Use test(name, { skip: "reason" }, fn)'),
   todo: hint('Use test(name, { skip: "todo: reason" }, fn)'),
@@ -138,6 +171,20 @@ export const test: Test = Object.assign(testFn, {
   each: hint('Use a for loop around test()'),
 })
 
+/**
+ * A group of tests. Its name is a part of the ID of each test in
+ * it: `file > group > test`. `fn` runs while the file loads, and it
+ * must not be async. The options are the default for each test of
+ * the group.
+ *
+ * ```ts
+ * describe('parse', () => {
+ *   test('a circle', () => {
+ *     assert.equal(parse('c')?.kind, 'circle')
+ *   })
+ * })
+ * ```
+ */
 export const describe: Describe = (name: string, a: TestOptions | (() => void), b?: () => void): void => {
   const [options, fn] = typeof a === 'function' ? [{}, a] : [a, b]
   if (current.getStore()) throw new Error('describe() was called inside a running test.')

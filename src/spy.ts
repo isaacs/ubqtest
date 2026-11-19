@@ -2,19 +2,40 @@
 import { cleanup } from './fixtures.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/** A function with any arguments and any result. */
 type AnyFn = (...args: any[]) => any
 
-/** One call of a spy. `error` is present if the call threw. */
+/**
+ * One call of a spy: its arguments, and its result. `error` is present,
+ * and `result` is not, if the call threw.
+ */
 export interface SpyCall<F extends AnyFn> {
   args: Parameters<F>
   result?: ReturnType<F>
   error?: unknown
 }
 
-/** A function that records each call. */
+/**
+ * A function that records each call in `calls`. It has the type of the
+ * function that it replaces.
+ */
 export type Spy<F extends AnyFn = AnyFn> = F & { calls: SpyCall<F>[] }
 
-/** A function that records each call in `calls`, and then calls `impl`. */
+/**
+ * A function that records each call in `calls`, and then calls
+ * `impl`. With no `impl`, it takes any arguments and returns
+ * `undefined`.
+ *
+ * ```ts
+ * const send = spy((to: string) => to.length)
+ * notify(send)
+ * assert.equal(send.calls.length, 1)
+ * assert.deepEqual(send.calls[0]?.args, ['ann'])
+ * ```
+ *
+ * For a result that changes, the function reads a variable, or
+ * takes the next value of a list: `spy(() => results.shift())`.
+ */
 export const spy = <F extends AnyFn = AnyFn>(impl?: F): Spy<F> => {
   if (impl !== undefined && typeof impl !== 'function') throw new TypeError('spy() needs a function, or no argument')
   const calls: SpyCall<F>[] = []
@@ -37,7 +58,13 @@ type MethodKeys<T> = { [K in keyof T]-?: T[K] extends AnyFn ? K : never }[keyof 
 /**
  * Replaces the method `key` of `object` with a spy. The spy calls
  * `impl`, or the original method. The original comes back when the
- * test ends.
+ * test ends. A second `spyOn` on the same key replaces the first.
+ *
+ * ```ts
+ * const log = spyOn(console, 'log', () => {})
+ * greet('ann')
+ * assert.deepEqual(log.calls[0]?.args, ['hello, ann'])
+ * ```
  */
 export const spyOn = <T extends object, K extends MethodKeys<T>>(object: T, key: K, impl?: T[K]): Spy<T[K] & AnyFn> => {
   const original = object[key]

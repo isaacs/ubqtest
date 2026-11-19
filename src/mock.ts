@@ -28,9 +28,11 @@ declare const Bun: {
 }
 const bun = !!process.versions.bun
 
+/** A function that imports a module: `() => import('../src/a.ts')`. */
 type Loader<M> = () => Promise<M>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/** A function with any arguments and any result. */
 type AnyFn = (...args: any[]) => any
 
 /**
