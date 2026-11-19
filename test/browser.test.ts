@@ -312,11 +312,16 @@ test('with no call', { timeout: 30_000 }, async () => {
 })
 `,
     )
+    // The start and the stop of the browser can take seconds on a
+    // slow machine: the limit of a cleanup function of the file is
+    // the limit of the configuration.
+    p.configure({ timeout: 30_000 })
     const r = p.ubq('own.test.ts')
     assert.match(
       r.out,
       /FAIL own\.test\.ts > with no call\n {2}Error: page\.evaluate: ReferenceError: __ubqc is not defined[^]*\n {2}hint: a function of the test ran in a page of a browser that the test started itself, and its text has the coverage counters of ubq\. Use browser\(\) of 'ubqtest\/browser', or call prepareContext\(context\) of 'ubqtest\/browser' for each browser context that the test makes\.\n/,
     )
-    assert.equal(r.last, 'fail: 1 failed, 1 passed')
+    // The whole output, so that a failure of this check shows it.
+    assert.match(r.out, /\nfail: 1 failed, 1 passed \(run 1\)\n$/)
   },
 )
