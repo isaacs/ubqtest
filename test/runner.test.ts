@@ -147,14 +147,15 @@ test('hangs: a promise that never settles, a timeout, a process that stays alive
   cleanup(() => remove(p.dir))
   cpSync(join(cwd, 'hang.ts'), join(p.dir, 'hang.ts'))
   const ubq = ubqIn(p.dir)
-  const t0 = performance.now()
   const r = ubq(['hang.ts'])
-  // The test that never settles must not wait for its 5000 ms limit.
-  // A process of Windows in CI starts slowly, so the limit there is the limit of the test.
-  assert(performance.now() - t0 < (process.platform === 'win32' ? 20_000 : 4000), 'the run took too long')
   assert.equal(r.code, 1)
   const text = r.out.join('\n')
+  // The test that never settles must not wait for its 5000 ms limit.
+  // The message shows that: a test that reaches its limit has "the
+  // test did not end in 5000 ms". No check of the time of the run:
+  // a slow machine must not fail this test.
   assert.match(text, /FAIL hang\.ts > never settles, nothing pending\n  the promise of the test never settled/)
+  assert(!text.includes('did not end in 5000 ms'))
   assert.match(text, /the test did not end in 50 ms\n.*\n.*\n  still open: TCPServerWrap/)
   assert.match(text, /ERROR hang\.ts\n  the tests ended, but the process did not exit\..*\n  still open: TCPServerWrap/)
   // The rerun with async tracking names the lines that opened them (D14).
