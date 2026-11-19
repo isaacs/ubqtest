@@ -598,7 +598,19 @@ export const runFile = async (
       send({ type: 'output', file, stream: 'stdout', text })
     })
     addGroup(child.pid!)
-    child.on('close', (code, signal) => {
+    // Node gives `close` after each pipe of the child ended. The
+    // runner must not depend on that: with no events read yet, a
+    // file that ran looks like a file that did not load ubqtest.
+    // So the end of the file waits for the end of the events too.
+    const events = eventsFile ? undefined : (child.stdio[3] as Readable)
+    let drained = !events || events.readableEnded
+    let atDrain: (() => void) | undefined
+    const drain = (): void => {
+      drained = true
+      atDrain?.()
+    }
+    events?.once('end', drain).once('close', drain).once('error', drain)
+    const closed = (code: number | null, signal: NodeJS.Signals | null): void => {
       clearTimeout(watchdog)
       limit?.removeEventListener('abort', abort)
       // Processes that the tests started and did not stop. On
@@ -625,6 +637,16 @@ export const runFile = async (
         })
       send({ type: 'exit', file, code, signal })
       done()
+    }
+    child.on('close', (code, signal) => {
+      if (drained) return closed(code, signal)
+      // ubq: not measured: each runtime of the tests ends the pipe
+      const late = setTimeout(drain, 1000)
+      atDrain = () => {
+        atDrain = undefined
+        clearTimeout(late)
+        closed(code, signal)
+      }
     })
   })
 }
