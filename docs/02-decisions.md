@@ -2497,7 +2497,7 @@ processes do not wait.
 
 ## D108. Changes from the nest and jest report (assistant, 2026-11-19)
 
-`21-nest-jest-feedback-0.0.18.md`: a monorepo of 76 projects
+`private/21-nest-jest-feedback-0.0.18.md` (not public): a monorepo of 76 projects
 with 1305 jest test files (NestJS, React, pnpm, Nx). The user
 asked the assistant to close what it could, and to record each
 decision. Each choice here is an assumption of the assistant.

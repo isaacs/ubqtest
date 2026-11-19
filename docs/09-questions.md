@@ -27,7 +27,7 @@ Q36 to Q38 came from `20-seldo-feedback-0.0.18.md`.
 
 Q39 came from the benchmark of `bench/`.
 
-Q40 to Q43 come from `21-nest-jest-feedback-0.0.18.md`. D108 has
+Q40 to Q43 come from `private/21-nest-jest-feedback-0.0.18.md` (not public). D108 has
 what is done.
 
 ## Q40. A spy with a result that the test changes
