@@ -1,0 +1,7 @@
+# Only the built package and the benchmark go to the image.
+*
+!dist
+!bench/package.json
+!bench/src
+!bench/gen.ts
+!bench/run.ts

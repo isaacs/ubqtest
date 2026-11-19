@@ -195,7 +195,7 @@ const notFound = (name: string, path: string): Error => {
   const error = new Error(`Cannot find module '${shown}' imported from ${rel(path)}`)
   const lines = readFileSync(path, 'utf8').split('\n')
   // The import names the file by its last part, with any path before it.
-  // On Windows, the full path has `\\`.
+  // On Windows, the full path has `\`.
   const last = name.split(/[\\/]/).at(-1)!
   const line = lines.findIndex(text => /\b(import|from|require)\b/.test(text) && text.includes(last))
   // ubq: not measured: each import of the tests has its name on one line

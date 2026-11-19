@@ -13,6 +13,7 @@ ends. The details of older steps are in the git history.
 | `npm run build` | makes the package in `dist/` (D32): bundled JavaScript, type declarations, `package.json` |
 | `npm run docs` | builds, then makes `docs/api.md` from the type declarations (`scripts/api-docs.ts`). A test fails if the file is not current. |
 | `npm run bench` | builds, then times ubq and other tools. `-- --check` fails if a ubq row is over its budget. `-- --only ubq` runs only ubq rows. |
+| `npm run bench:tools` | times ubq, vitest, ava, tape, and mocha on the same 20 test files, in a Docker container with 2 CPUs and 2 GB (`bench/README.md`). Options after `--`: `--cpus 4 --memory 4g`, `--runs 3`, `--only vitest`, `--json`. |
 
 ## Checks before each commit
 
@@ -418,6 +419,10 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `bench/`: a benchmark of 5 test tools on the same 20 test
+    files, 306 tests, and 2330 assertions, in Docker with a fixed
+    budget. The first results and three places where ubq loses
+    time are in `bench/README.md`.
   - `mockImport`: an import in the new instance that names no
     file fails at the import statement, with the names of the
     project. With a link to the ubqtest package, the new instance

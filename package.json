@@ -24,6 +24,7 @@
     "typecheck": "tsc",
     "lint": "oxlint --fix --deny-warnings src test scripts evals/run.ts && oxfmt src test scripts evals/run.ts",
     "bench": "npm run build && node experiments/suite/bench.mjs",
+    "bench:tools": "bench/docker.sh",
     "build": "node scripts/build.ts",
     "docs": "npm run build && node scripts/api-docs.ts",
     "site": "node scripts/site.ts",
