@@ -55,6 +55,15 @@ interface Swc {
 }
 
 /**
+ * CommonJS that gets its `require` from the function of
+ * `counters-preload.ts`, which finds `./file.ts` for `./file`. The
+ * text goes after the directive of the first line, so each
+ * position of the source map stays correct.
+ */
+const REQUIRE = "require = (globalThis[Symbol.for('ubq.require')] ?? (r => r))(require, __filename);"
+const withRequire = (js: string): string => js.replace(/^\s*(?:(['"])use strict\1;?)?/, start => start + REQUIRE)
+
+/**
  * The transformer of the project at `root` for the `transform` key
  * of its configuration. Throws if the project does not have the
  * package of the compiler.
@@ -160,7 +169,7 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
           // `import()` stays as it is: it loads a module of each kind.
           module: cjs ? { type: 'commonjs', ignoreDynamic: true, noInterop: !o.interop } : { type: 'es6' },
         })
-        return { js, format: format(path) }
+        return { js: cjs ? withRequire(js) : js, format: format(path) }
       }
       ts ??= require(name) as TypeScript
       const { options: compilerOptions } = ts.convertCompilerOptionsFromJson(
@@ -177,7 +186,8 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
         },
         root,
       )
-      return { js: ts.transpileModule!(code, { fileName: path, compilerOptions }).outputText, format: format(path) }
+      const js = ts.transpileModule!(code, { fileName: path, compilerOptions }).outputText
+      return { js: cjs ? withRequire(js) : js, format: format(path) }
     },
   }
 }

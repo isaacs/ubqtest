@@ -3,7 +3,7 @@
 // A load hook adds counters to each project file.
 // See docs/03-measurements.md, section 12.
 import { statSync } from 'node:fs'
-import { registerHooks } from 'node:module'
+import { createRequire, registerHooks } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { announce } from './child-coverage.ts'
 import { setDefines } from './config.ts'
@@ -75,6 +75,34 @@ registerHooks({
 
 setDefines()
 const counters = startCounters()
+// Before Node 24.18 and 26.5, a `require` with a name that is no
+// file does not get the names of the resolve hook above. The
+// CommonJS of the `transform` key calls this function for its
+// `require` (`REQUIRE` in `transform.ts`).
+// ubq: not measured: this module loads before the counters start
+if (counters?.transformed)
+  (globalThis as Record<symbol, unknown>)[Symbol.for('ubq.require')] = (
+    real: NodeJS.Require,
+    file: string,
+  ): NodeJS.Require => {
+    // The `require` of a file that `import` loaded has no `resolve`
+    // on these versions.
+    const { resolve } = createRequire(file)
+    return Object.assign((name: string): unknown => {
+      if (!/^\.\.?(\/|$)/.test(name)) return real(name)
+      for (const other of [name, ...names(name)]) {
+        let found: string
+        try {
+          found = resolve(other)
+        } catch {
+          continue
+        }
+        return real(found)
+      }
+      // With no file, Node gives the error for the name as it is written.
+      return real(name)
+    }, real)
+  }
 // The processes that the tests start count too (D53).
 if (counters) announce()
 if (counters)
@@ -91,3 +119,15 @@ if (counters)
           (builtin(url, context) as ReturnType<typeof next> | undefined) ??
           withCounters(url, next(url, context), path => (counters.wants(path) ? counters : undefined)),
   })
+
+// The JavaScript of the `transform` key can be CommonJS. On Node
+// 22, a `require` of this library from such a file fails if the
+// library is not loaded ("request for './capture.ts' is not in
+// cache"). The test file loads the library in each case. Only in
+// a test process of the runner: in the process of the runner, the
+// library must load after the runner names the test file. The URL
+// is not a literal, so that the bundle of this file does not get
+// a second copy of the library.
+// ubq: not measured: this module loads before the counters start
+if (counters?.transformed && process.env.UBQ_CHILD)
+  await import(new URL(import.meta.url.endsWith('.ts') ? './index.ts' : './index.js', import.meta.url).href)

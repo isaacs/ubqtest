@@ -2683,6 +2683,13 @@ sourcemaps."
   a parameter property, and keeps `require` and `__dirname` in a
   file whose JavaScript is CommonJS.
 - **Node only.** Bun and Deno compile TypeScript themselves.
+- **`require` in the CommonJS of the compiler.** Before Node
+  24.18 and 26.5, a `require('./file')` does not find
+  `./file.ts`. The JavaScript gets a `require` from the preload
+  that looks for the file itself. On Node 22, a `require` of the
+  library from the first CommonJS file fails ("request for
+  './capture.ts' is not in cache"), so a test process loads the
+  library before the test file.
 
 Limits, with the reason:
 

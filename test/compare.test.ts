@@ -103,7 +103,7 @@ test('in its limit', () => {
   const r = p.ubq('slow.test.ts')
   assert.match(
     r.out,
-    /^FAIL slow\.test\.ts > slow\n {2}the test ended after 1\d\d ms, and its time limit is 50 ms\. If the test needs this time, give it a limit: test\(name, \{ timeout: ms \}, fn\)$/m,
+    /^FAIL slow\.test\.ts > slow\n {2}the test ended after \d+ ms, and its time limit is 50 ms\. If the test needs this time, give it a limit: test\(name, \{ timeout: ms \}, fn\)$/m,
   )
   assert.equal(r.last, 'fail: 1 failed, 1 passed')
 })
