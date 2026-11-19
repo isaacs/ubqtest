@@ -148,6 +148,22 @@ repository (`GITHUB_WORKSPACE`), so a project in a folder of the
 repository works too. GitHub shows 10 annotations of each kind for
 each step.
 
+A job in CI starts with no `.ubq` folder, so each run makes the
+cache of the source with counters again. Keep the folder
+`.ubq/counters` between jobs, and a run is as fast as on your
+machine (for 20 test files on 2 CPUs: 0.8 s, not 1.0 s, and a
+quarter less CPU time). The name of each entry comes from the
+text of its file, so an old entry is never wrong. With GitHub
+Actions:
+
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: .ubq/counters
+    key: ubq-counters-${{ github.sha }}
+    restore-keys: ubq-counters-
+```
+
 If `GITHUB_STEP_SUMMARY` is set, as it is in GitHub Actions, a run
 also adds a section to the summary of the step: the result line, a
 table of the failures, errors, and type errors (20 rows at most),

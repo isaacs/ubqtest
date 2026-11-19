@@ -25,4 +25,33 @@ D78 to D86 did not decide.
 
 Q36 to Q38 came from `20-seldo-feedback-0.0.18.md`.
 
-No question is open.
+Q39 comes from the benchmark of `bench/`, after D106. The
+profile of a run found no large cost in the code of ubq: the
+runner is busy for 70 ms, and a test process takes 17 ms more
+than a `node` process with no program. The costs that stay are
+those of the design: a process for each test file (D9, D34) is a
+third of the CPU time, and that is decided.
+
+## Q39. More test processes at the same time than CPUs
+
+The runner starts as many test processes at the same time as the
+machine has CPUs. A test that waits (a timer, a child process, a
+request) uses no CPU while it waits.
+
+Measured with the 20 files of the benchmark, same CPU time in
+each row:
+
+| Processes at the same time | 2 CPUs: wall ms | 4 CPUs: wall ms |
+| --- | ---: | ---: |
+| the count of CPUs (now) | 792 | 484 |
+| CPUs + 1 | 716 | 517 |
+| 2 x CPUs | 699 | 478 |
+
+1. The count of CPUs + 1.
+2. Two times the count of CPUs.
+3. No change.
+
+The agent would do 1. It gives 10% on a small machine, such as a
+free CI machine, where tests wait. The risk: with more processes
+than CPUs, each test gets less CPU, so a test near its time limit
+can go over it. 2 has more of that risk for 2% more.

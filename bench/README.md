@@ -168,10 +168,36 @@ library, and the rest is the test file and its report. A change
 that loaded those modules of Node in a different way gave no
 gain, and is not in the code.
 
-Still to look at:
+After these changes, a profile found no other large cost in the
+code of ubq. In the container with 2 CPUs, for the 20 files:
 
-1. **The file that starts child processes** takes 473 ms with
-   `ubq <file>`, and its tests take 257 ms. ubq records the
-   coverage of each child process.
-2. **A test file as a plain program** (`node <file>`) takes 110
-   ms, and `ubq <file>` takes 60 ms.
+| Where the 1.25 s of CPU goes, about | ms |
+| --- | ---: |
+| Node starts 20 times (21 ms each) | 420 |
+| The 6 processes that the tests of one file start | 260 |
+| The runner process | 200 |
+| The 20 test processes, after the start of Node | 370 |
+
+Tried, measured, and not in the code:
+
+- **Modules of Node at their first use.** A test process of ubq
+  made Node load 107 modules that a program with no imports does
+  not: `crypto`, streams, `child_process`, `perf_hooks`, and
+  others. A build that loaded each of them at its first use took
+  that to 4 modules. The gain was 1.4 ms of 45 ms for a test
+  process, and 2% of the CPU time of the suite.
+- **The compile cache of Node.** A run with no compile cache
+  takes the same time as a run with one.
+
+What stays in a run with no state is the work that the runner
+does one time: 160 ms to add counters to 34 files and to remove
+their types. A job in CI that keeps `.ubq/counters` does not do
+it: the guide has the cache step for GitHub Actions.
+
+The largest cost that stays is the start of Node for each test
+file. That is the design (D9, D34): a file cannot change a second
+file, and a file that hangs stops only itself.
+
+One decision for the user is in `docs/09-questions.md` (Q39):
+more test processes at the same time than CPUs, which gives 10%
+of wall time with 2 CPUs.
