@@ -2619,7 +2619,7 @@ does not wait for a second report.
   references (TS6310), and without it writes build output.
 - Not done: a `.ubq/CONVERT.md` with each decision of a
   conversion. The comment in the file and the note are the
-  record for this one. Q44 asks.
+  record for this one (D112).
 
 ## D111. The `transform` key: a compiler of the project for source that Node cannot run (user, 2026-11-19)
 
@@ -2714,4 +2714,12 @@ source files of ubq (695 KB), in one process:
 The assistant said "about 1 ms for each file" in Q41. That was
 too low for TypeScript. The key of the cache for a file costs
 less than 0.001 ms after the first file of a folder.
+
+## D112. No file with the record of a conversion (user, 2026-11-19)
+
+Q44. `ubq convert` does not write its report to a file such as
+`.ubq/CONVERT.md`. The TODO comments are at the code that they
+are about, and a config that ubq writes (`tsconfig.ubq.json`) has
+a comment that says what made it, and why. A second place for
+the same facts gets old.
 
