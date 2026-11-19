@@ -99,8 +99,25 @@ referenced projects, and `isolatedModules` each gave errors.
 3. Run `tsc -b` for such a project. It writes build output, and
    it is slow the first time.
 
-The agent would try 2 on a real project of Nx before it chooses.
-It has none on this machine.
+The agent ran these on a small project with the configs that Nx
+makes (TypeScript 7.0.2):
+
+- 2 as written does not work. `tsc -p tsconfig.spec.json
+  --noEmit --composite false` reports TS6305 for each import of
+  a referenced project that is not built.
+- 3 does not work with `--noEmit` (TS6310: a referenced project
+  may not disable emit), and without it writes build output.
+- A config that extends `tsconfig.spec.json` works: `extends`
+  does not copy `references`, so the check reads the source of
+  the other projects. It needs `composite: false`, and `rootDir`
+  at the root of the monorepo if a path of `paths` goes to a
+  different project (TS6059). This is the config of the FIX line.
+
+So the choice is: 1 (the FIX line, now with the `rootDir` note),
+or 4: ubq makes that config itself, in `.ubq/`, for a
+`tsconfig.json` with only references. The agent would stay with 1
+until a second report: 4 puts a config that the user cannot see
+between the project and its type errors.
 
 ## Q43. `toHaveBeenCalledWith` with one check: the last call, or any call
 

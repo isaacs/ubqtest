@@ -338,7 +338,7 @@ export const doctor = (out: (text: string) => void): number => {
           include: ['.'],
         }
     fix(
-      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and ubq runs "tsc -p tsconfig.json", which does not build references: the type check reads no file. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
+      `${bare.length} test files are in no tsconfig.json: ${bare.slice(0, 5).join(', ')}${bare.length > 5 ? `, and ${bare.length - 5} more` : ''}. ${solution ? 'tsconfig.json has only "references" to other configs, and ubq runs "tsc -p tsconfig.json", which does not build references: the type check reads no file. If the check then reports TS6059 for a file of a different project, set "rootDir" in the new config to the root of the monorepo. ' : ''}The type check of ubq reads the tsconfig.json of each folder from a test file up to the project root, and no other file name. ${folder ? `Add ${folder}/tsconfig.json: ${JSON.stringify(made)}. Do not add the test files to the tsconfig.json of the source.` : 'Add them to "include" of tsconfig.json.'}`,
     )
   }
   // With no TypeScript test file, the config of the project.
