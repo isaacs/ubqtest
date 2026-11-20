@@ -333,7 +333,9 @@ Things to check by hand:
   module must be safe to run more than one time, also at the same
   time. With an `await` in it, or a call that fails if its work
   is done (a symbolic link that exists), it can fail only on a
-  new copy of the project, which is what CI has.
+  new copy of the project, which is what CI has. The command
+  reads `before` from `.taprc` or from `"tap"` in `package.json`.
+  It does not convert that file: it writes a TODO at its top.
 - **Code in a parent test.** In tap, the body of a parent test
   runs after the tests before it. In `describe()`, it runs when
   the file loads. The command writes a TODO if such a body has a

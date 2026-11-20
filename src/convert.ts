@@ -328,6 +328,8 @@ const TODO = {
     'This type of tap is for a test object, and ubq has none. Remove the parameter of this type from each function, and its argument from each call. Then remove this import.',
   describeBody:
     'This code was in a test of tap, and ran after the tests before it. In describe(), it runs when the file loads, before each test of the file. If it changes the process or a value from outside (process.chdir, a property of process, a variable), move it into a setup function that each test of the group calls.',
+  before:
+    'This file was the before script of tap, which ran it one time before all test files. ubq has no such script, and this command did not change the file. Make it a module that each test file imports, with no tests or assertions in it. Each test file is its own process, and the files run at the same time: the module must be safe to run more than one time, also at the same time.',
   rootAssert:
     'This assertion is in no test. It runs when the file loads, and a failure is an error of the file, not of a test. If it is a check of the code under test, put it in a test().',
   message:
@@ -3294,6 +3296,26 @@ const IGNORE = /\/[*/]\s*(c8|istanbul|v8)\s+ignore\b(?!\s+stop)/
 /** A file of types. */
 const TYPES = /\.d\.[cm]?ts$/
 
+/**
+ * The path of the `before` script of tap, from `"tap"` in
+ * package.json or a `before:` line of `.taprc`.
+ */
+const tapBefore = (root: string): string | undefined => {
+  let value: unknown
+  try {
+    value = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { tap?: { before?: unknown } }).tap?.before
+  } catch {
+    // No package.json that is JSON.
+  }
+  if (value === undefined)
+    try {
+      value = /^before:\s*(['"]?)(.+?)\1\s*$/m.exec(readFileSync(join(root, '.taprc'), 'utf8'))?.[2]
+    } catch {
+      // No .taprc.
+    }
+  return typeof value === 'string' ? value.replace(/^\.\//, '') : undefined
+}
+
 /** `ubq convert <files or folders>`. Prints the report with `out`. Returns the exit code. */
 export const convertCommand = (args: string[], out: (text: string) => void): number => {
   const compiler = args.find(a => a.startsWith('--transform'))
@@ -3355,6 +3377,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       }
   }
   const sources = new Map(files.map(path => [path, readFileSync(path, 'utf8')]))
+  const before = tapBefore(root)
   const drop = restorePlan(sources, parse, children)
   let changed = 0
   let todos = 0
@@ -3373,13 +3396,25 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   for (const path of files.sort()) {
     const file = rel(path)
     let result: Converted | undefined
-    try {
-      result = convertSource(sources.get(path)!, path, parse, children, migrations.get(path), drop.get(path))
-    } catch (error) {
-      out(`not converted ${file}: ${(error as Error).message}`)
-      failed++
-      continue
-    }
+    // The before script is not a test file. Its text stays, with a
+    // TODO at the top. A second run adds no second TODO.
+    if (file === before) {
+      const head = todoComment('', TODO.before)
+      const code = sources.get(path)!
+      result = {
+        code: code.startsWith(head) ? code : head + code,
+        framework: 'tap',
+        changes: 0,
+        todos: [{ line: 1, text: TODO.before }],
+      }
+    } else
+      try {
+        result = convertSource(sources.get(path)!, path, parse, children, migrations.get(path), drop.get(path))
+      } catch (error) {
+        out(`not converted ${file}: ${(error as Error).message}`)
+        failed++
+        continue
+      }
     if (!result) {
       unknown.push(file)
       continue

@@ -1698,6 +1698,34 @@ test('tap: the scripts test and snap of package.json become ubq and ubq --update
   assert.equal(p.ubq('convert', 'test').code, 0)
 })
 
+test('tap: the before script is not a test file, and it gets a TODO', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'test'))
+  const setup = "import t from 'tap'\nt.test('fixtures', { bail: true }, t => t.end())\n"
+  writeFileSync(join(p.dir, 'test/00-setup.ts'), setup)
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
+  writeFileSync(join(p.dir, '.taprc'), "jobs: 1\nbefore: './test/00-setup.ts'\n")
+  const out = p.ubq('convert', 'test').out
+  assert(
+    out.startsWith(
+      'converted test/00-setup.ts (tap): 0 changes, 1 TODO\n  test/00-setup.ts:1  [1] This file was the before script of tap, which ran it one time before all test files.\n',
+    ),
+  )
+  const head = readFileSync(join(p.dir, 'test/00-setup.ts'), 'utf8')
+  assert(head.startsWith('// TODO(ubq): This file was the before script of tap,'))
+  assert(head.endsWith(`\n${setup}`))
+  // A second run adds no second TODO.
+  p.ubq('convert', 'test/00-setup.ts')
+  assert.equal(readFileSync(join(p.dir, 'test/00-setup.ts'), 'utf8'), head)
+  // The key of package.json.
+  rmSync(join(p.dir, '.taprc'))
+  writeFileSync(join(p.dir, 'test/00-setup.ts'), setup)
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', tap: { before: 'test/00-setup.ts' } }))
+  p.ubq('convert', 'test/00-setup.ts')
+  assert.equal(readFileSync(join(p.dir, 'test/00-setup.ts'), 'utf8'), head)
+})
+
 test('a helper that gives a restore function: the hook, the variable, and the assignments go', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
