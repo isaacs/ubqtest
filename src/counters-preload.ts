@@ -28,13 +28,15 @@ const SOURCE: Record<string, string[]> = {
 const ENDS = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.jsx', '.cjs', '.json']
 /** The other names of a relative import that names no file, in the order of the search. */
 const names = (specifier: string): string[] => {
-  const ext = /\.[cm]?jsx?$/.exec(specifier)?.[0]
-  const dir = specifier.replace(/\/$/, '')
+  // `./a?copy=1` is a new instance of `./a.ts`: the query stays.
+  const [, path, query] = /^([^?#]*)(.*)$/s.exec(specifier) as unknown as [string, string, string]
+  const ext = /\.[cm]?jsx?$/.exec(path)?.[0]
+  const dir = path.replace(/\/$/, '')
   return [
-    ...((ext && SOURCE[ext]) || []).map(source => specifier.slice(0, -ext!.length) + source),
-    ...ENDS.map(end => specifier + end),
+    ...((ext && SOURCE[ext]) || []).map(source => path.slice(0, -ext!.length) + source),
+    ...ENDS.map(end => path + end),
     ...ENDS.map(end => `${dir}/index${end}`),
-  ]
+  ].map(name => name + query)
 }
 const isFile = (url: string): boolean => {
   try {

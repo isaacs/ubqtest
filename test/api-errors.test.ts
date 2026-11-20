@@ -197,7 +197,7 @@ test('each wrong use of the test API has a report with the cause', () => {
   assert.equal(r.last, 'fail: 9 errors, 7 failed, 6 passed')
 })
 
-const asserts = `import { assert, isDeepEqual, spy, test } from 'ubqtest'
+const asserts = `import { assert, isDeepEqual, isMatch, spy, test } from 'ubqtest'
 const bad = (): never => {
   throw new RangeError('out of range')
 }
@@ -264,6 +264,17 @@ test('assert: more calls of isDeepEqual than the report shows', () => {
 test('assert: isDeepEqual before a different assertion', () => {
   assert(!isDeepEqual(1, 2))
   assert(false)
+})
+test('assert: no call of a spy matches the pattern', () => {
+  const s = spy()
+  s({ id: 7, tags: { port: undefined, long: 'x'.repeat(70) } })
+  assert(s.calls.some(call => isMatch(call.args, [{ id: 7, tags: { port: 80 } }])))
+})
+test('assert: a difference with a long value', () => {
+  assert(isDeepEqual({ long: 'x'.repeat(70) }, { long: '' }))
+})
+test('rejects: a value that is not an Error', async () => {
+  await assert.rejects(Promise.reject(Symbol('full')), Error)
 })
 `
 
@@ -386,9 +397,11 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  isDeepEqual call 1 gave false',
     "    actual:   [ 'a', 1 ]",
     "    expected: [ 'c' ]",
+    '    note: the first difference is at .length: actual 2, expected 1',
     '  isDeepEqual call 2 gave false',
     "    actual:   [ 'b' ]",
     "    expected: [ 'c' ]",
+    "    note: the first difference is at [0]: actual 'b', expected 'c'",
   )
   fail(
     'assert: a call of a spy has the arguments',
@@ -399,6 +412,7 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  isDeepEqual call 1 gave false',
     "    actual:   [ 'a' ]",
     "    expected: [ 'b' ]",
+    "    note: the first difference is at [0]: actual 'a', expected 'b'",
     '  isDeepEqual call 2 gave true',
     "    actual:   [ 'b' ]",
     "    expected: [ 'b' ]",
@@ -412,7 +426,41 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  at asserts.test.ts:67:3',
     '  > assert(false)',
   )
-  assert.equal(r.last, 'fail: 1 error, 15 failed, 1 passed')
+  // isMatch has the same report, with the place of the first difference.
+  const long = `'${'x'.repeat(70)}'`
+  fail(
+    'assert: no call of a spy matches the pattern',
+    69,
+    '  expected a truthy value, got false',
+    '  at asserts.test.ts:72:3',
+    '  > assert(s.calls.some(call => isMatch(call.args, [{ id: 7, tags: { port: 80 } }])))',
+    '  isMatch call 1 gave false',
+    '    actual:   [',
+    '                {',
+    '                  id: 7,',
+    '                  tags: {',
+    `                    long: ${long},`,
+    '                    port: undefined',
+    '                  }',
+    '                }',
+    '              ]',
+    '    expected: [ { id: 7, tags: { port: 80 } } ]',
+    '    note: the first difference is at [0].tags.port: actual undefined, expected 80',
+  )
+  // A value that is too long for one line is not in the note.
+  assert.match(r.out, /    note: the first difference is at \.long\n/)
+  // The form for a value that is not an Error.
+  fail(
+    'rejects: a value that is not an Error',
+    77,
+    '  the promise rejected with a different error',
+    '  at asserts.test.ts:78:16',
+    "  > await assert.rejects(Promise.reject(Symbol('full')), Error)",
+    '  actual:   Symbol(full)',
+    '  expected: an instance of Error',
+    '  note: the value is not an Error instance. For such a value, use a RegExp: it tests String(value). The assertion returns the value.',
+  )
+  assert.equal(r.last, 'fail: 1 error, 18 failed, 1 passed')
 })
 
 test('a snapshot file that cannot be written, two open timers, and a changed variable', () => {

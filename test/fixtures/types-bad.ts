@@ -1,5 +1,5 @@
 // Each call here must be a compile error. See test/types.ts.
-import { assert, mockImport, spyOn, test } from 'ubqtest'
+import { assert, isMatch, mockImport, spyOn, test } from 'ubqtest'
 import { parse } from './src/shape.ts'
 
 test.skip('x', () => {})
@@ -37,4 +37,8 @@ test('patterns', async () => {
   assert.throws(() => {}, { cb })
   await assert.rejects(Promise.resolve(), { cb })
   await assert.eventually(() => 1 as unknown, { cb })
+})
+test('isMatch', () => {
+  isMatch({ n: 1 }, { n: (v: number) => v > 0 })
+  isMatch({ n: 1 }, { m: 1 })
 })

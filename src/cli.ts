@@ -602,7 +602,24 @@ const main = async (args: string[]): Promise<number> => {
 
     case 'sql': {
       db.exec('pragma query_only = on')
-      for (const row of db.prepare(arg('a query')).all()) out(JSON.stringify(row))
+      const query = arg('a query')
+      let rows: unknown[]
+      try {
+        rows = db.prepare(query).all()
+      } catch (error) {
+        const { message } = error as Error
+        if (!/no such (column|table)/.test(message)) throw new UsageError(message)
+        // A wrong name: the names that the store has.
+        const tables = db.prepare("select name from sqlite_master where type = 'table' order by name").all() as {
+          name: string
+        }[]
+        const columns = (table: string): string =>
+          (db.prepare(`pragma table_info(${table})`).all() as { name: string }[]).map(c => c.name).join(', ')
+        throw new UsageError(
+          `${message}\nThe tables and their columns:\n${tables.map(t => `  ${t.name}(${columns(t.name)})`).join('\n')}`,
+        )
+      }
+      for (const row of rows) out(JSON.stringify(row))
       return 0
     }
   }

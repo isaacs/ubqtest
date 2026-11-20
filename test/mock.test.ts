@@ -33,6 +33,16 @@ test('a mock with a default export', async () => {
   assert.equal(await mocked.greet(7), 'hey user 7')
 })
 
+test('two mockImport calls share one list of mocks, which is readonly', async () => {
+  const mocks = [
+    [() => import('./fixtures/src/db.ts'), { fetchUser: async (id: number) => ({ id, name: 'ann' }), table: 't' }],
+  ] as const
+  const one = await mockImport(() => import('./fixtures/src/greet.ts'), mocks)
+  const two = await mockImport(() => import('./fixtures/src/greet.ts'), mocks)
+  assert.match(await one.greet(1), / ann$/)
+  assert.notEqual(one.greet, two.greet)
+})
+
 test('the error of a module under test that throws when it loads', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'ubq-mock-'))
   cleanup(() => rmSync(dir, { recursive: true, force: true }))

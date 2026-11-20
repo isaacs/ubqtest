@@ -99,6 +99,21 @@ test('an import with no extension finds the file, and an import of a folder find
   assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 0 failed, 7 passed, 1 skipped')
   // Also in the new instance of a mock.
   assert.equal(p.ubq('covers', 'src/two.ts:1').out, 'one.ts > mock\none.ts > one\none.ts (while the file loads)\n')
+  // A query makes a new instance of the module, and the name still has no extension.
+  writeFileSync(
+    join(p.dir, 'query.ts'),
+    [
+      "import { assert, test } from 'ubqtest'",
+      "import { two } from './src/two'",
+      "test('query', async () => {",
+      '  const copy = await import(`./src/two?copy=${1}`)',
+      '  assert.notEqual(copy.two, two)',
+      '  assert.equal(copy.two(), 2)',
+      '})',
+      '',
+    ].join('\n'),
+  )
+  assert.equal(p.ubq('query.ts').last, 'pass: 0 failed, 1 passed')
   // `require` too, also for the name of the file after a build.
   writeFileSync(
     join(p.dir, 'req.cts'),

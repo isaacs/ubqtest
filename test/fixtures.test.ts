@@ -2,7 +2,7 @@
 // spy, spyOn, mockImport.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, cleanup, env, isDeepEqual, mockImport, spy, spyOn, stub, test, testdir } from 'ubqtest'
+import { assert, cleanup, env, isDeepEqual, isMatch, mockImport, spy, spyOn, stub, test, testdir } from 'ubqtest'
 import { project } from './setup.ts'
 
 test('fixtures end with their test, and a failed test keeps its testdir', () => {
@@ -192,6 +192,37 @@ test('isDeepEqual gives true or false, by the rules of deepEqual', () => {
     ],
     [true, false, false, false],
   )
+})
+
+test('isMatch gives true or false, by the rules of match', () => {
+  const s = spy((event: { id: number; name: string }) => event.id)
+  s({ id: 1, name: 'ann' })
+  s({ id: 2, name: 'bob' })
+  const user: { id: number; name?: string } = { id: 1 }
+  assert.deepEqual(
+    [
+      s.calls.some(call => isMatch(call.args, [{ name: /^b/ }])),
+      s.calls.some(call => isMatch(call.args, [{ id: 3 }])),
+      // An array in a pattern has the length of the value.
+      s.calls.some(call => isMatch(call.args, [{ id: 1 }, 'more'])),
+      isMatch(user, { id: (v: unknown) => typeof v === 'number' }),
+      // A key with the value undefined in a pattern must be in the value.
+      isMatch(user, { name: undefined }),
+      isMatch({ ...user, name: undefined }, { name: undefined }),
+    ],
+    [true, false, false, true, false, true],
+  )
+})
+
+test('the arguments of a call of a spy compare with a value of each type', () => {
+  const none = spy(() => 1)
+  const one = spy((name: string) => name)
+  ;(none as (...args: unknown[]) => number)('more')
+  one('ann')
+  assert.deepEqual(none.calls[0]?.args, ['more'])
+  assert.equal(one.calls[0]?.args[0], 'ann')
+  // The type of the actual value can be unknown, with no second type argument.
+  assert.match<unknown>(one.calls, [{ args: ['ann'] }])
 })
 
 test('spy.results gives each result in order, throws an Error result, and throws after the last one', async () => {

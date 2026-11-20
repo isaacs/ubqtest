@@ -1,5 +1,6 @@
 // Values as text, and the differences between two values, for the
 // report of a failed assertion.
+import { runInNewContext } from 'node:vm'
 import { assert, test } from 'ubqtest'
 import { diffDeep, diffEqual, show, showDiffs } from '../src/format.ts'
 
@@ -80,6 +81,17 @@ test('diffDeep gives the path to each difference', () => {
   class A {}
   class B {}
   assert.deepEqual(diffs(new A(), new B()), [': A {} / B {} (types differ: A and B)'])
+  // A value of a different context: equal content, and a class with the same name.
+  const far = runInNewContext('({ list: [1], at: { a: 1 } })') as { list: number[]; at: object }
+  const note = (name: string): string =>
+    `prototypes differ: the two have the class name ${name}, from two contexts (node:vm, a frame, a worker) or from two instances of a module`
+  assert.deepEqual(diffs(far.list, [1]), [`: [ 1 ] / [ 1 ] (${note('Array')})`])
+  assert.deepEqual(diffs({ at: far.at }, { at: { a: 1 } }), [`.at: { a: 1 } / { a: 1 } (${note('Object')})`])
+  // In a pattern, a class instance that is not the same class.
+  assert.deepEqual(diffDeep(new A(), new B(), true).diffs[0]?.note, 'types differ: A and B')
+  assert.deepEqual(diffs({ at: Object.create(null) }, { at: {} }), [
+    '.at: [Object: null prototype] {} / {} (types differ: null-prototype object and Object)',
+  ])
   assert.deepEqual(diffs(new Date(0), new Date(1)), [': 1970-01-01T00:00:00.000Z / 1970-01-01T00:00:00.001Z'])
   assert.deepEqual(diffs(new Set([1]), new Set([1])), [])
   // An object that has itself in it is compared one time.

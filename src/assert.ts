@@ -10,7 +10,7 @@ import { userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
 import { counted } from './counted.ts'
 
-/** The count of `isDeepEqual` calls that a failure of `assert` shows. */
+/** The count of `isDeepEqual` and `isMatch` calls that a failure of `assert` shows. */
 const MAX_COMPARED = 8
 
 /** Thrown by a failed assertion. The test state already has the failure. */
@@ -188,7 +188,7 @@ export interface Assert {
    * assert.match(line, /^pass: /)
    * ```
    */
-  match<T, const P extends Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void
+  match<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void
   /**
    * Passes if the text `actual` has the text `expected` in it, or if
    * an element of the iterable `actual` is `expected`. Fails on null
@@ -241,7 +241,7 @@ export interface Assert {
    * await assert.eventually(() => page.title(), 'Done')
    * ```
    */
-  eventually<T, const P extends Pattern<Awaited<T>>>(
+  eventually<T, const P extends Pattern<Awaited<T>> = Pattern<Awaited<T>>>(
     fn: () => T,
     pattern: P & Checked<P>,
     message?: string,
@@ -349,7 +349,13 @@ const misfit = (error: unknown, expected: ErrorMatch): { diffs: Diff[]; more: nu
     return expected.test(text) ? undefined : one(`an error with a message that matches ${expected}`)
   }
   if (typeof expected === 'function') {
-    return error instanceof expected ? undefined : one(`an instance of ${expected.name}`)
+    if (error instanceof expected) return undefined
+    const d = one(`an instance of ${expected.name}`)
+    // jest and vitest pass `toThrow()` for each thrown value.
+    if (expected === Error)
+      d.diffs[0]!.note =
+        'the value is not an Error instance. For such a value, use a RegExp: it tests String(value). The assertion returns the value.'
+    return d
   }
   const d = diffDeep(error, expected, true)
   return d.diffs.length ? d : undefined
@@ -479,6 +485,21 @@ const compare = (
     })
 }
 
+/** The longest value that the note of a compared call shows. */
+const MAX_NOTE_VALUE = 60
+
+/**
+ * The place of the first difference of two large values, as one
+ * line. Undefined if the difference is the whole value.
+ */
+const firstDifference = (actual: unknown, expected: unknown, partial: boolean): string | undefined => {
+  const first = diffDeep(actual, expected, partial).diffs[0]
+  if (!first?.path) return undefined
+  const short = (text: string): boolean => text.length <= MAX_NOTE_VALUE && !text.includes('\n')
+  const values = short(first.actual) && short(first.expected)
+  return `the first difference is at ${first.path}${values ? `: actual ${first.actual}, expected ${first.expected}` : ''}`
+}
+
 const assertFn = (value: unknown, message?: string): void => {
   const compared = current.getStore()?.compared
   const state = begin()
@@ -486,11 +507,15 @@ const assertFn = (value: unknown, message?: string): void => {
   // `assert(list.some(item => isDeepEqual(item, expected)))` gives
   // only false. The values of those calls show why.
   const diff = compared && {
-    diffs: compared.calls.map((call, i) => ({
-      path: `isDeepEqual call ${i + 1} gave ${call.result}`,
-      actual: show(call.actual),
-      expected: show(call.expected),
-    })),
+    diffs: compared.calls.map((call, i) => {
+      const where = call.result ? undefined : firstDifference(call.actual, call.expected, call.name === 'isMatch')
+      return {
+        path: `${call.name} call ${i + 1} gave ${call.result}`,
+        actual: show(call.actual),
+        expected: show(call.expected),
+        ...(where && { note: where }),
+      }
+    }),
     more: compared.more,
   }
   fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message, diff)
@@ -682,12 +707,25 @@ export const assert: Assert = Object.assign(assertFn, methods) as Assert
  * expected)))`. If that assertion fails, the report shows the values
  * of each call.
  */
-export const isDeepEqual = (a: unknown, b: unknown): boolean => {
-  const result = isDeepStrictEqual(a, b)
+export const isDeepEqual = (a: unknown, b: unknown): boolean => record('isDeepEqual', a, b, isDeepStrictEqual(a, b))
+
+/**
+ * True if `actual` has the shape of `pattern`, by the rules of
+ * `assert.match`. It is not an assertion. Use it for a condition
+ * that `assert.match` cannot state, such as "a call of the spy has
+ * arguments of this shape": `assert(s.calls.some(call =>
+ * isMatch(call.args, [{ id: 7 }])))`. If that assertion fails, the
+ * report shows the values of each call.
+ */
+export const isMatch = <T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>): boolean =>
+  record('isMatch', actual, pattern, !diffDeep(actual, pattern, true).diffs.length)
+
+/** Keeps a call for the report of a failed `assert`. Returns `result`. */
+const record = (name: 'isDeepEqual' | 'isMatch', actual: unknown, expected: unknown, result: boolean): boolean => {
   const state = current.getStore()
   if (state && !state.ended) {
     const compared = (state.compared ??= { calls: [], more: 0 })
-    if (compared.calls.length < MAX_COMPARED) compared.calls.push({ actual: a, expected: b, result })
+    if (compared.calls.length < MAX_COMPARED) compared.calls.push({ name, actual, expected, result })
     else compared.more++
   }
   return result

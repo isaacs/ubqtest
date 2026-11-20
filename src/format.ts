@@ -133,6 +133,18 @@ export const diffDeep = (actual: unknown, expected: unknown, partial = false): {
     }
     if (seen.has(a)) return
     seen.add(a)
+    if (!partial && Object.getPrototypeOf(a) !== Object.getPrototypeOf(e)) {
+      // The content can be equal, and the two then print the same.
+      const [an, en] = [typeName(a), typeName(e)]
+      return add(
+        path,
+        show(a),
+        show(e),
+        an !== en
+          ? `types differ: ${an} and ${en}`
+          : `prototypes differ: the two have the class name ${an}, from two contexts (node:vm, a frame, a worker) or from two instances of a module`,
+      )
+    }
     if (Array.isArray(a) && Array.isArray(e)) {
       if (a.length !== e.length) add(`${path}.length`, String(a.length), String(e.length))
       const n = Math.min(a.length, e.length)

@@ -24,6 +24,7 @@ the order of the alphabet.
   - [`env`](#env)
   - [`fakeClock`](#fakeclock)
   - [`isDeepEqual`](#isdeepequal)
+  - [`isMatch`](#ismatch)
   - [`mockImport`](#mockimport)
   - [`spy`](#spy)
     - [`spy()`](#spy-1), [`spy.results`](#spy-results)
@@ -177,7 +178,7 @@ await assert.eventually(() => page.title(), 'Done')
 ```
 
 ```ts
-assert.eventually<T, const P extends Pattern<Awaited<T>>>(fn: () => T, pattern: P & Checked<P>, message?: string): Promise<void>;
+assert.eventually<T, const P extends Pattern<Awaited<T>> = Pattern<Awaited<T>>>(fn: () => T, pattern: P & Checked<P>, message?: string): Promise<void>;
 ```
 
 #### `assert.fail`
@@ -249,7 +250,7 @@ assert.match(line, /^pass: /)
 ```
 
 ```ts
-assert.match<T, const P extends Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void;
+assert.match<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void;
 ```
 
 #### `assert.notContains`
@@ -404,6 +405,19 @@ of each call.
 const isDeepEqual: (a: unknown, b: unknown) => boolean;
 ```
 
+### `isMatch`
+
+True if `actual` has the shape of `pattern`, by the rules of
+`assert.match`. It is not an assertion. Use it for a condition
+that `assert.match` cannot state, such as "a call of the spy has
+arguments of this shape": `assert(s.calls.some(call =>
+isMatch(call.args, [{ id: 7 }])))`. If that assertion fails, the
+report shows the values of each call.
+
+```ts
+const isMatch: <T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>) => boolean;
+```
+
 ### `mockImport`
 
 Loads a new instance of a module. In that instance, and in the
@@ -417,7 +431,7 @@ const { greet } = await mockImport(() => import('../src/greet.ts'), [
 ```
 
 ```ts
-const mockImport: <M, const D extends readonly unknown[]>(subject: Loader<M>, mocks: { [K in keyof D]: [Loader<D[K]>, MockOf<D[K]>]; }) => Promise<M>;
+const mockImport: <M, const D extends readonly unknown[]>(subject: Loader<M>, mocks: { [K in keyof D]: readonly [Loader<D[K]>, MockOf<D[K]>]; }) => Promise<M>;
 ```
 
 ### `spy`
@@ -767,11 +781,14 @@ type Spy<F extends AnyFn = AnyFn> = F & {
 ### `SpyCall`
 
 One call of a spy: its arguments, and its result. `error` is present,
-and `result` is not, if the call threw.
+and `result` is not, if the call threw. `args` is `unknown[]`: the
+code under test can pass more arguments, or different ones, than the
+type of the function has. An expected value of each type compares
+with it. To read a property of an argument, test its type first.
 
 ```ts
 interface SpyCall<F extends AnyFn> {
-    args: Parameters<F>;
+    args: unknown[];
     result?: ReturnType<F>;
     error?: unknown;
 }

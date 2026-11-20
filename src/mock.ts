@@ -313,7 +313,7 @@ const SHAPE = "must be an arrow function of the form () => import('...')"
  */
 export const mockImport = async <M, const D extends readonly unknown[]>(
   subject: Loader<M>,
-  mocks: { [K in keyof D]: [Loader<D[K]>, MockOf<D[K]>] },
+  mocks: { [K in keyof D]: readonly [Loader<D[K]>, MockOf<D[K]>] },
 ): Promise<M> => {
   notInWorkerd('mockImport')
   register()

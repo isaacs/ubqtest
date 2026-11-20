@@ -378,6 +378,14 @@ test('the test files run in a random order that a seed repeats', () => {
     'fail: 1 failed, 7 passed, 1 skipped (run 1)',
   ])
   assert.equal(p.ubq('sql', 'select seed from run').out, '{"seed":77}\n')
+  // A wrong name gives the names of the store, and a wrong query gives no stack.
+  const wrong = p.ubq('sql', 'select nope from run')
+  assert.equal(wrong.code, 4)
+  assert.match(
+    wrong.err,
+    /^ubq: .*no such column: nope\nThe tables and their columns:\n(  \w+\(.*\)\n)*  run\(id, time, .*\)\n/,
+  )
+  assert.match(p.ubq('sql', 'selec 1').err, /^ubq: .*syntax error\n$/)
   p.set('pass')
   // A run with no failure does not print the seed. The store has it.
   assert.equal(p.ubq('flip.ts', 'pass.ts').out.includes('seed'), false)

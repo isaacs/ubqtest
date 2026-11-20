@@ -8,10 +8,13 @@ type AnyFn = (...args: any[]) => any
 
 /**
  * One call of a spy: its arguments, and its result. `error` is present,
- * and `result` is not, if the call threw.
+ * and `result` is not, if the call threw. `args` is `unknown[]`: the
+ * code under test can pass more arguments, or different ones, than the
+ * type of the function has. An expected value of each type compares
+ * with it. To read a property of an argument, test its type first.
  */
 export interface SpyCall<F extends AnyFn> {
-  args: Parameters<F>
+  args: unknown[]
   result?: ReturnType<F>
   error?: unknown
 }

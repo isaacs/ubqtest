@@ -14,6 +14,8 @@ ubq sql "select id, ms from test \
 
 - The query cannot change the store (`pragma query_only`).
 - Each row prints as one line of JSON.
+- A query with a table or a column that the store does not have
+  prints the name of each table, with its columns.
 - The store has its rows while a run goes on. A query during a
   run sees the results up to that time. The files and tests that
   run now are not in the store: `ubq status` shows them, from
