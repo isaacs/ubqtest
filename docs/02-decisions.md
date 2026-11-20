@@ -3114,3 +3114,167 @@ last `v*` tag.
 - The two jobs have different permissions. `stage` has the npm
   OIDC token and cannot write to the repository. `release` can
   write to the repository and has no npm token.
+
+## D123. Changes from the sentry core report on 0.0.22 (user and assistant, 2026-11-19)
+
+`23-sentry-core-feedback-0.0.22.md`: the 171 vitest files of
+sentry-javascript `packages/core`, converted on ubq 0.0.22 by one
+agent with eight sub-agents. The user asked for three changes,
+and asked the assistant to close each gap that is obvious and to
+write a question for each point that needs a decision. Each other
+choice here is an assumption of the assistant.
+
+From the user:
+
+- **`args` of a call of a spy is `unknown[]`.** Before, it was
+  `Parameters<F>`. A spy with an implementation of no parameters
+  (`spy(() => x)`) had `args: []`, and each converted
+  `toHaveBeenCalledWith` was a type error. This was the most
+  frequent type error of the report, and of the report on 0.0.16.
+  The code under test can pass more arguments than the type has,
+  so the exact type was not the truth. A test that reads a
+  property of an argument tests its type first.
+- **`isMatch(actual, pattern)`** is an export. It gives true or
+  false by the rules of `assert.match`, as `isDeepEqual` does for
+  `assert.deepEqual` (D50). Six of eight agents asked for it: "a
+  call of the spy has arguments of this shape" had no form. A
+  failed `assert(value)` shows its `isMatch` calls as it shows
+  the `isDeepEqual` calls (D91).
+- **`expect.any`** has a form from D85: a function in a pattern.
+  It is in the API document, the guide, and the convert guide.
+  The request of the report is a different one: an exact
+  comparison with one value that changes. D85 left it out. It is
+  Q53. The convert guide now has the form with two assertions.
+
+The report of a failed `assert(value)`:
+
+- A call of `isDeepEqual` or `isMatch` that gave false has a
+  `note` line with the place of its first difference, and the two
+  values there if they are short. Before, the report had only the
+  two whole values.
+
+Assertions and types:
+
+- `assert.match<unknown>(value, pattern)` compiles, as
+  `equal<unknown>` does. The second type parameter has a default.
+- `assert.deepEqual` of two values with equal content and
+  different prototypes of the same name (a value from `node:vm`,
+  or from a second instance of a module) has a note that says
+  so. Before, the two values printed the same, with no note.
+- `assert.throws(fn, Error)` and `assert.rejects(p, Error)` with a
+  thrown value that is not an Error have a note with the form
+  for such a value (D89).
+- The list of mocks of `mockImport` can be readonly, so two calls
+  can share one list that has `as const`.
+
+The loader:
+
+- An import with no extension and a query (`./time?update=1`)
+  finds its file on Node and Deno (D78). The query stays, so it
+  is a new instance.
+
+`ubq sql`:
+
+- A query with a table or a column that the store does not have
+  prints the tables and their columns. An error of SQLite prints
+  with no stack.
+
+`ubq convert`, defects (wrong code with no TODO):
+
+- A new `setup()` call, and the end of a new setup function, get
+  a `;` in a file that uses `;`, and before code that starts with
+  `(`, `[`, or a template literal. Before, `setup()` and a next
+  line `(a as B).c = 1` became one call.
+- `expect(a?.b).toHaveLength(n)` becomes `a?.b?.length`, and the
+  same for each other rule that reads a property of the value.
+  Not with `not`: there, a value of `undefined` would pass.
+- `not.toBeInstanceOf(C)` becomes `assert.equal(a instanceof C,
+  false)`. `assert(!(a instanceof C))` narrows a value of the
+  type `C` to `never`.
+- A table of `each` with no types and rows of other values than
+  literals gets `satisfies [unknown, unknown][]`, so each name of
+  the loop has the type of its place. `undefined` in a row is a
+  plain value for `as const` (D108).
+- `it` and `describe` as values (`return it`, in a helper file)
+  become `test` and `describe`, with the import. `it.skip` as a
+  value gets a TODO. Only for a name that the file imports.
+- The comment `@vitest-environment node` goes away in each form:
+  a block of more than one line, and a line comment. A file with
+  it that imports jsdom makes its own DOM, and gets no DOM TODO.
+
+`ubq convert`, new certain changes:
+
+- A spy check or `toEqual` with a matcher of `expect` becomes a
+  pattern, if a pattern does the same check: each value is a
+  plain value or a matcher, and an object is in
+  `objectContaining`, with plain values and matchers in it.
+  `toHaveBeenCalledWith` becomes `isMatch` on the arguments of
+  each call. The checks of one call, and `toEqual`, become
+  `assert.match`. An object literal that is not in
+  `objectContaining` keeps the TODO: a pattern permits more keys
+  there (D85).
+- `expect.objectContaining(o)` in a pattern becomes `o`.
+
+`ubq convert`, new TODO comments:
+
+- `mock.instances` and `mock.contexts`: a spy does not record
+  `this` (Q55).
+- `require` as a value (`{ require }`), not only as a call.
+- A type that the file imports from vitest or jest (`Mock`).
+- A hook that stays, in a group whose tests call a setup function
+  of the group around it: the TODO says to call the new function
+  after that one. A hook that stays, with a setup function in a
+  group below it: the TODO says to call the new function at the
+  start of that one. Before, the order of the two could change
+  with no word.
+
+`ubq convert`, texts:
+
+- `toHaveProperty('a.b')`: jest passes for one key `a.b`, and for
+  a path. The text gives the two forms, and says to look at the
+  value. Before, it said "a path of keys" first, which was wrong
+  for the attribute keys of the report.
+- `advanceTimersByTime`: a timer of 0 ms runs after 1 ms (D57),
+  so the form for a time of 0 is `clock.tick(1)`.
+- The text for a matcher names `isMatch`.
+
+The guides:
+
+- `mockImport` at the top level of a file gives one instance for
+  all tests of the file. The report said that ubq has no mock
+  for a whole file. It has: the guides did not say so.
+- A key with the value `undefined` in a pattern must be in the
+  value.
+- The convert guide: work with many agents in one store,
+  `toThrow()` with no argument, a spy with no parameters that the
+  test calls, the order of the hooks of two groups, and the more
+  strict `toHaveBeenCalledWith`.
+
+Not done, with the reason:
+
+- Q53 to Q58 are decisions for the user.
+- "First call only" forms of a spy: D87 and D109 decided them.
+- Keys with the value `undefined` in an exact expected value:
+  D2. `deepEqual` is strict.
+- `mockImport` in place of a spy on a module namespace is longer:
+  an export of a module cannot change, and D88 keeps the mock
+  whole. The form for a whole file is shorter.
+- `setup()` at the start of each test, and the names `setup2`
+  and `setup3`: D90. The setup of a group calls the setup of the
+  group around it, so the two need different names.
+- A test with no assertion after the conversion gets no TODO:
+  the run fails it, with that reason.
+- A DOM TODO in a jsdom file whose tests use no DOM: the command
+  cannot know what the tests use.
+- `vi.fn().mockReturnValue(v)` stays `spy(() => v)`. Parameters
+  for each such spy are noise for the frequent case, a spy that
+  the test does not call itself. The convert guide has the form.
+- A later `mockImplementation` on a spy of `vi.fn(impl)` with no
+  TODO: the current command writes the TODO for the lines of the
+  report.
+- `ubq review` for a conversion: D68. It compares ubq tests with
+  ubq tests. The convert guide has the count checks.
+- The size of the store: it keeps 50 runs.
+- The type frictions of `spyOn` (an overloaded function, a spy
+  with the type of an interface method, a key with
+  `@ts-expect-error`): the report has no small case.

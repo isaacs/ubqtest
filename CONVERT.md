@@ -67,6 +67,15 @@ has the API and the rules of ubq.
 Do not change the source of the project to make a test pass,
 unless the test found a defect. Do not make an assertion weaker.
 
+**Many agents in one project.** For a large project, correct the
+shared helper files first: a type error in a helper is an error
+at each place that calls it. Then several agents can each do a
+set of files. They share one store, so use the run number of the
+summary line of your own run: `ubq failures 812`. With no number,
+`ubq failures` shows the newest run of the store, which can be
+the run of a different agent. A run of your files prints the
+count of type errors in other files: those are not yours.
+
 ## What `ubq convert` changes
 
 - The import of the old tool becomes `import { ... } from
@@ -187,8 +196,8 @@ names, do one of these:
   prints a note. Tell the user about it.
 - A test file is an ES module. `ubq convert` changes `__dirname`
   and `__filename` to `import.meta.dirname` and
-  `import.meta.filename`. It writes a TODO for `require(...)`,
-  for an `enum`, and for a parameter property in a test file.
+  `import.meta.filename`. It writes a TODO for each use of
+  `require`, for an `enum`, and for a parameter property in a test file.
   Change these in the test file: this is not the source of the
   project. Not with the `transform` key: see "Imports of the
   source" above.
@@ -465,6 +474,7 @@ Things to check by hand:
 | `toMatch(/re/)`, `toMatch('text')` | `assert.match(a, /re/)`, `assert.contains(a, 'text')` |
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
+| `not.toBeInstanceOf(C)` | `assert.equal(a instanceof C, false)` (`assert(!(a instanceof C))` narrows a value of the type `C` to `never`) |
 | `toBeInTheDocument()`, `not.toBeInTheDocument()` | `assert(el.isConnected)`, `assert(!el?.isConnected)` |
 | `toHaveAttribute(name)`, `toHaveAttribute(name, v)` | `assert(el.hasAttribute(name))`, `assert.equal(el.getAttribute(name), v)` |
 | `toHaveTextContent('text')`, `toHaveTextContent(/re/)` | `assert.contains(el.textContent, 'text')`, `assert.match(el.textContent, /re/)` |
@@ -482,6 +492,8 @@ Things to check by hand:
 | `toHaveBeenCalled()`, `toHaveBeenCalledTimes(n)` | `assert(s.calls.length > 0)`, `assert.equal(s.calls.length, n)` |
 | `not.toHaveBeenCalled()` | `assert.equal(s.calls.length, 0)` |
 | `toHaveBeenCalledWith(...args)` | `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))` |
+| `toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.any(String))` | `assert(s.calls.some(call => isMatch(call.args, [{ id: 1 }, (v: unknown) => typeof v === 'string'])))` |
+| `toEqual(expect.objectContaining({ id: 1 }))` | `assert.match(a, { id: 1 })` |
 | `toHaveBeenLastCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
 | `not.toHaveBeenCalledWith(...args)` | `assert(!s.calls.some(call => isDeepEqual(call.args, [...args])))` |
 | `toHaveBeenNthCalledWith(2, ...args)` | `assert.deepEqual(s.calls[1]?.args, [...args])` |
@@ -503,9 +515,19 @@ Things to check by hand:
 - **`toHaveBeenCalledWith`.** jest passes if any call had the
   arguments, and the converted line does the same:
   `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))`.
-  If it fails, the report shows the arguments of each call. If
-  you know which call it is, the exact form is better:
+  If it fails, the report shows the arguments of each call, and
+  the place of the first difference. If you know which call it
+  is, the exact form is better:
   `assert.deepEqual(s.calls[0]?.args, [...args])`.
+  The new line is more strict than jest: `isDeepEqual` does not
+  ignore a key with the value `undefined`, or the class of an
+  object. A check that passed in jest can fail for that reason.
+- **`toThrow()` and `rejects.toThrow()` with no argument** become
+  `assert.throws(fn, Error)` and `assert.rejects(p, Error)`. jest
+  passes for each thrown value. If the code throws a value that
+  is not an Error, the failure says so. Then use a RegExp, which
+  tests `String(value)`, and assert on the value that the
+  assertion returns.
 - **`rejects` with a matcher that is not in the table**
   (`rejects.toBe(error)`, `rejects.toEqual(...)`). The command
   writes a TODO. `assert.rejects` gives the value that the promise
@@ -528,11 +550,23 @@ Things to check by hand:
   becomes `(v: unknown) => typeof v === 'number'`,
   `expect.any(URL)` becomes `(v: unknown) => v instanceof URL`,
   and `expect.anything()` becomes `(v: unknown) => v != null`.
-  In an exact comparison (`toEqual`, `toHaveBeenCalledWith`) the
-  matcher stays, with a TODO: `assert.deepEqual` compares a
-  function as a value. Change that assertion to `assert.match`
-  with the functions. It permits keys that the pattern does not
-  have.
+  In an exact comparison (`toEqual`, `toHaveBeenCalledWith`,
+  `toHaveBeenLastCalledWith`, `toHaveBeenNthCalledWith`) the
+  command writes a pattern only if the pattern does the same
+  check: each value is a plain value or a matcher, and an object
+  is in `objectContaining`, with plain values and matchers in it.
+  `isMatch(actual, pattern)` gives true or false by the rules of
+  `assert.match`, for "a call of the spy has arguments of this
+  shape".
+  In each other exact comparison the matcher stays, with a TODO:
+  `assert.deepEqual` compares a function as a value, and
+  `assert.match` permits keys that the pattern does not have. You
+  must decide. If the other keys are not important, change the
+  assertion to `assert.match` with the functions. To keep the
+  comparison exact, check the value that changes by itself, then
+  put it in the expected value:
+  `assert.equal(typeof event.time, 'number')`, then
+  `assert.deepEqual(event, { id: 1, time: event.time })`.
   `expect.stringMatching(/re/)` becomes the RegExp, and
   `expect.fail('text')` becomes `assert.fail('text')`.
   `expect.stringContaining('text')` becomes a RegExp only in a
@@ -555,7 +589,10 @@ Things to check by hand:
   name uses (`%s`, `%d`, `%i`, `%j`, `$key`) is a literal. `%#` and
   `$#` become the index. If two rows give one name, the command
   adds the index: `row x (0)`. The types of the parameters go on
-  the table: `as [number, string][]`. For each other form, the
+  the table: `as [number, string][]`. With no types, a table of
+  plain values gets `as const`, and a table of rows with other
+  values gets `satisfies [unknown, unknown][]`: each name of the
+  loop then has the type of its place in the row. For each other form, the
   command writes a TODO. Then each test name must be different:
   put the value in the name. `%s` of an object is `[object
   Object]`, and `%j` of `NaN` and of `null` are both `null`: use
@@ -570,8 +607,11 @@ Things to check by hand:
 - **`not.toThrow()`.** Call the function, then assert on its
   result. For a function with no result, assert on what it
   changed, or on the calls of a spy.
-- **`toHaveProperty('a.b')`** is a path of keys:
-  `assert('b' in x.a)`. A key with no dot becomes
+- **`toHaveProperty('a.b')`** passes for one key with the name
+  `a.b`, and for the key `b` of the object at the key `a`. The
+  command writes a TODO. Look at the value to see which one it
+  has: `assert('a.b' in x)` for one key with a dot in its name,
+  `assert('b' in x.a)` for a path. A key with no dot becomes
   `assert(Reflect.has(Object(x), 'k'))`.
 - **`toMatchInlineSnapshot(text)`.** ubq has no inline snapshot.
   For a string, `assert.equal(value, text)`. For another value,
@@ -618,6 +658,11 @@ Things to check by hand:
     mock in the same form.
   - `vi.mocked(x)` only changes the type of `x`. Use the spy that
     you gave to the mock.
+  - For a mock that each test of a large file needs, call
+    `mockImport` one time at the top level of the file: `const {
+    checkout } = await mockImport(...)`. All tests then share that
+    instance, with its state, and the calls of its spies: a test
+    that counts calls sets `s.calls.length = 0` first.
 - **`mockReturnValue`, `mockResolvedValue`, `mockImplementation`.**
   A spy gets its implementation when it is made: `spy(() => 1)`,
   `spy(async () => value)`. The command converts a call that is
@@ -641,6 +686,19 @@ Things to check by hand:
   calls, so that each test gets a new one.
 - **`fn.mock.calls[0]`** is `fn.calls[0]?.args`.
   `fn.mock.results[0].value` is `fn.calls[0]?.result`.
+  `args` has the type `unknown[]`: it compares with a value of
+  each type. To read a property of an argument, test its type
+  first, or cast it.
+- **`fn.mock.instances`, `fn.mock.contexts`.** A spy of ubq does
+  not record the value of `this`. The command writes a TODO. Give
+  the spy an implementation that keeps it: `const seen: unknown[]
+  = []`, `const s = spy(function (this: unknown) { seen.push(this)
+  })`.
+- **`vi.fn().mockReturnValue(v)`** becomes `spy(() => v)`, a
+  function with no parameters. It fits each function type. If the
+  test itself calls the spy with arguments, that call is a type
+  error: give the function the parameters, `spy((id: number) =>
+  v)`.
 - **`vi.restoreAllMocks()`, `mockRestore()`.** A `spyOn` spy goes
   back when its test ends. ubq has no call that puts the method
   back before that. The command removes a hook that only
@@ -666,6 +724,10 @@ Things to check by hand:
   | `vi.advanceTimersByTime(ms)`, `advanceTimersByTimeAsync` | `await clock.tick(ms)` |
   | `vi.runAllTimers()`, `runOnlyPendingTimers`, and their async forms | `await clock.runAll()` |
   | `vi.useRealTimers()` | delete it, or `clock.restore()` before the end of the test |
+
+  A timer of 0 ms runs after 1 ms, as in Node. So
+  `clock.tick(0)` does not run a `setTimeout(fn, 0)`, and
+  `vi.advanceTimersByTime(0)` did: use `await clock.tick(1)`.
 
   `fakeClock()` starts at the real time. `fakeClock({ now: 0 })`
   starts at 0, and code that subtracts from `Date.now()` then gets
@@ -913,7 +975,19 @@ group around it. It makes this change only where it knows each
 test of the group. Each other hook gets a TODO: a hook that
 assigns a variable (`client = makeClient()`), two hooks of one
 kind in a group, a hook after a test, or a group that calls a
-function that can make tests. Do those by hand:
+function that can make tests. Do those by hand.
+
+In jest and vitest, the hooks of an outer group run before the
+hooks of a group in it. Keep that order. If one of the two hooks
+is a setup function now and the other one has a TODO, the TODO
+says which function to call, and where.
+
+In a file with no test, such as a shared helper, the command
+changes `it` and `describe` as values to `test` and `describe` of
+ubqtest. `it.skip` as a value gets a TODO: ubq has no such
+function.
+
+The forms:
 
 - **Setup for each test.** Make a function that does the setup
   and returns what the test needs. Call it in each test.

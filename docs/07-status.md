@@ -419,6 +419,18 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - From the sentry core report on 0.0.22 (D123): `args` of a
+    spy call is `unknown[]`, `isMatch`, the place of the first
+    difference in the report of a failed `assert(value)`,
+    `assert.match<unknown>`, a note for equal content with
+    different prototypes, an import with a query and no
+    extension, a readonly list of mocks, and the tables and
+    columns for a wrong name in `ubq sql`. `ubq convert`: a `;`
+    after a new `setup()`, `?.` after an optional chain, a
+    pattern for a check with a matcher of `expect`, tuple types
+    for a table of `each`, `it` as a value, and TODO texts for
+    the order of hooks, `mock.instances`, `require` as a value,
+    and a type of the old tool. Q53 to Q58 wait for the user.
   - `release.yml` makes a GitHub release for the tag, with the
     subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on
@@ -695,8 +707,9 @@ Convert:
   rule of the old tool.
 - A helper file that gets `t` as an argument is not converted.
 - A comment between the arguments of a changed call goes away.
-- `beforeAll` in a `describe`, `expect.any` outside a pattern,
-  and `expect.arrayContaining` stay hand work.
+- `beforeAll` in a `describe`, `expect.any` in an exact
+  comparison of an object literal (Q53), and
+  `expect.arrayContaining` stay hand work.
 - Playwright Test: hooks, fixtures other than `page` and
   `context`, a check with `not` on a value or with its own time
   limit, and `playwright.config` stay hand work (D105).
@@ -707,8 +720,6 @@ Convert:
   restore function.
 - `const spy = vi.fn()` becomes `const spy = spy()`: the local
   name hides the import.
-- A type that names the old tool (`ReturnType<typeof vi.fn>`,
-  `Mock`) stays, with no TODO.
 
 Browser:
 

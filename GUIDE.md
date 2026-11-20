@@ -344,8 +344,9 @@ assert.snapshot(value)             // compares with saved text
 assert.fail(message)
 // Each assertion takes a message as its last argument: assert.equal(a, b, `case ${name}`). A failure shows it first.
 isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion. A failed assert(value) shows the values of its calls.
+isMatch(actual, pattern)           // true or false, by the rules of match. Not an assertion. assert(s.calls.some(call => isMatch(call.args, [{ id: 7 }])))
 
-spy(impl?)                         // records calls in spy.calls: { args, result, error }
+spy(impl?)                         // records calls in spy.calls: { args, result, error }. args is unknown[]
 spyOn(object, key, impl?)          // replaces a method until the test ends. A second spyOn on the key replaces the first.
 await mockImport(() => import('../src/a.ts'), [
   [() => import('../src/dep.ts'), { fn: replacement }],
@@ -374,8 +375,12 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   is not a type error. To narrow a union: `assert(shape.kind ===
   'circle')`.
 - `spy()` with no implementation takes any arguments. A spy with an
-  implementation has its types: give the implementation the
-  parameters that the code passes, `spy((event: Event) => event)`.
+  implementation has its types: if the test calls the spy itself,
+  give the implementation the parameters of that call,
+  `spy((event: Event) => event)`. The `args` of a call are
+  `unknown[]`: compare them with `assert.deepEqual` or
+  `assert.match`, and test the type of an argument before you
+  read a property of it.
 - A spy does not change after it is made. For a result that
   changes, the implementation reads a variable: `let result = 1;
   const s = spy(() => result)`. For a different result in each
@@ -406,6 +411,8 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 - For shared setup, write a function and call it in each test.
   `testdir`, `env`, `cleanup`, and `spyOn` at the top level of a
   file (before the first `test`) last until the file ends.
+  `mockImport` at the top level gives one instance that all tests
+  of the file share.
 - A failed test keeps its `testdir` folder, and the failure block
   prints the path.
 - The mock of `mockImport` must have the types of the real

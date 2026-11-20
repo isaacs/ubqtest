@@ -161,11 +161,15 @@ assert.fail(message)                           // returns never
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
 
 `isDeepEqual(a, b)` returns true or false by the rules of
-`deepEqual`. It is not an assertion (D50). If `assert(value)`
+`deepEqual`, and `isMatch(actual, pattern)` by the rules of
+`match` (D50, D123). They are not assertions. If `assert(value)`
 fails, the report shows the two values and the result of each
-`isDeepEqual` call since the last assertion, 8 at most (D91). So
+such call since the last assertion, 8 at most (D91). A call that
+gave false also has the place of its first difference. So
 `assert(s.calls.some(call => isDeepEqual(call.args, ['a'])))`
-shows the arguments of each call of the spy.
+shows the arguments of each call of the spy, and
+`assert(s.calls.some(call => isMatch(call.args, [{ id: 7 }])))`
+passes if a call has one argument with that `id`.
 
 **`match` patterns.** One function covers "looks like this":
 
@@ -179,6 +183,8 @@ shows the arguments of each call of the spy.
   work of "any number" or "any `URL`". A key that the value does
   not have gives `undefined`. A failure shows the path, the
   value, and the text of the function.
+- A key with the value `undefined` in a pattern must be in the
+  value, with the value `undefined`.
 - The type of a function in a pattern must be `(value: unknown)
   => boolean`. Any other function is a compile error, so that a
   function that the test wants to compare as a value is not
@@ -199,6 +205,9 @@ assert.match(user, {
 `deepEqual` has no predicate: it compares a function as a value.
 At the top level of `expected` in `throws` and `rejects`, a
 function is a class (D85).
+
+The pattern must fit the type of the value. For a pattern that
+does not, on purpose: `assert.match<unknown>(value, pattern)`.
 
 This keeps expected values short when the full object is large.
 
@@ -286,7 +295,11 @@ spyOn(object, key, impl?): Spy<typeof object[key]>
 ```
 
 - A spy is a function that records each call in `spy.calls`, as
-  `{ args, result, error }`.
+  `{ args, result, error }`. `args` has the type `unknown[]`
+  (D123): the code under test can pass more arguments than the
+  type of the function has, and an expected value of each type
+  compares with it. To read a property of an argument, test its
+  type first.
 - `spyOn` replaces a method and puts the original back when the
   test ends.
 - There are no special assertions for spies. Use `assert.equal`
@@ -294,9 +307,8 @@ spyOn(object, key, impl?): Spy<typeof object[key]>
 - With no `impl`, `spy()` returns `undefined`, takes any
   arguments, and fits each function type, and `spyOn` calls the
   original method. With an `impl`, the spy has the type of the
-  `impl`: give the `impl` the parameters that the code passes
-  (`spy((event: Event) => event)`), or the type of `calls[i].args`
-  is too short. A spy that goes to a typed option gets the types
+  `impl`: if the test calls the spy itself, give the `impl` the
+  parameters of that call (`spy((event: Event) => event)`). A spy that goes to a typed option gets the types
   of the option: `{ beforeSend: spy(event => event) }`. `result` of an async function is its
   promise. `error` is present only if the call threw.
 - The key of `spyOn` must name a function of the object. A
@@ -447,7 +459,8 @@ clock.restore()           // the real clock comes back
 - `tick` and `runAll` return promises. There is no sync form.
 - As in Node, a timer time below 1 ms, above 2^31 - 1 ms, or not a
   finite number, is 1 ms (D57). So `tick(0)` runs only the
-  `setImmediate` callbacks, and the promise callbacks.
+  `setImmediate` callbacks, and the promise callbacks. To run a
+  `setTimeout(fn, 0)`, use `tick(1)`.
 - `runAll` fails after 10000 timers: a `setInterval` never ends.
 - The time limit of the test, and the times in reports, use the
   real clock.
