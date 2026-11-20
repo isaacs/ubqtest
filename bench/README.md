@@ -188,8 +188,10 @@ Tried, measured, and not in the code:
   45 ms for a test process, and 2% of the CPU time of the suite.
   On Node 24 in the container, the gain is larger: see "Modules of
   Node in a test process" below.
-- **The compile cache of Node.** A run with no compile cache
-  takes the same time as a run with one.
+- **The compile cache of Node, for a test process.** A run with
+  no compile cache takes the same time as a run with one. For the
+  CLI, the cache gives a gain: see "The compile cache of the CLI"
+  below.
 
 What stays in a run with no state is the work that the runner
 does one time: 160 ms to add counters to 34 files and to remove
@@ -237,4 +239,19 @@ What stays, and its cost on Node 24:
 - `node:child_process`, with `net`, `dgram`, and streams, 2 ms:
   the preload changes its spawn functions, so that a child of a
   test has coverage.
+
+## The compile cache of the CLI
+
+`cli.js` of the package is a small file. It turns on the compile
+cache of Node, and then loads the CLI (`main.js`, 220 KB). Before,
+Node compiled the CLI again in each command. The cache is in the
+folder of `NODE_COMPILE_CACHE`, or in the temp folder.
+
+| Command, 2 CPUs, 60 runs | before | after |
+| --- | ---: | ---: |
+| `ubq <one file>` | 71.5 to 73.1 ms | 61.7 to 65.9 ms |
+| `ubq --help` | 41.8 ms | 32.9 to 35.5 ms |
+
+A cache in the package is not possible: Node keeps each entry for
+one version of Node, one CPU type, and one set of V8 flags.
 

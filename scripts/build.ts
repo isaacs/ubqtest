@@ -69,7 +69,12 @@ rmSync(dist, { recursive: true, force: true })
 await build({
   plugins: [builtins],
   absWorkingDir: fileURLToPath(root),
-  entryPoints: entries.map(name => `src/${name}.ts`),
+  // `cli.js` turns on the compile cache, and then loads `main.js`,
+  // the CLI (`src/bin.ts`).
+  entryPoints: [
+    ...entries.map(name => (name === 'cli' ? { in: 'src/cli.ts', out: 'main' } : `src/${name}.ts`)),
+    { in: 'src/bin.ts', out: 'cli' },
+  ],
   bundle: true,
   // The project that uses `ubqtest/browser` installs this package.
   // workerd has `cloudflare:workers`.
