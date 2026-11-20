@@ -310,8 +310,8 @@ const TODO = {
     "ubq starts the browser, and closes the page when the test ends: const page = await browser(), from 'ubqtest/browser'. Remove the launch, the new page, and the close.",
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
-  describeAwait:
-    'The function of describe() must not be async: it runs when the file loads, and ubq does not wait for it. Move the code with await into each test, or into a setup function that each test awaits.',
+  describeAwait: (code: string): string =>
+    `The function of describe() must not be async: it runs when the file loads, and ubq does not wait for it. It awaits here: \`${code}\`. Do one of these: (1) await it at the top level of the file, before describe(); (2) put it in a setup function, and await the function at the start of each test of the group. For one result that the tests share: let ready; const setup = () => (ready ??= work()).`,
   helperTests:
     'ubq has no test in a test. This function gets the test object of tap, and makes tests with it: a test of ubq cannot make tests. Call this function at the top level of the file or in a describe(), not in a test, and remove its test parameter.',
   rootTest:
@@ -1768,8 +1768,26 @@ export const convertSource = (
           else if (rest.some(s => s.type === 'ExpressionStatement')) todo(path, TODO.describeBody)
           // The function of a describe is not async. With an await
           // in it, the function stays as it is until the TODO is done.
-          if (waits) todo(path, TODO.describeAwait)
-          else if (fn.async) {
+          if (waits) {
+            // The first await, as the text of the TODO names it.
+            const first = (n: Node): Node | undefined => {
+              if (n.type === 'AwaitExpression' || (n.type === 'ForOfStatement' && n.await === true)) return n
+              for (const c of children(n))
+                if (!FUNCTION.has(c.type) && c.type !== 'FunctionDeclaration') {
+                  const found = first(c)
+                  if (found) return found
+                }
+            }
+            const at = direct
+              .filter(s => rest.includes(s) || (s.type === 'ForOfStatement' && s.await === true))
+              .map(first)
+              .find(n => n)!
+            const code = source
+              .slice(at.start, at.type === 'AwaitExpression' ? at.end : (at.body as Node).start)
+              .replace(/\s+/g, ' ')
+              .trim()
+            todo(path, TODO.describeAwait(code.length > 60 ? code.slice(0, 57) + '...' : code))
+          } else if (fn.async) {
             replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
             // `await t.test(...)`: test() gives no promise.
             for (const s of direct) {

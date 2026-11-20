@@ -280,9 +280,10 @@ Things to check by hand:
   must be new for each test into a function, and call it in each
   test. The function of a `describe` must not be async. If the
   outer test has an `await` that is not in a subtest, the command
-  writes a TODO: move that code into each test, or into a setup
-  function that each test awaits. The plan of the outer test goes
-  away.
+  writes a TODO that names the first `await`. Await that code at
+  the top level of the file, before the `describe`. Or put it in a
+  setup function, and await the function in each test. The plan of
+  the outer test goes away.
 - **Assertions at the top level of the file.** In a file with no
   tests, the command puts the code after the imports in one test,
   with the name of the file, and writes a TODO: give it a better
