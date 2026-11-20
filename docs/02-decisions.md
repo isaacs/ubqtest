@@ -3510,3 +3510,47 @@ wheel". This changes one point of D85, which had no such export.
 - `toEqual(expect.arrayContaining([literals]))` on a name stays
   one `assert.contains` for each literal: that failure names the
   element that is not there.
+
+## D129. Changes from the minimatch report on 0.0.24 (user and assistant, 2026-11-20)
+
+From `24-minimatch-feedback-0.0.24.md`: a conversion of minimatch
+from tap. Q65 to Q69 have the points that need the user.
+
+- The key of a snapshot has the message of the assertion, if it
+  has one: `basic tests > a*b 1`. The number counts the calls with
+  that message in the test. Each space, tab, or line end of the
+  message is one space in the key. The user: "Putting the
+  (sanitized) assertion name in the snapshot is a good idea ... It
+  makes the snapshot files much easier to interpret and tie back
+  to the tests that generate them." A stored snapshot with a
+  message needs `ubq --update` one time.
+- Each duplicate test name is an error of the file, and the other
+  tests run, so one run shows all duplicates. A duplicate stays an
+  error, not a warning (choice of the assistant: the name is the
+  ID of the test).
+- `ubq <command> --help` prints the lines of that command.
+- `ubq uncovered` names the helpers and build files that it leaves
+  out.
+- `ubq doctor` has a note for a test file that sets `process.env`
+  above an import. A note, not a `FIX`: the line is correct if no
+  module reads the value while it loads.
+- `ubq convert`, for tap:
+  - `t.throws(fn, value)` gets no TODO of vitest and jest.
+  - A test with subtests that becomes `describe` loses its `async`
+    and its `t.plan`. An `await` that is not of a subtest gets a
+    TODO.
+  - A helper that gets `t` and calls `t.test` gets a TODO.
+  - A class in a pattern of `t.match` becomes
+    `any.instanceOf(Class)`, and `String` and the other
+    constructors of a primitive become `any.string` and the
+    others. A name that the file declares with `const`, `let`, or
+    `var` stays, because it can be an object.
+  - `process.env.NAME = 'text'` in a test becomes `env()`.
+  - A file with assertions at the top level and no tests gets one
+    test with the name of the file.
+  - The values for a failure in the last argument of an assertion
+    get a TODO: ubq has no place for them.
+- The guides say how a `not measured` comment marks a branch in
+  an expression, that a test file is never a helper, how to
+  compare the assertion count of tap, and how to fail a run with
+  less than full coverage (`"posttest": "ubq uncovered"`).

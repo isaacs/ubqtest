@@ -456,6 +456,13 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - From the minimatch report on 0.0.24 (D129): the message of
+    an assertion in the key of a snapshot, each duplicate test
+    name in one run, help for one command, the names of the
+    helpers that `ubq uncovered` leaves out, a doctor note for
+    `process.env` above an import, and `ubq convert` for the tap
+    forms of the report (`any` for a class in a pattern, `env()`,
+    a test for assertions at the top level).
   - The object `any` (D128): `any.number` and the other functions
     for a pattern, and `any.arrayWith(...patterns)`. `ubq convert`
     writes them for `expect.any`, `expect.anything`, and
