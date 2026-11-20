@@ -4,9 +4,16 @@ import { diffDeep, show } from './format.ts'
 /** A function in a pattern: it tests the value at its place. */
 type Predicate = (value: unknown) => boolean
 
-/** A predicate that a failure shows by its name, not by its code. */
+/**
+ * A predicate that a failure shows by its name, not by its code:
+ * as the text of the function, and in a value that `inspect`
+ * prints, such as the arguments of `any.arrayWith`.
+ */
 const named = (name: string, test: Predicate): Predicate =>
-  Object.defineProperty(test, 'toString', { value: () => name })
+  Object.defineProperties(test, {
+    toString: { value: () => name },
+    [Symbol.for('nodejs.util.inspect.custom')]: { value: () => name },
+  })
 
 const type = (name: string): Predicate => named(`any.${name}`, value => typeof value === name)
 

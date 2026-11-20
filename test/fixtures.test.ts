@@ -2,6 +2,7 @@
 // spy, spyOn, mockImport.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { inspect } from 'node:util'
 import {
   any,
   assert,
@@ -308,10 +309,23 @@ test('any: the built-in functions for a pattern', () => {
     ],
     [false, false, false, false, false, false, false, false, false, false],
   )
-  // A failure shows the name, with its arguments.
+  // A failure shows the name, with its arguments, also for a
+  // function in the arguments of a function, and in a value.
   assert.deepEqual(
-    [String(any.number), String(any.instanceOf(Point)), String(any.arrayWith({ id: 7 }, /b/))],
-    ['any.number', 'any.instanceOf(Point)', 'any.arrayWith({ id: 7 }, /b/)'],
+    [
+      String(any.number),
+      String(any.instanceOf(Point)),
+      String(any.arrayWith({ id: 7 }, /b/)),
+      String(any.arrayWith({ b: any.number, list: any.arrayWith(any.instanceOf(Point)) })),
+      inspect({ id: any.defined, rows: [any.arrayWith(any.string)] }),
+    ],
+    [
+      'any.number',
+      'any.instanceOf(Point)',
+      'any.arrayWith({ id: 7 }, /b/)',
+      'any.arrayWith({ b: any.number, list: any.arrayWith(any.instanceOf(Point)) })',
+      '{ id: any.defined, rows: [ any.arrayWith(any.string) ] }',
+    ],
   )
 })
 
