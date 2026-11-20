@@ -1,7 +1,11 @@
-# Stage an npm release when a v* tag is pushed. The same tag starts
-# vscode.yml, which publishes the VS Code extension. Nothing reaches the
-# registry until a maintainer approves the staged version on
-# npmjs.com (or with `npm stage approve`), with 2FA.
+# Stage an npm release when a v* tag is pushed, and then make a
+# GitHub release for the tag. The same tag starts vscode.yml, which
+# publishes the VS Code extension. Nothing reaches the registry
+# until a maintainer approves the staged version on npmjs.com (or
+# with `npm stage approve`), with 2FA.
+#
+# The notes of the GitHub release are the subject lines of the
+# commits after the v* tag before this one.
 #
 # Trusted publishing (OIDC) authenticates the job, so no npm token
 # is stored. On npmjs.com, the package's trusted publisher entry
@@ -21,12 +25,14 @@ on:
 
 permissions:
   contents: read
-  id-token: write # for the npm OIDC token
 
 jobs:
   stage:
     runs-on: ubuntu-latest
     environment: npm
+    permissions:
+      contents: read
+      id-token: write # for the npm OIDC token
     steps:
       - uses: actions/checkout@v7
 
@@ -58,3 +64,27 @@ jobs:
 
       - run: npm stage publish --access public
         working-directory: dist
+
+  # A different job, so that the job with the npm token cannot
+  # write to the repository, and this one has no npm token.
+  release:
+    needs: stage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to make the release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the notes need the history and the tags
+
+      - name: Make the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last="$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_REF_NAME^")"
+          # The commit that only sets the version is not a change.
+          git log --reverse --format='- %s (%h)' \
+            --invert-grep --grep='^[0-9]*\.[0-9]*\.[0-9]*$' \
+            "$last..$GITHUB_REF_NAME" > notes.md
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md

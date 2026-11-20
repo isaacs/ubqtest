@@ -419,6 +419,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
+  - `release.yml` makes a GitHub release for the tag, with the
+    subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on
     a different drive of Windows. It leaves such a file alone.
   - The text of a snapshot has one entry of an array or an object

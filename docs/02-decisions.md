@@ -3091,3 +3091,24 @@ The answers to Q51 and Q52, which came from
   fairly stable now". If its text changes again between versions
   or runtimes, ubq can keep its own copy of the formatter. That
   is not done now.
+
+## D122. The release workflow makes a GitHub release (user, 2026-11-19)
+
+The user asked that `release.yml` make a GitHub release when it
+stages the npm version, with a summary of the commits after the
+last `v*` tag.
+
+- `release.yml` has a second job, `release`. It runs after the
+  job `stage`, and only if that job passed.
+- The notes are one line for each commit after the `v*` tag
+  before this one, oldest first: the subject line and the short
+  hash. The commit that only sets the version is not in the list.
+  The repository has no pull requests, so the notes that GitHub
+  makes from pull requests would be empty.
+- The release is made when the version is staged, not when a
+  maintainer approves it on npm: the workflow gets no event for
+  the approval. Between the two, the release names a version that
+  npm does not have yet.
+- The two jobs have different permissions. `stage` has the npm
+  OIDC token and cannot write to the repository. `release` can
+  write to the repository and has no npm token.
