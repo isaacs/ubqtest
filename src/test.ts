@@ -1,7 +1,7 @@
 // `test`, `describe`, and the loop that runs tests one at a time.
 // See docs/05-api.md, sections 3 and 4.
 import { clearTimeout, now, setImmediate, setTimeout } from './real.ts'
-import { Worker } from 'node:worker_threads'
+import type { Worker } from 'node:worker_threads'
 import { AssertionFailure } from './assert.ts'
 import { readChildren } from './child-read.ts'
 import { config } from './config.ts'
@@ -250,6 +250,8 @@ const start = (): void => {
       unselected: 0,
       counters: Symbol.for(COLUMN) in globalThis,
     }
+    // Only this process loads the module: it takes time to load.
+    const { Worker } = process.getBuiltinModule('node:worker_threads')
     watchdog = new Worker(WATCHDOG, { workerData: data })
     watchdog.unref()
   }

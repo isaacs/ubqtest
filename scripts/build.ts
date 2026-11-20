@@ -4,10 +4,10 @@
 // `node scripts/build.ts <folder>` makes the package in a different
 // folder.
 import { spawnSync } from 'node:child_process'
-import { cpSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { build } from 'esbuild'
+import { build, type Plugin } from 'esbuild'
 
 const root = new URL('../', import.meta.url)
 const dist = pathToFileURL(resolve(process.argv[2] ?? fileURLToPath(new URL('dist', root))) + '/')
@@ -29,8 +29,45 @@ const entries = [
   'warm',
 ]
 
+// An `import` of `node:fs` or `node:util` makes Node run each lazy
+// getter of the module, and load about 40 other modules: 2 to 3 ms
+// for each process. `process.getBuiltinModule` gives the module with
+// no such cost. The exports are the names that `src/` imports: a
+// read of a lazy name runs its getter.
+const LAZY = /^node:(fs|util)$/
+const builtins: Plugin = {
+  name: 'builtins',
+  setup(b) {
+    b.onResolve({ filter: LAZY }, ({ path, kind, importer }) =>
+      kind === 'import-statement' && /[\\/]src[\\/]/.test(importer) ? { path, namespace: 'builtin' } : undefined,
+    )
+    b.onLoad({ filter: /.*/, namespace: 'builtin' }, ({ path }) => {
+      const src = fileURLToPath(new URL('src/', root))
+      const names = new Set<string>()
+      for (const file of readdirSync(src).filter(name => name.endsWith('.ts'))) {
+        const text = readFileSync(src + file, 'utf8')
+        const count = (pattern: string): number => text.match(new RegExp(pattern, 'gm'))?.length ?? 0
+        const lists = [...text.matchAll(new RegExp(`^import \\{([^}]*)\\} from '${path}'`, 'gm'))]
+        // Another form of the import would get no names.
+        if (count(`^[^/\\n]*from '${path}'`) - count(`^import type [^']*from '${path}'`) !== lists.length)
+          throw new Error(`src/${file}: import names from ${path} with \`import { name } from '${path}'\``)
+        for (const [, list] of lists)
+          for (const item of list!.split(',')) {
+            const name = item.trim().split(/\s+as\s+/)[0]!
+            if (name && !name.startsWith('type ')) names.add(name)
+          }
+      }
+      return {
+        contents: `const m = process.getBuiltinModule(${JSON.stringify(path)})\nexport default m\nexport const { ${[...names].join(', ')} } = m\n`,
+        loader: 'js',
+      }
+    })
+  },
+}
+
 rmSync(dist, { recursive: true, force: true })
 await build({
+  plugins: [builtins],
   absWorkingDir: fileURLToPath(root),
   entryPoints: entries.map(name => `src/${name}.ts`),
   bundle: true,

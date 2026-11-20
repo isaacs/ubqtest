@@ -68,7 +68,10 @@ older run.
 - The benchmark guards catch real regressions. Run them.
 - An import in a file that each test process loads has a cost in
   each process. Load such a module where it is needed
-  (`process.getBuiltinModule`).
+  (`process.getBuiltinModule`). On Node 24, a static `import` of
+  `node:fs` or `node:util` loads about 40 more modules. The build
+  changes these two to `process.getBuiltinModule`, with the names
+  that `src/` imports (`scripts/build.ts`).
 - Deno compiles TypeScript itself. A load hook there gets
   JavaScript. Test a Deno feature with the built package
   (`test/package.test.ts`).

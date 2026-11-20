@@ -1,5 +1,4 @@
 // The V8 coverage collector. See docs/04-architecture.md, section 4.
-import { Session } from 'node:inspector'
 import { createRequire } from 'node:module'
 import { sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -150,7 +149,8 @@ export const startCoverage = (early = false): Collector | undefined => {
           createRequire(import.meta.url)(BUN_INSPECTOR) as typeof import('./bun-coverage.ts')
         ).startBunInspector())
       : undefined
-  const session = new Session()
+  // The inspector loads only for this mode: it takes time to load.
+  const session = new (process.getBuiltinModule('node:inspector').Session)()
   session.connect()
   // On Node, `post` runs the command before it returns, so these
   // take effect before the next module of the program runs.

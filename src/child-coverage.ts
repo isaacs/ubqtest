@@ -9,7 +9,6 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node
 import * as nodeModule from 'node:module'
 import { basename, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isMainThread, threadId } from 'node:worker_threads'
 import { type ChildCounts, type Children, CHILDREN } from './child-read.ts'
 import { builtMap, cached, cachePath } from './counter-collector.ts'
 import { COUNTERS, mutated, SOURCE } from './counters.ts'
@@ -163,6 +162,9 @@ const count = ([root, dir]: Scope): Counting => {
   const files = new Map<string, { cache: string; counts: Uint32Array }>()
   const start = root + sep
   const modules = `${sep}node_modules${sep}`
+  // A test process loads this file, and does not count: the module
+  // loads only here, as it takes time to load.
+  const { threadId } = process.getBuiltinModule('node:worker_threads')
   let written = -1
   const write = (): void => {
     const data: ChildCounts = { files: {} }
@@ -266,7 +268,7 @@ export const startChild = (): void => {
   // process ends at once. With this one, it writes first, and then
   // ends with the same signal. A program with a handler of its own
   // decides when it ends.
-  if (isMainThread && process.platform !== 'win32')
+  if (process.getBuiltinModule('node:worker_threads').isMainThread && process.platform !== 'win32')
     for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
       const handler = (): void => {
         if (process.listenerCount(signal) > 1) return

@@ -184,8 +184,10 @@ Tried, measured, and not in the code:
   made Node load 107 modules that a program with no imports does
   not: `crypto`, streams, `child_process`, `perf_hooks`, and
   others. A build that loaded each of them at its first use took
-  that to 4 modules. The gain was 1.4 ms of 45 ms for a test
-  process, and 2% of the CPU time of the suite.
+  that to 4 modules. On Node 26 on macOS, the gain was 1.4 ms of
+  45 ms for a test process, and 2% of the CPU time of the suite.
+  On Node 24 in the container, the gain is larger: see "Modules of
+  Node in a test process" below.
 - **The compile cache of Node.** A run with no compile cache
   takes the same time as a run with one.
 
@@ -202,3 +204,37 @@ The runner starts one more test process at the same time than
 the machine has CPUs (D107): a test that waits uses no CPU. With
 2 CPUs, the 20 files went from 0.78 s to 0.74 s in the full
 benchmark.
+
+## Modules of Node in a test process
+
+With ubq 0.0.23 and Node 24 in the container, a test process
+loaded 91 modules of Node that `node -e 0` does not. Together they
+took 8.7 ms, and `node -e 0` takes 24 ms. The causes:
+
+- An `import` of `node:fs` or `node:util` makes Node run each lazy
+  getter of the module: `fs.promises`, `util.parseArgs`, and
+  others. That loads about 40 modules, and takes 2 to 3 ms for
+  `node:util`. The build now gives these two modules to the code
+  of ubq through `process.getBuiltinModule`, which runs no getter.
+- `node:sqlite`, `node:inspector`, and `node:worker_threads` loaded
+  in each test process, but only a plain run, a run with V8
+  coverage, and a child of a test use them. Each now loads at its
+  first use.
+
+A test process now loads 61 such modules. Three runs of each
+build, one after the other, with 2 CPUs:
+
+| ubq, all 20 files | before: wall s | CPU s | after: wall s | CPU s |
+| --- | ---: | ---: | ---: | ---: |
+| ubq | 0.71 to 0.75 | 1.29 | 0.69 to 0.71 | 1.23 to 1.25 |
+| with no state of a run before | 1.01 to 1.04 | 1.79 to 1.80 | 0.98 to 1.00 | 1.73 |
+| with the type check | 0.85 to 0.87 | 1.52 to 1.57 | 0.77 to 0.80 | 1.42 to 1.44 |
+
+What stays, and its cost on Node 24:
+
+- `node:crypto`, 4 ms: the name of each cache entry of
+  `.ubq/counters` is a SHA-1 of the source.
+- `node:child_process`, with `net`, `dgram`, and streams, 2 ms:
+  the preload changes its spawn functions, so that a child of a
+  test has coverage.
+
