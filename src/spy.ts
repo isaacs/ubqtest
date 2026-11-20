@@ -8,7 +8,9 @@ type AnyFn = (...args: any[]) => any
 
 /**
  * One call of a spy: its arguments, and its result. `error` is present,
- * and `result` is not, if the call threw. `args` is `unknown[]`: the
+ * and `result` is not, if the call threw. `this` is the `this` value
+ * of the call. It is not enumerable: `assert.deepEqual` of a call
+ * with `{ args, result }` does not see it. `args` is `unknown[]`: the
  * code under test can pass more arguments, or different ones, than the
  * type of the function has. An expected value of each type compares
  * with it. To read a property of an argument, test its type first.
@@ -17,6 +19,7 @@ export interface SpyCall<F extends AnyFn> {
   args: unknown[]
   result?: ReturnType<F>
   error?: unknown
+  readonly this?: unknown
 }
 
 /**
@@ -70,7 +73,7 @@ const make = <F extends AnyFn = AnyFn>(impl?: F): Spy<F> => {
   if (impl !== undefined && typeof impl !== 'function') throw new TypeError('spy() needs a function, or no argument')
   const calls: SpyCall<F>[] = []
   const fn = function (this: unknown, ...args: Parameters<F>): ReturnType<F> {
-    const call: SpyCall<F> = { args }
+    const call: SpyCall<F> = Object.defineProperty({ args }, 'this', { value: this })
     calls.push(call)
     try {
       return (call.result = impl?.apply(this, args))!

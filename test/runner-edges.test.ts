@@ -195,7 +195,7 @@ test('after 20 failure blocks, a run names the count of the others', () => {
   const blocks = r.out.match(/^FAIL /gm) ?? []
   assert.deepEqual([r.code, blocks.length], [1, 20])
   // The project is new, so this is run 1.
-  assert.match(r.out, /^and 3 more failures\. For all of them: ubq failures 1$/m)
+  assert.match(r.out, /^and 3 more failures\.$/m)
   // `ubq failures` shows all of them.
   assert.equal(p.ubq('failures').out.match(/^FAIL /gm)?.length, 23)
   // In CI, nothing is cut.

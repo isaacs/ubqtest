@@ -4,8 +4,8 @@
 // the bindings, and the setup files of each project in it. Also
 // reads the `define` values of a vite or vitest config.
 // The config is code. This reads its text, and does not run it.
-import { existsSync, readFileSync } from 'node:fs'
-import { join, posix, relative, resolve, sep } from 'node:path'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, posix, relative, resolve, sep } from 'node:path'
 import type { Config } from './config.ts'
 import type { Node } from './instrument.ts'
 
@@ -24,6 +24,14 @@ export interface WorkersProject {
 const NAMES = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].map(ext => `vitest.config.${ext}`)
 
 class NotPlain extends Error {}
+
+const isFile = (path: string): boolean => {
+  try {
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
+}
 
 /** The value of a literal in the code. Throws `NotPlain` for other code. */
 const plain = (node: Node): unknown => {
@@ -243,6 +251,40 @@ export const viteDefine = (
     if (plugins)
       notes.push(
         `${file} has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.`,
+      )
+    // A config that this one imports can have the plugins: the
+    // shared config of a monorepo.
+    const seen = new Set([join(root, file)])
+    const shared = (from: string, program: Node): string | undefined => {
+      for (const node of program.body as Node[]) {
+        const name = node.type === 'ImportDeclaration' ? String((node.source as { value?: unknown }).value) : ''
+        if (!name.startsWith('.')) continue
+        const base = resolve(dirname(from), name)
+        const path = ['', '.ts', '.mts', '.js', '.mjs', '.cts', '.cjs'].map(end => base + end).find(isFile)
+        if (!path || seen.has(path)) continue
+        seen.add(path)
+        let next: Node
+        try {
+          next = parse(readFileSync(path, 'utf8'), path)
+        } catch {
+          continue
+        }
+        const has = (n: Node): boolean => {
+          const list = n.type === 'ObjectExpression' ? get(n, 'plugins') : undefined
+          return (
+            (!!list && !(list.type === 'ArrayExpression' && !(list.elements as unknown[]).length)) ||
+            children(n).some(has)
+          )
+        }
+        const found = has(next) ? path : shared(path, next)
+        if (found) return found
+      }
+      return undefined
+    }
+    const other = plugins ? undefined : shared(join(root, file), program)
+    if (other)
+      notes.push(
+        `${file} imports ${relative(root, other).split(sep).join('/')}, which has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run (it removes a block, or adds an import), tell the user: that source needs a form with no plugin, such as a condition that the code tests while it runs.`,
       )
     if (limit !== undefined)
       notes.push(

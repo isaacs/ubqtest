@@ -96,7 +96,7 @@ console.log(greet(name) + '!')
 `,
   )
   assert.deepEqual(
-    lines(p.ubq('--changed').out.replace(/ \(run \d+\)\n$/, '')).filter(line => /^(changed|FAIL|fail)/.test(line)),
+    lines(p.ubq('--changed').out.replace(/ \(run \d+[^)]*\)\n$/, '')).filter(line => /^(changed|FAIL|fail)/.test(line)),
     ['changed: lib/cli.ts', 'FAIL test/cli.test.ts > the command greets', 'fail: 1 failed, 1 passed, 1 not selected'],
   )
 })

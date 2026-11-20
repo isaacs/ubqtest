@@ -41,7 +41,7 @@ const project = () => {
   symlinkSync(join(root, 'node_modules/wrangler'), join(dir, 'node_modules/wrangler'), 'junction')
   const ubq = (...args: string[]) => {
     const r = spawnSync('node', [cli, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
-    return { code: r.status, out: r.stdout.replace(/ \(run \d+\)\n$/, '').split('\n'), err: r.stderr }
+    return { code: r.status, out: r.stdout.replace(/ \(run \d+[^)]*\)\n$/, '').split('\n'), err: r.stderr }
   }
   return { dir, ubq }
 }

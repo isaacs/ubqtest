@@ -10,7 +10,7 @@ import { userFrames } from './stack.ts'
 import { current, type TestState } from './state.ts'
 import { counted } from './counted.ts'
 
-/** The count of `isDeepEqual` and `isMatch` calls that a failure of `assert` shows. */
+/** The count of `isDeepEqual`, `isMatch`, and `isMatchOnly` calls that a failure of `assert` shows. */
 const MAX_COMPARED = 8
 
 /** Thrown by a failed assertion. The test state already has the failure. */
@@ -189,6 +189,17 @@ export interface Assert {
    * ```
    */
   match<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void
+  /**
+   * As `match`, and `actual` must have no key that the pattern
+   * does not have, at each depth. Use it for an exact comparison
+   * with a value that changes: a function in the pattern tests
+   * that value.
+   *
+   * ```ts
+   * assert.matchOnly(event, { id: 1, time: (v: unknown) => typeof v === 'number' })
+   * ```
+   */
+  matchOnly<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void
   /**
    * Passes if the text `actual` has the text `expected` in it, or if
    * an element of the iterable `actual` is `expected`. Fails on null
@@ -485,6 +496,9 @@ const compare = (
     })
 }
 
+/** How each function that gives true or false compares. */
+const MODE = { isDeepEqual: false, isMatch: true, isMatchOnly: 'only' } as const
+
 /** The longest value that the note of a compared call shows. */
 const MAX_NOTE_VALUE = 60
 
@@ -492,7 +506,7 @@ const MAX_NOTE_VALUE = 60
  * The place of the first difference of two large values, as one
  * line. Undefined if the difference is the whole value.
  */
-const firstDifference = (actual: unknown, expected: unknown, partial: boolean): string | undefined => {
+const firstDifference = (actual: unknown, expected: unknown, partial: boolean | 'only'): string | undefined => {
   const first = diffDeep(actual, expected, partial).diffs[0]
   if (!first?.path) return undefined
   const short = (text: string): boolean => text.length <= MAX_NOTE_VALUE && !text.includes('\n')
@@ -508,7 +522,7 @@ const assertFn = (value: unknown, message?: string): void => {
   // only false. The values of those calls show why.
   const diff = compared && {
     diffs: compared.calls.map((call, i) => {
-      const where = call.result ? undefined : firstDifference(call.actual, call.expected, call.name === 'isMatch')
+      const where = call.result ? undefined : firstDifference(call.actual, call.expected, MODE[call.name])
       return {
         path: `${call.name} call ${i + 1} gave ${call.result}`,
         actual: show(call.actual),
@@ -577,6 +591,15 @@ const methods = {
     const diff = diffDeep(actual, pattern, true)
     if (diff.diffs.length)
       fail(state, 'match', 'expected value to match the pattern', message, diff, {
+        actual,
+        expected: pattern,
+      })
+  },
+  matchOnly(actual: unknown, pattern: unknown, message?: string): void {
+    const state = begin()
+    const diff = state && diffDeep(actual, pattern, 'only')
+    if (diff?.diffs.length)
+      fail(state!, 'matchOnly', 'expected value to match the pattern, with no other keys', message, diff, {
         actual,
         expected: pattern,
       })
@@ -720,8 +743,17 @@ export const isDeepEqual = (a: unknown, b: unknown): boolean => record('isDeepEq
 export const isMatch = <T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>): boolean =>
   record('isMatch', actual, pattern, !diffDeep(actual, pattern, true).diffs.length)
 
+/**
+ * True if `actual` has the shape of `pattern` and no other keys, by
+ * the rules of `assert.matchOnly`. It is not an assertion. Use it as
+ * `isMatch`: `assert(s.calls.some(call => isMatchOnly(call.args,
+ * [{ id: 7 }])))`.
+ */
+export const isMatchOnly = <T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>): boolean =>
+  record('isMatchOnly', actual, pattern, !diffDeep(actual, pattern, 'only').diffs.length)
+
 /** Keeps a call for the report of a failed `assert`. Returns `result`. */
-const record = (name: 'isDeepEqual' | 'isMatch', actual: unknown, expected: unknown, result: boolean): boolean => {
+const record = (name: keyof typeof MODE, actual: unknown, expected: unknown, result: boolean): boolean => {
   const state = current.getStore()
   if (state && !state.ended) {
     const compared = (state.compared ??= { calls: [], more: 0 })

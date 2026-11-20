@@ -115,7 +115,7 @@ const cov = `${fixtures}.tmp-cov-bun/`
 const sh = (cmd: string, args: string[], cwd: string) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' })
   return r.stdout
-    .replace(/ \(run \d+\)\n$/, '\n')
+    .replace(/ \(run \d+[^)]*\)\n$/, '\n')
     .trimEnd()
     .split('\n')
 }
@@ -242,7 +242,7 @@ describe('bun', () => {
       // process keeps each variable that is missing from `env`.
       const env = { ...process.env, NODE_COMPILE_CACHE: '' }
       const r = spawnSync('bun', ['size.ts'], { cwd: p.dir, encoding: 'utf8', env })
-      return r.stdout.replace(/ \(run \d+\)\n$/, '')
+      return r.stdout.replace(/ \(run \d+[^)]*\)\n$/, '')
     }
     // Off by default: a plain program on Bun records no coverage.
     assert.equal(plain(), 'pass: 0 failed, 1 passed')

@@ -17,7 +17,7 @@ const ubqIn =
     return {
       code: r.status,
       out: r.stdout
-        .replace(/ \(run \d+\)\n$/, '\n')
+        .replace(/ \(run \d+[^)]*\)\n$/, '\n')
         .trimEnd()
         .split('\n'),
       err: r.stderr,

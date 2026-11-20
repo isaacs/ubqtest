@@ -338,6 +338,7 @@ export const doctor = (out: (text: string) => void): number => {
   }
   // With no TypeScript test file, the config of the project.
   if (!configs.size && !bare.length && existsSync(main)) configs.add(main)
+  let fieldNote = false
   for (const tsconfig of configs) {
     const name = relative(root, tsconfig).split('\\').join('/')
     let options: Record<string, unknown> | undefined
@@ -368,6 +369,18 @@ export const doctor = (out: (text: string) => void): number => {
           `${name}: set ${new Intl.ListFormat('en').format(missing.map(key => `"${key}": true`))} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
         )
       else ok(name)
+      // TypeScript defines a class field with no value only for a
+      // target of ES2022 or later, unless the option says so. Node
+      // keeps each field declaration.
+      const target = typeof options.target === 'string' ? options.target.toLowerCase() : undefined
+      const old = target !== undefined && /^es(3|5|6|20(1\d|2[01]))$/.test(target)
+      const defines = options.useDefineForClassFields ?? (target === undefined ? undefined : !old)
+      if (defines === false && !transform && !v.bun && !fieldNote) {
+        fieldNote = true
+        out(
+          `note ${name} has ${options.useDefineForClassFields === false ? '"useDefineForClassFields": false' : `"target": "${String(options.target)}"`}. Code that tsc makes with it has a class field with no value only after code assigns the field. Node keeps the declaration of the field, so in a test the field is there after "new", with the value undefined. A test that reads the keys of such an object ('x' in object, Object.keys), or a class that has a field with the name of a field of its base class, gets a different result from the built code. Few tests see this. If one does: the "transform" key compiles with the options of the tsconfig (ubq convert --transform=typescript).`,
+        )
+      }
     }
   }
 

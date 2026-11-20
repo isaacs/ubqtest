@@ -38,7 +38,7 @@ test('names the runtime', () => {
   )
   const run = (cmd: string, ...args: string[]): string[] =>
     spawnSync(cmd, [cli, ...args], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
-      .stdout.replace(/ \(run \d+\)\n$/, '')
+      .stdout.replace(/ \(run \d+[^)]*\)\n$/, '')
       .trimEnd()
       .split('\n')
   return { ...p, run }

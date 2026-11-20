@@ -43,7 +43,7 @@ test('passes at run time', () => {
   assert.equal(all.code, 1)
   assert.deepEqual(
     all.out
-      .replace(/ \(run \d+\)\n$/, '')
+      .replace(/ \(run \d+[^)]*\)\n$/, '')
       .split('\n')
       .slice(-12),
     [
@@ -77,7 +77,7 @@ test('passes at run time', () => {
     [
       one.code,
       one.out
-        .replace(/ \(run \d+\)\n$/, '')
+        .replace(/ \(run \d+[^)]*\)\n$/, '')
         .split('\n')
         .slice(-2),
     ],
@@ -99,10 +99,9 @@ test('passes at run time', () => {
   const consts = Array.from({ length: 22 }, (_, i) => `const n${i}: number = 'x'`).join('\n')
   writeFileSync(join(p.dir, 'typed.test.ts'), `${consts}\n`)
   const many = p.ubq().out
-  const run = /\(run (\d+)\)\n$/.exec(many)?.[1]
   assert.deepEqual(
     [many.split('\n').filter(l => l.startsWith('TYPE ')).length, many.match(/^and \d+ more.*$/m)?.[0]],
-    [20, `and 2 more type errors. For all of them: ubq failures ${run}`],
+    [20, 'and 2 more type errors.'],
   )
   // ubq failures shows all of them.
   assert.equal(

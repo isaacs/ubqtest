@@ -89,7 +89,7 @@ const sh = (cmd: string, ...args: string[]) => {
     code: r.status,
     err: r.stderr,
     lines: r.stdout
-      .replace(/ \(run \d+\)\n$/, '')
+      .replace(/ \(run \d+[^)]*\)\n$/, '')
       .trimEnd()
       .split('\n'),
   }
@@ -181,7 +181,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
       })
       return [
         r.stdout
-          .replace(/ \(run \d+\)\n$/, '')
+          .replace(/ \(run \d+[^)]*\)\n$/, '')
           .trimEnd()
           .split('\n'),
         r.stderr,
@@ -250,7 +250,7 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
         const lines = text
           .split('\n')
           .filter(l => !l.startsWith('For the same test order'))
-          .map(l => l.replace(/ \(run \d+\)$/, ''))
+          .map(l => l.replace(/ \(run \d+[^)]*\)$/, ''))
         // Deno has no async tracking for a server, so its hang rerun
         // does not name the line that opened one.
         const server = lines.indexOf('HANG hang.ts > times out with a server open')

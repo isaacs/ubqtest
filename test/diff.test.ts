@@ -18,7 +18,7 @@ const setup = () => {
   const lines = (...args: string[]) => {
     const r = p.ubq(...args)
     return (r.out + r.err)
-      .replace(/ \(run \d+\)/, '')
+      .replace(/ \(run \d+[^)]*\)/, '')
       .trimEnd()
       .split('\n')
   }

@@ -22,7 +22,7 @@ test('a run with the server gives the same text, with test processes of the serv
   const run = (...files: string[]): string => {
     const r = p.ubq('--seed', '1', ...files)
     // The blocks of different files come in the order that the files end.
-    const blocks = r.out.replace(/ \(run \d+\)\n$/, '\n').split('\n\n')
+    const blocks = r.out.replace(/ \(run \d+[^)]*\)\n$/, '\n').split('\n\n')
     return [...blocks.slice(0, -1).sort(), blocks.at(-1)].join('\n\n') + r.err + r.code
   }
   cleanup(() => {

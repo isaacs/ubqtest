@@ -160,7 +160,7 @@ test('an instance of the package with the mock, as the mock of the package', asy
         'FAIL unused.ts > two mocks of project files that the instance does not import',
         '  a cleanup function failed: Error: the mock of pass.ts, fix.ts replaced no import. No project module of the new instance imports them. A mock does not go into a package of node_modules: if a package imports the module, make an instance of the package with the mock, and give that instance as the mock of the package. See "A dependency of a dependency" in ubq guide.',
       ],
-      ['fail: 3 failed, 1 passed (run 1)', ''],
+      ['fail: 3 failed, 1 passed (run 1: ubq failures 1)', ''],
     ],
   )
   assert(blocks[1]!.includes(`\n  hint: ${hint}\n`), blocks[1])

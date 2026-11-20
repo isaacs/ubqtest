@@ -77,7 +77,7 @@ test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
       '  expected: 1 ± 5e-7',
     ],
   ])
-  assert.equal(blocks.at(-1)!.at(-2), 'fail: 8 failed, 1 passed (run 1)')
+  assert.equal(blocks.at(-1)!.at(-2), 'fail: 8 failed, 1 passed (run 1: ubq failures 1)')
 })
 
 test('a test that does not await, and that takes more than its time limit, fails', () => {

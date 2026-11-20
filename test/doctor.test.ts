@@ -484,6 +484,24 @@ test('doctor: the tsconfig.json that has the test files', () => {
   // With no TypeScript test file, the config of the project.
   p.configure({ include: ['test/c.test.js'] })
   assert.deepEqual(lines(), ['ok   tsconfig.json'])
+  // A target or an option with which tsc does not define a class
+  // field that has no value. Node defines it.
+  const fields = (more: string): string[] => {
+    writeFileSync(join(p.dir, 'tsconfig.json'), `{ ${options.replace('{', `{ ${more}, `)}, "include": ["test"] }`)
+    return lines()
+      .slice(1)
+      .map(line => line.slice(0, 60))
+  }
+  assert.deepEqual(fields('"target": "ES2020"'), ['note tsconfig.json has "target": "ES2020". Code that tsc mak'])
+  assert.deepEqual(fields('"target": "esnext", "useDefineForClassFields": false'), [
+    'note tsconfig.json has "useDefineForClassFields": false. Cod',
+  ])
+  assert.deepEqual(fields('"target": "es2022"'), [])
+  assert.deepEqual(fields('"target": "es5", "useDefineForClassFields": true'), [])
+  assert.deepEqual(fields('"noEmit": true'), [])
+  // The compiler of the transform key has the options of the tsconfig.
+  p.configure({ include: ['test/c.test.js'], transform: 'typescript' })
+  assert.deepEqual(fields('"target": "ES2020"'), [])
 })
 
 test('doctor names the test files of a different tool that ubq does not run', () => {

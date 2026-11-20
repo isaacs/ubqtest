@@ -48,7 +48,10 @@ test('at a terminal, FAIL and fail are red, and pass is cyan', () => {
   assert.match(out, new RegExp(`^${RED('FAIL').replaceAll('[', '\\[')} a\\.test\\.ts > bad$`, 'm'))
   assert.match(
     out,
-    new RegExp(`^${RED('fail').replaceAll('[', '\\[')}: 1 failed, 2 passed, 1 skipped \\(run 1\\)$`, 'm'),
+    new RegExp(
+      `^${RED('fail').replaceAll('[', '\\[')}: 1 failed, 2 passed, 1 skipped \\(run 1: ubq failures 1\\)$`,
+      'm',
+    ),
   )
   assert.equal(p.ubq({}, 'failures').split('\n').at(-2), `${RED('fail')}: 1 failed, 2 passed, 1 skipped (run 1)`)
   assert.equal(p.ubq({}, 'show', 'a.test.ts > good').split('\n')[0], `${CYAN('pass')} a.test.ts > good`)

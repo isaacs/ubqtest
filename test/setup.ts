@@ -94,7 +94,7 @@ export const project = () => {
     return {
       code: r.status,
       last: r.stdout
-        .replace(/( \(run \d+\))?\n$/, '')
+        .replace(/( \(run \d+[^)]*\))?\n$/, '')
         .split('\n')
         .at(-1),
       err: r.stderr,

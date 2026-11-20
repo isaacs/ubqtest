@@ -2,7 +2,20 @@
 // spy, spyOn, mockImport.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { assert, cleanup, env, isDeepEqual, isMatch, mockImport, spy, spyOn, stub, test, testdir } from 'ubqtest'
+import {
+  assert,
+  cleanup,
+  env,
+  isDeepEqual,
+  isMatch,
+  isMatchOnly,
+  mockImport,
+  spy,
+  spyOn,
+  stub,
+  test,
+  testdir,
+} from 'ubqtest'
 import { project } from './setup.ts'
 
 test('fixtures end with their test, and a failed test keeps its testdir', () => {
@@ -12,7 +25,7 @@ test('fixtures end with their test, and a failed test keeps its testdir', () => 
   env({ FIX_B: 'b' })
   const r = p.ubq('fix.ts')
   assert.equal(r.err, '')
-  assert.deepEqual(r.out.replace(/ \(run \d+\)\n$/, '').split('\n'), [
+  assert.deepEqual(r.out.replace(/ \(run \d+[^)]*\)\n$/, '').split('\n'), [
     'FAIL fix.ts > a failure keeps the folder',
     '  expected values to be equal',
     '  at fix.ts:34:10',
@@ -120,7 +133,7 @@ test('mockImport gives a new module instance with mocked dependencies', async ()
   cleanup(() => rmSync(p.dir, { recursive: true }))
   const r = p.ubq('mock.ts')
   assert.equal(r.err, '')
-  assert.deepEqual(r.out.replace(/ \(run \d+\)\n$/, '').split('\n'), [
+  assert.deepEqual(r.out.replace(/ \(run \d+[^)]*\)\n$/, '').split('\n'), [
     'FAIL mock.ts > a mock that lacks an export',
     '  Error: the mock of ./db.ts has no export "fetchUser", and the code under test imports it. Add "fetchUser" to the mock.',
     '  at mock.ts:29:3',
@@ -160,7 +173,7 @@ test('a test that changes the environment or the working directory fails', () =>
   const r = p.ubq('leak.ts')
   assert.deepEqual(
     r.out
-      .replace(/ \(run \d+\)\n$/, '')
+      .replace(/ \(run \d+[^)]*\)\n$/, '')
       .split('\n')
       .map(l => l.replace(/to (\/|[A-Z]:\\).* and/, 'to DIR and')),
     [
@@ -212,6 +225,53 @@ test('isMatch gives true or false, by the rules of match', () => {
     ],
     [true, false, false, true, false, true],
   )
+})
+
+test('matchOnly and isMatchOnly: a pattern with no other keys in the value, at each depth', () => {
+  const event = { id: 1, time: Date.now(), user: { name: 'ann', tags: ['a'] } }
+  const number = (v: unknown): boolean => typeof v === 'number'
+  assert.matchOnly(event, { id: 1, time: number, user: { name: /^a/, tags: ['a'] } })
+  // A class instance matches a plain pattern, as in match.
+  assert.matchOnly(
+    new (class Point {
+      x = 1
+    })(),
+    { x: number },
+  )
+  const s = spy()
+  s(event, 'more')
+  assert.deepEqual(
+    [
+      isMatchOnly(event, { id: 1, time: number }),
+      isMatchOnly(event, { id: 1, time: number, user: { name: 'ann' } }),
+      // A key with the value undefined is a key.
+      isMatchOnly({ id: 1, at: undefined }, { id: 1 }),
+      // A function gets undefined for a key that the value does not have.
+      isMatchOnly({ id: 1 }, { id: 1, at: (v: unknown) => v === undefined }),
+      s.calls.some(call =>
+        isMatchOnly(call.args, [{ id: 1, time: number, user: { name: 'ann', tags: ['a'] } }, 'more']),
+      ),
+    ],
+    [false, false, false, true, true],
+  )
+})
+
+test('a call of a spy has its this value, and deepEqual of the call does not see it', () => {
+  const object = {
+    greet: spy(function (this: unknown) {
+      return 1
+    }),
+  }
+  object.greet()
+  const free = object.greet
+  free()
+  assert.equal(object.greet.calls[0]?.this, object)
+  assert.equal(object.greet.calls[1]?.this, undefined)
+  assert.deepEqual(object.greet.calls, [
+    { args: [], result: 1 },
+    { args: [], result: 1 },
+  ])
+  assert.match(object.greet.calls[0], { this: object })
 })
 
 test('the arguments of a call of a spy compare with a value of each type', () => {

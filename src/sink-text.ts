@@ -203,14 +203,8 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
           })
         break
       case 'run-end': {
-        if (failures > FAILURES && !ci && !all)
-          write(
-            counted`and ${failures - FAILURES} more failure|failures.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
-          )
-        if (typeErrors > TYPE_ERRORS && !all)
-          write(
-            counted`and ${typeErrors - TYPE_ERRORS} more type error|errors.${run === undefined ? '' : ` For all of them: ubq failures ${run}`}\n`,
-          )
+        if (failures > FAILURES && !ci && !all) write(counted`and ${failures - FAILURES} more failure|failures.\n`)
+        if (typeErrors > TYPE_ERRORS && !all) write(counted`and ${typeErrors - TYPE_ERRORS} more type error|errors.\n`)
         if (skips.length) write(skips.join('\n') + '\n')
         const parts = [`${event.fail} failed`, `${event.pass} passed`]
         if (event.errors) parts.unshift(counted`${event.errors} error|errors`)
@@ -218,8 +212,11 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (event.unselected) parts.push(`${event.unselected} not selected`)
         if (event.types) parts.push(counted`${event.types} type error|errors`)
         if (event.otherTypes) parts.push(counted`${event.otherTypes} type error|errors in other files`)
-        const stored = run === undefined ? '' : ` (run ${run})`
         const status = event.code ? 'fail' : 'pass'
+        // A failed run names the command with its number: a different
+        // run can be the newest one of the store when the reader asks.
+        const again = event.code && !all ? `: ubq failures ${run}` : ''
+        const stored = run === undefined ? '' : ` (run ${run}${again})`
         const result = `${status}: ${parts.join(', ')}${stored}`
         write(`${paint(status)}${result.slice(status.length)}\n`)
         if (summary) {

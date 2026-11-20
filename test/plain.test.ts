@@ -29,7 +29,7 @@ for (const [cmd, args] of runtimes) {
       assert.equal(r.stderr, '')
       assert.equal(r.status, code)
       // The run number changes with each run.
-      const stdout = r.stdout.replace(/ \(run \d+\)\n$/, '\n')
+      const stdout = r.stdout.replace(/ \(run \d+[^)]*\)\n$/, '\n')
       assert.equal(stdout.trimEnd().split('\n').at(-1), summary)
       // Node and Deno print values the same way. Bun differs in one
       // location, so only the summary and the exit code are checked.

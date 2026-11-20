@@ -116,7 +116,7 @@ test('ubq check: a failure stays after a run of a different test of its file', (
   let r = p.ubq('check')
   assert.equal(r.last, 'fail: 1 failed tests')
   // ubq --failed runs the failed test, and not the others.
-  assert.match(p.ubq('--failed').out, /^fail: 1 failed, 0 passed, 1 not selected \(run 3\)$/m)
+  assert.match(p.ubq('--failed').out, /^fail: 1 failed, 0 passed, 1 not selected \(run 3: ubq failures 3\)$/m)
   // A test that a run of all of its file did not have is gone.
   writeFileSync(
     p.file('test/two.test.ts'),

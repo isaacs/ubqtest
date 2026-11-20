@@ -12,7 +12,7 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
   const out = (...args: string[]) =>
     p
       .ubq(...args)
-      .out.replace(/ \(run \d+\)\n$/, '')
+      .out.replace(/ \(run \d+[^)]*\)\n$/, '')
       .split('\n')
 
   // No snapshot file: each assertion fails, and no file appears.
@@ -150,7 +150,7 @@ test('a snapshot file with CRLF line ends, and a value with a CR', () => {
     p
       .ubq('--update', 'crlf.ts')
       .out.split('\n')[0]
-      ?.replace(/ \(run \d+\)$/, ''),
+      ?.replace(/ \(run \d+[^)]*\)$/, ''),
     'pass: 0 failed, 1 passed',
   )
 })

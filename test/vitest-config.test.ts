@@ -2,7 +2,7 @@
 // convert` and `ubq doctor`, and of the define values of a vite
 // config.
 import { createRequire } from 'node:module'
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
@@ -184,6 +184,21 @@ test('the define values of the vite and vitest configs', () => {
       'vite.config.ts has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run, tell the user.',
     ],
   })
+  // The plugins are in a config that the config imports, at each depth.
+  mkdirSync(join(dir, 'shared'), { recursive: true })
+  writeFileSync(join(dir, 'vitest.config.ts'), "import base from './shared/base'\nexport default { ...base }")
+  writeFileSync(
+    join(dir, 'shared/base.ts'),
+    "import more from './more.mjs'\nimport './base'\nexport default { ...more, plugins: [] }",
+  )
+  writeFileSync(join(dir, 'shared/more.mjs'), "import gone from './gone'\nexport default { plugins: [strip()] }")
+  writeFileSync(join(dir, 'vite.config.ts'), "import bad from './shared/bad'\nexport default {}")
+  writeFileSync(join(dir, 'shared/bad.ts'), 'not code (')
+  assert.deepEqual(viteDefine(dir, parse, children)?.notes, [
+    'vitest.config.ts imports shared/more.mjs, which has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run (it removes a block, or adds an import), tell the user: that source needs a form with no plugin, such as a condition that the code tests while it runs.',
+    'vitest.config.ts spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.',
+  ])
+  writeFileSync(join(dir, 'vitest.config.ts'), 'export default {}')
   // The time limit of the old config.
   writeFileSync(join(dir, 'vite.config.ts'), 'export default { test: { testTimeout: 60000 } }')
   assert.deepEqual(viteDefine(dir, parse, children), {

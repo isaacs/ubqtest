@@ -13,11 +13,17 @@ export interface TestState {
   /** True after one `late-failure` event for this test. */
   late: boolean
   /**
-   * The calls of `isDeepEqual` and `isMatch` after the last
-   * assertion, and the count of the calls that are not in the list.
+   * The calls of `isDeepEqual`, `isMatch`, and `isMatchOnly` after
+   * the last assertion, and the count of the calls that are not in
+   * the list.
    */
   compared?: {
-    calls: { name: 'isDeepEqual' | 'isMatch'; actual: unknown; expected: unknown; result: boolean }[]
+    calls: {
+      name: 'isDeepEqual' | 'isMatch' | 'isMatchOnly'
+      actual: unknown
+      expected: unknown
+      result: boolean
+    }[]
     more: number
   }
   /** Results of `assert.rejects` that nothing awaited yet. */

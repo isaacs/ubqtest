@@ -18,13 +18,14 @@ the order of the alphabet.
 
 - [`ubqtest`](#ubqtest)
   - [`assert`](#assert)
-    - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [Names that `assert` does not have](#names-that-assert-does-not-have)
+    - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.matchOnly`](#assert-matchonly), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [Names that `assert` does not have](#names-that-assert-does-not-have)
   - [`cleanup`](#cleanup)
   - [`describe`](#describe)
   - [`env`](#env)
   - [`fakeClock`](#fakeclock)
   - [`isDeepEqual`](#isdeepequal)
   - [`isMatch`](#ismatch)
+  - [`isMatchOnly`](#ismatchonly)
   - [`mockImport`](#mockimport)
   - [`spy`](#spy)
     - [`spy()`](#spy-1), [`spy.results`](#spy-results)
@@ -253,6 +254,21 @@ assert.match(line, /^pass: /)
 assert.match<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void;
 ```
 
+#### `assert.matchOnly`
+
+As `match`, and `actual` must have no key that the pattern
+does not have, at each depth. Use it for an exact comparison
+with a value that changes: a function in the pattern tests
+that value.
+
+```ts
+assert.matchOnly(event, { id: 1, time: (v: unknown) => typeof v === 'number' })
+```
+
+```ts
+assert.matchOnly<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void;
+```
+
 #### `assert.notContains`
 
 The opposite of `contains`. Fails on null and undefined.
@@ -416,6 +432,17 @@ report shows the values of each call.
 
 ```ts
 const isMatch: <T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>) => boolean;
+```
+
+### `isMatchOnly`
+
+True if `actual` has the shape of `pattern` and no other keys, by
+the rules of `assert.matchOnly`. It is not an assertion. Use it as
+`isMatch`: `assert(s.calls.some(call => isMatchOnly(call.args,
+[{ id: 7 }])))`.
+
+```ts
+const isMatchOnly: <T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>) => boolean;
 ```
 
 ### `mockImport`
@@ -781,7 +808,9 @@ type Spy<F extends AnyFn = AnyFn> = F & {
 ### `SpyCall`
 
 One call of a spy: its arguments, and its result. `error` is present,
-and `result` is not, if the call threw. `args` is `unknown[]`: the
+and `result` is not, if the call threw. `this` is the `this` value
+of the call. It is not enumerable: `assert.deepEqual` of a call
+with `{ args, result }` does not see it. `args` is `unknown[]`: the
 code under test can pass more arguments, or different ones, than the
 type of the function has. An expected value of each type compares
 with it. To read a property of an argument, test its type first.
@@ -791,6 +820,7 @@ interface SpyCall<F extends AnyFn> {
     args: unknown[];
     result?: ReturnType<F>;
     error?: unknown;
+    readonly this?: unknown;
 }
 ```
 

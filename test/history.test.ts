@@ -117,7 +117,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   const flaky = 'sometimes.ts > fails each third time'
   const r = p.ubq('--repeat', '7', '--seed', '5', 'sometimes.ts', 'flip.ts')
   assert.deepEqual([r.code, r.err], [1, ''])
-  assert.deepEqual(lines(r.out.replace(/ \(run \d+\)\n$/, '')), [
+  assert.deepEqual(lines(r.out.replace(/ \(run \d+[^)]*\)\n$/, '')), [
     `FAIL ${flaky}`,
     '  failed 2 of 7 times. The first failure:',
     '  expected values to differ, both are 0',
@@ -177,7 +177,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   // With a selection. One file runs in its own processes too.
   const one = p.ubq('--repeat', '3', 'flip.ts > c')
   assert.deepEqual(
-    [one.code, lines(one.out.replace(/ \(run \d+\)\n$/, ''))],
+    [one.code, lines(one.out.replace(/ \(run \d+[^)]*\)\n$/, ''))],
     [
       0,
       [
@@ -257,7 +257,7 @@ test('--baseline shows only the failures that the commit does not have', () => {
         "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
         '  two.test.ts > old failure',
         '  two.test.ts > was broken',
-        'fail: 2 failed, 2 passed (run 1)',
+        'fail: 2 failed, 2 passed (run 1: ubq failures 1)',
       ].map(l => l.replace('COMMIT', /\((\w+)\)/.exec(same.out)![1]!)),
     ],
   )
@@ -285,7 +285,7 @@ test('--baseline shows only the failures that the commit does not have', () => {
       '  two.test.ts > old failure',
       'fixed:',
       '  two.test.ts > was broken',
-      'fail: 3 failed, 1 passed (run 2)',
+      'fail: 3 failed, 1 passed (run 2: ubq failures 2)',
     ],
   )
   // The store has all the failures of the run.
@@ -337,7 +337,7 @@ test('--baseline shows only the failures that the commit does not have', () => {
   assert.deepEqual(
     lines(broken.out)
       .slice(-4)
-      .map(l => l.replace(/\(\w{7}\)/, '(COMMIT)').replace(/ \(run \d+\)$/, '')),
+      .map(l => l.replace(/\(\w{7}\)/, '(COMMIT)').replace(/ \(run \d+[^)]*\)$/, '')),
     [
       'baseline HEAD (COMMIT): 0 new failures, 1 failed in the baseline too, 0 fixed',
       "failed in the baseline too (not shown above; for one of them: ubq show '<test id>'):",
@@ -375,7 +375,7 @@ test('the test files run in a random order that a seed repeats', () => {
   assert.deepEqual(r.out.trimEnd().split('\n').slice(-3), [
     'For the same test order, run: ubq --seed 77',
     'skip pass.ts > not on this platform: needs a GPU',
-    'fail: 1 failed, 7 passed, 1 skipped (run 1)',
+    'fail: 1 failed, 7 passed, 1 skipped (run 1: ubq failures 1)',
   ])
   assert.equal(p.ubq('sql', 'select seed from run').out, '{"seed":77}\n')
   // A wrong name gives the names of the store, and a wrong query gives no stack.

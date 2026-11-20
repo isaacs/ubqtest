@@ -173,7 +173,7 @@ test('wrong', () => assert.equal(sign(3), 2))
       .map(m => [m.params.type, m.params.message]),
     [
       [3, 'ubq run a.test.ts > positive, a.test.ts > wrong'],
-      [1, 'fail: 1 failed, 1 passed (run 2)'],
+      [1, 'fail: 1 failed, 1 passed (run 2: ubq failures 2)'],
     ],
   )
   from = c.count()

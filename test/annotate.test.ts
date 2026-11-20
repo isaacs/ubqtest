@@ -137,7 +137,7 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const ubq = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { cwd: p.dir, encoding: 'utf8', env })
   ubq('a.test.ts', 'b.test.ts')
   const md = readFileSync(file, 'utf8').split('\n')
-  assert.equal(md[0], '### ubq: fail: 1 error, 21 failed, 0 passed (run 1)')
+  assert.equal(md[0], '### ubq: fail: 1 error, 21 failed, 0 passed (run 1: ubq failures 1)')
   assert.equal(md[2], '| | Test or file | Failure | At | Run again |')
   assert.match(
     md[4]!,

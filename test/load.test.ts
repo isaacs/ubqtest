@@ -19,7 +19,7 @@ test('a test file that does not load is an error of the file, with the place', (
     return [
       r.code,
       ...r.out
-        .replace(/ \(run \d+\)\n$/, '')
+        .replace(/ \(run \d+[^)]*\)\n$/, '')
         .split('\n')
         .filter(l => l && !l.startsWith('For the same test order')),
     ]
@@ -403,7 +403,7 @@ test('passes', () => assert(true))
     "    expected: 'b'",
     '',
     'skip skips.ts > skips while it runs: nothing to measure',
-    'fail: 1 error, 2 failed, 1 passed, 1 skipped (run 1)',
+    'fail: 1 error, 2 failed, 1 passed, 1 skipped (run 1: ubq failures 1)',
     '',
   ])
   // In a child process too.

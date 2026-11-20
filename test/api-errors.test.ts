@@ -276,6 +276,9 @@ test('assert: a difference with a long value', () => {
 test('rejects: a value that is not an Error', async () => {
   await assert.rejects(Promise.reject(Symbol('full')), Error)
 })
+test('matchOnly: a key that the pattern does not have', () => {
+  assert.matchOnly({ id: 1, user: { name: 'ann', age: 3 } }, { id: 1, user: { name: /^a/ } })
+})
 `
 
 test('each kind of failed assertion has a report with the two values and the place', () => {
@@ -460,7 +463,17 @@ test('each kind of failed assertion has a report with the two values and the pla
     '  expected: an instance of Error',
     '  note: the value is not an Error instance. For such a value, use a RegExp: it tests String(value). The assertion returns the value.',
   )
-  assert.equal(r.last, 'fail: 1 error, 18 failed, 1 passed')
+  fail(
+    'matchOnly: a key that the pattern does not have',
+    80,
+    '  expected value to match the pattern, with no other keys',
+    '  at asserts.test.ts:81:10',
+    "  > assert.matchOnly({ id: 1, user: { name: 'ann', age: 3 } }, { id: 1, user: { name: /^a/ } })",
+    '  .user.age',
+    '    actual:   3',
+    '    expected: (missing)',
+  )
+  assert.equal(r.last, 'fail: 1 error, 19 failed, 1 passed')
 })
 
 test('a snapshot file that cannot be written, two open timers, and a changed variable', () => {

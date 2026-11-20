@@ -96,9 +96,14 @@ const COUNTER = new RegExp(`${COUNTER_NAME}\\[\\d+\\]\\+\\+[;,]?\\s*`, 'g')
  * The differences that make two values not deeply equal. If `partial`
  * is true, `expected` is a pattern for `assert.match`: extra keys in
  * `actual` are fine, a RegExp tests a string, and a function is a
- * predicate for the value at its place.
+ * predicate for the value at its place. `'only'` is the pattern of
+ * `assert.matchOnly`: the same, and an extra key is a difference.
  */
-export const diffDeep = (actual: unknown, expected: unknown, partial = false): { diffs: Diff[]; more: number } => {
+export const diffDeep = (
+  actual: unknown,
+  expected: unknown,
+  partial: boolean | 'only' = false,
+): { diffs: Diff[]; more: number } => {
   const diffs: Diff[] = []
   let more = 0
   const seen = new Set<unknown>()
@@ -160,7 +165,7 @@ export const diffDeep = (actual: unknown, expected: unknown, partial = false): {
     if ((partial && plain(e)) || (plain(a) && plain(e))) {
       const ao = a as Record<string, unknown>
       const eo = e as Record<string, unknown>
-      const keys = partial ? Object.keys(eo) : [...new Set([...Object.keys(ao), ...Object.keys(eo)])].sort()
+      const keys = partial === true ? Object.keys(eo) : [...new Set([...Object.keys(ao), ...Object.keys(eo)])].sort()
       for (const k of keys) {
         if (!(k in ao) && !(partial && typeof eo[k] === 'function')) add(path + key(k), MISSING, show(eo[k]))
         else if (!(k in eo)) add(path + key(k), show(ao[k]), MISSING)

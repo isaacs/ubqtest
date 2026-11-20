@@ -48,7 +48,7 @@ test('--changed runs the test files that loaded a changed file', () => {
   // Only pass.ts loads src/shape.ts.
   appendFileSync(join(p.dir, 'src/shape.ts'), '\n// a change\n')
   assert.equal(
-    p.ubq('--changed').out.replace(/ \(run \d+\)/, ''),
+    p.ubq('--changed').out.replace(/ \(run \d+[^)]*\)/, ''),
     [
       'changed: src/shape.ts',
       'skip pass.ts > not on this platform: needs a GPU',
@@ -189,7 +189,7 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
   assert.equal(r.code, 1)
   assert.deepEqual(
     r.out
-      .replace(/ \(run \d+\)/g, '')
+      .replace(/ \(run \d+[^)]*\)/g, '')
       .split('\n')
       .filter(l => /^(workspace|pass|fail|FAIL)/.test(l)),
     [
@@ -206,7 +206,7 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
   assert.equal(
     p
       .ubq('--failed')
-      .out.replace(/ \(run \d+\)/g, '')
+      .out.replace(/ \(run \d+[^)]*\)/g, '')
       .split('\n')
       .filter(l => /^(pass|fail|workspaces)/.test(l))
       .join('|'),
