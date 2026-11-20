@@ -13,10 +13,16 @@ test('help, and the error of each command with a wrong or absent argument', () =
     return [r.code, r.err.trim()]
   }
   // A command with --help prints the help, and does not run.
-  for (const flag of [['help'], ['--help'], ['-h'], ['doctor', '--help'], ['run', 'a.test.ts', '-h']]) {
+  for (const flag of [['help'], ['--help'], ['-h'], ['run', 'a.test.ts', '-h']]) {
     const r = p.ubq(...flag)
     assert.deepEqual([r.code, r.out.split('\n')[0], r.out.includes('\n  ubq uncovered [file]')], [0, 'usage:', true])
   }
+  // The help of a command has only the lines of that command.
+  const help = p.ubq('uncovered', '--help')
+  assert.deepEqual(
+    [help.code, help.out.split('\n').map(line => line.slice(0, 22))],
+    [0, ['usage:', '  ubq uncovered [file]', '  ubq uncovered --diff', 'all commands: ubq --he', '']],
+  )
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
     version: string
   }

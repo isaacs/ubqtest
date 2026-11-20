@@ -965,7 +965,9 @@ does not change it. Do not write tests for a helper. With no
 `helpers` key, a helper is each file in a folder with the name
 `test`, `tests`, or `__tests__`. The key replaces that rule:
 `"helpers": ["src/testing/**"]`. An empty list means that no file
-is a helper. A change to a helper still makes `ubq --changed` run
+is a helper. `include` and `exclude` choose the test files, and a
+test file is never a helper: the rule is for the other files that
+the tests load, such as a module of test data. A change to a helper still makes `ubq --changed` run
 the tests that loaded it.
 
 Code that no test can run can have a comment with the reason:
@@ -973,7 +975,11 @@ Code that no test can run can have a comment with the reason:
 value that is never absent, or code that runs before the coverage
 hooks start. Put the comment on a line of its own above the code,
 or at the end of the first line of the code. For a block, the
-first line in the block also works. `ubq uncovered` does not list
+first line in the block also works. The comment marks a range
+that starts on its line or on the next line. For a branch in an
+expression of more than one line, such as `: 'posix'` of a
+ternary, put the comment on its own line above the branch, in the
+expression. `ubq uncovered` does not list
 that code, and it prints how many ranges it left out. A comment
 with no reason does not count. For a file that no test can load,
 such as the entry of a browser worker, put the comment before the

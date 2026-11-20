@@ -421,6 +421,26 @@ export const doctor = (out: (text: string) => void): number => {
     }
   }
 
+  // The imports of an ES module run before its first line. A value
+  // of the environment that a line above an import sets is not
+  // there while the imported module loads.
+  const early = tests.filter(file => {
+    if (/\.c[jt]sx?$/.test(file)) return false
+    let lines: string[] = []
+    try {
+      lines = readFileSync(join(root, file), 'utf8').split('\n')
+      // ubq: not measured: the list has only files that exist
+    } catch {
+      return false
+    }
+    const last = lines.findLastIndex(line => /^import\s+(?!type\b|\()/.test(line))
+    return lines.slice(0, last).some(line => /^process\.env\b[^=]*=[^=]/.test(line))
+  })
+  if (early.length)
+    out(
+      counted`note ${early.length} test file|files sets|set a value of process.env above an import: ${some(early)}. The imports of an ES module run before the first line of the file. If a module reads this value while it loads, load that module after the line: await import(path).`,
+    )
+
   out(counted`doctor: ${problems} problem|problems`)
   return problems
 }

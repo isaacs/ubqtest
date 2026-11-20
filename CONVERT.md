@@ -51,7 +51,9 @@ has the API and the rules of ubq.
    subtests become groups. The count of assertions does not: if
    the old tool printed it for each file, compare it with the
    store: `ubq sql "select file, sum(asserts) from test where run =
-   (select max(id) from run) group by file"`.
+   (select max(id) from run) group by file"`. The count of tap and
+   tape has one more assertion for each subtest: subtract the
+   count of subtests.
 7. **Clean up.** Set `"test": "ubq"`
    in the `scripts` of `package.json`. Remove the old test tool, its plugins, and its
    configuration (`.taprc`, `vitest.config.*`, `jest.config.*`,
@@ -341,7 +343,11 @@ Things to check by hand:
   code that no test ran. ubq does not read `c8 ignore` or
   `istanbul ignore` comments, and the report of `ubq convert`
   names them. At each range that no test can run, write `// ubq:
-  not measured: <reason>`.
+  not measured: <reason>`. A `c8 ignore start` and `stop` region
+  needs one comment for each range in it that no test runs. For a
+  run that fails with less than full coverage, as tap does, add
+  `"posttest": "ubq uncovered"` to the scripts of `package.json`:
+  `ubq uncovered` exits with code 1 if it lists code.
 - **A fixture or helper that uses `t`.** A helper function that
   gets `t` as an argument must import `assert` from `ubqtest` and
   must not get `t`.

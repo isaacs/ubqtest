@@ -552,6 +552,25 @@ test('doctor on Node: a project with code for Bun must run on Bun', () => {
   assert.match(lines()[0]!, /^FIX  1 file has TypeScript syntax that Node cannot run .*: src\/serve\.ts\./)
 })
 
+test('doctor names the test files that set process.env above an import', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const pass = "import { assert, test } from 'ubqtest'\ntest('t', () => assert(true))\n"
+  writeFileSync(join(p.dir, 'level.test.ts'), "process.env.LEVEL = '0'\nimport './base.ts'\n")
+  writeFileSync(join(p.dir, 'base.ts'), pass)
+  writeFileSync(join(p.dir, 'after.test.ts'), `${pass}process.env.LEVEL = '1'\n`)
+  writeFileSync(join(p.dir, 'old.test.cts'), "process.env.LEVEL = '2'\nrequire('./base.ts')\n")
+  assert.deepEqual(
+    p
+      .ubq('doctor')
+      .out.split('\n')
+      .filter(line => line.includes('process.env')),
+    [
+      'note 1 test file sets a value of process.env above an import: level.test.ts. The imports of an ES module run before the first line of the file. If a module reads this value while it loads, load that module after the line: await import(path).',
+    ],
+  )
+})
+
 test('doctor names the test files of a different tool that ubq does not run', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))

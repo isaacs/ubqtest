@@ -170,9 +170,12 @@ const COMMANDS = [
 
 const main = async (args: string[]): Promise<number> => {
   const [command, ...rest] = args
-  // `ubq <command> --help` prints the help of all commands.
+  // `ubq <command> --help` prints the lines of that command. A run
+  // takes each option, so its help is all of the text.
   if (command === 'help' || args.includes('--help') || args.includes('-h')) {
-    out(USAGE.trimEnd())
+    const named = command !== 'help' && COMMANDS.includes(command!)
+    const lines = USAGE.split('\n').filter(line => named && line.startsWith(`  ubq ${command} `))
+    out(lines.length ? ['usage:', ...lines, 'all commands: ubq --help'].join('\n') : USAGE.trimEnd())
     return 0
   }
   // `ubq run` takes only paths and options, so that a folder with
@@ -489,8 +492,10 @@ const main = async (args: string[]): Promise<number> => {
       // the command names is in the list in each case.
       // The same is true for build output and build tools (D55).
       let files = rest[0] ? [file(rest[0])] : covered.filter(f => !isHelper(f) && !isBuild(f))
-      const helpers = rest[0] ? 0 : covered.filter(isHelper).length
-      const built = rest[0] ? 0 : covered.filter(f => !isHelper(f) && isBuild(f)).length
+      const helperFiles = rest[0] ? [] : covered.filter(isHelper)
+      const builtFiles = rest[0] ? [] : covered.filter(f => !isHelper(f) && isBuild(f))
+      const helpers = helperFiles.length
+      const built = builtFiles.length
       /** Ranges in code for one runtime or one system. */
       let elsewhere = 0
       if (rest[0] && !covered.includes(files[0]!)) throw new UsageError(`no test loaded ${files[0]}`)
@@ -566,7 +571,7 @@ const main = async (args: string[]): Promise<number> => {
         out(
           counted`${total} uncovered range|ranges in ${listed.size} of the ${files.length} file|files that tests ran` +
             (helpers || built
-              ? ` (${[helpers && counted`${helpers} test helper|helpers`, built && counted`${built} build file|files`].filter(Boolean).join(' and ')} ${helpers + built === 1 ? 'is' : 'are'} not in this list)`
+              ? ` (${[helpers && counted`${helpers} test helper|helpers`, built && counted`${built} build file|files`].filter(Boolean).join(' and ')} ${helpers + built === 1 ? 'is' : 'are'} not in this list: ${[...helperFiles, ...builtFiles].slice(0, 10).join(', ')}${helpers + built > 10 ? `, and ${helpers + built - 10} more` : ''})`
               : ''),
         )
       if (notMeasured)
