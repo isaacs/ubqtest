@@ -3108,7 +3108,9 @@ last `v*` tag.
 - The release is made when the version is staged, not when a
   maintainer approves it on npm: the workflow gets no event for
   the approval. Between the two, the release names a version that
-  npm does not have yet.
+  npm does not have yet. The user accepts this: the git tag "is
+  still a legitimate artifact in its own right", and the summary
+  of the changes is useful with it.
 - The two jobs have different permissions. `stage` has the npm
   OIDC token and cannot write to the repository. `release` can
   write to the repository and has no npm token.
