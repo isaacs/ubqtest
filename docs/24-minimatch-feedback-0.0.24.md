@@ -4,6 +4,53 @@ Project: minimatch (TypeScript and JS tests, ESM, 38 tap test files, 8495 tap as
 
 Result: 37 test files, 442 tests, 8345 assertions, all pass. The assertion count matches tap file by file, except for two files where I removed exact duplicate cases (see "Duplicate test names"). All snapshot values match the tap values. A full run takes about 1.5s; tap took about 4.2s.
 
+## Retest on 0.0.26
+
+I upgraded the converted project to 0.0.26, and ran `ubq convert test` again on the original tap tests in a separate git worktree. The rest of this file is the 0.0.24 report, unchanged.
+
+Fixed, and verified:
+
+- Snapshot keys now include the message (`basic tests > !!a* hasMagic 1`). Because of this, I could compare each snapshot with its tap entry by key, not only by value. All match. The only key differences: tests that I named when I wrapped top-level code, the removed duplicates, and one message with a leading space (see below).
+- `"coverage": "full"` works. I replaced my `posttest: ubq uncovered` script with it. When I removed one `ubq: not measured:` comment, `ubq` exited 1 with "1 range of code ran in no test".
+- All duplicate test names are reported in one run (16 errors for the old `unc.ts`), and the other tests in the file still run (163 passed).
+- convert no longer gives the false "vitest and jest" hint for `t.throws` with a partial object.
+- convert maps `t.match(x, Matcher)` to `any.instanceOf(Matcher)` and `t.match(x, Symbol)` to `any.symbol`.
+- convert changes `process.env.X = 'v'` in a test to `env({ X: 'v' })`.
+- convert removes `t.plan()` when the parent became a `describe`.
+- convert wraps top-level assertions in one `test()`, with a TODO to name it.
+- convert gives a clear TODO for a helper that gets `t` and makes subtests, and for an async `describe` function.
+- convert adds a TODO where it drops tap's last diagnostic argument.
+- `ubq doctor` now finds `process.env` set above an import in both `optimization-level-0.ts` and `optimization-level-2.ts`.
+- The guide now explains `include` vs `helpers`, the `not measured` comment on a ternary branch, and the tap subtest count. `erasableSyntaxOnly` is a note, not a `FIX`.
+
+Still open, all minor:
+
+- convert still writes `describe(platform, async () => { ... })` and adds a TODO. The TODO is clear, but the output does not work as-is.
+- In `test/merge-rows.ts`, the top-level loop is next to other tests, so convert did not wrap it. That file still gets the old "This assertion is in no test" TODO.
+- When convert wraps top-level code, a comment that described the first statement can end up above the TODO and the `test()` line. In `test/redos.js`, `// utility function for generating long strings` is now separated from the function it describes.
+- After the upgrade, each old snapshot failed with "no code that it runs changed. The cause is in its data or its environment, or it is flaky". The real cause was the new key format in the ubq version. A note that names a ubq version change would be clearer, or a message that tells the user to run `ubq --update`.
+- With `"coverage": "full"`, the failure says "See them: ubq uncovered". When the list is short, I would like it printed in the run output.
+- The snapshot key trims the message: tap's `' hasMagic'` (empty pattern) became `basic tests > hasMagic 1`. This is fine, but it is one more key that does not map 1:1 from tap.
+
+## Second project on 0.0.26: glob
+
+I also converted node-glob with 0.0.26 (43 tap files, 1252 tap assertions, a tap `before` script, fs mocks, symlink fixtures, tests that skip on Windows). After the conversion, 263 tests pass and 1 is skipped. The assertion count matches tap file by file, with three known differences: two `assert.fail` loops became one `deepEqual` each (+2), one test that tap counted as a passing skip, and `native-fs-glob.ts`, which is now a plain script and not a test (see below). All 9 snapshots match tap, apart from the temp folder path. I upgraded nonrecursive-glob-match from 0.0.16 to 0.0.26 too: no change was needed, and all 1527 tests pass.
+
+Many issues from the 0.0.19 report on glob are fixed: an Error instance in `t.rejects` becomes `{ message }`, a parent test body with side effects gets the "When a test runs" TODO, `t.plan(0, reason)` gets a TODO with the right fix, a helper that takes `t` gets a TODO, and `t.fixture('symlink')` gets a TODO that names `symlinkSync`.
+
+New issues:
+
+1. **A tap `before` script is converted as a test file.** `.taprc` had `before: "test/00-setup.ts"`. convert treated that file as a test: it wrote `test(file, { bail: true }, ...)` with a TODO for `bail`, and a TODO for `t.pipe`. The convert guide has the right advice ("make it a module that each test file imports"). convert could read `before` in `.taprc` and write that TODO at the top of the file. I rewrote it by hand as synchronous setup that is safe to run more than once, and added `import './00-setup.js'` to each of 19 test files that use the fixtures.
+2. **A skip at the top level loses its reason, and `process.exit` stays.** In `progra-tilde.ts`, `t.pass('n/a', { skip: 'this system does not do tilde expansion' }); process.exit(0)` was at the top level. convert wrapped the file in a test, changed the line to `assert(true, 'n/a')`, and kept `process.exit(0)` in the test. The TODO talks about the assertion, not the exit. The reason text is lost. The correct form is `return skip('this system does not do tilde expansion')`, from the test function's `{ skip }`.
+3. **A run where the only selected test is skipped exits 2, and the summary says `fail:`.** `ubq test/progra-tilde.ts` on macOS printed `fail: 0 failed, 0 passed, 1 skipped` and exited 2 ("no tests ran"). The test did run, and chose to skip. I expected exit 0, or at least not the word `fail`.
+4. **No way to change `"coverage": "full"` for one run.** glob's CI allows incomplete coverage on Windows, because many tests skip there. ubq has no CLI flag or env var to turn the check off for one run, and the config has no per-platform form. So I removed `"coverage": "full"` and added `npx ubq uncovered` as a CI step on Linux and macOS. Now a local `npm test` does not fail for uncovered code. A flag such as `--coverage=off`, or a way to leave out code that only skipped tests would run, would let me keep the key.
+5. **`ubq doctor` asks for `allowImportingTsExtensions` when `rewriteRelativeImportExtensions` is set.** The new `native-fs-glob.ts` script runs with plain `node`, so it imports `./bash-results.ts`. The ubq guide suggests `rewriteRelativeImportExtensions`, and with it `tsc` accepts the import. `ubq doctor` still prints `FIX tsconfig.json: set "allowImportingTsExtensions": true`.
+6. **The mock hint does not cover a dependency of a dependency.** glob mocks `fs`, but only `path-scurry` (a package in `node_modules`) imports `fs`. Hint [13] shows only the one-step `mockImport` form. The guide has the two-step form (mock `fs` in an instance of `path-scurry`, then give that instance to glob), and it worked in 3 files. convert knows which project modules import the dependency. When none do, the hint could point to the two-step form.
+7. **Mock types are strict for overloaded functions.** A mock `readdirSync: (path: string, options: any) => ...` fails the `MockOf<typeof fs>` type (TS2322), because `fs.readdirSync` has overloads. I needed `as typeof fs.readdirSync`, and for `realpathSync` with `.native`, `as unknown as typeof fs.realpathSync`. A sentence in the guide about this would help.
+8. **A test that only warns has no good form.** `native-fs-glob.ts` used tap `todo` to print where Node's `fs.glob` differs from bash, without failing. In ubq I first used `skip(reason)` for each difference. In the end, the maintainer chose to make it a plain script (`npm run native-glob`) that prints the differences and exits 1 if there are any. This works well, but the converter and guide could suggest it: a test whose result is only a report is a script.
+9. **Coverage of one branch depends on the order of the walks.** One `|| this.opts.stat` branch in `walker.ts` was covered in some runs and not in others. The cause is in glob, not ubq. But with `"coverage": "full"`, a flaky range fails a run with no hint. `ubq uncovered` could say when a range was covered in an earlier run of the same code.
+10. **A `testdir` in a `describe` body is named `_file`.** The `root.ts` snapshots now contain `.ubq/testdir/test/root.ts/_file/...`. This is correct, but the name says nothing about the group. The 0.0.19 report also had this.
+
 ## What worked well
 
 - `ubq convert test` did most of the work. It changed 36 files correctly in most places, and it ran prettier on the result. It also changed the `test` and `snap` scripts.
