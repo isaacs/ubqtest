@@ -258,3 +258,50 @@ test('the coverage of a test file that is gone is not coverage', () => {
   assert.match(p.ubq('uncovered').out, /^lib\.ts:2:\d+ /m)
   assert.deepEqual(p.ubq('sql', 'select distinct tfile from coverage').out, '{"tfile":"a.test.ts"}\n')
 })
+
+test('"coverage": "full" fails a run of all tests with code that no test ran', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.configure({ coverage: 'full' })
+  mkdirSync(join(p.dir, 'lib'))
+  writeFileSync(
+    join(p.dir, 'lib/add.ts'),
+    'export const add = (a: number, b: number): number => a + b\nexport const never = (): number => 0\n',
+  )
+  const body = (name: string) =>
+    `import { assert, test } from 'ubqtest'\nimport { add } from './lib/add.ts'\ntest('${name}', () => assert.equal(add(1, 2), 3))\n`
+  writeFileSync(join(p.dir, 'a.test.ts'), body('a'))
+  const lines = (...args: string[]) => {
+    const r = p.ubq(...args)
+    return [
+      r.code,
+      r.out
+        .replace(/ \(run \d+[^)]*\)/, '')
+        .trimEnd()
+        .split('\n'),
+    ]
+  }
+  const failed = (passed: number) => [
+    1,
+    [
+      '1 range of code ran in no test, and the configuration has "coverage": "full". See them: ubq uncovered',
+      `fail: 0 failed, ${passed} passed, 1 uncovered range`,
+    ],
+  ]
+  // One test file runs in the process of the command.
+  assert.deepEqual(lines(), failed(1))
+  // A run of a selection does not check.
+  assert.deepEqual(lines('a.test.ts'), [0, ['pass: 0 failed, 1 passed']])
+  // Each test file in its own process.
+  writeFileSync(join(p.dir, 'b.test.ts'), body('b'))
+  assert.deepEqual(lines(), failed(2))
+  // A range with a "not measured" comment is not a failure.
+  writeFileSync(
+    join(p.dir, 'lib/add.ts'),
+    'export const add = (a: number, b: number): number => a + b\n// ubq: not measured: no caller yet\nexport const never = (): number => 0\n',
+  )
+  assert.deepEqual(lines(), [0, ['pass: 0 failed, 2 passed']])
+  // The value must be "full".
+  p.configure({ coverage: true })
+  assert.equal(p.ubq().err, 'ubq: "ubq.coverage" in package.json must be "full"\n')
+})

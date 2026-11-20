@@ -212,7 +212,7 @@ describe('bun', () => {
       '{ "compilerOptions": { "noEmit": true, "allowImportingTsExtensions": true } }',
     )
     assert.deepEqual(sh('bun', [cli, 'doctor'], p.dir).slice(-2), ['ok   tsconfig.json', 'doctor: 0 problems'])
-    assert.match(sh('node', [cli, 'doctor'], p.dir).at(-2)!, /^FIX  tsconfig\.json: set "erasableSyntaxOnly": true/)
+    assert.match(sh('node', [cli, 'doctor'], p.dir).at(-2)!, /^note tsconfig\.json: "erasableSyntaxOnly": true/)
   })
 
   test('the inspector of a plain program gives places in the source, from a guess', { skip }, () => {

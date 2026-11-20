@@ -940,7 +940,10 @@ source reads, as the `define` of vite gives them: `"define": {
 "__DEBUG__": true }`). `env` has values of the environment
 for each test process (`"env": { "MODE": "dev" }`): a value of
 the key is before a value of the shell. `skipTypecheck` (`true`)
-turns off the type check of each run. `transform` is in "Source
+turns off the type check of each run. `"coverage": "full"` fails a
+run of all tests if code ran in no test: the code that `ubq
+uncovered` lists. A run of some tests does not check. `transform`
+is in "Source
 that Node cannot run". A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
@@ -1018,7 +1021,9 @@ builds JavaScript from that tsconfig (for example with tshy), and
 has imports with `.ts`, set `"rewriteRelativeImportExtensions":
 true` in place of `"noEmit"`. It needs TypeScript 5.7 or later.
 `ubq doctor` has a FIX line for each option that the project
-needs. Do not set
+needs, and a note for `"erasableSyntaxOnly"`: the doctor finds
+the files with such syntax itself, and the option makes the type
+check report new such syntax. Do not set
 `"erasableSyntaxOnly"` if source files that no test loads keep
 such syntax: the type checker then reports them in each run.
 `ubq doctor` asks for the option only if no file has the syntax.

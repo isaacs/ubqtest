@@ -48,6 +48,7 @@ for (const name of [
   'UBQ_COMMAND',
   'UBQ_CAPTURE',
   'UBQ_UPDATE',
+  'UBQ_FULL',
   'UBQ_HANG',
   'UBQ_MUTANT',
   'UBQ_LIMIT',

@@ -48,7 +48,7 @@ test('doctor states the fix for each problem of the setup', () => {
   p.configure({ include: ['*.ts'], retries: 2 })
   assert.equal(
     doctor().lines[1],
-    'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define, transform, env, skipTypecheck',
+    'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define, transform, env, skipTypecheck, coverage',
   )
 
   p.configure({ include: ['*.ts'] })
@@ -111,7 +111,10 @@ test('doctor states the fix for each problem of the setup', () => {
   )
   // A build tool is not code that a test loads.
   p.configure({ include: ['*.ts'], build: hard })
-  assert.match(doctor().lines[2]!, /^FIX  tsconfig\.json: set "erasableSyntaxOnly": true in compilerOptions\./)
+  assert.deepEqual(doctor().lines.slice(2, 4), [
+    'ok   tsconfig.json',
+    'note tsconfig.json: "erasableSyntaxOnly": true in compilerOptions makes the type check report new syntax that Node cannot run. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
+  ])
   p.configure({ include: ['*.ts'] })
   assert.match(
     doctor().lines[2]!,
@@ -312,7 +315,7 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
   assert.deepEqual([find(doctor(), 'FIX  tsconfig'), find(doctor(), 'ok   tsconfig')], [undefined, undefined])
   // The options come from the bases, in order, and the config's own
   // options come last. A base can extend a different base.
-  const erasable = 'FIX  tsconfig.json: set "erasableSyntaxOnly": true in compilerOptions.'
+  const erasable = 'note tsconfig.json: "erasableSyntaxOnly": true in compilerOptions'
   writeFileSync(join(p.dir, 'base.json'), '{ "extends": "./base2", "compilerOptions": { "strict": true } }')
   writeFileSync(
     join(p.dir, 'base2.json'),
@@ -323,7 +326,7 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
     join(p.dir, 'tsconfig.json'),
     '{ "extends": "./base.json", "compilerOptions": { "erasableSyntaxOnly": false } }',
   )
-  assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
+  assert.match(find(doctor(), 'note tsconfig') ?? '', new RegExp(`^${erasable}`))
   // A base from a package, and a list of bases.
   mkdirSync(join(p.dir, 'node_modules/@cfg/strict'), { recursive: true })
   writeFileSync(
@@ -331,14 +334,14 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
     '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": false, "noEmit": true } }',
   )
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": "@cfg/strict" }')
-  assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
+  assert.match(find(doctor(), 'note tsconfig') ?? '', new RegExp(`^${erasable}`))
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/strict", "./base2.json"] }')
   assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
   // A file of a package by its full name, and a package file with no
   // folder.
   writeFileSync(join(p.dir, 'node_modules/@cfg/erasable.json'), '{ "compilerOptions": { "erasableSyntaxOnly": true } }')
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/erasable", "@cfg/strict/tsconfig.json"] }')
-  assert.match(find(doctor(), 'FIX  tsconfig') ?? '', new RegExp(`^${erasable}`))
+  assert.match(find(doctor(), 'note tsconfig') ?? '', new RegExp(`^${erasable}`))
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "extends": ["@cfg/strict/tsconfig.json", "@cfg/erasable"] }')
   assert.equal(find(doctor(), 'ok   tsconfig'), 'ok   tsconfig.json')
   // No options: both are necessary, also when no test file imports
@@ -346,7 +349,7 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
   writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
   assert.equal(
     find(doctor(), 'FIX  tsconfig'),
-    'FIX  tsconfig.json: set "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, and "rewriteRelativeImportExtensions": true in compilerOptions. fail.ts imports a file with the .ts extension. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties). This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
+    'FIX  tsconfig.json: set "allowImportingTsExtensions": true and "rewriteRelativeImportExtensions": true in compilerOptions. fail.ts imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
   )
 
   // The project cannot import ubqtest. The link is a junction on Windows.
@@ -447,7 +450,7 @@ test('doctor: the tsconfig.json that has the test files', () => {
   )
   assert.match(
     lines().join('\n'),
-    /^FIX  1 test file is in no tsconfig\.json: test\/deep\/b\.test\.ts\..*\nFIX  test\/tsconfig\.json: set "allowImportingTsExtensions": true and "erasableSyntaxOnly": true in compilerOptions\./,
+    /^FIX  1 test file is in no tsconfig\.json: test\/deep\/b\.test\.ts\..*\nFIX  test\/tsconfig\.json: set "allowImportingTsExtensions": true in compilerOptions\..*\nnote test\/tsconfig\.json: "erasableSyntaxOnly": true/,
   )
   rmSync(join(p.dir, 'test/tsconfig.json'))
   // A list of files, a folder with a pattern, and a config with references.

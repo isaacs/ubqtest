@@ -212,6 +212,12 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (event.unselected) parts.push(`${event.unselected} not selected`)
         if (event.types) parts.push(counted`${event.types} type error|errors`)
         if (event.otherTypes) parts.push(counted`${event.otherTypes} type error|errors in other files`)
+        if (event.full) {
+          parts.push(counted`${event.uncovered!} uncovered range|ranges`)
+          write(
+            counted`${event.uncovered!} range|ranges of code ran in no test, and the configuration has "coverage": "full". See them: ubq uncovered\n`,
+          )
+        }
         const status = event.code ? 'fail' : 'pass'
         // A failed run names the command with its number: a different
         // run can be the newest one of the store when the reader asks.

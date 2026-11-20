@@ -437,7 +437,7 @@ test('a tsconfig.json with only references: ubq makes tsconfig.ubq.json, one tim
   assert.deepEqual([second.err, second.last], ['', 'pass: 0 failed, 1 passed'])
   assert.match(readFileSync(made, 'utf8'), /"noImplicitAny": false/)
   // `ubq doctor` reads the options of the same file.
-  assert.match(p.ubq('doctor').out, /^FIX  apps\/app\/tsconfig\.ubq\.json: set /m)
+  assert.match(p.ubq('doctor').out, /^note apps\/app\/tsconfig\.ubq\.json: "erasableSyntaxOnly"/m)
 })
 
 test('a referenced project that is not built has a hint', () => {

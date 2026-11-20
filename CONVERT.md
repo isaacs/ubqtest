@@ -355,15 +355,13 @@ Things to check by hand:
 - **`t.skip`, `{ skip: true }`, `{ todo: true }`.** Give the
   reason as text: `test(name, { skip: 'needs a GPU' }, fn)`.
 - **Coverage settings.** tap fails a run with less than full
-  coverage. ubq has no such limit. `npx ubq uncovered` lists the
+  coverage. ubq does the same with `"coverage": "full"` in the
+  `ubq` key of `package.json`. `npx ubq uncovered` lists the
   code that no test ran. ubq does not read `c8 ignore` or
   `istanbul ignore` comments, and the report of `ubq convert`
   names them. At each range that no test can run, write `// ubq:
   not measured: <reason>`. A `c8 ignore start` and `stop` region
-  needs one comment for each range in it that no test runs. For a
-  run that fails with less than full coverage, as tap does, add
-  `"posttest": "ubq uncovered"` to the scripts of `package.json`:
-  `ubq uncovered` exits with code 1 if it lists code.
+  needs one comment for each range in it that no test runs.
 - **A fixture or helper that uses `t`.** A helper function that
   gets `t` as an argument must import `assert` from `ubqtest` and
   must not get `t`. A helper that calls `t.test` makes tests, and

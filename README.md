@@ -26,7 +26,7 @@ that loop.
   test with no assertion fails. A promise that nothing waits for
   fails. Work that goes on after the test ended fails. A test
   that leaves `process.env` changed fails.
-- **One small API.** `test`, `describe`, `assert`, and a few
+- **A simple API.** `test`, `describe`, `assert`, and a few
   helpers. One pattern form for "looks like this", with
   `any.number`, `any.arrayWith(...)`, and the other functions of
   `any` for the parts that change. No globals, no hooks, no `.only`. A form from a

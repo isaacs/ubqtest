@@ -54,6 +54,8 @@ export interface Checking {
 export const startPlain = (): void => {
   // The `ubq` command line, if `ubq` runs this file in its own process.
   const command = process.env.UBQ_COMMAND
+  // The runner sets it for a run of all tests with "coverage": "full".
+  const fullCheck = process.env.UBQ_FULL === '1'
   // A sync write: text must not be lost if the process exits.
   let closed = false
   const write = (text: string): void => {
@@ -157,6 +159,8 @@ export const startPlain = (): void => {
             store!.db,
             [...used].filter(f => f !== event.file),
           )
+        const full = fullCheck && !!uncovered
+        if (full) process.exitCode = 1
         send({
           type: 'run-end',
           ms: now() - t0,
@@ -168,7 +172,8 @@ export const startPlain = (): void => {
           ...(types && { types: types.length }),
           ...(split?.others.length && { otherTypes: split.others.length }),
           ...(uncovered && { uncovered }),
-          code: types?.length ? 1 : code,
+          ...(full && { full }),
+          code: types?.length || full ? 1 : code,
         })
         store?.close()
       }

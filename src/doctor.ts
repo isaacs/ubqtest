@@ -401,11 +401,18 @@ export const doctor = (out: (text: string) => void): number => {
           ...(emits && tsImport() ? (['rewriteRelativeImportExtensions'] as const) : []),
         ] as const
       ).filter(key => options[key] !== true)
-      if (missing.length)
+      // The check above found no file with such syntax: the option
+      // only keeps new such syntax out (D130).
+      const needed = missing.filter(key => key !== 'erasableSyntaxOnly')
+      if (needed.length)
         fix(
-          `${name}: set ${new Intl.ListFormat('en').format(missing.map(key => `"${key}": true`))} in compilerOptions. ${missing.map(key => reasons[key]).join(' ')}`,
+          `${name}: set ${new Intl.ListFormat('en').format(needed.map(key => `"${key}": true`))} in compilerOptions. ${needed.map(key => reasons[key]).join(' ')}`,
         )
       else ok(name)
+      if (missing.includes('erasableSyntaxOnly'))
+        out(
+          `note ${name}: "erasableSyntaxOnly": true in compilerOptions makes the type check report new syntax that Node cannot run. ${reasons.erasableSyntaxOnly}`,
+        )
       // TypeScript defines a class field with no value only for a
       // target of ES2022 or later, unless the option says so. Node
       // keeps each field declaration.

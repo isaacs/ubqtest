@@ -940,6 +940,7 @@ export const run = async (args: string[]): Promise<number> => {
     process.env.UBQ_LINES = lines.join(',')
     process.env.UBQ_IDS = JSON.stringify(ids)
     if (update) process.env.UBQ_UPDATE = '1'
+    if (config().coverage === 'full' && !rest.length && !flags.length) process.env.UBQ_FULL = '1'
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])
     // A file with no import of the library has no reporter. If it
@@ -1105,7 +1106,10 @@ export const run = async (args: string[]): Promise<number> => {
     )
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')
-  const code = fail || errors || typeErrors.length ? 1 : count('pass') === 0 ? 2 : 0
+  // A run of a selection does not run all code. The one-file path
+  // has the same check (UBQ_FULL).
+  const full = config().coverage === 'full' && !rest.length && !flags.length && !!uncovered
+  const code = fail || errors || typeErrors.length || full ? 1 : count('pass') === 0 ? 2 : 0
   send({
     type: 'run-end',
     ms: performance.now() - t0,
@@ -1117,6 +1121,7 @@ export const run = async (args: string[]): Promise<number> => {
     ...(checking && { types: typeErrors.length }),
     ...(otherTypes && { otherTypes }),
     ...(uncovered && { uncovered }),
+    ...(full && { full }),
     code,
   })
   store?.close()

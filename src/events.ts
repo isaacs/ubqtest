@@ -258,9 +258,14 @@ export interface RunEnd {
   /**
    * The count of ranges that `ubq uncovered` lists, in the files
    * that the run has coverage of. Absent if 0, or if the run is not
-   * stored. It does not change `code`.
+   * stored. It does not change `code`, unless `full` is true.
    */
   uncovered?: number
+  /**
+   * True if the configuration has `"coverage": "full"`, the run is
+   * of all tests, and `uncovered` is not 0. Then `code` is 1.
+   */
+  full?: boolean
   /** The exit code of the run. See docs/04-architecture.md, section 9. */
   code: number
 }

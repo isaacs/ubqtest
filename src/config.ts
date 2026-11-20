@@ -32,6 +32,8 @@ export interface Config {
   env?: Record<string, string>
   /** True if a run does not check the types (D114). */
   skipTypecheck?: boolean
+  /** "full": a run of all tests fails if code ran in no test (D130). */
+  coverage?: 'full'
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -96,6 +98,7 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
     'an object of names and text values, such as { "MODE": "dev" }',
   ],
   skipTypecheck: [v => typeof v === 'boolean', 'true or false'],
+  coverage: [v => v === 'full', '"full"'],
 }
 
 let cached: Config | undefined
