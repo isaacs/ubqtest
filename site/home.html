@@ -117,7 +117,7 @@ describe('parse', () =&gt; {
       <h3>Wrong forms are type errors that teach</h3>
       <p>An agent that learned a different test tool writes <code>assert.ok</code> or <code>test.only</code> from habit. In ubq, each of those is a type error, and the message gives the form to use.</p>
       <h3>Moving from a different tool</h3>
-      <p><code>ubq convert</code> changes the tests of tap, <code>node:test</code>, vitest, jest, and mocha. It makes the changes that are certain. Where a decision is necessary, it writes a <code>TODO(ubq)</code> comment with the instruction. <a href="convert/">The steps are in the guide.</a></p>
+      <p><code>ubq convert</code> changes the tests of tap, tape, ava, <code>node:test</code>, vitest, jest, <code>bun:test</code>, mocha, and Playwright Test. It makes the changes that are certain. Where a decision is necessary, it writes a <code>TODO(ubq)</code> comment with the instruction. <a href="convert/">The steps are in the guide.</a></p>
       <pre class="plain"><code>$ node test/parse.test.ts
 pass: 0 failed, 2 passed (run 195)</code></pre>
     </div>

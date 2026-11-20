@@ -4,7 +4,7 @@ A test tool for TypeScript and JavaScript, made for coding agents
 and the people who work with them.
 
 The package is `ubqtest`. The command is `ubq`. It runs on Node 22.18
-or later, Bun, and Deno, with no build step and no configuration.
+or later, Bun 1.4 or later, and Deno, with no build step and no configuration.
 
 > **Status:** early. The versions are 0.0.x, and the API can
 > change. CI passes on Linux, macOS, and Windows, with Node, Bun,
@@ -27,7 +27,9 @@ that loop.
   fails. Work that goes on after the test ended fails. A test
   that leaves `process.env` changed fails.
 - **One small API.** `test`, `describe`, `assert`, and a few
-  helpers. No globals, no hooks, no `.only`. A form from a
+  helpers. One pattern form for "looks like this", with
+  `any.number`, `any.arrayWith(...)`, and the other functions of
+  `any` for the parts that change. No globals, no hooks, no `.only`. A form from a
   different tool, such as `assert.ok` or `test.only`, is a type
   error whose message gives the form to use.
 - **Coverage for each test, always on.** ubq knows which tests
@@ -104,7 +106,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq run <paths>` | The same, for a path with the name of a command, such as a folder `diff`. |
 | `ubq lsp` | A language server: the editor shows the code that no test ran, the failures of the last run, and the tests of a line. It runs the tests of a line, and goes to them. |
 | `ubq nvim` | Sets up Neovim (0.12 or later) to use `ubq lsp`. A VS Code extension is in `vscode/`. |
-| `ubq --changed` | Runs the tests that ran code that changed after their last run, and new test files. |
+| `ubq --changed` | Runs the tests that ran code that changed after their last run, new test files, and the tests that failed in their last run. |
 | `ubq --failed` | Runs the tests that failed in their last run. |
 | `ubq --repeat <n> ...` | Runs tests n times and counts the failures of each, to find a flaky test. |
 | `ubq --baseline <commit> ...` | Shows only the failures that the commit does not have. |

@@ -372,8 +372,27 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 - `expected` of `throws` and `rejects` is a `RegExp` for the
   message, an error class, or a partial object. An Error instance
   is not permitted: use `{ message: error.message }`.
-- An object pattern of `match` permits extra keys in the value. An
-  array pattern must have the same length.
+- An object pattern of `match` permits extra keys in the value, at
+  each depth. `matchOnly` permits none: use it for an exact
+  comparison of a value with a part that changes. An array pattern
+  must have the same length: for an array that has some elements,
+  `any.arrayWith(a, b)`.
+- For a value that changes from run to run, such as a time or an
+  id, use a function of `any` in the pattern: `{ id: any.string,
+  at: any.instanceOf(Date) }`. Do not write a helper for it. For a
+  check that `any` does not have, write the function: `{ n: (v:
+  unknown) => v !== 0 }`. Import `any` from `'ubqtest'`: with no
+  import, `any` is the type of TypeScript, and the type error has
+  a `hint:` line.
+- "The list has an element of this shape", and "a call of the spy
+  has these arguments": `assert(list.some(item => isMatch(item,
+  pattern)))`, `assert(s.calls.some(call => isMatch(call.args,
+  [pattern])))`. `isDeepEqual` and `isMatchOnly` are the same with
+  the rules of `deepEqual` and of `matchOnly`. If the assertion
+  fails, the report shows each call, with the place of its first
+  difference.
+- The pattern must fit the type of the value. For a pattern that
+  does not, on purpose: `assert.match<unknown>(value, pattern)`.
 - The expected value of `equal` and `deepEqual` must have the type
   of the actual value. If the type checker refuses a comparison,
   make the value exact (`value!`, or narrow it with
