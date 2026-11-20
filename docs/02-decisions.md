@@ -2961,3 +2961,79 @@ proposed the list below, and the user agreed.
 Assumption of the assistant: Node 26 is the LTS line now. It did
 not look that up.
 
+## D119. Changes from the glob report (assistant, 2026-11-19)
+
+`22-glob-fable-feedback-0.0.19.md`: the 42 tap test files of
+`glob`, converted on ubq 0.0.19 by an agent with the prompt of
+the site. The user gave the report and said that most of it was
+done, with "a few novel tap-specific things". Each choice here is
+an assumption of the assistant.
+
+Done before this report: the message of an assertion stays
+(D116), a file that the configuration leaves out is not a failure
+of `ubq check`, `--failed`, `--changed`, or `ubq uncovered` (D108),
+a parent test with subtests and other code becomes `describe`
+with a TODO, and a TODO text that repeats has a short form.
+
+`ubq convert`, for tap:
+
+- `t.plan(0, 'reason')` stays, with a TODO: it skips the file,
+  and the `process.exit(0)` after it is an error in ubq. Before,
+  the line went away, and so did the reason.
+- An assertion with the option `skip` or `todo` has a TODO. The
+  option went away with no word, and an expected failure became
+  a failure.
+- An option of a test that ubq does not have (`bail`), and a
+  setting of the test object (`t.jobs = 64`), have a TODO.
+- `import type { Test } from 'tap'` stays, with a TODO, if the
+  file uses the name.
+- `t.rejects(p, error)` with an Error instance becomes a pattern
+  for its message, as `toThrow(error)` of jest does.
+- The text for `t.fixture` names `symlinkSync`.
+- One TODO for the first assertion that is in no test, not one
+  for each.
+- A parent test that becomes `describe`, and that has a statement
+  that does work with no use of the test object
+  (`process.chdir('/')`), has a TODO: the code runs when the
+  file loads now. A loop of subtests is not such code.
+- `for await (...) t.test(...)` in a parent test made text that
+  was not code, and the command refused the file. The function
+  of the `describe` now stays async there, with the TODO.
+
+Other changes:
+
+- **A mock that no import got is a failure**, when the test ends:
+  "the mock of node:fs replaced no import". In the report, a mock
+  of `fs` for a subject whose package does the file system work
+  did nothing, and the test read the real disk for 5 seconds. If
+  the test has a different failure, such as that time limit, the
+  failure gets the text as a hint. The check is at the end of the
+  test, and not after the import: an import can be in a function.
+  The guide has the form for a dependency of a package.
+- **A type error in a folder with its own `package.json`** is not
+  an error of this project (D23). A tsconfig with no `include`
+  reads each file below it.
+- **The lines of the inspector of Node** ("Debugger attached.")
+  are not output of a test. Before, only the first two lines were
+  left out.
+- **`ubq doctor`** has a FIX line for files that import a
+  different test tool and that ubq does not run. A tap file has
+  no `.test.` in its name, so the doctor did not see it.
+- **`ubq skill`** wrote to `.agents/skills` and `.claude/skills`
+  for Claude Code, which sets `AI_AGENT` too. That variable names
+  a folder only if no other variable does.
+- The convert guide: compare the count of assertions with the
+  store, what a module for all files needs, and a report of a
+  change from the build to the source. The skill: read the rules
+  of the project for agents before an install.
+
+Not done, with the reason:
+
+- Q51 and Q52 are decisions for the user.
+- The 12 runs of `node test/<file>.ts` that the reporter did not
+  start: no cause found, and the reporter had no small case.
+- A `testdir` in a `describe` body has the folder name `_file`:
+  correct, and no change.
+- The formatter of a project changes `SKILL.md`, and `ubq skill`
+  changes it back: no change. The file is of ubq.
+

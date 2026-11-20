@@ -1,6 +1,6 @@
 // Wrong uses of mockImport, a mock with a default export, and a
 // module under test that throws when it loads.
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -92,4 +92,66 @@ test('check', async () => {
     [r.out.split('\n').filter(line => line.startsWith('FAIL ')).length, r.out.split('\n')[1], r.last],
     [1, '  expected values to be equal', 'fail: 1 failed, 0 passed'],
   )
+})
+
+test('a mock that no import of the instance gets, and the form for a dependency of a package', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  mkdirSync(join(p.dir, 'node_modules/reader'))
+  writeFileSync(
+    join(p.dir, 'node_modules/reader/package.json'),
+    '{ "name": "reader", "type": "module", "main": "index.js" }',
+  )
+  // The package imports the module of the runtime, and the project does not.
+  writeFileSync(
+    join(p.dir, 'node_modules/reader/index.js'),
+    "import { existsSync } from 'node:fs'\nexport const has = path => existsSync(path)\n",
+  )
+  writeFileSync(
+    join(p.dir, 'src/find.ts'),
+    "import { has } from 'reader'\nexport const find = (): boolean => has('/no/such/file')\n",
+  )
+  writeFileSync(
+    join(p.dir, 'unused.ts'),
+    `import { assert, mockImport, test } from 'ubqtest'
+const fs = { existsSync: () => true }
+test('the mock does not get to the package', async () => {
+  const { find } = await mockImport(() => import('./src/find.ts'), [[() => import('fs'), fs as never]])
+  assert.equal(find(), false)
+})
+test('a failure of the test gets the cause', async () => {
+  const { find } = await mockImport(() => import('./src/find.ts'), [[() => import('node:fs'), fs as never]])
+  assert.equal(find(), true)
+})
+test('two mocks of project files that the instance does not import', async () => {
+  await mockImport(() => import('./src/find.ts'), [
+    [() => import('./pass.ts'), {}],
+    [() => import('./fix.ts'), {}],
+  ])
+  assert(true)
+})
+test('an instance of the package with the mock, as the mock of the package', async () => {
+  const reader = await mockImport(() => import('reader'), [[() => import('node:fs'), fs as never]])
+  const { find } = await mockImport(() => import('./src/find.ts'), [[() => import('reader'), reader]])
+  assert.equal(find(), true)
+})
+`,
+  )
+  const hint =
+    'the mock of node:fs replaced no import. No project module of the new instance imports it. A mock does not go into a package of node_modules: if a package imports the module, make an instance of the package with the mock, and give that instance as the mock of the package. See "A dependency of a dependency" in ubq guide.'
+  const blocks = p.ubq('unused.ts').out.split('\n\n')
+  assert.deepEqual(
+    blocks.map(block => block.split('\n').slice(0, 2)),
+    [
+      // 'fs' and 'node:fs' are one module.
+      ['FAIL unused.ts > the mock does not get to the package', `  a cleanup function failed: Error: ${hint}`],
+      ['FAIL unused.ts > a failure of the test gets the cause', '  expected values to be equal'],
+      [
+        'FAIL unused.ts > two mocks of project files that the instance does not import',
+        '  a cleanup function failed: Error: the mock of pass.ts, fix.ts replaced no import. No project module of the new instance imports them. A mock does not go into a package of node_modules: if a package imports the module, make an instance of the package with the mock, and give that instance as the mock of the package. See "A dependency of a dependency" in ubq guide.',
+      ],
+      ['fail: 3 failed, 1 passed (run 1)', ''],
+    ],
+  )
+  assert(blocks[1]!.includes(`\n  hint: ${hint}\n`), blocks[1])
 })

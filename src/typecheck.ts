@@ -224,10 +224,24 @@ const check = (
         // More lines of the same message have an indent.
         else if (line.startsWith(' ') && errors.length) errors.at(-1)!.message += '\n' + line.trim()
       }
+      // A folder of the project with its own package.json is a
+      // different project (D23), also for the type check: a
+      // tsconfig with no `include` reads each file below it.
+      const reported = errors.length
+      const foreign = new Map<string, boolean>()
+      const other = (dir: string): boolean => {
+        if (dir === '.' || dir.startsWith('..')) return false
+        let known = foreign.get(dir)
+        if (known === undefined)
+          foreign.set(dir, (known = existsSync(join(root, dir, 'package.json')) || other(dirname(dir))))
+        return known
+      }
+      for (let i = errors.length - 1; i >= 0; i--)
+        if (errors[i]!.at && other(dirname(errors[i]!.at!.file))) errors.splice(i, 1)
       // A checker that the system stopped, or that failed, has no
       // result. No errors from it does not mean that the types are
       // correct.
-      if (signal || (code && !errors.length))
+      if (signal || (code && !reported))
         errors.push({
           type: 'type-error',
           code: 'ubq',

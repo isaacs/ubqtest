@@ -199,8 +199,14 @@ const main = async (args: string[]): Promise<number> => {
       // `.cursor/skills`, `.agents/skills`.
       for (const name of readdirSync(root))
         if (name.startsWith('.') && existsSync(join(root, name, 'skills'))) dirs.add(`${name}/skills`)
-      // The folder of the agent that runs this command.
-      for (const [, variables, dir] of SKILL_DIRS) if (variables.some(name => process.env[name])) dirs.add(dir)
+      // The folder of the agent that runs this command. More than
+      // one agent sets AI_AGENT: it names a folder only if no other
+      // variable does.
+      const set = (general: boolean): string[] =>
+        SKILL_DIRS.filter(([, variables]) =>
+          variables.some(name => (name === 'AI_AGENT') === general && process.env[name]),
+        ).map(([, , dir]) => dir)
+      for (const dir of set(false).length ? set(false) : set(true)) dirs.add(dir)
       if (!dirs.size) dirs.add('.claude/skills')
     }
     for (const dir of [...dirs].sort()) {

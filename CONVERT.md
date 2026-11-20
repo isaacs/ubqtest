@@ -45,7 +45,11 @@ has the API and the rules of ubq.
 6. **Compare.** The count of tests that pass must be the count of
    step 1, or you must know the reason for each difference. A
    test that passed before and is skipped or removed now is a
-   defect of the conversion.
+   defect of the conversion. The count of tests changes if
+   subtests become groups. The count of assertions does not: if
+   the old tool printed it for each file, compare it with the
+   store: `ubq sql "select file, sum(asserts) from test where run =
+   (select max(id) from run) group by file"`.
 7. **Clean up.** Set `"test": "ubq"`
    in the `scripts` of `package.json`. Remove the old test tool, its plugins, and its
    configuration (`.taprc`, `vitest.config.*`, `jest.config.*`,
@@ -268,6 +272,33 @@ Things to check by hand:
   test has a callback API, wrap it in a promise and `await` it.
   A test with zero assertions fails in ubq, so a callback that
   never runs is found.
+- **`t.plan(0, 'reason')` and `process.exit(0)`.** tap skips the
+  file. The command writes a TODO: give each test or group of
+  the file `{ skip: condition && 'the reason' }`, and remove the
+  two lines. A test file must not end the process.
+- **An option of one assertion: `{ skip }`, `{ todo }`.** ubq has
+  none, so the assertion can fail now. The command writes a TODO.
+  For `todo`, an expected failure is a failure in ubq: correct
+  the code, or skip the test with the reason.
+- **Options of a test that ubq does not have** (`bail`, `jobs`,
+  `buffered`), and **`t.jobs = n`.** The command writes a TODO:
+  remove them. The tests of a file run one at a time. For tests
+  that must run at the same time, make them one test that awaits
+  `Promise.all`.
+- **`t.fixture('symlink', target)`.** `testdir()` makes files and
+  folders. For a symbolic link, call `symlinkSync` of `node:fs`
+  after `testdir()`.
+- **A script that runs before all files (`before` in `.taprc`).**
+  Make it a module that each test file imports. Each test file
+  is its own process, and the files run at the same time: the
+  module must be safe to run more than one time, also at the same
+  time. With an `await` in it, or a call that fails if its work
+  is done (a symbolic link that exists), it can fail only on a
+  new copy of the project, which is what CI has.
+- **Code in a parent test.** In tap, the body of a parent test
+  runs after the tests before it. In `describe()`, it runs when
+  the file loads. The command writes a TODO if such a body has a
+  statement that does work. See "When a test runs".
 - **`t.beforeEach`, `t.afterEach`, `t.before`.** See "Hooks".
 - **`t.capture`, `t.intercept`, `t.captureFn`.** Use
   `spyOn(object, key, impl?)`, then read `spy.calls`.
@@ -978,4 +1009,7 @@ Report to the user:
 - each test that you changed in more than its form, and why
 - each thing that ubq does not have and the project used
   (a DOM, a coverage limit, a global setup), with what you did
+- a change in what the tests load: if the tests ran the build
+  (`dist/`) before, and run the source now, say so. A maintainer
+  can have a reason for the old way.
 - each `TODO(ubq)` that is still in the code

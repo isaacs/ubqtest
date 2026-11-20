@@ -76,7 +76,10 @@ export const coverageArgs = (): string[] =>
         ['--inspect-port=0', '--import', NODE_PRELOAD.href]
 
 /** The lines that a runtime prints when its inspector starts. */
-const INSPECTOR = /Debugger listening on (ws:\/\/\S+)\r?\n(?:(?:For help, see:|Visit chrome:)[^\n]*\n)?/
+const INSPECTOR = /Debugger listening on (ws:\/\/\S+)/
+/** Each line that the inspector of Node writes to stderr: when it starts, and when the runner reads the stack of a stuck test. */
+const INSPECTOR_LINES =
+  /^(?:Debugger listening on ws:\/\/\S+|For help, see: \S+|Visit chrome:\S+[^\n]*|Debugger attached\.|Debugger ending on ws:\/\/\S+|Waiting for the debugger to disconnect\.\.\.)\r?\n/gm
 
 /** A test file, and the lines that select tests in it. */
 export interface Selected {
@@ -631,11 +634,8 @@ export const runFile = async (
     let url: string | undefined
     child.stderr!.setEncoding('utf8').on('data', (text: string) => {
       // The inspector start message is not output of the test.
-      const m = INSPECTOR.exec(text)
-      if (m) {
-        url = m[1]
-        text = text.replace(INSPECTOR, '')
-      }
+      url ??= INSPECTOR.exec(text)?.[1]
+      text = text.replace(INSPECTOR_LINES, '')
       stderr += text
       if (!ended && text) send({ type: 'output', file, stream: 'stderr', text })
     })

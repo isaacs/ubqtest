@@ -306,6 +306,16 @@ const TODO = {
     "ubq starts the browser, and closes the page when the test ends: const page = await browser(), from 'ubqtest/browser'. Remove the launch, the new page, and the close.",
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
+  planSkip:
+    't.plan(0, reason) of tap skips the file. In ubq, give each test or describe of the file the option: { skip: condition && "the reason" }. Then remove this line, and the process.exit() after it: a test file must not end the process.',
+  assertOption:
+    'tap does not count this assertion as a failure: it has the option skip or todo. ubq has no such option for one assertion, so this assertion can fail now. For skip, use the skip option of the test, or skip(reason) of the test function. For todo, correct the code, or skip the test with the reason.',
+  tapSetting:
+    'ubq has no settings on a test object. The tests of a file run one at a time: for tests that must run at the same time (t.jobs), make them one test that awaits Promise.all. Remove this line.',
+  tapType:
+    'This type of tap is for a test object, and ubq has none. Remove the parameter of this type from each function, and its argument from each call. Then remove this import.',
+  describeBody:
+    'This code was in a test of tap, and ran after the tests before it. In describe(), it runs when the file loads, before each test of the file. If it changes the process or a value from outside (process.chdir, a property of process, a variable), move it into a setup function that each test of the group calls.',
   rootAssert:
     'This assertion is in no test. It runs when the file loads, and a failure is an error of the file, not of a test. If it is a check of the code under test, put it in a test().',
   message:
@@ -590,6 +600,18 @@ export const convertSource = (
         continue
       }
       if (FRAMEWORKS[module]) framework = FRAMEWORKS[module]
+      // `import type { Test } from 'tap'`, for the parameter of a
+      // helper: the import stays, with a TODO, while a name of it
+      // is in the file.
+      if (
+        node.importKind === 'type' &&
+        (node.specifiers as Node[]).some(
+          one => source.split(new RegExp(`\\b${(one.local as { name: string }).name}\\b`)).length > 2,
+        )
+      ) {
+        todos.set(node.start, new Set([TODO.tapType]))
+        continue
+      }
       removed.push(node)
       if (module === '@playwright/test')
         // The other names are in the library: `Page`, `devices`.
@@ -833,6 +855,12 @@ export const convertSource = (
     args[index] && args[index].type !== 'ObjectExpression' && rule.endsWith(')')
       ? `${rule.slice(0, -1)}, $${index})`
       : rule
+  /** A TODO for the first assertion of the file that is in no test. One is enough for a file. */
+  let rootSeen = false
+  const rootAssert = (path: Node[]): void => {
+    if (!rootSeen) todo(path, TODO.rootAssert)
+    rootSeen = true
+  }
   /** True if the node is in a loop of its function. */
   const inLoop = (path: Node[]): boolean =>
     path.findLastIndex(n => LOOP.test(n.type)) > path.findLastIndex(n => n.type.includes('Function'))
@@ -1530,12 +1558,23 @@ export const convertSource = (
             nameOf(c.property as Node) === 'test'
           )
         }
-        if (direct.some(isSub)) {
+        // `for (const c of cases) t.test(c, ...)`: subtests in a loop.
+        const subLoop = (s: Node): boolean => LOOP.test(s.type) && text(s).includes(`${param}.test(`)
+        /** True if the code awaits, and not in a function that is in it. */
+        const awaits = (n: Node): boolean =>
+          n.type === 'AwaitExpression' ||
+          children(n).some(c => !FUNCTION.has(c.type) && c.type !== 'FunctionDeclaration' && awaits(c))
+        if (direct.some(s => isSub(s) || subLoop(s))) {
           name = 'describe'
+          // Not the end or the plan of the parent: they go away.
+          const rest = direct.filter(s => !isSub(s) && !subLoop(s) && !/^\s*\w+\.(end|plan)\(/.test(text(s)))
           // The rest of the body must be in a test.
-          const own = direct.filter(s => !isSub(s) && mentions(s, param) && !/^\s*\w+\.(end|plan)\(/.test(text(s)))
-          const waits = direct.some(s => !isSub(s) && /\bawait\b/.test(text(s)))
+          const own = rest.filter(s => mentions(s, param))
+          // Also the loop itself: `for await (...) t.test(...)`.
+          const waits = rest.some(awaits) || direct.some(s => s.type === 'ForOfStatement' && s.await === true)
           if (own.length || waits) todo(path, TODO.subtests)
+          // Code that does work, and that tap ran when the test ran.
+          else if (rest.some(s => s.type === 'ExpressionStatement')) todo(path, TODO.describeBody)
           // The function of a describe is not async. With an await
           // in it, the function stays as it is until the TODO is done.
           if (fn.async && !waits)
@@ -1601,6 +1640,9 @@ export const convertSource = (
           todo(path, TODO.skip)
         if (key === 'only') todo(path, TODO.only)
         if (key === 'todo') todo(path, TODO.skip)
+        // tap has options that ubq does not have: bail, jobs, buffered.
+        if (fromTap && key && !/^(skip|only|todo|timeout)$/.test(key))
+          todo(path, `ubq has the options skip and timeout. Remove "${key}" from the options of this test.`)
       }
     used.add(name)
     if (text(callee) !== name) changes++
@@ -1635,6 +1677,11 @@ export const convertSource = (
     }
     // jest.Mocked<Service>, vi.Mock: a type of the old tool.
     if (node.type === 'TSQualifiedName' && roleOf(node.left as Node) === 'vi') todo(path, TODO.mockType)
+    // t.jobs = 64
+    if (node.type === 'AssignmentExpression') {
+      const left = node.left as Node
+      if (left.type === 'MemberExpression' && roleOf(left.object as Node) === 'tap') todo(path, TODO.tapSetting)
+    }
     if (!compiler && node.type === 'TSEnumDeclaration' && !node.declare) todo(path, TODO.enum)
     if (!compiler && node.type === 'TSParameterProperty') todo(path, TODO.parameterProperty)
     const meta = esm && META.get(nameOf(node) ?? '')
@@ -2305,7 +2352,7 @@ export const convertSource = (
     // A message is the argument after the last one of the rule.
     const use = method === 'fail' ? rule : withMessage(rule, count, args)
     if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)
-    if (!path.some(n => FUNCTION.has(n.type))) todo(path, TODO.rootAssert)
+    if (!path.some(n => FUNCTION.has(n.type))) rootAssert(path)
     return rewrite(node, use, args)
   }
 
@@ -2345,6 +2392,11 @@ export const convertSource = (
       if (method !== 'plan' && !ofTest) {
         todo(path, TODO.end)
         return []
+      }
+      // t.plan(0, 'not on Windows'): tap skips the file.
+      if (method === 'plan' && args.length > 1 && args[0]!.value === 0) {
+        todo(path, TODO.planSkip)
+        return undefined
       }
       // tap and tape: a test with a plan ends after that count of
       // assertions, also if its function ended before.
@@ -2450,11 +2502,28 @@ export const convertSource = (
       return undefined
     }
     const table = framework === 'ava' ? AVA : framework === 'tape' ? TAPE : TAP
+    // t.equal(a, b, 'message', { todo: 'reason' })
+    const extra = args.at(-1)
+    if (
+      extra?.type === 'ObjectExpression' &&
+      (extra.properties as Node[]).some(
+        p => /^(skip|todo)$/.test(String(nameOf(p.key as Node))) && (p.value as Node | undefined)?.value !== false,
+      )
+    )
+      todo(path, TODO.assertOption)
     const rule = table[method] && pick(table[method], args.length)
     if (!rule) {
-      todo(path, `ubq has no form of t.${method}. See: ubq guide convert.`)
+      todo(
+        path,
+        method === 'fixture'
+          ? 'ubq has no form of t.fixture. testdir() makes files and folders. For a symbolic link, call symlinkSync of node:fs after testdir().'
+          : `ubq has no form of t.${method}. See: ubq guide convert.`,
+      )
       return undefined
     }
+    // An Error instance as the expected error is not a form of ubq.
+    if (/^(throws|throw|rejects)$/.test(method) && /^(Identifier|NewExpression)$/.test(String(args[1]?.type)))
+      expectedError(args[1], path)
     // tap: t.throws(fn, 'message') has a message, and no expected error.
     const count = rule.match(/\$\d/g)?.length ?? 0
     let use = rule
@@ -2463,7 +2532,7 @@ export const convertSource = (
     } else if (!/^(fail|teardown|after|testdir)$/.test(method)) use = withMessage(use, count, args)
     if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)
     if (method === 'rejects' || method.startsWith('resolveMatch')) awaited(node, path)
-    if (!inTest && use.startsWith('assert')) todo(path, TODO.rootAssert)
+    if (!inTest && use.startsWith('assert')) rootAssert(path)
     return rewrite(node, use, args)
   }
 

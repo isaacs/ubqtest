@@ -20,6 +20,9 @@ npx ubq doctor           checks the setup, and prints one FIX line for each prob
 ```
 
 If `ubqtest` is not installed: `npm install --save-dev ubqtest`.
+Read the rules of the project for agents first (`AGENTS.md`,
+`CLAUDE.md`). If they do not permit a new dependency or a change
+of `package.json`, ask the user before you do it.
 Put `"scripts": { "test": "ubq" }` in `package.json`.
 `npx ubq --update` runs the tests and writes their snapshots.
 On Bun, the command is `bun node_modules/ubqtest/cli.js`.

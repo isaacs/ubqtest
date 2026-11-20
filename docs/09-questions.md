@@ -35,4 +35,48 @@ Q45 to Q48 came from `private/22-vitest-monorepo-feedback-0.0.19.md`
 
 Q49 and Q50 came from `21-whosonfirst.ai-feedback-0.0.19.md`.
 
-No question is open.
+Q51 and Q52 come from `22-glob-fable-feedback-0.0.19.md`. D119 has
+what is done.
+
+## Q51. A place for a warning of a test that passes
+
+The report has a test that compares two tools. A difference was a
+`todo` in tap: shown, and not a failure. In ubq the agent wrote
+`console.error` and an assertion that is always true. The output
+of a test that passes is not shown, so "a warning that only `ubq
+show` prints is a warning that nobody reads". The reporter does
+not ask for `todo`. The reporter asks for one line in the
+summary, such as `1 test wrote to stderr`, or a `note()`
+function.
+
+1. No change. A check that can fail is an assertion, and a check
+   that cannot fail is not a check.
+2. A `note(text)` function. The run prints each note of a test
+   that passes, as it prints each skip with its reason: `note
+   file > test: text`.
+3. One more part in the last line: `2 tests wrote to stderr`,
+   with `ubq show` for the text.
+
+The agent would do 1. A design goal of ubq is short output: a
+line that each run prints, for a thing that is not a failure,
+is the noise that ubq leaves out. A skip with a reason
+(`skip()`, D117) is the honest form if the test cannot give a
+result. 3 would also be wrong for the many programs that write
+progress to stderr.
+
+## Q52. A snapshot of a short array has columns
+
+A snapshot of an array of short strings has the layout of
+`util.inspect`, with more than one element on a line:
+`'x/x/a',   'x/x/x/a',`. A change of one element then changes a
+line with other elements, and the diff is hard to read.
+
+1. No change.
+2. One element on each line, for each array. Each stored
+   snapshot with such an array then fails until `ubq --update`
+   writes it again.
+
+The agent would do 2 before more projects have snapshots: the
+diff of a snapshot is what a person reads in a review. It is a
+change that breaks stored snapshots, so it is a decision for the
+user.

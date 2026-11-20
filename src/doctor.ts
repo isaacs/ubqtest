@@ -206,6 +206,18 @@ export const doctor = (out: (text: string) => void): number => {
     )
   }
 
+  // Test files of a different tool that `ubq` does not run: a tap
+  // file has no `.test.` in its name.
+  const old = code
+    .filter(file => !tests.includes(file) && !isBuild(file) && OLD_TOOL.test(readFileSync(join(root, file), 'utf8')))
+    .sort()
+  if (old.length) {
+    const folders = [...new Set(old.map(file => (file.includes('/') ? file.slice(0, file.indexOf('/')) : file)))]
+    fix(
+      counted`${old.length} file|files imports|import a different test tool, and "ubq" does not run it|them: ${old.slice(0, 5).join(', ')}${old.length > 5 ? `, and ${old.length - 5} more` : ''}. Read "ubq guide convert", then: ubq convert ${folders.join(' ')}`,
+    )
+  }
+
   if (transform)
     try {
       transformer(root, transform)

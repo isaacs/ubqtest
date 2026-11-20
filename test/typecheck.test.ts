@@ -438,3 +438,37 @@ test('with the skipTypecheck key, a run does not check the types', () => {
   assert.equal(p.ubq('wrong.test.ts').last, 'pass: 0 failed, 1 passed')
   assert.equal(p.ubq('wrong.test.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')
 })
+
+test('a type error in a folder that is a different project is not an error of this project', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  for (const name of ['typescript', '@typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  // No `include`: the checker reads each file below the config.
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        target: 'esnext',
+        strict: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+        types: ['node'],
+      },
+      exclude: ['*.ts', 'src'],
+    }),
+  )
+  mkdirSync(join(p.dir, 'other/deep'), { recursive: true })
+  writeFileSync(join(p.dir, 'other/package.json'), '{}')
+  writeFileSync(join(p.dir, 'other/deep/bad.ts'), "export const n: number = 'x'\n")
+  mkdirSync(join(p.dir, 'own'))
+  writeFileSync(
+    join(p.dir, 'own/fine.test.ts'),
+    "import { assert, test } from 'ubqtest'\ntest('fine', () => assert(true))\n",
+  )
+  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  // With no package.json there, the folder is of this project.
+  rmSync(join(p.dir, 'other/package.json'))
+  assert.equal(p.ubq().last, 'fail: 0 failed, 1 passed, 1 type error')
+})

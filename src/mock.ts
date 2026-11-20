@@ -5,6 +5,8 @@ import * as nodeModule from 'node:module'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SOURCE } from './counters.ts'
+import { cleanup } from './fixtures.ts'
+import { current } from './state.ts'
 import { projectRoot, rel } from './project.ts'
 import { callSite } from './stack.ts'
 import { notInWorkerd } from './workerd.ts'
@@ -51,6 +53,8 @@ let capture: { url?: string } | undefined
 let pending: string | undefined
 /** Mock number, then URL of the dependency, then the exports that replace it. */
 const table = new Map<string, Map<string, Record<string, unknown>>>()
+/** Mock number, then the mocked dependencies that an import of the instance got. */
+const used = new Map<string, Set<string>>()
 const KEY = Symbol.for('ubq.mocks')
 let count = 0
 let registered = false
@@ -129,6 +133,7 @@ const mockRequire = (id: string, real: Require): Require => {
     // A module of the runtime has a name, and not a path.
     const url = isAbsolute(file) ? pathToFileURL(file).href : file.startsWith('node:') ? file : `node:${file}`
     const mock = mocks.get(url)
+    if (mock) used.get(id)?.add(url)
     // `import x from` reads `default` only from a module with this mark.
     if (mock) return 'default' in mock ? { __esModule: true, ...mock } : mock
     return isAbsolute(file) && CODE.test(file) && ownCode(url) ? instance(file) : real(name)
@@ -182,7 +187,10 @@ const registerBun = (): void => {
               return all
             }
             // A path of Windows has `\\`, which starts an escape in a string.
-            if (table.get(id)?.has(dep)) return `${head}${quote}ubqmock:${id}:${dep.replaceAll('\\', '\\\\')}${quote}`
+            if (table.get(id)?.has(dep)) {
+              used.get(id)?.add(dep)
+              return `${head}${quote}ubqmock:${id}:${dep.replaceAll('\\', '\\\\')}${quote}`
+            }
             // Project code gets a new instance. Packages and builtins do not.
             return CODE.test(dep) && !/[\\/]node_modules[\\/]/.test(dep)
               ? `${head}${quote}${specifier}?mock=${id}${quote}`
@@ -232,7 +240,10 @@ const register = (): void => {
       const parent = context.parentURL
       const id = parent?.includes('?mock=') ? new URL(parent).searchParams.get('mock') : null
       if (!id) return result
-      if (table.get(id)?.has(result.url)) return { url: `${MOCK}${id}:${result.url}`, shortCircuit: true }
+      if (table.get(id)?.has(result.url)) {
+        used.get(id)?.add(result.url)
+        return { url: `${MOCK}${id}:${result.url}`, shortCircuit: true }
+      }
       return ownCode(result.url) ? { ...result, url: `${result.url}?mock=${id}` } : result
     },
     load(url, context, next) {
@@ -283,6 +294,10 @@ const notFound = (name: string, path: string): Error => {
   return error
 }
 
+/** The name of a mocked dependency, as a person wrote it: a module of the runtime, or a path of the project. */
+const nameOfMock = (url: string): string =>
+  url.startsWith('file:') ? rel(fileURLToPath(url)) : isAbsolute(url) ? rel(url) : url
+
 const SHAPE = "must be an arrow function of the form () => import('...')"
 
 /**
@@ -325,6 +340,23 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
     if (!url) throw new TypeError(`a mock loader ${SHAPE}`)
     deps.set(url, exports)
   }
+  // A mock that no import of the instance got is a mistake, most
+  // often a dependency that only a package imports. The check is
+  // when the test ends: an import can be in a function.
+  const wanted = [...deps.keys()]
+  const got = new Set<string>()
+  used.set(id, got)
+  if (wanted.length)
+    cleanup(() => {
+      const unused = wanted.filter(url => !got.has(url)).map(nameOfMock)
+      if (!unused.length) return
+      const hint = `the mock of ${unused.join(', ')} replaced no import. No project module of the new instance imports ${unused.length === 1 ? 'it' : 'them'}. A mock does not go into a package of node_modules: if a package imports the module, make an instance of the package with the mock, and give that instance as the mock of the package. See "A dependency of a dependency" in ubq guide.`
+      // The test can have a failure from the code that ran with no
+      // mock, such as a time limit. That failure gets the cause.
+      const failure = current.getStore()?.failure
+      if (failure) failure.message += `\nhint: ${hint}`
+      else throw new Error(hint)
+    })
   pending = id
   let loaded: Promise<M>
   try {

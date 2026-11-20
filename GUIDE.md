@@ -426,6 +426,23 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
     assert.deepEqual(charge.calls[0]?.args, ['card-1', 700])
   })
   ```
+- **A dependency of a dependency.** A mock replaces a module in
+  the project modules of the new instance. It does not go into a
+  package of `node_modules`. If a package imports the module that
+  you want to replace, make an instance of the package with the
+  mock, and give that instance as the mock of the package:
+
+  ```ts
+  const reader = await mockImport(() => import('reader'), [[() => import('node:fs'), fs]])
+  const { find } = await mockImport(() => import('../src/find.ts'), [[() => import('reader'), reader]])
+  ```
+
+  On Node, `'fs'` and `'node:fs'` are one module: one mock is
+  enough. `'node:fs/promises'` is a different module.
+- A mock that no import of the new instance got is a failure of
+  the test, when the test ends: "the mock of node:fs replaced no
+  import". If the test has a different failure, that failure has
+  the text as a `hint:` line.
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
   saved text fails. Only `ubq --update [file or test id]` writes
   them. Read the new text before you commit it.

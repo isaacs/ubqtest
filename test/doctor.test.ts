@@ -209,6 +209,13 @@ test('skill writes to the skill folders of the project and to the folder of the 
     'wrote .gemini/skills/use-ubq/SKILL.md',
   ])
   assert(!existsSync(join(p.dir, '.claude')))
+  // Claude Code also sets AI_AGENT, which more than one agent sets:
+  // that name alone is the folder of agents in general.
+  for (const dir of ['.agents', '.cursor', '.gemini']) rmSync(join(p.dir, dir), { recursive: true })
+  assert.deepEqual(skill({ CLAUDECODE: '1', AI_AGENT: 'claude-code' })[0], 'wrote .claude/skills/use-ubq/SKILL.md')
+  assert(!existsSync(join(p.dir, '.agents')))
+  rmSync(join(p.dir, '.claude'), { recursive: true })
+  assert.deepEqual(skill({ AI_AGENT: 'other' }), ['wrote .agents/skills/use-ubq/SKILL.md'])
   // A named agent or folder is the only place.
   assert.deepEqual(skill({ GEMINI_CLI: '1' }, 'copilot', '.mine/skills'), [
     'wrote .github/skills/use-ubq/SKILL.md',
@@ -446,4 +453,33 @@ test('doctor: the tsconfig.json that has the test files', () => {
   // With no TypeScript test file, the config of the project.
   p.configure({ include: ['test/c.test.js'] })
   assert.deepEqual(lines(), ['ok   tsconfig.json'])
+})
+
+test('doctor names the test files of a different tool that ubq does not run', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'test/deep'), { recursive: true })
+  const tap = "import t from 'tap'\nt.test('a', async t => t.pass())\n"
+  for (const file of ['test/a.ts', 'test/deep/b.ts', 'c.spec.ts']) writeFileSync(join(p.dir, file), tap)
+  // The config of a tool is not a test file.
+  writeFileSync(
+    join(p.dir, 'vitest.config.ts'),
+    "import { defineConfig } from 'vitest/config'\nexport default defineConfig({})\n",
+  )
+  const lines = spawnSync('node', [fileURLToPath(new URL('../src/cli.ts', import.meta.url)), 'doctor'], {
+    cwd: p.dir,
+    encoding: 'utf8',
+  }).stdout.split('\n')
+  assert.equal(
+    lines.find(line => line.includes('a different test tool')),
+    'FIX  3 files import a different test tool, and "ubq" does not run them: c.spec.ts, test/a.ts, test/deep/b.ts. Read "ubq guide convert", then: ubq convert c.spec.ts test',
+  )
+  rmSync(join(p.dir, 'test'), { recursive: true })
+  assert.equal(
+    p
+      .ubq('doctor')
+      .out.split('\n')
+      .find(line => line.includes('a different test tool')),
+    'FIX  1 file imports a different test tool, and "ubq" does not run it: c.spec.ts. Read "ubq guide convert", then: ubq convert c.spec.ts',
+  )
 })

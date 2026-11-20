@@ -3006,3 +3006,109 @@ test('a', t => {
     ['This call is not an assertion now, so'],
   )
 })
+
+test('tap: a skip of the file, options of an assertion and of a test, a setting, a type, and code of a parent test', () => {
+  const r = convert(
+    `import t from 'tap'
+import type { Test } from 'tap'
+import type { Other } from 'tap'
+import { glob } from '../src/index.js'
+
+if (process.platform === 'win32') {
+  t.plan(0, 'skip on windows')
+  process.exit(0)
+}
+t.jobs = 64
+const check = (t: Test, file: string) => {
+  t.equal(file, 'a')
+}
+t.test('a parent with work', async t => {
+  process.chdir('/')
+  for await (const p of list) {
+    t.test(p, async t => {
+      t.same(await glob(p), [], 'msg', { todo: 'broken' })
+      t.ok(p, { skip: false })
+    })
+  }
+  for (const p of ['x']) t.test(p, { bail: true, timeout: 100 }, async t => t.pass('n/a', { skip: 'not here' }))
+  t.end()
+})
+t.test('a parent with a loop of subtests', async t => {
+  const names = ['x']
+  for (const p of names) {
+    t.test(p, async t => {
+      const er = new Error('x')
+      await t.rejects(glob(p), er)
+      t.fixture('symlink', 'target')
+    })
+  }
+})
+t.equal(1, 1)
+t.equal(2, 2)
+`,
+    'a.ts',
+  )
+  const code = r!.code.filter(line => !line.trim().startsWith('//'))
+  assert.deepEqual(code, [
+    "import { assert, describe, test } from 'ubqtest'",
+    // A type that the file uses stays, with a TODO.
+    "import type { Test } from 'tap'",
+    "import { glob } from '../src/index.js'",
+    '',
+    "if (process.platform === 'win32') {",
+    "  t.plan(0, 'skip on windows')",
+    '  process.exit(0)',
+    '}',
+    't.jobs = 64',
+    'const check = (t: Test, file: string) => {',
+    "  assert.equal(file, 'a')",
+    '}',
+    // With an await of its own, the function stays async until the TODO is done.
+    "describe('a parent with work', async () => {",
+    "  process.chdir('/')",
+    '  for await (const p of list) {',
+    '    test(p, async () => {',
+    "      assert.deepEqual(await glob(p), [], 'msg')",
+    '      assert(p)',
+    '    })',
+    '  }',
+    "  for (const p of ['x']) test(p, { bail: true, timeout: 100 }, async () => assert(true, 'n/a'))",
+    '})',
+    // A loop of subtests, and a declaration: no TODO.
+    "describe('a parent with a loop of subtests', () => {",
+    "  const names = ['x']",
+    '  for (const p of names) {',
+    '    test(p, async () => {',
+    "      const er = new Error('x')",
+    '      await assert.rejects(glob(p), { message: er.message })',
+    "      t.fixture('symlink', 'target')",
+    '    })',
+    '  }',
+    '})',
+    'assert.equal(1, 1)',
+    'assert.equal(2, 2)',
+  ])
+  assert.deepEqual(
+    r!.todos.map(todo => todo.text.replace(/[.:] [^]*$/, '')),
+    [
+      'This type of tap is for a test object, and ubq has none',
+      't.plan(0, reason) of tap skips the file',
+      'ubq has no settings on a test object',
+      'ubq has no test in a test',
+      'tap does not count this assertion as a failure',
+      'ubq has the options skip and timeout',
+      'tap does not count this assertion as a failure',
+      'ubq has no form of t.fixture',
+      // One for the file.
+      'This assertion is in no test',
+    ],
+  )
+  // Code with no await in a parent that has only subtests: it runs when the file loads now.
+  const effects = convert(
+    "import t from 'tap'\nt.test('p', async t => {\n  process.chdir('/')\n  t.test('c', async t => t.pass())\n})\n",
+  )
+  assert.deepEqual(
+    effects!.todos.map(todo => todo.text.slice(0, 66)),
+    ['This code was in a test of tap, and ran after the tests before it.'],
+  )
+})
