@@ -1,8 +1,9 @@
 // `ubq convert`: test files of a different test tool, as ubq tests.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { convertSource, todoComment } from '../src/convert.ts'
 import { project } from './setup.ts'
@@ -18,7 +19,7 @@ const { parse, children }: typeof import('../src/instrument.ts') = process.versi
 
 /** The TODO text for a matcher of expect. */
 const MATCHER =
-  "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object."
+  "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern])))."
 
 /** The lines of a TODO comment. */
 const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
@@ -310,7 +311,7 @@ describe('group', () => {
     '    assert(!(Math.abs(staff - 5) < 0.005))',
     "    assert(!(Reflect.has(Object(o), 'k')))",
     ...todo(
-      "toHaveProperty('a.b') is a path of keys: assert('b' in x.a). For one key with a dot in its name, assert('a.b' in x). Use assert(!(...)) for not.",
+      "toHaveProperty('a.b') passes for one key with the name 'a.b', and for the key b of the object at the key a. Look at the value to see which one it has. For one key with a dot in its name: assert('a.b' in x). For a path of keys: assert('b' in x.a). Use assert(!(...)) for not.",
       '    ',
     ),
     "    expect(o).toHaveProperty('a.b')",
@@ -939,12 +940,12 @@ expect(fn).toHaveBeenCalledWith('a')
     '  await assert.rejects(p, { message: /x/ })',
     ...rejects,
     '  await expect(p).rejects.not.toBeInstanceOf(TypeError)',
-    // Parentheses end an optional chain.
-    '  assert.equal(event.exception?.values.length, 2)',
-    '  assert(event.exception?.values.some(item => isDeepEqual(item, { a: 1 })))',
-    // A RegExp tests a string only in a pattern.
-    ...todo(MATCHER, '  '),
-    "  assert.deepEqual(fn.calls.at(-1)?.args, [expect.stringContaining('x')])",
+    // Parentheses end an optional chain. The value of the chain can
+    // be undefined, so the new property has `?.` too.
+    '  assert.equal(event.exception?.values?.length, 2)',
+    '  assert(event.exception?.values?.some(item => isDeepEqual(item, { a: 1 })))',
+    // With a matcher, the arguments of the call are a pattern.
+    '  assert.match(fn.calls.at(-1)?.args, [/x/])',
     '  assert.throws(() => f(), /x/)',
     // An object with a cast is an object, not a block.
     '  const made = spy(() => ({ a: 1 } as T))',
@@ -993,6 +994,61 @@ it('a', async () => {
   )
   assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 14 changes, 0 TODO')
   assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+})
+
+test('vitest: the converted setup call, pattern checks of a spy, and rows of each pass, with their types', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'old.ts'),
+    `import { beforeEach, describe, expect, it, vi } from 'vitest'
+const box: { n?: number; list?: number[] } = {}
+describe('g', () => {
+  beforeEach(() => {
+    box.list = [1]
+  })
+  it('a', () => {
+    (box as { n?: number }).n = 1
+    const fn = vi.fn()
+    fn({ id: 1, more: 2 }, 'c')
+    expect(fn).toHaveBeenCalledWith(expect.objectContaining({ id: expect.any(Number) }), 'c')
+    expect(fn).not.toHaveBeenCalledWith(expect.any(String))
+    expect(fn).toHaveBeenLastCalledWith(expect.anything(), expect.stringContaining('c'))
+    expect(box).toEqual(expect.objectContaining({ n: 1 }))
+    expect(box).not.toBeInstanceOf(Map)
+    expect(box?.list).toHaveLength(1)
+  })
+  it.each([
+    ['a', { n: 1 }, 1],
+    ['b', { n: 2 }, 2],
+  ])('each %s', (name, value, n) => {
+    expect(value.n).toBe(n)
+    expect(name.length).toBe(1)
+  })
+})
+`,
+  )
+  assert.match(p.ubq('convert', 'old.ts').out.split('\n')[0], /^converted old\.ts \(vitest\): \d+ changes, 0 TODO$/)
+  // With the type check: each name of the loop has the type of its place.
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        target: 'esnext',
+        strict: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+        types: ['node'],
+      },
+      include: ['old.ts'],
+    }),
+  )
+  const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
+  for (const name of ['typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  const run = p.ubq('old.ts')
+  assert.equal(run.last, 'pass: 0 failed, 3 passed', run.out)
 })
 
 test('vitest: other names of matchers, the nth call, exactly one call, typeof, and the hints', () => {
@@ -2851,6 +2907,8 @@ describe('service', () => {
     // assert.match, which permits keys that the pattern does not have. For
     // arrayContaining, assert on each element: assert.contains(list, x),
     // or assert(list.some(item => isDeepEqual(item, x))) for an object.
+    // For a call of a spy with arguments of a shape:
+    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).
     expect(list).toContainEqual(expect.stringContaining('warn'));
     if (!svc) assert.fail('no service');
   });
@@ -3111,4 +3169,234 @@ t.equal(2, 2)
     effects!.todos.map(todo => todo.text.slice(0, 66)),
     ['This code was in a test of tap, and ran after the tests before it.'],
   )
+})
+
+test('vitest: new statements end before code that can join them, a pattern for a check with a matcher, and forms with a TODO', () => {
+  const r = convert(`// @vitest-environment node
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
+const cjs = { require }
+export const maybe = (old: boolean) => (old ? it.skip : it)
+let state: number
+describe('g', () => {
+  beforeEach(() => {
+    reset()
+  })
+  it('a', () => {
+    (globalThis as any).ids = 1
+    expect(x).not.toBeInstanceOf(Foo)
+    const m = fn as Mock
+    expect(listener.mock.instances[0]).toBe(1)
+    expect(s).toHaveBeenCalledWith(expect.objectContaining({ a: 1, b: expect.any(Number) }), 'c')
+    expect(s).not.toHaveBeenCalledWith(expect.anything())
+    expect(s).toHaveBeenCalledWith({ a: 1 }, expect.anything())
+    expect(s).toHaveBeenCalledWith(expect.objectContaining({ a: { b: 1 } }))
+    expect(s).toHaveBeenNthCalledWith(2, expect.stringMatching(/x/))
+    expect(s).toHaveBeenCalledExactlyOnceWith(expect.any(Foo))
+    expect(x).toEqual(expect.objectContaining({ a: [1, expect.anything()] }))
+    expect(x).not.toEqual(expect.any(String))
+    expect(x).toMatchObject({ a: expect.objectContaining({ b: undefined }) })
+    expect(s).toHaveBeenCalledWith(-1, expect.any(Number))
+    expect(s).toHaveBeenCalledWith(expect.any(), 1)
+    expect(s).toHaveBeenCalledWith([, 1], expect.anything())
+    expect(s.mock.invocationCallOrder[0]).toBe(1)
+    vi.advanceTimersByTime(0)
+  })
+  describe('h', () => {
+    beforeEach(() => {
+      state = 1
+    })
+    it('b', () => {})
+  })
+  it.each([
+    ['a', { n: 1 }, undefined],
+    [undefined, { n: 2 }, 3],
+  ])('each %#', (a, b, c) => {
+    expect(f(a, b)).toBe(c)
+  })
+  it.each([
+    ['a', undefined],
+    ['b', 1],
+  ])('plain %s', (a, b) => {
+    expect(f(a)).toBe(b)
+  })
+})
+describe('k', () => {
+  beforeEach(() => {
+    state = 2
+  })
+  describe('l', () => {
+    beforeEach(() => {
+      reset()
+    })
+    it('c', () => {
+      [1].forEach(f)
+    })
+    it('d', () => {
+      // a comment
+      \`x\`.length
+    })
+    it('e', () => {
+      f()
+    })
+  })
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, describe, isDeepEqual, isMatch, test } from 'ubqtest'",
+    '// TODO(ubq): An ES module has no require. Use an import statement, await',
+    "// import('name'), or createRequire(import.meta.url) of node:module.",
+    'const cjs = { require }',
+    '// TODO(ubq): ubq has no test.skip and no test.only. For a function that',
+    "// skips a test: (name: string, fn: () => void) => test(name, { skip: 'the",
+    "// reason' }, fn).",
+    'export const maybe = (old: boolean) => (old ? test.skip : test)',
+    'let state: number',
+    "describe('g', () => {",
+    '  const setup = () => {',
+    '    reset()',
+    '  }',
+    "  test('a', () => {",
+    '    setup();',
+    '    (globalThis as any).ids = 1',
+    '    assert.equal(x instanceof Foo, false)',
+    '    // TODO(ubq): ubq has no types of jest or vitest. A spy has the type',
+    "    // Spy<F> of 'ubqtest': import { type Spy } from 'ubqtest'. For an",
+    '    // object of spies, give each key its type: { load:',
+    "    // Spy<Service['load']> }. A function that returns the object gives the",
+    '    // types with no annotation: const make = () => ({ load: spy(async ()',
+    '    // => user) }).',
+    '    const m = fn as Mock',
+    '    // TODO(ubq): A spy of ubq records { args, result, error } for each',
+    '    // call, and not the value of this. Give the spy an implementation that',
+    '    // keeps it: const seen: unknown[] = []; const s = spy(function (this:',
+    '    // unknown) { seen.push(this) }). Then assert on seen.',
+    '    assert.equal(listener.mock.instances[0], 1)',
+    "    assert(s.calls.some(call => isMatch(call.args, [{ a: 1, b: (v: unknown) => typeof v === 'number' }, 'c'])))",
+    '    assert(!s.calls.some(call => isMatch(call.args, [(v: unknown) => v != null])))',
+    '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '    // the work of objectContaining, and a RegExp does the work of',
+    '    // stringContaining and stringMatching. An object pattern is partial at',
+    '    // each depth, and an array pattern must have the same length. A',
+    '    // function does the work of any and anything: { id: (v: unknown) =>',
+    "    // typeof v === 'number' }, v instanceof URL, v != null.",
+    '    // assert.deepEqual compares a function as a value: change it to',
+    '    // assert.match, which permits keys that the pattern does not have. For',
+    '    // arrayContaining, assert on each element: assert.contains(list, x),',
+    '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    '    // For a call of a spy with arguments of a shape:',
+    '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    assert(s.calls.some(call => isDeepEqual(call.args, [{ a: 1 }, expect.anything()])))',
+    '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '    // the work of objectContaining, and a RegExp does the work of',
+    '    // stringContaining and stringMatching. An object pattern is partial at',
+    '    // each depth, and an array pattern must have the same length. A',
+    '    // function does the work of any and anything: { id: (v: unknown) =>',
+    "    // typeof v === 'number' }, v instanceof URL, v != null.",
+    '    // assert.deepEqual compares a function as a value: change it to',
+    '    // assert.match, which permits keys that the pattern does not have. For',
+    '    // arrayContaining, assert on each element: assert.contains(list, x),',
+    '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    '    // For a call of a spy with arguments of a shape:',
+    '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    assert(s.calls.some(call => isDeepEqual(call.args, [expect.objectContaining({ a: { b: 1 } })])))',
+    '    assert.match(s.calls[1]?.args, [/x/])',
+    '    assert.equal(s.calls.length, 1)',
+    '    assert.match(s.calls[0]?.args, [(v: unknown) => v instanceof Foo])',
+    '    assert.match(x, { a: [1, (v: unknown) => v != null] })',
+    "    assert(!isMatch(x, (v: unknown) => typeof v === 'string'))",
+    '    assert.match(x, { a: { b: undefined } })',
+    "    assert(s.calls.some(call => isMatch(call.args, [-1, (v: unknown) => typeof v === 'number'])))",
+    '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '    // the work of objectContaining, and a RegExp does the work of',
+    '    // stringContaining and stringMatching. An object pattern is partial at',
+    '    // each depth, and an array pattern must have the same length. A',
+    '    // function does the work of any and anything: { id: (v: unknown) =>',
+    "    // typeof v === 'number' }, v instanceof URL, v != null.",
+    '    // assert.deepEqual compares a function as a value: change it to',
+    '    // assert.match, which permits keys that the pattern does not have. For',
+    '    // arrayContaining, assert on each element: assert.contains(list, x),',
+    '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    '    // For a call of a spy with arguments of a shape:',
+    '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    assert(s.calls.some(call => isDeepEqual(call.args, [expect.any(), 1])))',
+    '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '    // the work of objectContaining, and a RegExp does the work of',
+    '    // stringContaining and stringMatching. An object pattern is partial at',
+    '    // each depth, and an array pattern must have the same length. A',
+    '    // function does the work of any and anything: { id: (v: unknown) =>',
+    "    // typeof v === 'number' }, v instanceof URL, v != null.",
+    '    // assert.deepEqual compares a function as a value: change it to',
+    '    // assert.match, which permits keys that the pattern does not have. For',
+    '    // arrayContaining, assert on each element: assert.contains(list, x),',
+    '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
+    '    // For a call of a spy with arguments of a shape:',
+    '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    assert(s.calls.some(call => isDeepEqual(call.args, [[, 1], expect.anything()])))',
+    '    // TODO(ubq): A spy gets its implementation as an argument: spy(impl),',
+    '    // spyOn(object, key, impl). For a result that changes, the',
+    '    // implementation reads a variable: let result = 1; const s = spy(() =>',
+    '    // result). For a different result in each call: spy.results(a, b), or',
+    '    // for an async function spy.results(Promise.resolve(a),',
+    '    // Promise.reject(error)). A call after the last result throws. A call',
+    '    // is spy.calls[i]: { args, result, error }.',
+    '    assert.equal(s.mock.invocationCallOrder[0], 1)',
+    '    // TODO(ubq): Use await clock.tick(ms), with the clock of fakeClock().',
+    '    // A timer of 0 ms runs after 1 ms, as in Node: for a time of 0, use',
+    '    // clock.tick(1).',
+    '    vi.advanceTimersByTime(0)',
+    '  })',
+    "  describe('h', () => {",
+    '    // TODO(ubq): ubq has no hooks. Make a setup function and call it in',
+    '    // each test. Use cleanup() for the work after a test. Each test of',
+    '    // this group calls setup() at its start, and that work ran before this',
+    '    // hook. Call the new function after setup().',
+    '    beforeEach(() => {',
+    '      state = 1',
+    '    })',
+    "    test('b', () => { setup() })",
+    '  })',
+    '  for (const [i, [a, b, c]] of ([',
+    "    ['a', { n: 1 }, undefined],",
+    '    [undefined, { n: 2 }, 3],',
+    '  ] satisfies [unknown, unknown, unknown][]).entries()) test(`each ${i}`, () => {',
+    '    setup()',
+    '    assert.equal(f(a, b), c)',
+    '  })',
+    '  for (const [a, b] of [',
+    "    ['a', undefined],",
+    "    ['b', 1],",
+    '  ] as const) test(`plain ${a}`, () => {',
+    '    setup()',
+    '    assert.equal(f(a), b)',
+    '  })',
+    '})',
+    "describe('k', () => {",
+    '  // TODO(ubq): ubq has no hooks. Make a setup function and call it in each',
+    '  // test. Use cleanup() for the work after a test. The function setup2 of',
+    '  // a group in this scope does not do the work of this hook. Call the new',
+    '  // function at the start of setup2.',
+    '  beforeEach(() => {',
+    '    state = 2',
+    '  })',
+    "  describe('l', () => {",
+    '    const setup2 = () => {',
+    '      reset()',
+    '    }',
+    "    test('c', () => {",
+    '      setup2();',
+    '      [1].forEach(f)',
+    '    })',
+    "    test('d', () => {",
+    '      setup2();',
+    '      // a comment',
+    '      `x`.length',
+    '    })',
+    "    test('e', () => {",
+    '      setup2()',
+    '      f()',
+    '    })',
+    '  })',
+    '})',
+  ])
 })

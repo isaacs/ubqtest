@@ -170,6 +170,9 @@ const NOT_MATCHERS: Record<string, Rule> = {
   toBeFalsy: 'assert($0)',
   toHaveBeenCalled: 'assert.equal(<$0>.calls.length, 0)',
   toBeTypeOf: 'assert.notEqual(typeof <$0>, $1)',
+  // Not `assert(!(a instanceof B))`: for a value of the type B, it
+  // narrows the value to `never`.
+  toBeInstanceOf: 'assert.equal(<$0> instanceof $1, false)',
   toBeInTheDocument: { 1: 'assert(!<$0>?.isConnected)' },
   toHaveAttribute: { 2: 'assert(!<$0>.hasAttribute($1))', 3: 'assert.notEqual(<$0>.getAttribute($1), $2)' },
   toBeChecked: { 1: "assert(!<$0>.matches(':checked'))" },
@@ -265,7 +268,7 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object.",
+    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))).",
   assertions:
     'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
   throwsText:
@@ -340,7 +343,7 @@ const TODO = {
     'Call the function, then assert on its result. For a function with no result, assert on what it changed, or on the calls of a spy.',
   inline:
     'ubq has no inline snapshot. For a string, compare it with the text: assert.equal(value, `text`). For another value: assert.snapshot(value), then ubq --update <file>, and check that the new snapshot has the old text.',
-  path: "toHaveProperty('a.b') is a path of keys: assert('b' in x.a). For one key with a dot in its name, assert('a.b' in x). Use assert(!(...)) for not.",
+  path: "toHaveProperty('a.b') passes for one key with the name 'a.b', and for the key b of the object at the key a. Look at the value to see which one it has. For one key with a dot in its name: assert('a.b' in x). For a path of keys: assert('b' in x.a). Use assert(!(...)) for not.",
   only: 'ubq has no .only. Run one test with: ubq <file>:<line>.',
   resolves: 'A test needs an assertion. Await the promise and assert on its value.',
   rejects:
@@ -350,6 +353,10 @@ const TODO = {
   enum: 'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
   parameterProperty:
     'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
+  spyThis:
+    'A spy of ubq records { args, result, error } for each call, and not the value of this. Give the spy an implementation that keeps it: const seen: unknown[] = []; const s = spy(function (this: unknown) { seen.push(this) }). Then assert on seen.',
+  testValue:
+    "ubq has no test.skip and no test.only. For a function that skips a test: (name: string, fn: () => void) => test(name, { skip: 'the reason' }, fn).",
   dom: 'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
 } as const
 
@@ -368,6 +375,9 @@ const commonjs = (file: string): boolean => {
   return compiler?.format(resolve(file)) === 'commonjs'
 }
 
+const TICK =
+  'Use await clock.tick(ms), with the clock of fakeClock(). A timer of 0 ms runs after 1 ms, as in Node: for a time of 0, use clock.tick(1).'
+
 /** The TODO text for a function of `vi` or `jest`. */
 const VI: Record<string, string> = {
   clearAllMocks: TODO.spyClear,
@@ -376,8 +386,8 @@ const VI: Record<string, string> = {
     'Use fakeClock: const clock = fakeClock(). It replaces the timers and Date until the test ends. Make it in the test that uses it: if this is in a hook, make the clock in a setup function that each test calls.',
   setSystemTime:
     'Use clock.set(time), with the clock of fakeClock(). It sets the time of Date and runs no timer. Or give the time when you make the clock: fakeClock({ now: time }).',
-  advanceTimersByTime: 'Use await clock.tick(ms), with the clock of fakeClock().',
-  advanceTimersByTimeAsync: 'Use await clock.tick(ms), with the clock of fakeClock().',
+  advanceTimersByTime: TICK,
+  advanceTimersByTimeAsync: TICK,
   runAllTimers: 'Use await clock.runAll(), with the clock of fakeClock().',
   runAllTimersAsync: 'Use await clock.runAll(), with the clock of fakeClock().',
   runOnlyPendingTimers: 'Use await clock.runAll(), with the clock of fakeClock().',
@@ -513,7 +523,13 @@ export const convertSource = (
     else if (imported === 'expect') roles.set(local, 'expect')
     else if (imported === 'vi' || imported === 'jest') roles.set(local, 'vi')
     else if (imported === 'mock') roles.set(local, 'mock')
+    else if (/^(vitest|@jest\/globals|bun:test)$/.test(module) && imported.startsWith('Mock')) toolTypes.add(local)
+    if (roles.has(local)) importedRoles.add(local)
   }
+  /** Types of the old test tool that the file imports: `Mock`, `MockInstance`. */
+  const toolTypes = new Set<string>()
+  /** The names with a role that the file imports. Not a global of jest. */
+  const importedRoles = new Set<string>()
   /** Names of `@playwright/test` that the file keeps, from `playwright-core`. */
   const libraryTypes: string[] = []
   const libraryValues: string[] = []
@@ -609,7 +625,7 @@ export const convertSource = (
           one => source.split(new RegExp(`\\b${(one.local as { name: string }).name}\\b`)).length > 2,
         )
       ) {
-        todos.set(node.start, new Set([TODO.tapType]))
+        todos.set(node.start, new Set([/^(tap|ava|tape)$/.test(module) ? TODO.tapType : TODO.mockType]))
         continue
       }
       removed.push(node)
@@ -734,7 +750,7 @@ export const convertSource = (
     pieces[pieces.length - 1] += rule.slice(last)
     changes++
     // ubq: not measured: each rule names a function of ubqtest
-    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual)\b/g) ?? [])
+    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual|isMatch)\b/g) ?? [])
       used.add(name)
     if (!parts.length) {
       replace(node.start, node.end, pieces[0]!)
@@ -1039,15 +1055,28 @@ export const convertSource = (
     // place of each value, as the table of jest and vitest does.
     // If not, each name of the loop has the type of each value.
     const plain = (value: Node | null): boolean =>
-      value?.type === 'Literal' || (value?.type === 'UnaryExpression' && (value.argument as Node).type === 'Literal')
-    const tuples =
-      mode === 'array' &&
-      /\.[cm]?tsx?$/.test(file) &&
-      rows.every(row => row!.type === 'ArrayExpression' && (row!.elements as (Node | null)[]).every(plain))
+      value?.type === 'Literal' ||
+      (value?.type === 'UnaryExpression' && (value.argument as Node).type === 'Literal') ||
+      nameOf(value as Node | undefined) === 'undefined'
+    const typescript = mode === 'array' && /\.[cm]?tsx?$/.test(file)
+    const tuples = typescript && rows.every(row => (row!.elements as (Node | null)[]).every(plain))
+    // Rows with other values: `satisfies` makes each row a tuple, so
+    // each name of the loop has the type of its place.
+    const width = (rows[0]!.elements as (Node | null)[] | undefined)?.length
+    const same =
+      typescript &&
+      width! > 1 &&
+      rows.every(
+        row =>
+          (row!.elements as (Node | null)[]).length === width &&
+          (row!.elements as (Node | null)[]).every(value => value && value.type !== 'SpreadElement'),
+      )
     const cast = !typed.length
       ? tuples
         ? ' as const'
-        : ''
+        : same
+          ? ` satisfies [${Array.from({ length: width! }, () => 'unknown').join(', ')}][]`
+          : ''
       : ` as ${
           mode === 'array'
             ? `[${params.map(p => typeText(p) + (optional(p) ? '?' : '')).join(', ')}]`
@@ -1194,6 +1223,8 @@ export const convertSource = (
   }
   /** The calls of the hooks that planSetups changed. */
   const setups = new Set<Node>()
+  /** More text for the TODO of a hook that planSetups did not change. */
+  const hookNotes = new Map<Node, string[]>()
   /**
    * Makes a setup function from the `beforeEach` and `afterEach`
    * hooks of a scope, and calls it in each test of the scope (D90).
@@ -1281,7 +1312,21 @@ export const convertSource = (
     }
     const inside = (body: Node, around: Node): string =>
       (body.body as Node[]).length ? indentAt((body.body as Node[])[0]!.start) : `${indentAt(around.start)}  `
-    const plan = (scope: Scope, parent: { name: string; async: boolean } | undefined): void => {
+    /** `;` if the statements of the file end with one. */
+    const semi = /;[ \t]*$/m.test(source) ? ';' : ''
+    /**
+     * The end of a new statement that the code at `at` comes after.
+     * With no `;`, code that starts with `(` or `[` joins the
+     * statement before it: `setup()` then `(a as B).c = 1` is a call
+     * of the result of `setup()`.
+     */
+    const endBefore = (at: number): string =>
+      semi || (/^(?:\s|\/\/[^\n]*|\/\*[^]*?\*\/)*[([`+\-/]/.test(source.slice(at)) ? ';' : '')
+    const note = (hook: Node, text: string): void => {
+      hookNotes.set(hook, [...(hookNotes.get(hook) ?? []), text])
+    }
+    /** `waits`: the hooks of the scopes around this one that are not in a setup function. */
+    const plan = (scope: Scope, parent: { name: string; async: boolean } | undefined, waits: Node[]): void => {
       const kind = (k: string): Scope['hooks'] => scope.hooks.filter(h => nameOf(h.call.callee as Node) === k)
       const [before, more] = kind('beforeEach')
       const [after, more2] = kind('afterEach')
@@ -1299,15 +1344,24 @@ export const convertSource = (
         (!isAsync || tests.every(t => t.fn.async || (t.call.callee as Node).type !== 'CallExpression'))
       ) {
         mine = { name: fresh('setup'), async: isAsync }
+        for (const hook of waits)
+          note(
+            hook,
+            `The function ${mine.name} of a group in this scope does not do the work of this hook. Call the new function at the start of ${mine.name}.`,
+          )
+        waits = []
         const lines = parent ? [`${parent.async ? 'await ' : ''}${parent.name}()`] : []
         const head = `const ${mine.name} = ${isAsync ? 'async ' : ''}() => {`
-        const change = (hook: Scope['hooks'][0], start: (indent: string) => string, end: string): void => {
+        const change = (hook: Scope['hooks'][0], start: (indent: string, end: string) => string, end: string): void => {
           const body = (hook.call.arguments as Node[])[0]!.body as Node
-          replace(hook.call.start, body.start + 1, start(inside(body, hook.call)))
-          replace(body.end, hook.statement.end, end)
+          replace(hook.call.start, body.start + 1, start(inside(body, hook.call), endBefore(body.start + 1)))
+          replace(body.end, hook.statement.end, end + endBefore(hook.statement.end))
           setups.add(hook.call)
           changes++
         }
+        /** The new lines of a setup function. The last one has `end`. */
+        const added = (indent: string, end: string): string =>
+          lines.map((line, i) => `\n${indent}${line}${i < lines.length - 1 ? semi : end}`).join('')
         const fnAsync = (hook: Scope['hooks'][0]): string =>
           ((hook.call.arguments as Node[])[0] as Node).async ? 'async ' : ''
         if (after) used.add('cleanup')
@@ -1316,21 +1370,20 @@ export const convertSource = (
           lines.push(`cleanup(${down})`)
           change(after, () => `const ${down} = ${fnAsync(after)}() => {`, '')
         }
-        if (before) change(before, indent => head + lines.map(line => `\n${indent}${line}`).join(''), '')
+        if (before) change(before, (indent, end) => head + added(indent, end), '')
         else {
           const indent = `${indentAt(after!.call.start)}  `
           change(
             after!,
-            () =>
-              `${head}${lines.map(line => `\n${indent}${line}`).join('')}\n${indent}cleanup(${fnAsync(after!)}() => {`,
-            `)\n${indentAt(after!.call.start)}}`,
+            () => `${head}${added(indent, semi)}\n${indent}cleanup(${fnAsync(after!)}() => {`,
+            `)${semi}\n${indentAt(after!.call.start)}}`,
           )
         }
       }
       if (mine)
         for (const { call, fn } of scope.tests) {
           const body = fn.body as Node
-          const text = `${mine.async ? 'await ' : ''}${mine.name}()`
+          const text = `${mine.async ? 'await ' : ''}${mine.name}()${endBefore(body.start + 1)}`
           const empty = !(body.body as Node[]).length
           edits.push({
             start: body.start + 1,
@@ -1342,11 +1395,19 @@ export const convertSource = (
             madeAsync.add(fn)
           }
         }
-      for (const child of scope.inner) plan(child, mine)
+      // The hooks of this scope that stay as they are.
+      const left = scope.hooks.map(h => h.call).filter(hook => !setups.has(hook))
+      if (mine)
+        for (const hook of left)
+          note(
+            hook,
+            `Each test of this group calls ${mine.name}() at its start, and that work ran before this hook. Call the new function after ${mine.name}().`,
+          )
+      for (const child of scope.inner) plan(child, mine, [...waits, ...left])
     }
     const top: Scope = { hooks: [], tests: [], inner: [], certain: true }
     read(program.body as Node[], top)
-    plan(top, undefined)
+    plan(top, undefined, [])
   }
   const inHook = (path: Node[]): boolean =>
     path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
@@ -1385,6 +1446,51 @@ export const convertSource = (
       ? `${text(subject)} is the real export of its module, not a spy. Make a spy, give it to mockImport in place of the export, and assert on that spy.`
       : undefined
   }
+  /** The calls whose arguments become a pattern of `assert.match` or `isMatch`. */
+  const patterns = new Set<Node>()
+  /** `expect.name(...)`: the name and the arguments. */
+  const matcherOf = (node: Node | null): { name: string; args: Node[] } | undefined => {
+    const callee = node?.type === 'CallExpression' ? (node.callee as Node) : undefined
+    if (callee?.type !== 'MemberExpression' || callee.computed || roleOf(callee.object as Node) !== 'expect')
+      return undefined
+    // A property that is not computed has a name.
+    return { name: nameOf(callee.property as Node)!, args: node!.arguments as Node[] }
+  }
+  /** True if the node has a matcher of `expect` in it. */
+  const hasMatcher = (node: Node): boolean => !!matcherOf(node) || children(node).some(hasMatcher)
+  /**
+   * True if a pattern does the same check as this expected value
+   * of an exact comparison. A pattern permits keys that it does not
+   * have, so an object is only in `objectContaining`, and each of
+   * its values is a plain value or a matcher.
+   */
+  const exactPattern = (node: Node | null): boolean => {
+    if (!node) return false
+    const matcher = matcherOf(node)
+    if (matcher) {
+      const [first, more] = matcher.args
+      if (matcher.name === 'anything') return !first
+      if (!first || more) return false
+      if (matcher.name === 'any') return /^(Identifier|MemberExpression)$/.test(first.type) && !mentions(first, 'v')
+      if (matcher.name === 'stringMatching') return !!first.regex
+      if (matcher.name === 'stringContaining') return first.type === 'Literal' && typeof first.value === 'string'
+      return (
+        matcher.name === 'objectContaining' &&
+        first.type === 'ObjectExpression' &&
+        (first.properties as Node[]).every(p => p.type === 'Property' && !p.computed && exactPattern(p.value as Node))
+      )
+    }
+    if (node.type === 'ArrayExpression') return (node.elements as (Node | null)[]).every(exactPattern)
+    if (node.type === 'UnaryExpression') return (node.argument as Node).type === 'Literal'
+    return node.type === 'TemplateLiteral' || (node.type === 'Literal' && !node.regex) || nameOf(node) === 'undefined'
+  }
+  /** True if the arguments of a spy check have a matcher, and a pattern does the same check. */
+  const patternArgs = (node: Node, args: Node[]): boolean => {
+    const found = args.some(hasMatcher) && args.every(exactPattern)
+    if (found) patterns.add(node)
+    return found
+  }
+
   /**
    * True if a matcher of `expect` in the arguments of a call is in
    * a pattern: the call becomes `assert.match`, `assert.throws`, or
@@ -1392,6 +1498,7 @@ export const convertSource = (
    */
   const inPattern = (path: Node[]): boolean => {
     for (let i = path.length - 2; i >= 0; i--) {
+      if (patterns.has(path[i]!)) return true
       const callee = path[i]!.type === 'CallExpression' ? (path[i]!.callee as Node) : undefined
       if (callee?.type !== 'MemberExpression') continue
       let base = callee.object as Node
@@ -1657,14 +1764,38 @@ export const convertSource = (
     path = [...path, node]
     let next: Node[] | undefined
     const parent = path.at(-2)
-    if (esm && node.type === 'CallExpression') {
-      const callee = node.callee as Node
-      if (
-        nameOf(callee.type === 'MemberExpression' ? (callee.object as Node) : callee) === 'require' &&
-        !declares('require')
-      )
-        todo(path, TODO.require)
+    /** True if the name is a value, and not the name of a key or of a property. */
+    const reference =
+      node.type === 'Identifier' &&
+      !(parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) &&
+      !(parent?.type === 'Property' && parent.key === node && !parent.computed && !parent.shorthand)
+    if (esm && reference && nameOf(node) === 'require' && !declares('require')) todo(path, TODO.require)
+    // `return it`, `const run = cond ? it : it.skip`: the test
+    // function as a value, in a helper file.
+    if (reference && importedRoles.has(nameOf(node)!) && /^(test|describe)$/.test(roleOf(node)!)) {
+      let top = node
+      let at = path.length - 2
+      while (path[at]?.type === 'MemberExpression' && path[at]!.object === top) top = path[at--]!
+      const user = path[at]
+      const called =
+        (user?.type === 'CallExpression' && user.callee === top) ||
+        (user?.type === 'TaggedTemplateExpression' && user.tag === top)
+      const hidden =
+        path.some(n => n.type === 'ImportDeclaration' || removed.includes(n)) ||
+        path.some(
+          n =>
+            (FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') &&
+            (n.params as Node[]).some(p => mentions(p, nameOf(node)!)),
+        )
+      if (!called && !hidden) {
+        const role = roleOf(node) as 'test' | 'describe'
+        replace(node.start, node.end, role)
+        used.add(role)
+        if (nameOf(node) !== role) changes++
+        if (top !== node) todo(path, TODO.testValue)
+      }
     }
+    if (node.type === 'TSTypeReference' && toolTypes.has(nameOf(node.typeName as Node)!)) todo(path, TODO.mockType)
     // chromium.launch() of the Playwright library, with any test tool.
     if (node.type === 'CallExpression') {
       const callee = node.callee as Node
@@ -1703,13 +1834,14 @@ export const convertSource = (
     if (node.type === 'CallExpression') next = call(node, path)
     else if (node.type === 'MemberExpression') {
       // spy.mock.calls of jest and vitest
-      if (
-        nameOf(node.property as Node) === 'mock' &&
-        parent?.type === 'MemberExpression' &&
-        /^(calls|results|lastCall)$/.test(nameOf(parent.property as Node) ?? '')
-      ) {
+      const read =
+        nameOf(node.property as Node) === 'mock' && parent?.type === 'MemberExpression' && parent.object === node
+          ? (nameOf(parent.property as Node) ?? '')
+          : ''
+      if (/^(calls|results|lastCall)$/.test(read)) {
         if (!spyCalls(node, path)) todo(path, TODO.spyImpl)
-      }
+      } else if (/^(instances|contexts)$/.test(read)) todo(path, TODO.spyThis)
+      else if (/^(invocationCallOrder|settledResults)$/.test(read)) todo(path, TODO.spyImpl)
       // mock.timers.enable() of node:test
       else if (roleOf(node.object as Node) === 'mock' && nameOf(node.property as Node) === 'timers')
         todo(path, TODO.timers)
@@ -1758,9 +1890,14 @@ export const convertSource = (
         if (body) return [body]
       }
       const restore = restoreCall(args[0])
+      const more =
+        hookNotes
+          .get(node)
+          ?.map(text => ` ${text}`)
+          .join('') ?? ''
       todo(
         path,
-        restore
+        (restore
           ? `If this only puts spies back, delete it, each assignment to ${restore}, and each call of ${restore}() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first. If it does other work: ${TODO.hook}`
           : !once
             ? TODO.hook
@@ -1768,7 +1905,7 @@ export const convertSource = (
               ? TODO.hookGroup
               : once[1] === 'before'
                 ? TODO.hookFile
-                : TODO.hookFileEnd,
+                : TODO.hookFileEnd) + more,
       )
       return undefined
     }
@@ -1949,6 +2086,13 @@ export const convertSource = (
         changes++
         return []
       }
+      // A partial object does the work of objectContaining.
+      if (method === 'objectContaining' && !negated && exactPattern(node) && inPattern(path)) {
+        replace(node.start, first!.start, '')
+        replace(first!.end, node.end, '')
+        changes++
+        return [first!]
+      }
       // In a pattern, a function is a predicate for the value.
       const kind = first && args.length === 1 && /^(Identifier|MemberExpression)$/.test(first.type) ? text(first) : ''
       const check =
@@ -1963,7 +2107,12 @@ export const convertSource = (
                 : `v instanceof ${kind}`
       // The expected value of assert.throws is not a pattern at
       // its top level: a function there is a class.
-      if (check && !negated && path.at(-2)!.type !== 'CallExpression' && inPattern(path)) {
+      if (
+        check &&
+        !negated &&
+        (path.at(-2)!.type !== 'CallExpression' || patterns.has(path.at(-2)!)) &&
+        inPattern(path)
+      ) {
         replace(node.start, node.end, `${/\.[cm]?tsx?$/.test(file) ? '(v: unknown)' : 'v'} => ${check}`)
         changes++
         return []
@@ -2187,6 +2336,14 @@ export const convertSource = (
       )
       return []
     }
+    // expect(a).toEqual(expect.objectContaining({ id: 1 })) is a pattern.
+    if (
+      (method === 'toEqual' || method === 'toStrictEqual') &&
+      !promise &&
+      args.length === 1 &&
+      patternArgs(node, args)
+    )
+      return rewrite(node, not ? 'assert(!isMatch($0, $1))' : 'assert.match($0, $1)', all)
     // isDeepEqual does not know a matcher of expect.
     if (method === 'toContainEqual' && args.some(arg => /\bexpect\./.test(text(arg)))) {
       todo(path, TODO.matcher)
@@ -2247,7 +2404,7 @@ export const convertSource = (
         return fail()
       changes++
       used.add('assert')
-      replace(node.start, subject.start, 'assert.deepEqual(')
+      replace(node.start, subject.start, patternArgs(node, args.slice(1)) ? 'assert.match(' : 'assert.deepEqual(')
       if (args.length === 1) replace(subject.end, node.end, `.calls[${n.value - 1}]?.args, [])`)
       else {
         replace(subject.end, args[1]!.start, `.calls[${n.value - 1}]?.args, [`)
@@ -2264,7 +2421,7 @@ export const convertSource = (
     ) {
       changes++
       used.add('assert')
-      const head = `assert.equal(${text(subject)}.calls.length, 1)\n${indentAt(node.start)}assert.deepEqual(`
+      const head = `assert.equal(${text(subject)}.calls.length, 1)\n${indentAt(node.start)}assert.${patternArgs(node, args) ? 'match' : 'deepEqual'}(`
       replace(node.start, subject.start, head)
       if (!args.length) replace(subject.end, node.end, '.calls[0]?.args, [])')
       else {
@@ -2277,9 +2434,11 @@ export const convertSource = (
       // jest and vitest pass if any call had the arguments.
       const name = ['call', 'entry', 'one'].find(n => !all.some(arg => mentions(arg, n))) ?? '_call'
       const wrap = !SIMPLE.has(subject.type)
-      const head = `${wrap ? ')' : ''}.calls.some(${name} => isDeepEqual(${name}.args, [`
+      // With a matcher of expect, the arguments are a pattern.
+      const compare = patternArgs(node, args) ? 'isMatch' : 'isDeepEqual'
+      const head = `${wrap ? ')' : ''}.calls.some(${name} => ${compare}(${name}.args, [`
       changes++
-      used.add('assert').add('isDeepEqual')
+      used.add('assert').add(compare)
       replace(node.start, subject.start, (not ? 'assert(!' : 'assert(') + (wrap ? '(' : ''))
       if (!args.length) replace(subject.end, node.end, `${head}])))`)
       else {
@@ -2292,7 +2451,7 @@ export const convertSource = (
       // The arguments of the last call.
       changes++
       used.add('assert')
-      replace(node.start, subject.start, 'assert.deepEqual(')
+      replace(node.start, subject.start, patternArgs(node, args) ? 'assert.match(' : 'assert.deepEqual(')
       if (!args.length) replace(subject.end, node.end, '.calls.at(-1)?.args, [])')
       else {
         replace(subject.end, args[0]!.start, '.calls.at(-1)?.args, [')
@@ -2334,6 +2493,9 @@ export const convertSource = (
     if (/^toThrow(Error)?$/.test(method)) {
       expectedError(args[0], path)
     }
+    // `expect(a?.b).toHaveLength(2)` took a value that is undefined.
+    // `a?.b.length` is a type error if `b` can be undefined too.
+    if (!not && !promise && subject.type === 'ChainExpression') rule = rule.replace('<$0>.', '<$0>?.')
     return rewrite(node, rule, all)
   }
 
@@ -2538,17 +2700,22 @@ export const convertSource = (
 
   planSetups()
   const first = (program.body as Node[])[0]
-  // A file that asks for a DOM, or that uses a library that needs one.
+  // `@jest-environment node` is the environment of ubq.
+  const docblock =
+    /\/\*[\s*]*@(?:vitest|jest)-environment\s+node[\s*]*\*\/[ \t]*\r?\n?/.exec(source) ??
+    /^[ \t]*\/\/\s*@(?:vitest|jest)-environment\s+node[ \t]*\r?\n?/m.exec(source)
+  const imports = (module: RegExp): boolean =>
+    (program.body as Node[]).some(
+      node => node.type === 'ImportDeclaration' && module.test(String((node.source as { value?: unknown }).value)),
+    )
+  // A file that asks for a DOM, or that uses a library that needs
+  // one. A file with the node environment that imports jsdom makes
+  // its own DOM.
   const dom =
     /@(vitest|jest)-environment\s+(jsdom|happy-dom)\b/.test(source) ||
-    (program.body as Node[]).some(
-      node =>
-        node.type === 'ImportDeclaration' &&
-        /^(@testing-library\/|jsdom$|happy-dom$)/.test(String((node.source as { value?: unknown }).value)),
-    )
+    imports(/^@testing-library\//) ||
+    (!docblock && imports(/^(jsdom|happy-dom)$/))
   if (first && dom) todo([program, first], TODO.dom)
-  // `@jest-environment node` is the environment of ubq.
-  const docblock = /\/\*\*?\s*@(?:vitest|jest)-environment\s+node\s*\*\/[ \t]*\r?\n?/.exec(source)
   if (docblock) {
     replace(docblock.index, docblock.index + docblock[0].length, '')
     changes++
