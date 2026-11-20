@@ -17,6 +17,7 @@ the order of the alphabet.
 ## Contents
 
 - [`ubqtest`](#ubqtest)
+  - [`any`](#any)
   - [`assert`](#assert)
     - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.matchOnly`](#assert-matchonly), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [Names that `assert` does not have](#names-that-assert-does-not-have)
   - [`cleanup`](#cleanup)
@@ -82,6 +83,41 @@ the order of the alphabet.
 ## `ubqtest`
 
 Import from `'ubqtest'`.
+
+### `any`
+
+Functions for a pattern of `assert.match`, `assert.matchOnly`,
+`isMatch`, and the other places that take a pattern. Each one
+tests the value at its place.
+
+```ts
+assert.matchOnly(event, { id: any.number, at: any.instanceOf(Date) })
+assert.match(res, { rows: any.arrayWith({ id: 7 }) })
+```
+
+```ts
+const any: {
+    number: Predicate;
+    string: Predicate;
+    boolean: Predicate;
+    bigint: Predicate;
+    symbol: Predicate;
+    function: Predicate;
+    /** An object or an array. Not `null`, and not a function. */
+    object: Predicate;
+    array: Predicate;
+    /** Each value but `null` and `undefined`. */
+    defined: Predicate;
+    /** A value that is an instance of the class. */
+    instanceOf: (type: abstract new (...args: any[]) => unknown) => Predicate;
+    /**
+     * An array that has, for each pattern, an element that matches
+     * it by the rules of `assert.match`: an object in a pattern is
+     * partial. The array can have other elements, in each order.
+     */
+    arrayWith: (...patterns: unknown[]) => Predicate;
+};
+```
 
 ### `assert`
 
@@ -245,7 +281,8 @@ Passes if `actual` has the shape of `pattern`. Each key in the
 pattern must match. Extra keys in `actual` are fine. A RegExp
 tests a string. A function in the pattern gets the value at
 its place, and the value matches if the function returns
-true: `{ id: (v: unknown) => typeof v === 'number' }`. A key
+true. The object `any` has the frequent ones: `{ id:
+any.number }`. A key
 that `actual` does not have gives `undefined`. To compare a
 function as a value, use `assert.equal`. An array in the
 pattern must have the same length as the array in `actual`.
@@ -267,7 +304,7 @@ with a value that changes: a function in the pattern tests
 that value.
 
 ```ts
-assert.matchOnly(event, { id: 1, time: (v: unknown) => typeof v === 'number' })
+assert.matchOnly(event, { id: 1, time: any.number })
 ```
 
 ```ts

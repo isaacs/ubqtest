@@ -333,8 +333,8 @@ assert(value, message?)            // truthy. Narrows the type.
 assert.equal(actual, expected)     // Object.is. Does not narrow the type.
 assert.notEqual(actual, expected)
 assert.deepEqual(actual, expected) // strict: same structure, values, prototypes
-assert.match(actual, pattern)      // a partial object. A RegExp tests a string. A function tests a value: { id: (v: unknown) => typeof v === 'number' }
-assert.matchOnly(actual, pattern)  // as match, and the value has no key that the pattern does not have, at each depth. For an exact comparison with a value that changes: { id: 1, time: (v: unknown) => typeof v === 'number' }
+assert.match(actual, pattern)      // a partial object. A RegExp tests a string. A function tests a value: { id: any.number }, or your own: { n: (v: unknown) => v !== 0 }
+assert.matchOnly(actual, pattern)  // as match, and the value has no key that the pattern does not have, at each depth. For an exact comparison with a value that changes: { id: 1, time: any.number }
 assert.contains(actual, expected)  // text in text, or an element of an array, Set, or other iterable
 assert.notContains(actual, expected)
 assert.greaterThan(value, target)  // value > target. A failure shows the two values. The value can be row?.count: null and undefined fail.
@@ -348,6 +348,10 @@ await assert.eventually(fn, pattern)      // as match. Calls fn again until it m
 assert.snapshot(value)             // compares with saved text
 assert.fail(message)
 // Each assertion takes a message as its last argument: assert.equal(a, b, `case ${name}`). A failure shows it first.
+any.number  any.string  any.boolean  any.bigint  any.symbol  any.function  any.object  any.array   // functions for a pattern: a value of that type
+any.defined                        // each value but null and undefined
+any.instanceOf(URL)                // an instance of the class
+any.arrayWith({ id: 7 }, /^b/)     // an array that has an element for each pattern, with other elements, in each order. An object is partial, as in match.
 isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion. A failed assert(value) shows the values of its calls.
 isMatch(actual, pattern)           // true or false, by the rules of match. Not an assertion. assert(s.calls.some(call => isMatch(call.args, [{ id: 7 }])))
 isMatchOnly(actual, pattern)       // true or false, by the rules of matchOnly

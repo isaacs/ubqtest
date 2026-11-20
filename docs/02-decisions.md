@@ -3469,3 +3469,44 @@ The answers to Q60 to Q63.
   Q62 said that the error gets a hint.)
 - **Q63.** No time limit for one file. The TODO of `ubq convert`
   for `setDefaultTimeout` names the options (D126).
+
+## D128. The object `any`: built-in functions for a pattern (user, 2026-11-19)
+
+The answer to Q64. The user: "It feels like we're doing a lot of
+work to avoid adding an arrayContaining-style matcher. It seems
+like something we could implement for patterns with a built-in
+predicate, like `any.number`". Of the sketch in Q64: "It's terse,
+understandable, and will help agents not have to reinvent the
+wheel". This changes one point of D85, which had no such export.
+
+- `any` is an export. Each member is a predicate, or a function
+  that makes one, so a pattern has no new rule (D85).
+  - `any.number`, `any.string`, `any.boolean`, `any.bigint`,
+    `any.symbol`, `any.function`: the `typeof` of the value.
+  - `any.object`: an object or an array. Not `null`, and not a
+    function. (Choice of the assistant: `expect.any(Object)` of
+    jest takes `null`, which hides a missing value.)
+  - `any.array`, `any.defined` (not `null` and not `undefined`),
+    and `any.instanceOf(Class)`.
+  - `any.arrayWith(...patterns)`: an array that has, for each
+    pattern, an element that matches it by the rules of `match`.
+    An object in a pattern is partial, in `matchOnly` too: the
+    function does not know its assertion. The array can have
+    other elements, in each order.
+- A failure shows the name of the function with its arguments
+  (`expected: any.arrayWith({ id: 7 })`), not its code.
+- A function that a test writes itself stays the form for each
+  other check.
+- `any` with no import is the type of TypeScript, and the error
+  (TS2693) does not say so. That error has a hint with the
+  import.
+- `ubq convert` writes `any.number` and the others for
+  `expect.any` and `expect.anything`, and `any.arrayWith(a, b)`
+  for `expect.arrayContaining([a, b])` whose elements are plain
+  values and matchers. `toContainEqual` with a matcher becomes
+  `list.some(item => isMatch(item, pattern))`, or `isMatchOnly`
+  for an object that is not in `objectContaining`. In a file
+  with its own value `any`, the matchers keep their TODO.
+- `toEqual(expect.arrayContaining([literals]))` on a name stays
+  one `assert.contains` for each literal: that failure names the
+  element that is not there.

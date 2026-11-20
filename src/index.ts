@@ -8,6 +8,7 @@ import { startPipe } from './sink-pipe.ts'
 import { setUpdate } from './snapshot.ts'
 import { currentFile, setCollector } from './test.ts'
 
+export { any } from './any.ts'
 export { assert, type Assert, isDeepEqual, isMatch, isMatchOnly, type Pattern } from './assert.ts'
 export { fakeClock, type FakeClock, type FakeClockOptions } from './clock.ts'
 export { cleanup, env, stub, type Files } from './fixtures.ts'

@@ -452,9 +452,12 @@ All entries are from 2026-11-11 to 2026-11-14.
     a value that can be `null` or `undefined`, and fails for it.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
-    in a project with an import of a `.ts` path. Q64 waits for
-    the user: built-in predicates, and one for an array that has
-    given elements.
+    in a project with an import of a `.ts` path.
+  - The object `any` (D128): `any.number` and the other functions
+    for a pattern, and `any.arrayWith(...patterns)`. `ubq convert`
+    writes them for `expect.any`, `expect.anything`, and
+    `expect.arrayContaining`, and writes `isMatch` for
+    `toContainEqual` with a matcher.
   - `release.yml` makes a GitHub release for the tag, with the
     subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on
@@ -731,8 +734,8 @@ Convert:
   rule of the old tool.
 - A helper file that gets `t` as an argument is not converted.
 - A comment between the arguments of a changed call goes away.
-- `beforeAll` in a `describe`, `expect.objectContaining` in an
-  exact object, and `expect.arrayContaining` stay hand work.
+- `beforeAll` in a `describe`, and `expect.objectContaining` in
+  an exact object, stay hand work.
 - Playwright Test: hooks, fixtures other than `page` and
   `context`, a check with `not` on a value or with its own time
   limit, and `playwright.config` stay hand work (D105).

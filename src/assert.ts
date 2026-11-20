@@ -191,7 +191,8 @@ export interface Assert {
    * pattern must match. Extra keys in `actual` are fine. A RegExp
    * tests a string. A function in the pattern gets the value at
    * its place, and the value matches if the function returns
-   * true: `{ id: (v: unknown) => typeof v === 'number' }`. A key
+   * true. The object `any` has the frequent ones: `{ id:
+   * any.number }`. A key
    * that `actual` does not have gives `undefined`. To compare a
    * function as a value, use `assert.equal`. An array in the
    * pattern must have the same length as the array in `actual`.
@@ -209,7 +210,7 @@ export interface Assert {
    * that value.
    *
    * ```ts
-   * assert.matchOnly(event, { id: 1, time: (v: unknown) => typeof v === 'number' })
+   * assert.matchOnly(event, { id: 1, time: any.number })
    * ```
    */
   matchOnly<T, const P extends Pattern<T> = Pattern<T>>(actual: T, pattern: P & Checked<P>, message?: string): void

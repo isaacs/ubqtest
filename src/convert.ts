@@ -269,7 +269,7 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))). assert.matchOnly and isMatchOnly are the same with no other keys in the value.",
+    'ubq has no expect. In a pattern, a partial object does the work of objectContaining, a RegExp does the work of stringContaining and stringMatching, and the object any of ubqtest does the work of the other matchers: any.number, any.instanceOf(URL), any.defined, any.arrayWith(a, b). A pattern is the second argument of assert.match, and of assert.matchOnly, which permits no key that the pattern does not have. assert.deepEqual compares a function as a value: change it to assert.matchOnly. An array in a pattern must have the length of the value: for some elements, any.arrayWith. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
   assertions:
     'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
   throwsText:
@@ -709,12 +709,6 @@ export const convertSource = (
   }
 
   // --- Helpers ---
-  /** Text in the quotes that the imports of the file have. */
-  const quoted = (value: string): string => {
-    const like = removed[0] ?? (program.body as Node[]).find(node => node.type === 'ImportDeclaration')
-    const quote = like && /"[^'"]*"\)?;?$/.test(text(like)) ? '"' : "'"
-    return quote + value + quote
-  }
   const lineStart = (at: number): number => source.lastIndexOf('\n', at - 1) + 1
   const indentAt = (at: number): string => /^[ \t]*/.exec(source.slice(lineStart(at), at))![0]
   /**
@@ -1490,6 +1484,8 @@ export const convertSource = (
       ? `${text(subject)} is the real export of its module, not a spy. Make a spy, give it to mockImport in place of the export, and assert on that spy.`
       : undefined
   }
+  /** True if the file has a value with the name `any`: the import of ubqtest would hide it. */
+  const ownAny = declares('any')
   /** The calls whose arguments become a pattern of `assert.match` or `isMatch`. */
   const patterns = new Set<Node>()
   /** `expect.name(...)`: the name and the arguments. */
@@ -1513,9 +1509,15 @@ export const convertSource = (
     const matcher = matcherOf(node)
     if (matcher) {
       const [first, more] = matcher.args
-      if (matcher.name === 'anything') return !first
+      if (matcher.name === 'anything') return !ownAny && !first
       if (!first || more) return false
-      if (matcher.name === 'any') return /^(Identifier|MemberExpression)$/.test(first.type) && !mentions(first, 'v')
+      if (matcher.name === 'any') return !ownAny && /^(Identifier|MemberExpression)$/.test(first.type)
+      if (matcher.name === 'arrayContaining')
+        return (
+          !ownAny &&
+          first.type === 'ArrayExpression' &&
+          (first.elements as (Node | null)[]).every(e => e?.type !== 'SpreadElement' && exactPattern(e))
+        )
       if (matcher.name === 'stringMatching') return !!first.regex
       if (matcher.name === 'stringContaining') return first.type === 'Literal' && typeof first.value === 'string'
       return (
@@ -2198,23 +2200,36 @@ export const convertSource = (
       const kind = first && args.length === 1 && /^(Identifier|MemberExpression)$/.test(first.type) ? text(first) : ''
       const check =
         method === 'anything' && !args.length
-          ? 'v != null'
-          : method !== 'any' || !kind || mentions(first!, 'v')
+          ? 'any.defined'
+          : method !== 'any' || !kind
             ? undefined
             : /^(Number|String|Boolean|Function|BigInt|Symbol|Object)$/.test(kind)
-              ? `typeof v === ${quoted(kind.toLowerCase())}`
+              ? `any.${kind.toLowerCase()}`
               : kind === 'Array'
-                ? 'Array.isArray(v)'
-                : `v instanceof ${kind}`
+                ? 'any.array'
+                : `any.instanceOf(${kind})`
+      // expect.arrayContaining([a, b]) is any.arrayWith(a, b).
+      if (method === 'arrayContaining' && !negated && !ownAny && exactPattern(node) && inPattern(path)) {
+        const elements = first!.elements as Node[]
+        if (elements.length) {
+          replace(node.start, elements[0]!.start, 'any.arrayWith(')
+          replace(elements.at(-1)!.end, node.end, ')')
+        } else replace(node.start, node.end, 'any.array')
+        used.add('any')
+        changes++
+        return elements
+      }
       // The expected value of assert.throws is not a pattern at
       // its top level: a function there is a class.
       if (
         check &&
+        !ownAny &&
         !negated &&
         (path.at(-2)!.type !== 'CallExpression' || patterns.has(path.at(-2)!)) &&
         inPattern(path)
       ) {
-        replace(node.start, node.end, `${/\.[cm]?tsx?$/.test(file) ? '(v: unknown)' : 'v'} => ${check}`)
+        replace(node.start, node.end, check)
+        used.add('any')
         changes++
         return []
       }
@@ -2461,8 +2476,10 @@ export const convertSource = (
         ? patternArgs(node, args)
         : undefined
     if (exact) return rewrite(node, not ? `assert(!${IS[exact]}($0, $1))` : `assert.${exact}($0, $1)`, all)
-    // isDeepEqual does not know a matcher of expect.
+    // isDeepEqual does not know a matcher of expect. A pattern does.
     if (method === 'toContainEqual' && args.some(arg => /\bexpect\./.test(text(arg)))) {
+      const kind = !promise && args.length === 1 ? patternArgs(node, args) : undefined
+      if (kind) return rewrite(node, `assert(${not ? '!' : ''}<$0>.some(ITEM => ${IS[kind]}(ITEM, $1)))`, all)
       todo(path, TODO.matcher)
       return undefined
     }

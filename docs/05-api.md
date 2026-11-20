@@ -181,8 +181,9 @@ passes if a call has one argument with that `id`.
 - An array matches an array of the same length, element by
   element.
 - A function is a predicate. It gets the value at its place, and
-  the value matches if the function returns `true`. It does the
-  work of "any number" or "any `URL`". A key that the value does
+  the value matches if the function returns `true`. The object
+  `any` has the functions for "a number" or "a `URL`": see
+  below. A key that the value does
   not have gives `undefined`. A failure shows the path, the
   value, and the text of the function.
 - A key with the value `undefined` in a pattern must be in the
@@ -198,10 +199,28 @@ passes if a call has one argument with that `id`.
 ```ts
 assert.match(res, { status: 200, body: { user: { name: /^a/ } } })
 assert.match(user, {
-  id: (v: unknown) => typeof v === 'number',
-  home: (v: unknown) => v instanceof URL,
+  id: any.number,
+  home: any.instanceOf(URL),
   tags: [(v: unknown) => v !== ''],
 })
+```
+
+**`any`** is an object with the functions for a pattern that
+tests use most (D128). Each one is a predicate, so it works in
+each place that takes a pattern. A failure shows its name:
+`expected: any.number`.
+
+| Function | The value at its place |
+| --- | --- |
+| `any.number`, `any.string`, `any.boolean`, `any.bigint`, `any.symbol`, `any.function` | has that `typeof`. |
+| `any.object` | is an object or an array. Not `null`, and not a function. |
+| `any.array` | is an array. |
+| `any.defined` | is not `null` and not `undefined`. |
+| `any.instanceOf(Class)` | is an instance of the class. |
+| `any.arrayWith(...patterns)` | is an array that has, for each pattern, an element that matches it by the rules of `match`: an object is partial. The array can have other elements, in each order. |
+
+```ts
+assert.match(res, { rows: any.arrayWith({ id: 7 }), next: any.string })
 ```
 
 `deepEqual` has no predicate: it compares a function as a value.
@@ -217,7 +236,7 @@ keys and no others, at each depth. It is for a value with a part
 that changes from run to run:
 
 ```ts
-assert.matchOnly(event, { id: 1, time: (v: unknown) => typeof v === 'number' })
+assert.matchOnly(event, { id: 1, time: any.number })
 ```
 
 `deepEqual` of the same value needs the exact time. `match` passes

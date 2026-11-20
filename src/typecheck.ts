@@ -266,6 +266,12 @@ const check = (
         if (error.code === 'TS6305')
           error.message +=
             '\nhint: the tsconfig has "references", and the checker reads a referenced project from its build output, which is not there or is old. Build the referenced projects (tsc -b), in CI too, before the tests.'
+        // `any` with no import is the type of TypeScript.
+        if (error.code === 'TS2693' && error.message.startsWith("'any' ")) {
+          error.message +=
+            "\nhint: any.number and the other functions for a pattern are in the object any of ubqtest. Import it: import { any } from 'ubqtest'"
+          continue
+        }
         const source = error.at && read(error.at.file)
         if (!source) continue
         let at = 0
@@ -273,7 +279,7 @@ const check = (
         const method = expectedOf(source, at + error.at!.column - 1)
         if (method && /atch/.test(method)) {
           const name = method.startsWith('is') ? method : `assert.${method}`
-          error.message += `\nhint: this is the pattern of ${name}. It must fit the type of the actual value. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: ${name}<unknown>(value, pattern)`
+          error.message += `\nhint: this is the pattern of ${name}. It must fit the type of the actual value: its keys, and the types of their values. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: ${name}<unknown>(value, pattern)`
         } else if (method)
           error.message += `\nhint: this is the expected value of assert.${method}. It must have the type of the actual value. To compare two different types on purpose: assert.${method}<unknown>(a, b)`
       }

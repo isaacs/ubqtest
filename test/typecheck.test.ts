@@ -296,6 +296,7 @@ interface Row {
 const g = (body: Json, row: Row, n: { v: number }): void => {
   assert.match(body, { xs: [row] })
   assert(isMatch(n, { v: 'one' }))
+  assert.match(n, { v: any.number })
 }
 test('t', () => {
   f('x', 'x')
@@ -312,10 +313,12 @@ test('t', () => {
       '  at hint.test.ts:3:19',
       '  hint: this is the expected value of assert.deepEqual. It must have the type of the actual value. To compare two different types on purpose: assert.deepEqual<unknown>(a, b)',
       '  at hint.test.ts:4:32',
-      '  hint: this is the pattern of assert.match. It must fit the type of the actual value. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: assert.match<unknown>(value, pattern)',
+      '  hint: this is the pattern of assert.match. It must fit the type of the actual value: its keys, and the types of their values. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: assert.match<unknown>(value, pattern)',
       '  at hint.test.ts:11:22',
-      '  hint: this is the pattern of isMatch. It must fit the type of the actual value. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: isMatch<unknown>(value, pattern)',
+      '  hint: this is the pattern of isMatch. It must fit the type of the actual value: its keys, and the types of their values. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: isMatch<unknown>(value, pattern)',
       '  at hint.test.ts:12:23',
+      "  hint: any.number and the other functions for a pattern are in the object any of ubqtest. Import it: import { any } from 'ubqtest'",
+      '  at hint.test.ts:13:24',
     ],
     out,
   )

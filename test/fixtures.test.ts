@@ -3,6 +3,7 @@
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  any,
   assert,
   cleanup,
   env,
@@ -258,6 +259,59 @@ test('matchOnly and isMatchOnly: a pattern with no other keys in the value, at e
       ),
     ],
     [false, false, false, true, true],
+  )
+})
+
+test('any: the built-in functions for a pattern', () => {
+  class Point {}
+  const value = {
+    n: 1,
+    s: 'a',
+    b: true,
+    big: 1n,
+    sym: Symbol('x'),
+    fn: () => 1,
+    o: {},
+    list: [1, 'b', { id: 7, more: 1 }],
+    at: new Point(),
+    none: null,
+  }
+  assert.matchOnly(value, {
+    n: any.number,
+    s: any.string,
+    b: any.boolean,
+    big: any.bigint,
+    sym: any.symbol,
+    fn: any.function,
+    o: any.object,
+    list: any.array,
+    at: any.instanceOf(Point),
+    none: null,
+  })
+  // An array is an object, and each value that is there is defined.
+  assert.match(value, { list: any.object, at: any.defined, n: any.defined })
+  // An element for each pattern, in each order. An object is partial.
+  assert.match(value, { list: any.arrayWith({ id: 7 }, any.string, 1) })
+  assert.match(value.list, any.arrayWith())
+  assert.deepEqual(
+    [
+      isMatch(value, { none: any.object }),
+      isMatch(value, { fn: any.object }),
+      isMatch(value, { none: any.defined }),
+      isMatch<unknown>(value, { gone: any.defined }),
+      isMatch(value, { n: any.string }),
+      isMatch(value, { o: any.array }),
+      isMatch(value, { o: any.instanceOf(Point) }),
+      isMatch(value, { list: any.arrayWith({ id: 8 }) }),
+      isMatch(value, { list: any.arrayWith(1, 2) }),
+      isMatch(value, { n: any.arrayWith() }),
+    ],
+    [false, false, false, false, false, false, false, false, false, false],
+  )
+  // A failure shows the name, with its arguments.
+  assert.deepEqual(
+    [String(any.number), String(any.instanceOf(Point)), String(any.arrayWith({ id: 7 }, /b/))],
+    ['any.number', 'any.instanceOf(Point)', 'any.arrayWith({ id: 7 }, /b/)'],
   )
 })
 

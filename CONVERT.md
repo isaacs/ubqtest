@@ -511,10 +511,12 @@ gets a TODO too.
 | `toHaveBeenCalled()`, `toHaveBeenCalledTimes(n)` | `assert(s.calls.length > 0)`, `assert.equal(s.calls.length, n)` |
 | `not.toHaveBeenCalled()` | `assert.equal(s.calls.length, 0)` |
 | `toHaveBeenCalledWith(...args)` | `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))` |
-| `toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.any(String))` | `assert(s.calls.some(call => isMatch(call.args, [{ id: 1 }, (v: unknown) => typeof v === 'string'])))` |
+| `toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.any(String))` | `assert(s.calls.some(call => isMatch(call.args, [{ id: 1 }, any.string])))` |
 | `toEqual(expect.objectContaining({ id: 1 }))` | `assert.match(a, { id: 1 })` |
-| `toEqual({ id: 1, time: expect.any(Number) })` | `assert.matchOnly(a, { id: 1, time: (v: unknown) => typeof v === 'number' })` |
-| `toHaveBeenCalledWith({ id: 1 }, expect.anything())` | `assert(s.calls.some(call => isMatchOnly(call.args, [{ id: 1 }, (v: unknown) => v != null])))` |
+| `toEqual({ id: 1, time: expect.any(Number) })` | `assert.matchOnly(a, { id: 1, time: any.number })` |
+| `toEqual({ tags: expect.arrayContaining(['a']) })` | `assert.matchOnly(a, { tags: any.arrayWith('a') })` |
+| `toContainEqual(expect.objectContaining({ id: 7 }))` | `assert(list.some((item: unknown) => isMatch(item, { id: 7 })))` |
+| `toHaveBeenCalledWith({ id: 1 }, expect.anything())` | `assert(s.calls.some(call => isMatchOnly(call.args, [{ id: 1 }, any.defined])))` |
 | `toHaveBeenLastCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
 | `not.toHaveBeenCalledWith(...args)` | `assert(!s.calls.some(call => isDeepEqual(call.args, [...args])))` |
 | `toHaveBeenNthCalledWith(2, ...args)` | `assert.deepEqual(s.calls[1]?.args, [...args])` |
@@ -563,14 +565,21 @@ Things to check by hand:
   on a name of such a module (`assert(name.calls.length > 0)`)
   gets a TODO too: the name is the real export, not a spy. Assert
   on the spy that the mock has.
-- **`expect.any`, `expect.objectContaining`, `expect.anything`.**
+- **`expect.any`, `expect.objectContaining`, `expect.anything`,
+  `expect.arrayContaining`.**
   `assert.match` with a partial object does the work of
-  `objectContaining`. A function in a pattern does the work of
-  `any` and `anything`. In a pattern (`toMatchObject`, an object
-  for `toThrow`), the command writes it: `expect.any(Number)`
-  becomes `(v: unknown) => typeof v === 'number'`,
-  `expect.any(URL)` becomes `(v: unknown) => v instanceof URL`,
-  and `expect.anything()` becomes `(v: unknown) => v != null`.
+  `objectContaining`. The object `any` of ubqtest has the
+  functions for the others. In a pattern (`toMatchObject`, an
+  object for `toThrow`), the command writes them:
+  `expect.any(Number)` becomes `any.number`, `expect.any(URL)`
+  becomes `any.instanceOf(URL)`, `expect.anything()` becomes
+  `any.defined`, and `expect.arrayContaining([a, b])` becomes
+  `any.arrayWith(a, b)`. `any.object` is not `null`, and
+  `expect.any(Object)` took `null`. An element of `any.arrayWith`
+  matches as a pattern, so an object in it is partial: the
+  command writes it only for elements that are plain values and
+  matchers. In a file with its own value `any`, the matchers
+  stay, with a TODO.
   In an exact comparison (`toEqual`, `toHaveBeenCalledWith`,
   `toHaveBeenLastCalledWith`, `toHaveBeenNthCalledWith`) with a
   matcher, the command writes `assert.matchOnly`, or `isMatchOnly`
@@ -578,7 +587,7 @@ Things to check by hand:
   `matchOnly` permits no key that it does not have, at each depth,
   so the check stays exact: `toEqual({ id: 1, time:
   expect.any(Number) })` becomes `assert.matchOnly(a, { id: 1,
-  time: (v: unknown) => typeof v === 'number' })`. As
+  time: any.number })`. As
   `assert.deepEqual`, it is more strict than `toEqual` for a key
   with the value `undefined`.
   With `objectContaining` and no object around it, the command
@@ -586,8 +595,9 @@ Things to check by hand:
   A matcher stays, with a TODO, where no pattern does the same
   check: `objectContaining` in an exact object (one part permits
   other keys, and the rest does not), a matcher as the argument of
-  a function, `expect.not`, and `arrayContaining`. Assert on that
-  part by itself.
+  a function, `expect.not`, and `arrayContaining` with an object
+  that is not in `objectContaining`. Assert on that part by
+  itself.
   `expect.stringMatching(/re/)` becomes the RegExp, and
   `expect.fail('text')` becomes `assert.fail('text')`.
   `expect.stringContaining('text')` becomes a RegExp only in a
@@ -598,8 +608,9 @@ Things to check by hand:
 - **`toContainEqual(b)`.** The command writes
   `assert(list.some(item => isDeepEqual(item, b)))`.
   `isDeepEqual` gives true or false by the rules of
-  `assert.deepEqual`. Use it also for `expect.arrayContaining`
-  with objects.
+  `assert.deepEqual`. With a matcher in `b`, the command writes
+  `isMatch`, or `isMatchOnly` for an object that is not in
+  `objectContaining`.
 - **`expect.arrayContaining` of literals.** The command writes
   `assert.contains(list, x)` for each literal, when `list` is a
   name or a path of names (`res.names`).
