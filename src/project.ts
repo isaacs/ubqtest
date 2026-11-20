@@ -1,5 +1,5 @@
 // The project root, and paths relative to it.
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { workerd } from './workerd.ts'
 
@@ -10,7 +10,9 @@ export const projectRoot = (): string => {
   if (root) return root
   const host = workerd()
   if (host) return (root = host.root)
-  const cwd = process.cwd()
+  // The real path: the type checker and the runtimes give the paths
+  // of files with each symbolic link of a folder resolved.
+  const cwd = realpathSync(process.cwd())
   for (let dir = cwd; ; dir = dirname(dir)) {
     if (existsSync(join(dir, 'package.json'))) return (root = dir)
     if (dir === dirname(dir)) return (root = cwd)

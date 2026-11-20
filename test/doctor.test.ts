@@ -504,6 +504,28 @@ test('doctor: the tsconfig.json that has the test files', () => {
   assert.deepEqual(fields('"target": "ES2020"'), [])
 })
 
+test('doctor on Node: a project with code for Bun must run on Bun', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const lines = (): string[] =>
+    p
+      .ubq('doctor')
+      .out.split('\n')
+      .filter(line => /Bun/.test(line))
+  // A parameter property, which Bun runs.
+  writeFileSync(join(p.dir, 'src/serve.ts'), 'export class A {\n  constructor(public n: number) {}\n}\nBun.serve({})\n')
+  writeFileSync(join(p.dir, 'src/sql.ts'), "import { Database } from 'bun:sqlite'\nexport const db = Database\n")
+  // Code for each runtime tests for the global.
+  writeFileSync(join(p.dir, 'src/any.ts'), "export const bun = typeof Bun !== 'undefined' && Bun.version\n")
+  assert.deepEqual(lines(), [
+    'FIX  2 files use the Bun global or a bun: module: src/serve.ts, src/sql.ts. This code runs only on Bun, so run ubq on Bun too: bun node_modules/ubqtest/cli.js doctor, and "test": "bun node_modules/ubqtest/cli.js" in the scripts of package.json. ubq needs Bun 1.4 or later.',
+  ])
+  // With no such code, the question about the syntax.
+  rmSync(join(p.dir, 'src/sql.ts'))
+  writeFileSync(join(p.dir, 'src/serve.ts'), 'export class A {\n  constructor(public n: number) {}\n}\n')
+  assert.match(lines()[0]!, /^FIX  1 file has TypeScript syntax that Node cannot run .*: src\/serve\.ts\./)
+})
+
 test('doctor names the test files of a different tool that ubq does not run', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))

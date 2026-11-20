@@ -73,6 +73,21 @@ test('a spy with no implementation takes any arguments, and fits a typed callbac
   assert.deepEqual(send.calls[0]?.args, [{ id: 'a' }, 1])
 })
 
+// A JSON type has itself in it, in an array and in an object.
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
+
+test('a pattern for a value of a recursive JSON type', () => {
+  const body: Json = JSON.parse('{"xs":[{"a":1}],"n":2}')
+  assert.match(body, { xs: [{ a: 1 }] })
+  assert.match(body, { xs: [{ a: (v: unknown) => v === 1 }], n: 2 })
+  assert.matchOnly(body, { xs: [{ a: 1 }], n: (v: unknown) => v === 2 })
+  const list: Json = [1, 'a']
+  assert.match(list, [1, /a/])
+  // A tuple has a pattern for each place.
+  const pair: [number, { name: string }] = [1, { name: 'ann' }]
+  assert.match(pair, [1, { name: /^a/ }])
+})
+
 test('rejects takes a PromiseLike, and gives a value that is not an Error', async () => {
   const later: PromiseLike<number> = {
     // oxlint-disable-next-line unicorn/no-thenable

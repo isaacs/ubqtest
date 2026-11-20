@@ -85,14 +85,25 @@ type Val<T, K> = T extends unknown ? (K extends keyof T ? T[K] : never) : never
  */
 type Prim<T> = T extends string ? T | RegExp : T
 /**
- * The pattern of an object: each key is optional. The pattern of an array
- * has each element.
+ * The pattern of the objects of a type. An array has a pattern for
+ * each element. For the other objects, each key is optional, and a
+ * key of each member of a union is a key of the pattern.
  */
-type Obj<O> = [O] extends [never]
-  ? never
-  : [O] extends [readonly unknown[]]
-    ? { [K in keyof O]: Pattern<O[K]> }
-    : { [K in Keys<O>]?: Pattern<Val<O, K>> }
+type Obj<O> = Arr<Extract<O, readonly unknown[]>> | Keyed<Exclude<O, readonly unknown[]>>
+/**
+ * The pattern of each array type of a union. A tuple has a pattern
+ * for each place. An array of any length has one pattern type for
+ * its elements, as an array type: the type can then have itself in
+ * it, as a JSON type does.
+ */
+type Arr<A> = A extends readonly unknown[]
+  ? number extends A['length']
+    ? PatternList<A[number]>
+    : { [K in keyof A]: Pattern<A[K]> }
+  : never
+/** An interface: the checker reads it only when it needs it. */
+interface PatternList<E> extends ReadonlyArray<Pattern<E>> {}
+type Keyed<O> = [O] extends [never] ? never : { [K in Keys<O>]?: Pattern<Val<O, K>> }
 /**
  * A partial shape: listed keys must match, a RegExp tests a string,
  * and a function is a predicate for the value at its place.

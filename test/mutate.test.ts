@@ -59,6 +59,29 @@ const b = !a && { 1: true }[1] /* || */ || import('./x.ts')
   assert.equal(mutants('const = 1', 'a.mjs'), undefined)
 })
 
+test('a change in code that the tests run only in a child process does not survive', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'src'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'src/tool.ts'),
+    "export const sign = (n: number): string => (n === 1 ? 'one' : 'other')\nconsole.log(sign(Number(process.argv[2])))\n",
+  )
+  writeFileSync(
+    join(p.dir, 'tool.test.ts'),
+    `import { execFileSync } from 'node:child_process'
+import { assert, test } from 'ubqtest'
+
+const run = (n: string): string => execFileSync(process.execPath, ['src/tool.ts', n], { encoding: 'utf8' }).trim()
+test('one', () => assert.equal(run('1'), 'one'))
+test('two', () => assert.equal(run('2'), 'other'))
+`,
+  )
+  assert.equal(p.ubq('tool.test.ts').last, 'pass: 0 failed, 2 passed')
+  const r = p.ubq('mutate', 'src/tool.ts')
+  assert.deepEqual([r.code, r.out.trimEnd().split('\n').at(-1)], [0, 'mutate: 0 of 3 changes survived'], r.out)
+})
+
 test('mutate lists each change that no test fails for, and does not change the file', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))

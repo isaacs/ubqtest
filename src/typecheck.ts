@@ -65,7 +65,11 @@ export const expectedOf = (source: string, at: number): string | undefined => {
     } else if (c === '(') {
       if (depth) depth--
       else
-        return second ? /\bassert\.(equal|notEqual|deepEqual)(<[^>]*>)?\s*$/.exec(source.slice(0, i))?.[1] : undefined
+        return second
+          ? /\b(?:assert\.(?=[a-z])|(?=isMatch))(equal|notEqual|deepEqual|match|matchOnly|isMatch|isMatchOnly)(<[^>]*>)?\s*$/.exec(
+              source.slice(0, i),
+            )?.[1]
+          : undefined
     } else if (c === ',' && !depth) second = true
   }
   return undefined
@@ -187,7 +191,10 @@ const check = (
         '-p',
         config,
       ],
-      { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] },
+      // PWD: a program can take its working directory from it, with
+      // a symbolic link in the path. The paths of the errors are
+      // then not below the root.
+      { cwd: root, env: { ...process.env, PWD: root }, stdio: ['ignore', 'pipe', 'pipe'] },
     )
   } catch (error) {
     // On Windows, a file that is not a program throws here.
@@ -264,7 +271,10 @@ const check = (
         let at = 0
         for (let line = 1; line < error.at!.line; line++) at = source.indexOf('\n', at) + 1
         const method = expectedOf(source, at + error.at!.column - 1)
-        if (method)
+        if (method && /atch/.test(method)) {
+          const name = method.startsWith('is') ? method : `assert.${method}`
+          error.message += `\nhint: this is the pattern of ${name}. It must fit the type of the actual value. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: ${name}<unknown>(value, pattern)`
+        } else if (method)
           error.message += `\nhint: this is the expected value of assert.${method}. It must have the type of the actual value. To compare two different types on purpose: assert.${method}<unknown>(a, b)`
       }
       done(errors)

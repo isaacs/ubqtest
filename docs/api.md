@@ -60,16 +60,19 @@ the order of the alphabet.
     - [`TestOptions.skip`](#testoptions-skip), [`TestOptions.timeout`](#testoptions-timeout)
 - [Types of the signatures](#types-of-the-signatures)
   - [`AnyFn`](#anyfn)
+  - [`Arr`](#arr)
   - [`Checked`](#checked)
   - [`CheckedError`](#checkederror)
   - [`CleanupFn`](#cleanupfn)
   - [`Describe`](#describe-1)
   - [`ErrorMatch`](#errormatch)
   - [`Hint`](#hint)
+  - [`Keyed`](#keyed)
   - [`Keys`](#keys)
   - [`Loader`](#loader)
   - [`MethodKeys`](#methodkeys)
   - [`Obj`](#obj)
+  - [`PatternList`](#patternlist)
   - [`Predicate`](#predicate)
   - [`Prim`](#prim)
   - [`Same`](#same)
@@ -904,6 +907,19 @@ A function with any arguments and any result.
 type AnyFn = (...args: any[]) => any;
 ```
 
+### `Arr`
+
+The pattern of each array type of a union. A tuple has a pattern
+for each place. An array of any length has one pattern type for
+its elements, as an array type: the type can then have itself in
+it, as a JSON type does.
+
+```ts
+type Arr<A> = A extends readonly unknown[] ? number extends A['length'] ? PatternList<A[number]> : {
+    [K in keyof A]: Pattern<A[K]>;
+} : never;
+```
+
 ### `Checked`
 
 The pattern `P`, with a function that is not a predicate made a
@@ -963,6 +979,14 @@ type Hint<S extends string> = {
 };
 ```
 
+### `Keyed`
+
+```ts
+type Keyed<O> = [O] extends [never] ? never : {
+    [K in Keys<O>]?: Pattern<Val<O, K>>;
+};
+```
+
 ### `Keys`
 
 The keys of each member of a union.
@@ -991,15 +1015,21 @@ type MethodKeys<T> = {
 
 ### `Obj`
 
-The pattern of an object: each key is optional. The pattern of an array
-has each element.
+The pattern of the objects of a type. An array has a pattern for
+each element. For the other objects, each key is optional, and a
+key of each member of a union is a key of the pattern.
 
 ```ts
-type Obj<O> = [O] extends [never] ? never : [O] extends [readonly unknown[]] ? {
-    [K in keyof O]: Pattern<O[K]>;
-} : {
-    [K in Keys<O>]?: Pattern<Val<O, K>>;
-};
+type Obj<O> = Arr<Extract<O, readonly unknown[]>> | Keyed<Exclude<O, readonly unknown[]>>;
+```
+
+### `PatternList`
+
+An interface: the checker reads it only when it needs it.
+
+```ts
+interface PatternList<E> extends ReadonlyArray<Pattern<E>> {
+}
 ```
 
 ### `Predicate`

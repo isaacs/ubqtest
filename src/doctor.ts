@@ -21,6 +21,9 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 export const OLD_TOOL =
   /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|tape|ava|mocha|@playwright\/test)\1/
 
+/** Code that only Bun runs: the global, or a module of Bun. */
+const BUN_CODE = /\bBun\.[A-Za-z]|(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])bun(?::[\w/]+)?\1/
+
 /**
  * The choice for a project with source that Node cannot run with
  * only its types removed. The person who owns the project makes it.
@@ -281,7 +284,25 @@ export const doctor = (out: (text: string) => void): number => {
     reached.length && reached.length < hard.length
       ? ` The tests import ${reached.length} of them: ${some(reached)}. No test imports the others now.`
       : ''
-  if (hard.length)
+  // Code for Bun does not run on a different runtime. Not a file
+  // that tests for the global: it has code for other runtimes too.
+  const forBun = v.bun
+    ? []
+    : code.filter(file => {
+        try {
+          const source = readFileSync(join(root, file), 'utf8')
+          return BUN_CODE.test(source) && !/\btypeof Bun\b/.test(source)
+          // ubq: not measured: the list has only files that exist
+        } catch {
+          return false
+        }
+      })
+  if (forBun.length)
+    fix(
+      counted`${forBun.length} file|files uses|use the Bun global or a bun: module: ${some(forBun)}. This code runs only on Bun, so run ubq on Bun too: bun node_modules/ubqtest/cli.js doctor, and "test": "bun node_modules/ubqtest/cli.js" in the scripts of package.json. ubq needs Bun 1.4 or later.`,
+    )
+  // On Bun, each syntax runs.
+  else if (hard.length)
     fix(
       counted`${hard.length} file|files has|have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. ${HARD_CHOICE}`,
     )

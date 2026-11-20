@@ -1,12 +1,56 @@
 // Type checks next to the tests, in each run of a TypeScript project.
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { expectedOf } from '../src/typecheck.ts'
-import { project } from './setup.ts'
+import { cli, project } from './setup.ts'
 
 const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
+
+test('a type error of a test file is its own in a project that the shell reached through a symbolic link', () => {
+  const p = project()
+  // The link is deeper than the folder: a path from the link is
+  // not a path from the folder.
+  const links = `${p.dir}-links`
+  const link = join(links, 'a', 'link')
+  cleanup(() => {
+    rmSync(links, { recursive: true, force: true })
+    rmSync(p.dir, { recursive: true })
+  })
+  mkdirSync(join(links, 'a'), { recursive: true })
+  symlinkSync(p.dir, link, 'junction')
+  writeFileSync(
+    join(p.dir, 'typed.test.ts'),
+    "import { assert, test } from 'ubqtest'\nconst count: number = 'one'\ntest('a', () => assert(count))\n",
+  )
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        strict: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+        types: ['node'],
+      },
+      include: ['typed.test.ts'],
+    }),
+  )
+  for (const name of ['typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  // A shell keeps the path with the link in PWD.
+  const r = spawnSync('node', [cli, 'typed.test.ts'], {
+    cwd: link,
+    encoding: 'utf8',
+    env: { ...process.env, CI: '', PWD: link },
+  })
+  assert.deepEqual(
+    [r.status, r.stdout.split('\n').filter(line => /^(TYPE|fail|pass)/.test(line))],
+    [1, ['TYPE typed.test.ts', 'fail: 0 failed, 1 passed, 1 type error (run 1: ubq failures 1)']],
+  )
+})
 
 test('a run reports the type errors of the project', () => {
   const p = project()
@@ -240,12 +284,23 @@ test('a type error in the expected value of an assertion has a hint', () => {
   )
   writeFileSync(
     join(p.dir, 'hint.test.ts'),
-    `import { assert, test } from 'ubqtest'
+    `import { assert, isMatch, test } from 'ubqtest'
 const f = (a: string | null, b: string | undefined): void => {
   assert.equal(a, b)
   assert.deepEqual({ v: a }, { v: b })
 }
-test('t', () => f('x', 'x'))
+type Json = string | number | null | Json[] | { [key: string]: Json }
+interface Row {
+  a: number
+}
+const g = (body: Json, row: Row, n: { v: number }): void => {
+  assert.match(body, { xs: [row] })
+  assert(isMatch(n, { v: 'one' }))
+}
+test('t', () => {
+  f('x', 'x')
+  assert(g)
+})
 `,
   )
   const { out } = p.ubq('hint.test.ts')
@@ -257,6 +312,10 @@ test('t', () => f('x', 'x'))
       '  at hint.test.ts:3:19',
       '  hint: this is the expected value of assert.deepEqual. It must have the type of the actual value. To compare two different types on purpose: assert.deepEqual<unknown>(a, b)',
       '  at hint.test.ts:4:32',
+      '  hint: this is the pattern of assert.match. It must fit the type of the actual value. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: assert.match<unknown>(value, pattern)',
+      '  at hint.test.ts:11:22',
+      '  hint: this is the pattern of isMatch. It must fit the type of the actual value. A value of an interface type does not fit a type with an index signature, such as a JSON type. For a pattern that does not fit on purpose: isMatch<unknown>(value, pattern)',
+      '  at hint.test.ts:12:23',
     ],
     out,
   )

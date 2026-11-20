@@ -122,8 +122,11 @@ export const mutate = async (db: DatabaseSync, args: string[], out: (text: strin
    * undefined.
    */
   const check = async ({ file, mutant, tests, ms }: Job): Promise<'fail' | 'error' | undefined> => {
+    const change = JSON.stringify([join(root, file), mutant.start, mutant.end, mutant.text])
     const env = {
-      UBQ_MUTANT: JSON.stringify([join(root, file), mutant.start, mutant.end, mutant.text]),
+      UBQ_MUTANT: change,
+      // The processes that a test starts load the changed file too.
+      UBQ_CHILD_MUTANT: change,
       UBQ_LIMIT: String(Math.max(MIN_LIMIT, Math.ceil(ms * 10))),
     }
     let result: 'error' | undefined

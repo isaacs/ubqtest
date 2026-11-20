@@ -19,9 +19,11 @@ export const SOURCE = 'ubqtest.source'
  * For `ubq mutate`: the source of a file with the change of the
  * mutation check, if the runner gave this process one for the file
  * (`UBQ_MUTANT`: path, start, end, new text). If not, undefined.
+ * A process that a test starts has `UBQ_CHILD_MUTANT`: the library
+ * removes `UBQ_MUTANT` from the environment of the test process.
  */
 export const mutated = (path: string, source: string): string | undefined => {
-  mutant ??= JSON.parse(process.env.UBQ_MUTANT || '[]') as typeof mutant & {}
+  mutant ??= JSON.parse(process.env.UBQ_MUTANT || process.env.UBQ_CHILD_MUTANT || '[]') as typeof mutant & {}
   const [file, start, end, text] = mutant
   return file === path ? source.slice(0, start) + text + source.slice(end) : undefined
 }

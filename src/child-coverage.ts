@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { isMainThread, threadId } from 'node:worker_threads'
 import { type ChildCounts, type Children, CHILDREN } from './child-read.ts'
 import { builtMap, cached, cachePath } from './counter-collector.ts'
-import { COUNTERS, SOURCE } from './counters.ts'
+import { COUNTERS, mutated, SOURCE } from './counters.ts'
 import { builtin, type Counting, withCounters } from './load-hook.ts'
 import { projectRoot } from './project.ts'
 
@@ -191,6 +191,10 @@ const count = ([root, dir]: Scope): Counting => {
     wants: path => path.startsWith(start) && !path.includes(modules),
     change(path, source) {
       if (source === undefined) return undefined
+      // The change of a mutation check, with no counters: that run
+      // stores no coverage.
+      const changed = mutated(path, source)
+      if (changed !== undefined) return { source: changed, js: false }
       const file = relative(root, path).split(sep).join('/')
       // Not the key of the collector of a test process: one process
       // can have both, for two projects with a file of the same name.
