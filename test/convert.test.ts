@@ -942,7 +942,7 @@ expect(fn).toHaveBeenCalledWith('a')
     // Parentheses end an optional chain. The value of the chain can
     // be undefined, so the new property has `?.` too.
     '  assert.equal(event.exception?.values?.length, 2)',
-    '  assert(event.exception?.values?.some(item => isDeepEqual(item, { a: 1 })))',
+    '  assert(event.exception?.values?.some((item: unknown) => isDeepEqual(item, { a: 1 })))',
     // With a matcher, the arguments of the call are a pattern.
     '  assert.match(fn.calls.at(-1)?.args, [/x/])',
     '  assert.throws(() => f(), /x/)',
@@ -1415,8 +1415,8 @@ it('a', () => {
   assert.deepEqual(r.code, [
     "import { assert, isDeepEqual, test } from 'ubqtest'",
     "test('a', () => {",
-    "  assert(list.some(item => isDeepEqual(item, { contents: 'write' })))",
-    '  assert(!(list.some(element => isDeepEqual(element, item))))',
+    "  assert(list.some((item: unknown) => isDeepEqual(item, { contents: 'write' })))",
+    '  assert(!(list.some((element: unknown) => isDeepEqual(element, item))))',
     '})',
   ])
 })
@@ -3533,5 +3533,65 @@ it.each([1])('each %s', () => {
     '  // TODO(ubq): Use await clock.runAll(), with the clock of fakeClock().',
     '  vi.runAllTimers()',
     '})',
+  ])
+})
+
+test('bun:test: spyOn and mock with no object, a function with no rule, the list of calls, and text with values as the expected error', () => {
+  const r = convert(`import { expect, expectTypeOf, mock, setDefaultTimeout, spyOn, test } from "bun:test";
+import * as ns from "../src/ns";
+setDefaultTimeout(30_000);
+test("a", async () => {
+  const reads = spyOn(ws, "read");
+  const m = mock(() => 1);
+  const paths = reads.mock.calls.map(([path]) => path);
+  expect(reads.mock.lastCall).toEqual(["a"]);
+  await expect(p).rejects.toThrow(\`crash after \${x} write\`);
+  await expect(p).rejects.toThrow(\`plain text\`);
+  expect(() => f()).toThrow(\`crash \${x}\`);
+  expect(JSON.parse(text)).toContainEqual({ a: 1 });
+  expect(x).toMatchObject({ a: expect.any(String) });
+  const all = spyOn(ns, "read").mockReturnValue(1);
+  spyOn(ws, "write").mockImplementation(() => 2);
+  expect(typeof setDefaultTimeout).toBe("function");
+  const one = mock().mockReturnValue(1);
+  expectTypeOf(one).toBeFunction();
+});
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    'import { assert, isDeepEqual, spy, spyOn, test } from "ubqtest";',
+    'import * as ns from "../src/ns";',
+    '// TODO(ubq): ubq has no time limit for one file. Remove this call. Give',
+    '// the limit to a group or to a test: describe(name, { timeout: ms }, fn),',
+    '// test(name, { timeout: ms }, fn). For each test of the project: "timeout"',
+    '// in "ubq" in package.json.',
+    'setDefaultTimeout(30_000);',
+    'test("a", async () => {',
+    '  const reads = spyOn(ws, "read");',
+    '  const m = spy(() => 1);',
+    '  const paths = reads.calls.map(call => call.args).map(([path]) => path);',
+    '  assert.deepEqual(reads.calls.at(-1)?.args, ["a"]);',
+    '  await assert.rejects(p, { message: (v: unknown) => String(v).includes(`crash after ${x} write`) });',
+    '  await assert.rejects(p, { message: (v: unknown) => String(v).includes(`plain text`) });',
+    '  assert.throws(() => f(), { message: (v: unknown) => String(v).includes(`crash ${x}`) });',
+    '  assert(JSON.parse(text).some((item: unknown) => isDeepEqual(item, { a: 1 })));',
+    '  assert.match(x, { a: (v: unknown) => typeof v === "string" });',
+    '  // TODO(ubq): spyOn cannot replace an export of a module: ns is the',
+    "  // module '../src/ns', and the code under test has its own import of it.",
+    "  // Use mockImport: const subject = await mockImport(() => import('<the",
+    "  // module under test>'), [[() => import('../src/ns'), { ...ns, read:",
+    '  // spy(impl) }]]). Then call the code of subject, not of the import at',
+    '  // the top of the file, and assert on the spy.',
+    '  const all = spyOn(ns, "read").mockReturnValue(1);',
+    '  spyOn(ws, "write", () => 2);',
+    '  // TODO(ubq): ubq has no time limit for one file. Remove this call. Give',
+    '  // the limit to a group or to a test: describe(name, { timeout: ms },',
+    '  // fn), test(name, { timeout: ms }, fn). For each test of the project:',
+    '  // "timeout" in "ubq" in package.json.',
+    '  assert.equal(typeof setDefaultTimeout, "function");',
+    '  const one = spy(() => 1);',
+    '  // TODO(ubq): ubq has no expectTypeOf.',
+    '  expectTypeOf(one).toBeFunction();',
+    '});',
   ])
 })

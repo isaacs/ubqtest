@@ -40,6 +40,7 @@ type Children = (node: Node) => Node[]
 /** What a name in the file is. */
 type Role =
   | 'tap'
+  | 'spyOn'
   | 'test'
   | 'describe'
   | 'hook'
@@ -378,6 +379,14 @@ const commonjs = (file: string): boolean => {
 const TICK =
   'Use await clock.tick(ms), with the clock of fakeClock(). A timer of 0 ms runs after 1 ms, as in Node: for a time of 0, use clock.tick(1).'
 
+/** The TODO text for a function that a file imports from the old test tool. */
+const LEFT: Record<string, string> = {
+  setDefaultTimeout:
+    'ubq has no time limit for one file. Remove this call. Give the limit to a group or to a test: describe(name, { timeout: ms }, fn), test(name, { timeout: ms }, fn). For each test of the project: "timeout" in "ubq" in package.json.',
+  setSystemTime:
+    'Use clock.set(time), with the clock of fakeClock(). It sets the time of Date and runs no timer. Or give the time when you make the clock: fakeClock({ now: time }).',
+}
+
 /** The TODO text for a function of `vi` or `jest`. */
 const VI: Record<string, string> = {
   clearAllMocks: TODO.spyClear,
@@ -523,9 +532,15 @@ export const convertSource = (
     else if (imported === 'expect') roles.set(local, 'expect')
     else if (imported === 'vi' || imported === 'jest') roles.set(local, 'vi')
     else if (imported === 'mock') roles.set(local, 'mock')
+    // bun:test has the function with no object.
+    else if (imported === 'spyOn') roles.set(local, 'spyOn')
+    // A function of the old tool that this command has no rule for.
+    else if (/^[a-z]/.test(imported) && imported !== 'assert') leftNames.set(local, imported)
     else if (/^(vitest|@jest\/globals|bun:test)$/.test(module) && imported.startsWith('Mock')) toolTypes.add(local)
     if (roles.has(local)) importedRoles.add(local)
   }
+  /** The functions of the old test tool with no rule: the name in the file, then the name in the tool. */
+  const leftNames = new Map<string, string>()
   /** Types of the old test tool that the file imports: `Mock`, `MockInstance`. */
   const toolTypes = new Set<string>()
   /** The names with a role that the file imports. Not a global of jest. */
@@ -694,6 +709,12 @@ export const convertSource = (
   }
 
   // --- Helpers ---
+  /** Text in the quotes that the imports of the file have. */
+  const quoted = (value: string): string => {
+    const like = removed[0] ?? (program.body as Node[]).find(node => node.type === 'ImportDeclaration')
+    const quote = like && /"[^'"]*"\)?;?$/.test(text(like)) ? '"' : "'"
+    return quote + value + quote
+  }
   const lineStart = (at: number): number => source.lastIndexOf('\n', at - 1) + 1
   const indentAt = (at: number): string => /^[ \t]*/.exec(source.slice(lineStart(at), at))![0]
   /**
@@ -731,11 +752,14 @@ export const convertSource = (
    */
   const rewrite = (node: Node, rule: string, args: Node[]): Node[] => {
     // A name for the parameter of a callback that the arguments do not use.
+    // In TypeScript it has a type: the list can have the type any.
     if (rule.includes('ITEM'))
-      rule = rule.replaceAll(
-        'ITEM',
-        ['item', 'element', 'entry', 'one'].find(name => !args.some(arg => mentions(arg, name))) ?? '_item',
-      )
+      rule = rule
+        .replace('ITEM =>', /\.[cm]?tsx?$/.test(file) ? '(ITEM: unknown) =>' : 'ITEM =>')
+        .replaceAll(
+          'ITEM',
+          ['item', 'element', 'entry', 'one'].find(name => !args.some(arg => mentions(arg, name))) ?? '_item',
+        )
     const pieces: string[] = ['']
     const parts: Node[] = []
     let last = 0
@@ -815,6 +839,14 @@ export const convertSource = (
   }
   /** jest: toThrow('text') is true if the message has the text in it. ubq has a RegExp for that. */
   const messageRegExp = (arg: Node | undefined): void => {
+    if (arg?.type === 'TemplateLiteral') {
+      // Text with values in it: the message has that text. A RegExp
+      // cannot have the values.
+      const v = /\.[cm]?tsx?$/.test(file) ? '(v: unknown)' : 'v'
+      replace(arg.start, arg.start, `{ message: ${v} => String(v).includes(`)
+      replace(arg.end, arg.end, ') }')
+      return
+    }
     if (arg?.type !== 'Literal' || typeof arg.value !== 'string') return
     replace(arg.start, arg.end, `/${arg.value.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&').replace(/\n/g, '\\n')}/`)
   }
@@ -1413,16 +1445,28 @@ export const convertSource = (
     path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
 
   /**
+   * The function of ubq for a call that makes a spy: `vi.fn()`,
+   * `vi.spyOn()`, `mock.method()` of node:test, and `mock()` and
+   * `spyOn()` of bun:test.
+   */
+  const makes = (node: Node): 'spy' | 'spyOn' | undefined => {
+    const callee = node.type === 'CallExpression' ? (node.callee as Node) : undefined
+    if (!callee) return undefined
+    if (roleOf(callee) === 'spyOn') return 'spyOn'
+    if (roleOf(callee) === 'mock') return 'spy'
+    if (callee.type !== 'MemberExpression' || callee.computed) return undefined
+    const owner = roleOf(callee.object as Node)
+    const maker = nameOf(callee.property as Node)
+    if (owner !== 'vi' && owner !== 'mock') return undefined
+    return maker === 'fn' ? 'spy' : maker === 'spyOn' || (owner === 'mock' && maker === 'method') ? 'spyOn' : undefined
+  }
+  /**
    * The TODO text for `vi.spyOn(ns, 'k')`, where `ns` is `import *
    * as ns`. The exports of a module cannot change, so the spy of
    * ubq cannot replace one.
    */
   const namespaceSpy = (node: Node): string | undefined => {
-    const callee = node.type === 'CallExpression' ? (node.callee as Node) : undefined
-    if (callee?.type !== 'MemberExpression' || callee.computed) return undefined
-    const owner = roleOf(callee.object as Node)
-    const maker = nameOf(callee.property as Node)
-    if (!(owner === 'vi' && maker === 'spyOn') && !(owner === 'mock' && maker === 'method')) return undefined
+    if (makes(node) !== 'spyOn') return undefined
     const [object, key] = node.arguments as Node[]
     const name = nameOf(object)
     const module = namespaces.get(name!)
@@ -1560,18 +1604,8 @@ export const convertSource = (
     if (!wrap || !value || (node.arguments as Node[]).length !== 1 || made.type !== 'CallExpression') return undefined
     const callee = made.callee as Node
     const inner = made.arguments as Node[]
-    if (callee.type !== 'MemberExpression' || callee.computed) return undefined
-    const owner = roleOf(callee.object as Node)
-    const maker = nameOf(callee.property as Node)
-    const name =
-      owner !== 'vi' && owner !== 'mock'
-        ? undefined
-        : maker === 'fn' && !inner.length
-          ? 'spy'
-          : (maker === 'spyOn' || (owner === 'mock' && maker === 'method')) && inner.length === 2
-            ? 'spyOn'
-            : undefined
-    if (!name) return undefined
+    const name = makes(made)
+    if (!name || inner.length !== (name === 'spy' ? 0 : 2)) return undefined
     // `() => {}` with an object in it is a block, also for `{} as T`.
     const [before, after] =
       method !== 'mockImplementation' && source[value.start] === '{' && !wrap[1] ? [wrap[0] + '(', ')'] : wrap
@@ -1827,6 +1861,10 @@ export const convertSource = (
         if (top !== node) todo(path, TODO.testValue)
       }
     }
+    if (reference && leftNames.has(nameOf(node)!) && !path.some(n => removed.includes(n))) {
+      const name = leftNames.get(nameOf(node)!)!
+      todo(path, LEFT[name] ?? `ubq has no ${name}.`)
+    }
     if (node.type === 'TSTypeReference' && toolTypes.has(nameOf(node.typeName as Node)!)) todo(path, TODO.mockType)
     // chromium.launch() of the Playwright library, with any test tool.
     if (node.type === 'CallExpression') {
@@ -1871,7 +1909,18 @@ export const convertSource = (
           ? (nameOf(parent.property as Node) ?? '')
           : ''
       if (/^(calls|results|lastCall)$/.test(read)) {
-        if (!spyCalls(node, path)) todo(path, TODO.spyImpl)
+        if (spyCalls(node, path)) {
+          // An index or the length of the calls.
+        } else if (read === 'results') todo(path, TODO.spyImpl)
+        else {
+          // The list of the arguments of each call, and the last one.
+          replace(
+            (node.property as Node).start,
+            parent!.end,
+            read === 'calls' ? 'calls.map(call => call.args)' : 'calls.at(-1)?.args',
+          )
+          changes++
+        }
       } else if (/^(instances|contexts)$/.test(read)) {
         // Each call of a spy has its `this` value.
         replace((node.property as Node).start, parent!.end, 'calls.map(call => call.this)')
@@ -1913,6 +1962,23 @@ export const convertSource = (
     if (role === 'test' || role === 'describe') {
       definition(node, path, role, tapTests.has(nameOf(callee)!))
       return args
+    }
+    // spyOn(object, key) and mock(fn) of bun:test
+    if (role === 'spyOn') {
+      const real = namespaceSpy(node)
+      if (real) todo(path, real)
+      else {
+        replace(callee.start, callee.end, 'spyOn')
+        used.add('spyOn')
+        changes++
+      }
+      return undefined
+    }
+    if (role === 'mock') {
+      replace(callee.start, callee.end, 'spy')
+      used.add('spy')
+      changes++
+      return undefined
     }
     if (role === 'hook') {
       if (setups.has(node)) return [args[0]!.body as Node]
@@ -2136,7 +2202,7 @@ export const convertSource = (
           : method !== 'any' || !kind || mentions(first!, 'v')
             ? undefined
             : /^(Number|String|Boolean|Function|BigInt|Symbol|Object)$/.test(kind)
-              ? `typeof v === '${kind.toLowerCase()}'`
+              ? `typeof v === ${quoted(kind.toLowerCase())}`
               : kind === 'Array'
                 ? 'Array.isArray(v)'
                 : `v instanceof ${kind}`
