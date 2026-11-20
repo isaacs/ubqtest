@@ -3034,7 +3034,11 @@ export const convertSource = (
       n.type === 'AwaitExpression' ||
       (n.type === 'ForOfStatement' && n.await === true) ||
       children(n).some(c => !FUNCTION.has(c.type) && c.type !== 'FunctionDeclaration' && top(c))
-    const from = lineStart(rest[0]!.start)
+    let from = lineStart(rest[0]!.start)
+    // A comment just above the first statement is about it: it goes
+    // into the test too.
+    while (from > lastImport!.end && /^\s*(\/\/|\/\*|\*)/.test(source.slice(lineStart(from - 1), from)))
+      from = lineStart(from - 1)
     const name = file
       .split(/[\\/]/)
       .pop()!
