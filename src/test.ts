@@ -564,7 +564,7 @@ const drain = async (): Promise<void> => {
   // `await` between the calls.
   if (fileCleanups.length) {
     fileState.ran = true
-    const failure = await runCleanups(fileCleanups, DEFAULT_TIMEOUT, fn => fn())
+    const failure = await runCleanups(fileCleanups, config().timeout ?? DEFAULT_TIMEOUT, fn => fn())
     if (failure) emit({ type: 'file-error', file: file!, failure })
   }
   // What a child process wrote after the last test ended.

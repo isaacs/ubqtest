@@ -473,6 +473,8 @@ cleanup(fn: () => void | Promise<void>): void         // run fn at test end
   queue. A `test` call or a fixture call after that is an error.
 - A fixture call after its test ended is a failure of that test
   (`late`). Each cleanup function has the time limit of its test.
+  A cleanup function of the file has the `timeout` of the
+  configuration, or 5000 ms.
 
 ### `fakeClock`
 

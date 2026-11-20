@@ -136,6 +136,16 @@ test('the ubq key of package.json sets include, exclude, and timeout', () => {
   )
   p.configure({ timeout: 50 })
   assert.match(p.ubq('wait.ts').out, /the test did not end in 50 ms/)
+  // A cleanup function of the file has the limit of the config.
+  writeFileSync(
+    join(p.dir, 'wait.ts'),
+    [
+      "import { assert, cleanup, test } from 'ubqtest'",
+      'cleanup(() => new Promise(r => setTimeout(r, 300)))',
+      "test('ends', () => assert.equal(1, 1))",
+    ].join('\n'),
+  )
+  assert.match(p.ubq('wait.ts').out, /ERROR wait\.ts\n {2}a cleanup function did not end in 50 ms\n/)
   rmSync(p.dir, { recursive: true })
 })
 
