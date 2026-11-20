@@ -3323,6 +3323,54 @@ const IGNORE = /\/[*/]\s*(c8|istanbul|v8)\s+ignore\b(?!\s+stop)/
 /** A file of types. */
 const TYPES = /\.d\.[cm]?ts$/
 
+/** A pattern of an ignore file that already leaves out `.ubq`. */
+const UBQ_IGNORED = /^\/?(\*\*\/)?\.ubq(\/(\*\*)?)?$/
+
+/**
+ * Adds `.ubq` to the ignore files of the formatters and linters in
+ * the project root: the store and the test folders of ubq are not
+ * code of the project. Returns the names of the changed files, and
+ * of the configs that this command cannot change.
+ */
+const ignoreState = (root: string, dry: boolean): { added: string[]; byHand: string[] } => {
+  const added: string[] = []
+  const byHand: string[] = []
+  for (const name of ['.prettierignore', '.eslintignore']) {
+    const path = join(root, name)
+    if (!existsSync(path)) continue
+    const text = readFileSync(path, 'utf8')
+    if (text.split(/\r?\n/).some(line => UBQ_IGNORED.test(line.trim()))) continue
+    if (!dry) writeFileSync(path, `${text}${text && !text.endsWith('\n') ? '\n' : ''}.ubq\n`)
+    added.push(name)
+  }
+  // The configs of oxfmt and oxlint have a list of patterns.
+  for (const name of ['.oxfmtrc.json', '.oxfmtrc.jsonc', '.oxlintrc.json']) {
+    const path = join(root, name)
+    if (!existsSync(path)) continue
+    const text = readFileSync(path, 'utf8')
+    let config: { ignorePatterns?: unknown }
+    try {
+      config = JSON.parse(text) as typeof config
+    } catch {
+      // A comment or a trailing comma: the text must stay as it is.
+      byHand.push(name)
+      continue
+    }
+    const list = config.ignorePatterns ?? []
+    if (!Array.isArray(list)) {
+      byHand.push(name)
+      continue
+    }
+    if (list.some(p => typeof p === 'string' && UBQ_IGNORED.test(p))) continue
+    config.ignorePatterns = [...list, '.ubq']
+    if (!dry) writeFileSync(path, JSON.stringify(config, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
+    added.push(name)
+  }
+  // A config that is code.
+  for (const name of readdirSync(root)) if (/^(eslint\.config\.[cm]?[jt]s|biome\.jsonc?)$/.test(name)) byHand.push(name)
+  return { added, byHand }
+}
+
 /**
  * The path of the `before` script of tap, from `"tap"` in
  * package.json or a `before:` line of `.taprc`.
@@ -3607,6 +3655,14 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     }
   } catch {
     // No package.json that is JSON.
+  }
+  if (changed) {
+    const { added, byHand } = ignoreState(root, dry)
+    if (added.length) out(`${dry ? 'to add' : 'added'} .ubq to ${added.join(', ')}`)
+    if (byHand.length)
+      out(
+        `note: add .ubq to the files that ${byHand.join(', ')} leave${byHand.length === 1 ? 's' : ''} out. It has the store and the test folders of ubq.`,
+      )
   }
   // The changes keep the code correct, not its format.
   const formatted = written.length && !dry ? formatFiles(root, written) : undefined

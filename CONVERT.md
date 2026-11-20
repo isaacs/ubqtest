@@ -27,7 +27,10 @@ has the API and the rules of ubq.
    that it changed. It finds the formatter in the `package.json`
    of the project, or of a folder around it. If the formatter is
    not installed or fails, a note gives the command to run by
-   hand.
+   hand. The command adds `.ubq` to `.prettierignore`,
+   `.eslintignore`, and the `ignorePatterns` of `.oxfmtrc.json`
+   and `.oxlintrc.json` in the project root, if they exist. For
+   an ESLint or Biome config, a note says to add it by hand.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. If a file has the same
    text more than one time, only the first TODO has the full

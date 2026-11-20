@@ -3653,3 +3653,40 @@ it('a', () => {
     ],
   )
 })
+
+test('convert adds .ubq to the ignore files of formatters and linters', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'old'))
+  const source = "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n"
+  writeFileSync(join(p.dir, 'old/a.test.ts'), source)
+  writeFileSync(join(p.dir, '.prettierignore'), 'dist')
+  writeFileSync(join(p.dir, '.eslintignore'), 'dist\n')
+  writeFileSync(join(p.dir, '.oxfmtrc.json'), '{ "printWidth": 100 }')
+  // A pattern that already leaves it out.
+  writeFileSync(join(p.dir, '.oxlintrc.json'), '{ "ignorePatterns": ["/.ubq/"] }')
+  // A config with a comment, a list that is not a list, and a config that is code.
+  writeFileSync(join(p.dir, '.oxfmtrc.jsonc'), '{ // a comment\n}\n')
+  writeFileSync(join(p.dir, 'eslint.config.js'), 'export default []\n')
+  const lines = (...args: string[]): string[] =>
+    p
+      .ubq('convert', ...args)
+      .out.split('\n')
+      .filter(line => /\.ubq/.test(line))
+  const note =
+    'note: add .ubq to the files that .oxfmtrc.jsonc, eslint.config.js leave out. It has the store and the test folders of ubq.'
+  assert.deepEqual(lines('--dry', 'old'), ['to add .ubq to .prettierignore, .eslintignore, .oxfmtrc.json', note])
+  assert.equal(readFileSync(join(p.dir, '.prettierignore'), 'utf8'), 'dist')
+  assert.deepEqual(lines('old'), ['added .ubq to .prettierignore, .eslintignore, .oxfmtrc.json', note])
+  assert.equal(readFileSync(join(p.dir, '.prettierignore'), 'utf8'), 'dist\n.ubq\n')
+  assert.equal(readFileSync(join(p.dir, '.eslintignore'), 'utf8'), 'dist\n.ubq\n')
+  assert.equal(
+    readFileSync(join(p.dir, '.oxfmtrc.json'), 'utf8'),
+    '{\n  "printWidth": 100,\n  "ignorePatterns": [\n    ".ubq"\n  ]\n}\n',
+  )
+  assert.equal(readFileSync(join(p.dir, '.oxlintrc.json'), 'utf8'), '{ "ignorePatterns": ["/.ubq/"] }')
+  // A second run: each file has it.
+  writeFileSync(join(p.dir, 'old/a.test.ts'), source)
+  writeFileSync(join(p.dir, '.oxfmtrc.jsonc'), '{ "ignorePatterns": "dist" }')
+  assert.deepEqual(lines('old'), [note])
+})
