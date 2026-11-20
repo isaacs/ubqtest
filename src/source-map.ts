@@ -2,10 +2,14 @@
 // regions of the source file. Deno compiles a `.tsx` or `.jsx` file
 // before a load hook sees it, and gives the JavaScript with an
 // inline source map. The counters go into that JavaScript.
-import { hash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
 import type { Region } from './counters.ts'
+
+// `node:crypto` loads at the first hash: each test process loads this
+// file, and the load of the module takes time.
+const hash = (algorithm: 'sha1', data: string | Buffer): string =>
+  process.getBuiltinModule('node:crypto').hash(algorithm, data)
 
 const INLINE = /\/\/# sourceMappingURL=data:application\/json;base64,([A-Za-z0-9+/=]+)\s*$/
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'

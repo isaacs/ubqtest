@@ -1,7 +1,6 @@
 // The collector for source counters, for the Bun preload and the
 // Node preload. Keeps the changed source of each file in a cache in
 // `.ubq/counters/`, so that most processes do not load the parser.
-import { hash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -14,6 +13,11 @@ import type { Instrumented } from './instrument.ts'
 import { projectRoot, rel } from './project.ts'
 import { builtSources, mapOf, type SourceRegions, sourcePlace, sourceRegions } from './source-map.ts'
 import type { Transformer } from './transform.ts'
+
+// `node:crypto` loads at the first hash: each test process loads this
+// file, and the load of the module takes time.
+const hash = (algorithm: 'sha1', data: string | Buffer): string =>
+  process.getBuiltinModule('node:crypto').hash(algorithm, data)
 
 /** Changes when the form of the changed source or the regions changes. */
 const CACHE_VERSION = 5
@@ -116,13 +120,31 @@ export interface Counters {
   compiled(path: string, made: string): string | undefined
 }
 
+/**
+ * A hash of 64 bits, as 16 hex digits. It needs no module, and the
+ * name of a cache entry needs no hash that is safe from an attacker.
+ */
+const hash64 = (text: string): string => {
+  let a = 0x811c9dc5
+  let b = 0x9747b28c
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i)
+    a = Math.imul(a ^ c, 0x01000193)
+    b = Math.imul(b ^ c, 0x5bd1e995)
+  }
+  // Each half gets bits of the other.
+  const x = Math.imul(a ^ (a >>> 16), 0x85ebca6b) ^ Math.imul(b ^ (b >>> 13), 0xc2b2ae35)
+  const y = Math.imul(b ^ (b >>> 16), 0x85ebca6b) ^ Math.imul(x ^ (x >>> 13), 0xc2b2ae35)
+  return (x >>> 0).toString(16).padStart(8, '0') + (y >>> 0).toString(16).padStart(8, '0')
+}
+
 /** The cache entry of a file. `root` is the project that the file belongs to. */
 export const cachePath = (file: string, source: string, root = projectRoot(), map = '', stamp = ''): string =>
   join(
     root,
     '.ubq',
     'counters',
-    hash('sha1', `${CACHE_VERSION}\0${file}\0${source}${map && '\0' + map}${stamp && '\0\0' + stamp}`) + '.json',
+    hash64(`${CACHE_VERSION}\0${file}\0${source}${map && '\0' + map}${stamp && '\0\0' + stamp}`) + '.json',
   )
 
 /**

@@ -1,12 +1,16 @@
 // The run store: one SQLite file at `.ubq/runs.db` in the project.
 // See docs/04-architecture.md, section 5.
 import { clearTimeout, setTimeout } from './real.ts'
-import { hash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from './sqlite.ts'
 import type { Failure, RunStart, Sink, TestId, UbqEvent } from './events.ts'
 import { projectRoot, stateDir } from './project.ts'
+
+// `node:crypto` loads at the first hash: each test process loads this
+// file, and the load of the module takes time.
+const hash = (algorithm: 'sha1', data: string | Buffer): string =>
+  process.getBuiltinModule('node:crypto').hash(algorithm, data)
 
 export { stateDir }
 

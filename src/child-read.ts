@@ -2,11 +2,15 @@
 // wrote (D53), and gives it as coverage of the test that runs.
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { hash } from 'node:crypto'
 import { flatten, mergeRanges, sourceCoverage } from './coverage.ts'
 import { type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
 import type { SourceRegions } from './source-map.ts'
+
+// `node:crypto` loads at the first hash: each test process loads this
+// file, and the load of the module takes time.
+const hash = (algorithm: 'sha1', data: string | Buffer): string =>
+  process.getBuiltinModule('node:crypto').hash(algorithm, data)
 
 /** The key of the folder that the children of this test process write to. */
 export const CHILDREN = Symbol.for('ubqtest.children')
