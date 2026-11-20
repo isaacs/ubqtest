@@ -440,6 +440,15 @@ All entries are from 2026-11-11 to 2026-11-14.
     the config imports. A `ubq doctor` note for a tsconfig with
     which tsc does not define a class field.
   - `stub` takes `undefined` for each key (D125).
+  - From two reports of a bun:test project (D126): a type error
+    of a test file in a project behind a symbolic link, `ubq
+    mutate` for code of a child process, the pattern type of a
+    recursive JSON type, a clear error for a Bun with no
+    `node:sqlite`, a doctor FIX for code that needs Bun, and
+    `ubq convert` for `spyOn` and `mock` of `bun:test`, a
+    function with no rule, `mock.calls` as a list, and a
+    template literal as the expected error. Q60 to Q63 wait for
+    the user.
   - `release.yml` makes a GitHub release for the tag, with the
     subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on

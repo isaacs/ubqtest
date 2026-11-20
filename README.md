@@ -196,7 +196,7 @@ comment with the instruction.
 
 ## Requirements and limits
 
-- Node 22.18 or later, or Bun, or Deno. In a CommonJS test file,
+- Node 22.18 or later, or Bun 1.4 or later, or Deno. In a CommonJS test file,
   `require('./file')` with no extension needs Node 24.18 or
   later of Node 24, or Node 26.5 or later.
 - On Node, TypeScript runs with its types removed and no other

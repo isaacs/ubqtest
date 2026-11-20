@@ -25,7 +25,8 @@ Read the rules of the project for agents first (`AGENTS.md`,
 of `package.json`, ask the user before you do it.
 Put `"scripts": { "test": "ubq" }` in `package.json`.
 `npx ubq --update` runs the tests and writes their snapshots.
-On Bun, the command is `bun node_modules/ubqtest/cli.js`.
+On Bun, the command is `bun node_modules/ubqtest/cli.js`. ubq
+needs Bun 1.4 or later.
 
 ## To write or correct tests
 

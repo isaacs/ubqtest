@@ -720,8 +720,9 @@ jobs:
 A test can start the program under test as a child process: a
 command, or a server. The code of the project that the child runs
 is coverage of the test, as the code that the test process runs.
-So `ubq --changed`, `ubq uncovered`, and `ubq covers` work for
-code that only a child runs. No setup is necessary.
+So `ubq --changed`, `ubq uncovered`, `ubq covers`, and `ubq
+mutate` work for code that only a child runs. No setup is
+necessary.
 
 ```ts
 import { spawnSync } from 'node:child_process'
@@ -958,7 +959,10 @@ is for code that a test cannot reach.
 
 ## Requirements
 
-Node 22.18 or later, or Bun, or Deno. `ubq doctor` tests the
+Node 22.18 or later, or Bun 1.4 or later, or Deno. Bun before 1.4
+has no `node:sqlite` module: a project that runs on an older Bun
+must move to a newer one, in CI and on each machine that runs the
+tests. `ubq doctor` tests the
 functions of Node that ubq needs, not the version number. Two
 limits of older versions:
 

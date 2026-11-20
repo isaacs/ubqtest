@@ -57,3 +57,91 @@ Q53 to Q58 came from `23-sentry-core-feedback-0.0.22.md`. D123 has
 what is done for the rest of that report.
 
 Q59 came from the same report.
+
+## Open Questions
+
+Q60 to Q63 come from `private/ubq-feedback-0.0.19.md` and
+`private/ubq-feedback-0.0.22.md` (not public). D126 has what is
+done for the rest of those reports.
+
+## Q60. A numeric assertion on a value that can be `undefined`
+
+**Blocked:** `expect(x?.y).toBeCloseTo(1.5)` becomes
+`assert.close(x?.y, 1.5)`, which is a type error: the value is
+`number | undefined`. The same for `greaterThan`, `lessThan`, and
+their two other forms. The project of the reports needed a `!` by
+hand at 15 places, in each of its two conversions.
+
+**Options:**
+
+1. No change.
+2. `ubq convert` writes `(x?.y)!` in a TypeScript file. Many
+   projects have a lint rule against `!`.
+3. The value of these assertions can be `undefined` or `null` in
+   the type. At run time such a value fails, as it does now, and
+   the report shows `actual: undefined`.
+
+**The agent would do:** option 3. The assertion still fails for
+a value that is not there, so the type error adds no safety. The
+`!` only moves the same failure to run time, with more text.
+
+## Q61. `ubq --changed` and a test that failed in its last run
+
+**Blocked:** after a change that made 20 tests fail, and the
+revert of that change, `ubq --changed` ran 18 tests and did not
+select 3 of the tests that had failed. `ubq check` then failed,
+and named `ubq --failed`. The 3 tests stop a child process with a
+signal, so they had no coverage of the changed lines.
+
+**Options:**
+
+1. No change. `ubq check` names the command.
+2. `ubq --changed` also runs each test that failed in its last
+   run.
+
+**The agent would do:** option 2. A test that failed stopped at
+its failure, so its coverage is not complete, and the selection
+by coverage cannot know if the change is for it. The run that the
+agent expects to make things green then does.
+
+## Q62. The `allowImportingTsExtensions` FIX for a project with no such import
+
+**Blocked:** `ubq doctor` has a FIX line for a tsconfig without
+`allowImportingTsExtensions`, with the reason "The guides import
+files with the .ts extension". The project of the reports imports
+each file with no extension (D78), so the option changes nothing
+there. The agent of the two reports read the FIX as wrong for the
+project.
+
+**Options:**
+
+1. No change.
+2. The FIX only if a file of the project imports a relative path
+   with a `.ts` extension. A test that an agent writes later from
+   the guide, with `.ts`, then gets TS5097, and that error gets a
+   hint that names the option.
+3. A `note` line in place of the FIX.
+
+**The agent would do:** option 2. A FIX that does nothing for the
+project makes the other FIX lines less sure.
+
+## Q63. A time limit for one file
+
+**Blocked:** `setDefaultTimeout(30_000)` of `bun:test` sets the
+limit for the tests of its file. ubq has the limit as an option
+of `test` and of `describe`, and as the `timeout` key for the
+project. A file whose 24 tests all drive real git needed the
+option 24 times, or a `describe` around the whole file. `ubq
+convert` now writes a TODO for the call.
+
+**Options:**
+
+1. No change.
+2. `ubq convert` puts a `describe` with the option around the
+   tests of the file. The diff then has each line of the file.
+3. A function for the limit of the tests after it in the file.
+   It is state that a test file sets, which ubq does not have
+   now.
+
+**The agent would do:** option 1. A constant with the option on
+each test is plain, and it is one file of 83.

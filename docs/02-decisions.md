@@ -3355,3 +3355,89 @@ point of D82. `stub(globalThis, 'performance', undefined)` needs
 no cast: it is the form for code that tests if a global is
 there. The property stays, with the value `undefined`, and the
 old property comes back when the test ends.
+
+## D126. Changes from two reports of a bun:test project (assistant, 2026-11-19)
+
+`private/ubq-feedback-0.0.19.md` and `private/ubq-feedback-0.0.22.md`
+(not public): one project with 83 `bun:test` files, converted two
+times by an agent with sub-agents, on ubq 0.0.19 and on 0.0.22.
+The second report compares the two. The user gave the reports
+with no list of changes. Each choice here is an assumption of the
+assistant.
+
+Done before these reports, or after 0.0.22 and before this
+record: the short form of a TODO text that repeats, a TODO for
+`" > "` in a name, `isMatch` (D123), a `;` after a new `setup()`
+(D123), and `toContainEqual` with a matcher left whole.
+
+Faults:
+
+- **A type error of a test file was "in other files", and the run
+  passed**, in a project that the shell reached through a
+  symbolic link (on macOS, `/tmp`). The type checker took its
+  working directory from `PWD`, with the link in it, and printed
+  each path from there. ubq now gives it the real folder. The
+  project root is also a real path.
+- **`ubq mutate` said SURVIVED for code that the tests run in a
+  child process.** The change was only in the test process. A
+  process that a test starts now loads the changed file too
+  (`UBQ_CHILD_MUTANT`), on Node and on Bun.
+- **`Pattern<T>` refused a correct pattern for a union with an
+  array and an object**, such as a recursive JSON type. An array
+  in the union now has its own pattern type, and an array of any
+  length has it as an interface, so that a type with itself in it
+  does not stop the checker. A value of an interface type in a
+  pattern for a type with an index signature is still a type
+  error: that is a rule of TypeScript. The error has a hint with
+  `assert.match<unknown>`.
+
+The runtime:
+
+- **A Bun with no `node:sqlite`** (1.3.14 in the reports) gives an
+  error that names the module and the version to use, in place of
+  "No such built-in module". The guides say "Bun 1.4 or later".
+  The number is from the reports (1.3.14 does not have the
+  module) and the release notes of Bun 1.4.0 (it has it). ubq
+  runs its tests on 1.4.3 and 1.4.4.
+- **`ubq doctor` on Node names the files with code for Bun** (the
+  `Bun` global, or a `bun:` module), and says to run ubq on Bun.
+  It then does not ask about syntax that Node cannot run: Bun
+  runs it. A file that tests `typeof Bun` is code for each
+  runtime, and is not in the list.
+
+`ubq convert`:
+
+- `spyOn` and `mock` of `bun:test`, as functions with no object,
+  become `spyOn` and `spy` of ubq. Before, the import went away
+  and the call stayed.
+- A function that the file imports from the old tool, and that
+  the command has no rule for, gets a TODO. `setDefaultTimeout`
+  of `bun:test` has its own text. Before, the import went away
+  with no word, and the file did not load.
+- `mock.calls` as a list becomes `calls.map(call => call.args)`,
+  and `mock.lastCall` becomes `calls.at(-1)?.args`.
+- `toThrow` with a template literal becomes a pattern with a
+  function for the message: the text can have values, so it is
+  not a RegExp. Before, the text stayed, with no TODO.
+- The callback of `toContainEqual` has a parameter of the type
+  `unknown` in a TypeScript file. A list of the type `any` (from
+  `JSON.parse`) gave an implicit `any`.
+- A function for `expect.any` has the quotes of the file.
+
+The guides: search the scripts, the source, and the documents for
+the old test command, because a caller that stays can pass with 0
+tests. `ubq mutate` is in the list of commands that work for code
+of a child process.
+
+Not done, with the reason:
+
+- Q60 to Q63 are decisions for the user.
+- `expect.arrayContaining` with a pattern for each element: no
+  form in a pattern, because an array pattern has the length of
+  the value.
+- The `since` line named a change that was not the cause of a
+  flaky failure. The line states what changed, and does not say
+  that it is the cause. `ubq history` named the test as flaky.
+- `setup2`, and `cleanup()` in a helper of the project in place
+  of a `setup()` call: D90. The command cannot know which helper
+  each test calls.

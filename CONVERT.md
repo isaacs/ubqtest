@@ -61,8 +61,13 @@ has the API and the rules of ubq.
    `env.d.ts`: change them first. The old tool can bring packages
    that the project uses, such as `@types/node` or `typescript`:
    after you remove it, make sure that the build and the type
-   check still work. Change the test command of CI. ubq needs
-   Node 22.18 or later: if the CI matrix has an older version,
+   check still work. Change the test command of CI, and of each
+   other caller: search the scripts, the source, and the documents
+   of the project for the old command (`grep -rn 'bun test'`). A
+   caller that stays can pass with no test: `bun test` of
+   converted files runs 0 tests and exits with 0. ubq needs
+   Node 22.18 or later, or Bun 1.4 or later: if the CI matrix or a machine that runs the
+   tests has an older version,
    tell the user, and do not remove it with no answer. The folder `.ubq/` has the run store, and git ignores it
    with no setup. Commit `ubq-snapshots/`.
 
@@ -467,6 +472,13 @@ Things to check by hand:
 ## vitest, jest, and bun:test
 
 `bun:test` has the `expect` of jest. This table is for it too.
+`ubq convert` changes its `spyOn(object, key)` to the `spyOn` of
+ubq, and its `mock(fn)` to `spy(fn)`. `setDefaultTimeout(ms)` gets
+a TODO: ubq has no time limit for one file. Give the limit to a
+group or a test (`describe(name, { timeout: ms }, fn)`), or to
+each test of the project (`"timeout"` in the `ubq` key). Each
+other function of the old tool that the command has no rule for
+gets a TODO too.
 
 | vitest, jest, bun:test | ubq |
 | --- | --- |
@@ -492,6 +504,7 @@ Things to check by hand:
 | `toBeGreaterThanOrEqual(b)`, `toBeLessThanOrEqual(b)` | `assert.greaterThanOrEqual(a, b)`, `assert.lessThanOrEqual(a, b)` |
 | `toBeCloseTo(b)`, `toBeCloseTo(b, digits)` | `assert.close(a, b)`, `assert.close(a, b, digits)` |
 | `expect(fn).toThrow(x)` | `assert.throws(fn, x)` (a text becomes a RegExp, and an Error instance becomes `{ message: error.message }`) |
+| ``expect(fn).toThrow(`no ${name}`)`` | ``assert.throws(fn, { message: (v: unknown) => String(v).includes(`no ${name}`) })`` |
 | `await expect(p).rejects.toThrow(x)` | `await assert.rejects(p, x)` |
 | `await expect(p).rejects.toBeInstanceOf(C)`, `rejects.toMatchObject(o)` | `await assert.rejects(p, C)`, `await assert.rejects(p, o)` |
 | `await expect(p).resolves.toEqual(b)` | `assert.deepEqual(await p, b)` |
@@ -693,6 +706,9 @@ Things to check by hand:
   until the file ends. Make it in a function that each test
   calls, so that each test gets a new one.
 - **`fn.mock.calls[0]`** is `fn.calls[0]?.args`.
+  `fn.mock.calls` as a list is `fn.calls.map(call => call.args)`,
+  and `fn.mock.lastCall` is `fn.calls.at(-1)?.args`. The command
+  writes these.
   `fn.mock.results[0].value` is `fn.calls[0]?.result`.
   `args` has the type `unknown[]`: it compares with a value of
   each type. To read a property of an argument, test its type
