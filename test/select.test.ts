@@ -43,7 +43,7 @@ test('--changed runs the test files that loaded a changed file', () => {
   assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'pass: 0 failed, 8 passed, 1 skipped')
   const none = p.ubq('--changed')
   assert.equal(none.code, 2)
-  assert.match(none.err, /^ubq: no changes, no new tests$/m)
+  assert.match(none.err, /^ubq: no changes, no new tests, no failed tests$/m)
 
   // Only pass.ts loads src/shape.ts.
   appendFileSync(join(p.dir, 'src/shape.ts'), '\n// a change\n')

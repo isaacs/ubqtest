@@ -859,11 +859,22 @@ export const run = async (args: string[]): Promise<number> => {
       }
     } else {
       const { files: affected, changed, fresh } = selectChanged(store)
+      // And each test that failed in its last run: it stopped at its
+      // failure, so its coverage cannot show that the change is not
+      // for it.
+      const byFile = new Map(affected.map(selected => [selected.file, selected]))
+      for (const failed of selectFailed(store)) {
+        const has = byFile.get(failed.file)
+        if (!has || !failed.ids.length) byFile.set(failed.file, failed)
+        else if (has.ids.length) has.ids = [...new Set([...has.ids, ...failed.ids])].sort()
+      }
       store.close()
-      files = affected
+      files = [...byFile.keys()].sort().map(file => byFile.get(file)!)
       if (!files.length) {
         process.stderr.write(
-          changed.length ? `ubq: no tests for changes in ${changed.join(', ')}\n` : 'ubq: no changes, no new tests\n',
+          changed.length
+            ? `ubq: no tests for changes in ${changed.join(', ')}\n`
+            : 'ubq: no changes, no new tests, no failed tests\n',
         )
         return 2
       }

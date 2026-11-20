@@ -21,6 +21,9 @@ const INSTRUMENT = import.meta.url.endsWith('.ts') ? './instrument.ts' : './inst
 export const OLD_TOOL =
   /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bdeclare\s+module\s+|\btypes=)(['"])(vitest|@vitest\/[^'"]+|@cloudflare\/vitest-[^'"]+|cloudflare:test|jest|@jest\/[^'"]+|tap|@tapjs\/[^'"]+|tape|ava|mocha|@playwright\/test)\1/
 
+/** An import of a relative path with the extension of a TypeScript file. */
+const TS_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])\.{1,2}\/[^'"\n]*\.[cm]?tsx?\1/
+
 /** Code that only Bun runs: the global, or a module of Bun. */
 const BUN_CODE = /\bBun\.[A-Za-z]|(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])bun(?::[\w/]+)?\1/
 
@@ -307,6 +310,17 @@ export const doctor = (out: (text: string) => void): number => {
       counted`${hard.length} file|files has|have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. ${HARD_CHOICE}`,
     )
 
+  /** The first file of the project that imports a relative path with a `.ts` extension. */
+  let withTs: string | undefined | null = null
+  const tsImport = (): string | undefined =>
+    (withTs ??= code.find(file => {
+      try {
+        return TS_IMPORT.test(readFileSync(join(root, file), 'utf8'))
+        // ubq: not measured: the list has only files that exist
+      } catch {
+        return false
+      }
+    }))
   // The type check reads the tsconfig.json of each folder from a
   // test file up to the root. The options must be in a config
   // that has the test files.
@@ -348,7 +362,7 @@ export const doctor = (out: (text: string) => void): number => {
           extends: '../tsconfig.json',
           compilerOptions: {
             noEmit: true,
-            allowImportingTsExtensions: true,
+            ...(tsImport() && { allowImportingTsExtensions: true }),
             ...(!v.bun && !hard.length && !transform && { erasableSyntaxOnly: true }),
           },
           include: ['.'],
@@ -370,7 +384,7 @@ export const doctor = (out: (text: string) => void): number => {
     }
     if (options) {
       const reasons = {
-        allowImportingTsExtensions: 'The guides import files with the .ts extension.',
+        allowImportingTsExtensions: `${tsImport()} imports a file with the .ts extension.`,
         erasableSyntaxOnly:
           'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
         rewriteRelativeImportExtensions:
@@ -379,10 +393,12 @@ export const doctor = (out: (text: string) => void): number => {
       const emits = options.noEmit !== true && options.emitDeclarationOnly !== true
       const missing = (
         [
-          'allowImportingTsExtensions',
+          // Only for a project with such an import: an import with
+          // no extension needs no option (D78).
+          ...(tsImport() ? (['allowImportingTsExtensions'] as const) : []),
           // Not for a project that must run on Bun.
           ...(v.bun || hard.length || transform ? [] : (['erasableSyntaxOnly'] as const)),
-          ...(emits ? (['rewriteRelativeImportExtensions'] as const) : []),
+          ...(emits && tsImport() ? (['rewriteRelativeImportExtensions'] as const) : []),
         ] as const
       ).filter(key => options[key] !== true)
       if (missing.length)

@@ -25,6 +25,42 @@ const setup = () => {
   return { ...p, edit, lines }
 }
 
+test('--changed also runs each test that failed in its last run', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.set('fail')
+  assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'fail: 1 failed, 7 passed, 1 skipped')
+  // No file of the project changed: the test reads a file that is
+  // not code. Its last result is a failure, so it runs.
+  p.set('pass')
+  assert.equal(p.ubq('--changed').last, 'pass: 0 failed, 1 passed, 2 not selected')
+  assert.equal(p.ubq('--changed').err, 'ubq: no changes, no new tests, no failed tests\n')
+  // With a change for a different test of the file, the two run.
+  p.set('fail')
+  p.ubq('flip.ts')
+  p.set('pass')
+  writeFileSync(join(p.dir, 'flip.ts'), readFileSync(join(p.dir, 'flip.ts'), 'utf8') + '\n')
+  assert.equal(p.ubq('--changed').last, 'pass: 0 failed, 3 passed')
+  // A change for one test of a file, and a failed test in it: the
+  // two run, and the third test does not.
+  writeFileSync(join(p.dir, 'src/n.ts'), 'export const n = (): number => 1\n')
+  writeFileSync(
+    join(p.dir, 'three.test.ts'),
+    `import { readFileSync } from 'node:fs'
+import { assert, test } from 'ubqtest'
+import { n } from './src/n.ts'
+test('x', () => assert.equal(readFileSync(process.env.FLIP_FILE!, 'utf8'), 'pass'))
+test('y', () => assert.equal(n(), 1))
+test('z', () => assert(true))
+`,
+  )
+  p.set('fail')
+  assert.equal(p.ubq('three.test.ts').last, 'fail: 1 failed, 2 passed')
+  p.set('pass')
+  writeFileSync(join(p.dir, 'src/n.ts'), 'export const n = (): number => 2 - 1\n')
+  assert.equal(p.ubq('--changed').last, 'pass: 0 failed, 2 passed, 1 not selected')
+})
+
 test('--changed runs only the tests that ran the code that changed', () => {
   const p = setup()
   p.edit('export const load', 'export const never = (): number => 1\n\nexport const load')
@@ -34,7 +70,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
   p.edit('side: 2', 'side: 1 + 1')
   // `kind of s` and `load` ran that line.
   assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 0 failed, 2 passed, 4 not selected'])
-  assert.deepEqual(p.lines('--changed'), ['ubq: no changes, no new tests'])
+  assert.deepEqual(p.lines('--changed'), ['ubq: no changes, no new tests, no failed tests'])
   // The coverage of the tests that did not run has the places of
   // the new content.
   assert.deepEqual(p.lines('covers', 'src/shape.ts:8'), ['pass.ts > load', 'pass.ts > parse > unknown input'])

@@ -346,7 +346,7 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
   writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
   assert.equal(
     find(doctor(), 'FIX  tsconfig'),
-    'FIX  tsconfig.json: set "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, and "rewriteRelativeImportExtensions": true in compilerOptions. The guides import files with the .ts extension. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties). This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
+    'FIX  tsconfig.json: set "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, and "rewriteRelativeImportExtensions": true in compilerOptions. fail.ts imports a file with the .ts extension. The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties). This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
   )
 
   // The project cannot import ubqtest. The link is a junction on Windows.
@@ -499,6 +499,32 @@ test('doctor: the tsconfig.json that has the test files', () => {
   assert.deepEqual(fields('"target": "es2022"'), [])
   assert.deepEqual(fields('"target": "es5", "useDefineForClassFields": true'), [])
   assert.deepEqual(fields('"noEmit": true'), [])
+  // A project with no import of a .ts path needs no option for it:
+  // an import with no extension finds its file.
+  for (const file of [
+    'fail.ts',
+    'fix.ts',
+    'flip.ts',
+    'leak.ts',
+    'load-error.ts',
+    'mock.ts',
+    'pass.ts',
+    'snap.ts',
+    'sometimes.ts',
+    'empty.ts',
+  ])
+    rmSync(join(p.dir, file), { force: true })
+  rmSync(join(p.dir, 'src'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    '{ "compilerOptions": { "erasableSyntaxOnly": true }, "include": ["test"] }',
+  )
+  assert.deepEqual(lines(), ['ok   tsconfig.json'])
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import './deep/b.test.ts'\n" + source)
+  assert.deepEqual(lines(), [
+    'FIX  tsconfig.json: set "allowImportingTsExtensions": true and "rewriteRelativeImportExtensions": true in compilerOptions. test/a.test.ts imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
+  ])
+  writeFileSync(join(p.dir, 'test/a.test.ts'), source)
   // The compiler of the transform key has the options of the tsconfig.
   p.configure({ include: ['test/c.test.js'], transform: 'typescript' })
   assert.deepEqual(fields('"target": "ES2020"'), [])

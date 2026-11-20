@@ -120,7 +120,7 @@ assert.close(ratio, 1.15, 6)
 ```
 
 ```ts
-assert.close(value: number, target: number, precision?: number, message?: string): void;
+assert.close(value: number | null | undefined, target: number, precision?: number, message?: string): void;
 ```
 
 #### `assert.contains`
@@ -200,13 +200,15 @@ assert.fail(message: string): never;
 #### `assert.greaterThan`
 
 Passes if `value > target`. A failure shows the two values.
+The type of `value` can have `null` and `undefined` in it, for
+a value such as `row?.count`: they fail.
 
 ```ts
 assert.greaterThan(items.length, 0)
 ```
 
 ```ts
-assert.greaterThan(value: number | bigint, target: number | bigint, message?: string): void;
+assert.greaterThan(value: number | bigint | null | undefined, target: number | bigint, message?: string): void;
 ```
 
 #### `assert.greaterThanOrEqual`
@@ -214,7 +216,7 @@ assert.greaterThan(value: number | bigint, target: number | bigint, message?: st
 Passes if `value >= target`. A failure shows the two values.
 
 ```ts
-assert.greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
+assert.greaterThanOrEqual(value: number | bigint | null | undefined, target: number | bigint, message?: string): void;
 ```
 
 #### `assert.lessThan`
@@ -226,7 +228,7 @@ assert.lessThan(elapsed, 100)
 ```
 
 ```ts
-assert.lessThan(value: number | bigint, target: number | bigint, message?: string): void;
+assert.lessThan(value: number | bigint | null | undefined, target: number | bigint, message?: string): void;
 ```
 
 #### `assert.lessThanOrEqual`
@@ -234,7 +236,7 @@ assert.lessThan(value: number | bigint, target: number | bigint, message?: strin
 Passes if `value <= target`. A failure shows the two values.
 
 ```ts
-assert.lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void;
+assert.lessThanOrEqual(value: number | bigint | null | undefined, target: number | bigint, message?: string): void;
 ```
 
 #### `assert.match`

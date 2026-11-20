@@ -447,8 +447,14 @@ All entries are from 2026-11-11 to 2026-11-14.
     `node:sqlite`, a doctor FIX for code that needs Bun, and
     `ubq convert` for `spyOn` and `mock` of `bun:test`, a
     function with no rule, `mock.calls` as a list, and a
-    template literal as the expected error. Q60 to Q63 wait for
-    the user.
+    template literal as the expected error.
+  - The answers to Q60 to Q63 (D127): a numeric assertion takes
+    a value that can be `null` or `undefined`, and fails for it.
+    `ubq --changed` also runs each test that failed in its last
+    run. `ubq doctor` asks for `allowImportingTsExtensions` only
+    in a project with an import of a `.ts` path. Q64 waits for
+    the user: built-in predicates, and one for an array that has
+    given elements.
   - `release.yml` makes a GitHub release for the tag, with the
     subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on

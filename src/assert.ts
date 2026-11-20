@@ -155,12 +155,14 @@ export interface Assert {
   deepEqual<T>(actual: T, expected: NoInfer<T>, message?: string): void
   /**
    * Passes if `value > target`. A failure shows the two values.
+   * The type of `value` can have `null` and `undefined` in it, for
+   * a value such as `row?.count`: they fail.
    *
    * ```ts
    * assert.greaterThan(items.length, 0)
    * ```
    */
-  greaterThan(value: number | bigint, target: number | bigint, message?: string): void
+  greaterThan(value: number | bigint | null | undefined, target: number | bigint, message?: string): void
   /**
    * Passes if `value < target`. A failure shows the two values.
    *
@@ -168,11 +170,11 @@ export interface Assert {
    * assert.lessThan(elapsed, 100)
    * ```
    */
-  lessThan(value: number | bigint, target: number | bigint, message?: string): void
+  lessThan(value: number | bigint | null | undefined, target: number | bigint, message?: string): void
   /** Passes if `value >= target`. A failure shows the two values. */
-  greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void
+  greaterThanOrEqual(value: number | bigint | null | undefined, target: number | bigint, message?: string): void
   /** Passes if `value <= target`. A failure shows the two values. */
-  lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void
+  lessThanOrEqual(value: number | bigint | null | undefined, target: number | bigint, message?: string): void
   /**
    * Passes if `value` is near `target`: the difference is less than
    * `10 ** -precision / 2`. The default `precision` is 2, a difference
@@ -183,7 +185,7 @@ export interface Assert {
    * assert.close(ratio, 1.15, 6)
    * ```
    */
-  close(value: number, target: number, precision?: number, message?: string): void
+  close(value: number | null | undefined, target: number, precision?: number, message?: string): void
   /**
    * Passes if `actual` has the shape of `pattern`. Each key in the
    * pattern must match. Extra keys in `actual` are fine. A RegExp
@@ -494,7 +496,7 @@ const COMPARE = {
 const compare = (
   assertion: keyof typeof COMPARE,
   pass: boolean,
-  value: number | bigint,
+  value: number | bigint | null | undefined,
   target: number | bigint,
   message: string | undefined,
 ): void => {
@@ -575,22 +577,23 @@ const methods = {
       })
     }
   },
-  greaterThan(value: number | bigint, target: number | bigint, message?: string): void {
-    compare('greaterThan', value > target, value, target, message)
+  greaterThan(value: number | bigint | null | undefined, target: number | bigint, message?: string): void {
+    compare('greaterThan', value != null && value > target, value, target, message)
   },
-  lessThan(value: number | bigint, target: number | bigint, message?: string): void {
-    compare('lessThan', value < target, value, target, message)
+  lessThan(value: number | bigint | null | undefined, target: number | bigint, message?: string): void {
+    compare('lessThan', value != null && value < target, value, target, message)
   },
-  greaterThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void {
-    compare('greaterThanOrEqual', value >= target, value, target, message)
+  greaterThanOrEqual(value: number | bigint | null | undefined, target: number | bigint, message?: string): void {
+    compare('greaterThanOrEqual', value != null && value >= target, value, target, message)
   },
-  lessThanOrEqual(value: number | bigint, target: number | bigint, message?: string): void {
-    compare('lessThanOrEqual', value <= target, value, target, message)
+  lessThanOrEqual(value: number | bigint | null | undefined, target: number | bigint, message?: string): void {
+    compare('lessThanOrEqual', value != null && value <= target, value, target, message)
   },
-  close(value: number, target: number, precision = 2, message?: string): void {
+  close(value: number | null | undefined, target: number, precision = 2, message?: string): void {
     const state = begin()
     const limit = 10 ** -precision / 2
-    if (state && value !== target && !(Math.abs(value - target) < limit))
+    // null is 0 in arithmetic: it must not be near 0.
+    if (state && value !== target && !(value != null && Math.abs(value - target) < limit))
       fail(state, 'close', 'expected a value near the target', message, {
         diffs: [{ path: '', actual: show(value), expected: `${show(target)} ± ${limit}` }],
         more: 0,

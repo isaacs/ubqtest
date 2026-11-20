@@ -31,6 +31,10 @@ test('at least', () => assert.greaterThanOrEqual(staff, 1))
 test('at most', () => assert.lessThanOrEqual(staff, 0.5, 'the staff'))
 test('close', () => assert.close(1.24, 1.23))
 test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
+const row: { n?: number; m: number | null } | undefined = { m: null }
+test('at most, a value that is null', () => assert.lessThanOrEqual(row?.m, 5))
+test('close, a value that is null', () => assert.close(row?.m, 0))
+test('greater, a value that is not there', () => assert.greaterThan(row?.n, -1))
 `,
   )
   const blocks = p
@@ -77,7 +81,29 @@ test('close, with a precision', () => assert.close(1.000001, 1, 6, 'the ratio'))
       '  expected: 1 ± 5e-7',
     ],
   ])
-  assert.equal(blocks.at(-1)!.at(-2), 'fail: 8 failed, 1 passed (run 1: ubq failures 1)')
+  // The type takes a value that can be null or undefined, and such
+  // a value fails: null is 0 in a comparison of JavaScript.
+  assert.deepEqual(blocks.slice(8, 11), [
+    [
+      'FAIL c.test.ts > at most, a value that is null',
+      '  expected a value less than the target, or equal to it',
+      '  actual:   null',
+      '  expected: <= 5',
+    ],
+    [
+      'FAIL c.test.ts > close, a value that is null',
+      '  expected a value near the target',
+      '  actual:   null',
+      '  expected: 0 ± 0.005',
+    ],
+    [
+      'FAIL c.test.ts > greater, a value that is not there',
+      '  expected a value greater than the target',
+      '  actual:   undefined',
+      '  expected: > -1',
+    ],
+  ])
+  assert.equal(blocks.at(-1)!.at(-2), 'fail: 11 failed, 1 passed (run 1: ubq failures 1)')
 })
 
 test('a test that does not await, and that takes more than its time limit, fails', () => {

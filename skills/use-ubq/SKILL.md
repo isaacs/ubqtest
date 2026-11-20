@@ -40,7 +40,8 @@ needs Bun 1.4 or later.
    expect, `npx ubq status` names the test that runs now in each
    file, and for how long.
 4. After a change to the source:
-   - `npx ubq --changed` runs the tests that ran the changed code.
+   - `npx ubq --changed` runs the tests that ran the changed code,
+     and the tests that failed in their last run.
    - `npx ubq mutate --diff` tells if the tests of the changed
      lines are strong. Each `SURVIVED` block names the closest
      test: add an assertion there that the change breaks.

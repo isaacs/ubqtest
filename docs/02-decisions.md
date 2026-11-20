@@ -3441,3 +3441,31 @@ Not done, with the reason:
 - `setup2`, and `cleanup()` in a helper of the project in place
   of a `setup()` call: D90. The command cannot know which helper
   each test calls.
+
+## D127. Numeric assertions and a missing value, `--changed` and failed tests, and the FIX for `.ts` imports (user, 2026-11-19)
+
+The answers to Q60 to Q63.
+
+- **Q60.** The value of `assert.greaterThan`, `lessThan`,
+  `greaterThanOrEqual`, `lessThanOrEqual`, and `close` can be
+  `null` or `undefined` in the type, so `assert.close(row?.rate,
+  1.5)` compiles. Such a value fails at run time, with `actual:
+  undefined`. The check is explicit: in a comparison of
+  JavaScript, `null` is 0, and `null <= 5` is true. The target
+  stays a number.
+- **Q61.** `ubq --changed` also runs each test whose last result
+  is a failure, and each file with an error in its last run. A
+  test that failed stopped at its failure, so its coverage cannot
+  show that a change is not for it. With no change and no failed
+  test, the text is "no changes, no new tests, no failed tests".
+- **Q62.** `ubq doctor` asks for `allowImportingTsExtensions`, and
+  for `rewriteRelativeImportExtensions` in a tsconfig that makes
+  JavaScript, only if a file of the project imports a relative
+  path with a `.ts` extension. The FIX names the first such file.
+  The tsconfig that doctor proposes for a test folder has the
+  option by the same rule. A later import with `.ts` gets TS5097
+  of TypeScript, which names the option, so no hint of ubq is
+  necessary. (That last point is an assumption of the assistant:
+  Q62 said that the error gets a hint.)
+- **Q63.** No time limit for one file. The TODO of `ubq convert`
+  for `setDefaultTimeout` names the options (D126).

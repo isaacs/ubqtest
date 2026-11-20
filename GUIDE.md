@@ -50,7 +50,7 @@ ubq test/parse.test.ts   one file (or a folder)
 ubq test/parse.test.ts:9 the test at that line
 ubq '<test id>'          one test, or the tests of a group
 ubq --failed             the tests that failed in their last run
-ubq --changed            the tests that ran code that changed
+ubq --changed            the tests that ran code that changed, and the tests that failed in their last run
 node test/parse.test.ts  a test file is a plain program (also: deno run -A, bun)
 ```
 
@@ -337,7 +337,7 @@ assert.match(actual, pattern)      // a partial object. A RegExp tests a string.
 assert.matchOnly(actual, pattern)  // as match, and the value has no key that the pattern does not have, at each depth. For an exact comparison with a value that changes: { id: 1, time: (v: unknown) => typeof v === 'number' }
 assert.contains(actual, expected)  // text in text, or an element of an array, Set, or other iterable
 assert.notContains(actual, expected)
-assert.greaterThan(value, target)  // value > target. A failure shows the two values.
+assert.greaterThan(value, target)  // value > target. A failure shows the two values. The value can be row?.count: null and undefined fail.
 assert.lessThan(value, target)     // value < target
 assert.greaterThanOrEqual(value, target)   // value >= target
 assert.lessThanOrEqual(value, target)      // value <= target
@@ -515,7 +515,7 @@ Coverage is always on, for each test. Before a change to a line,
 After a change to the source, do these in order:
 
 ```
-ubq --changed           runs only the tests that ran the code that changed
+ubq --changed           runs only the tests that ran the code that changed, and the tests that failed in their last run
 ubq uncovered --diff    lists the code that you changed and that no test runs: write a test for it
 ubq mutate --diff       a mutation check of the lines that you changed (see below)
 ```
@@ -980,11 +980,15 @@ step, so the code must use only syntax that can be erased: no
 not run decorators (`@Injectable()`). A project with such syntax,
 such as a NestJS project, sets the `transform` key: see "Source
 that Node cannot run". In
-`tsconfig.json`, set `"allowImportingTsExtensions": true`,
-`"noEmit": true`, and `"erasableSyntaxOnly": true`. If the project
-builds JavaScript from that tsconfig (for example with tshy), set
-`"rewriteRelativeImportExtensions": true` in place of `"noEmit"`.
-It needs TypeScript 5.7 or later. Do not set
+`tsconfig.json`, set `"noEmit": true` and `"erasableSyntaxOnly":
+true`. If a file imports a path with the `.ts` extension, as the
+examples of this guide do, also set `"allowImportingTsExtensions":
+true`. An import with no extension needs no option. If the project
+builds JavaScript from that tsconfig (for example with tshy), and
+has imports with `.ts`, set `"rewriteRelativeImportExtensions":
+true` in place of `"noEmit"`. It needs TypeScript 5.7 or later.
+`ubq doctor` has a FIX line for each option that the project
+needs. Do not set
 `"erasableSyntaxOnly"` if source files that no test loads keep
 such syntax: the type checker then reports them in each run.
 `ubq doctor` asks for the option only if no file has the syntax.

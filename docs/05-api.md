@@ -156,8 +156,8 @@ assert.fail(message)                           // returns never
 | `matchOnly` | as `match`, and `actual` has no key that the pattern does not have, at each depth (D124). |
 | `contains` | the text `actual` has the text `expected` in it, or an element of the iterable `actual` is `expected` (by the rule of `Array.prototype.includes`). `null` and `undefined` fail. A failure shows the text, or the part of long text near the longest start of `expected` that it has. |
 | `notContains` | the opposite of `contains`. `null` and `undefined` fail. |
-| `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual` | `value > target`, `value < target`, `value >= target`, `value <= target`, for a `number` or a `bigint`. A failure shows the two values, which `assert(a > b)` cannot. |
-| `close` | the difference of `value` and `target` is less than `10 ** -precision / 2`. The default `precision` is 2: less than 0.005. This is the rule of `toBeCloseTo` in jest and vitest. |
+| `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual` | `value > target`, `value < target`, `value >= target`, `value <= target`, for a `number` or a `bigint`. A failure shows the two values, which `assert(a > b)` cannot. The type of `value` can have `null` and `undefined` (`row?.count`): such a value fails (D127). |
+| `close` | the difference of `value` and `target` is less than `10 ** -precision / 2`. The default `precision` is 2: less than 0.005. This is the rule of `toBeCloseTo` in jest and vitest. A `value` of `null` or `undefined` fails. |
 | `throws` | `fn` throws an error that fits `expected`. |
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
 

@@ -25,7 +25,8 @@ Q43 are D109. The answer to Q41 is D111. The answer to Q42 is
 D110. The answer to Q44 is D112. The answers to Q45, Q46, and Q47
 are D114. The answer to Q48 is D115. The answers to Q49 and Q50
 are D117. The answers to Q51 and Q52 are D121. The answers to Q53
-to Q58 are D124. The answer to Q59 is D125.
+to Q58 are D124. The answer to Q59 is D125. The answers to Q60 to
+Q63 are D127.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -58,90 +59,72 @@ what is done for the rest of that report.
 
 Q59 came from the same report.
 
-## Open Questions
-
-Q60 to Q63 come from `private/ubq-feedback-0.0.19.md` and
+Q60 to Q63 came from `private/ubq-feedback-0.0.19.md` and
 `private/ubq-feedback-0.0.22.md` (not public). D126 has what is
 done for the rest of those reports.
 
-## Q60. A numeric assertion on a value that can be `undefined`
+## Open Questions
 
-**Blocked:** `expect(x?.y).toBeCloseTo(1.5)` becomes
-`assert.close(x?.y, 1.5)`, which is a type error: the value is
-`number | undefined`. The same for `greaterThan`, `lessThan`, and
-their two other forms. The project of the reports needed a `!` by
-hand at 15 places, in each of its two conversions.
+Q64 comes from the answer of the user to those reports.
 
-**Options:**
+## Q64. Built-in predicates for a pattern, and one for "an array that has these elements"
 
-1. No change.
-2. `ubq convert` writes `(x?.y)!` in a TypeScript file. Many
-   projects have a lint rule against `!`.
-3. The value of these assertions can be `undefined` or `null` in
-   the type. At run time such a value fails, as it does now, and
-   the report shows `actual: undefined`.
+**Blocked:** `expect.arrayContaining([a, b])` has no form in a
+pattern: an array in a pattern has the length of the value. `ubq
+convert` writes one `assert.contains` for each literal, and a
+TODO for each other case. In the two reports of a bun:test
+project, the agents wrote a `find` with a hand-picked key at 53
+places. The user: "It feels like we're doing a lot of work to
+avoid adding an arrayContaining-style matcher. It seems like
+something we could implement for patterns with a built-in
+predicate, like `any.number`, no?"
 
-**The agent would do:** option 3. The assertion still fails for
-a value that is not there, so the type error adds no safety. The
-`!` only moves the same failure to run time, with more text.
+A predicate is a function, so ubq can export functions that make
+one, with no new rule for patterns. D85 left such exports out
+("an export for each common case is a second way to do one
+thing"), and said that they can come later, on top of the
+function. Three points need a decision.
 
-## Q61. `ubq --changed` and a test that failed in its last run
+**1. Which predicates.**
 
-**Blocked:** after a change that made 20 tests fail, and the
-revert of that change, `ubq --changed` ran 18 tests and did not
-select 3 of the tests that had failed. `ubq check` then failed,
-and named `ubq --failed`. The 3 tests stop a child process with a
-signal, so they had no coverage of the changed lines.
+- (a) Only the one for arrays.
+- (b) Also the type checks that `ubq convert` now writes as
+  functions: `any.number` in place of `(v: unknown) => typeof v
+  === 'number'`. This is a second way to write them, and it
+  changes D85. The converter output gets much shorter.
 
-**Options:**
+**2. The name and the place.** One object keeps the names out of
+the way of the names of a test file. A sketch, with `any` as the
+name of the user:
 
-1. No change. `ubq check` names the command.
-2. `ubq --changed` also runs each test that failed in its last
-   run.
+```ts
+import { any, assert } from 'ubqtest'
 
-**The agent would do:** option 2. A test that failed stopped at
-its failure, so its coverage is not complete, and the selection
-by coverage cannot know if the change is for it. The run that the
-agent expects to make things green then does.
+assert.matchOnly(event, { id: 1, time: any.number, tags: any.arrayWith('a', /^b/) })
+assert.match(res, { rows: any.arrayWith({ id: 7 }) })
+```
 
-## Q62. The `allowImportingTsExtensions` FIX for a project with no such import
+`any.number`, `any.string`, `any.boolean`, `any.bigint`,
+`any.symbol`, `any.function`, `any.object`, `any.array`,
+`any.defined` (not null and not undefined, the `anything` of
+jest), `any.instanceOf(Class)`, and `any.arrayWith(...patterns)`.
 
-**Blocked:** `ubq doctor` has a FIX line for a tsconfig without
-`allowImportingTsExtensions`, with the reason "The guides import
-files with the .ts extension". The project of the reports imports
-each file with no extension (D78), so the option changes nothing
-there. The agent of the two reports read the FIX as wrong for the
-project.
+**3. How `arrayWith` compares an element.** Each argument is a
+pattern, and the array must have an element that matches it.
 
-**Options:**
+- (a) By the rules of `match`: an object is partial. `rows:
+  any.arrayWith({ id: 7 })` does the work of
+  `toContainEqual(objectContaining({ id: 7 }))`, the most
+  frequent form of the reports (about 100 places). An exact
+  element then needs a function with `isDeepEqual`.
+- (b) By the rules of the assertion around it: partial in
+  `match`, no other keys in `matchOnly`. A predicate does not
+  know its assertion now, so this needs a new rule.
 
-1. No change.
-2. The FIX only if a file of the project imports a relative path
-   with a `.ts` extension. A test that an agent writes later from
-   the guide, with `.ts`, then gets TS5097, and that error gets a
-   hint that names the option.
-3. A `note` line in place of the FIX.
-
-**The agent would do:** option 2. A FIX that does nothing for the
-project makes the other FIX lines less sure.
-
-## Q63. A time limit for one file
-
-**Blocked:** `setDefaultTimeout(30_000)` of `bun:test` sets the
-limit for the tests of its file. ubq has the limit as an option
-of `test` and of `describe`, and as the `timeout` key for the
-project. A file whose 24 tests all drive real git needed the
-option 24 times, or a `describe` around the whole file. `ubq
-convert` now writes a TODO for the call.
-
-**Options:**
-
-1. No change.
-2. `ubq convert` puts a `describe` with the option around the
-   tests of the file. The diff then has each line of the file.
-3. A function for the limit of the tests after it in the file.
-   It is state that a test file sets, which ubq does not have
-   now.
-
-**The agent would do:** option 1. A constant with the option on
-each test is plain, and it is one file of 83.
+**The agent would do:** 1 (b), the object `any` of the sketch,
+and 3 (a). The evidence of four reports is that agents do not
+like to write the function, and that they write a helper file for
+it. With 3 (a), one rule covers the form that the reports have
+most. `ubq convert` then writes `any.number` for
+`expect.any(Number)`, and `any.arrayWith(...)` for
+`expect.arrayContaining([...])`.
