@@ -148,7 +148,12 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   // ubq: not measured: a call of test() from a file has a call site
   file ??= FILE || at?.file || rel(process.argv[1] ?? '')
   const id = [file, ...groups.map(g => g.name), name].join(SEPARATOR)
-  if (ids.has(id)) throw new Error(`duplicate test name: ${id}. Each name must be unique in its group.`)
+  if (ids.has(id)) {
+    // The file does not stop here: one run shows each duplicate.
+    failedOutside = true
+    duplicates.push(errorFailure(new Error(`duplicate test name: ${id}. Each name must be unique in its group.`)))
+    return
+  }
   ids.add(id)
   const all = [...groups.map(g => g.options), options]
   if (at) starts.push(at.line)
@@ -536,6 +541,9 @@ const selected = (entry: Entry): boolean => {
   )
 }
 
+/** The errors of tests with the name of a test before them. */
+const duplicates: Failure[] = []
+
 let draining = false
 const drain = async (): Promise<void> => {
   // ubq: not measured: drain does not start two times in the tests
@@ -546,6 +554,7 @@ const drain = async (): Promise<void> => {
     // The code that ran while the file loaded.
     await cover()
   }
+  for (const failure of duplicates.splice(0)) emit({ type: 'file-error', file: file!, failure })
   for (let entry = queue.shift(); entry; entry = queue.shift()) {
     if (selected(entry)) await runOne(entry)
     else unselected++

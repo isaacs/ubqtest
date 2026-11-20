@@ -7,3 +7,11 @@ test('one', () => {
 test('one', () => {
   assert.equal(1, 1)
 })
+
+test('two', () => {
+  assert.equal(1, 1)
+})
+
+test('two', () => {
+  assert.equal(1, 1)
+})

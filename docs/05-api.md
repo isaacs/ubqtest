@@ -88,8 +88,9 @@ test(name: string, options: { skip?: string | false; timeout?: number }, fn): vo
   runs single tests by ID. Test files run in a random order, and
   the tests of one file run in the order of the file (D28).
 - `name` must be unique in its `describe` group. A duplicate is an
-  error, because the name is part of the test ID
-  (`test/parse.ts > parse > circle`).
+  error of the file, because the name is part of the test ID
+  (`test/parse.ts > parse > circle`). The other tests run, and the
+  run shows each duplicate.
 - `timeout` is in milliseconds. The default is 5000, the same as
   Vitest and Jest.
 - `skip(reason)` of the argument ends the test as skipped, with

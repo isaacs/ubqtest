@@ -58,7 +58,7 @@ test('many files run in child processes', () => {
 test('failures and file errors give exit code 1', () => {
   const r = ubq(['pass.ts', 'load-error.ts', 'empty.ts'])
   assert.equal(r.code, 1)
-  assert.equal(r.out.at(-1), 'fail: 2 errors, 0 failed, 6 passed, 1 skipped')
+  assert.equal(r.out.at(-1), 'fail: 3 errors, 0 failed, 7 passed, 1 skipped')
 })
 
 test('process.exit in a test is an error, not a silent end', () => {
