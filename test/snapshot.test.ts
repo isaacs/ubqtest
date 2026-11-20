@@ -176,3 +176,31 @@ test('ubq --update with no file writes the snapshots of all tests', () => {
   )
   assert.equal(p.ubq().last, 'pass: 0 failed, 2 passed')
 })
+
+test('the message of a snapshot assertion is in its key', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  const file = join(p.dir, 'msg.test.ts')
+  const write = (calls: string) =>
+    writeFileSync(
+      file,
+      `import { assert, test } from 'ubqtest'\ntest('t', () => {\n${calls}})\ntest('u', () => assert.snapshot('U', 'u'))\n`,
+    )
+  write(
+    "  assert.snapshot('A', 'a*b')\n  assert.snapshot('C', 'line\\n  two')\n  assert.snapshot('D')\n  assert.snapshot('E', 'a*b')\n",
+  )
+  assert.equal(p.ubq('--update', 'msg.test.ts').last, 'pass: 0 failed, 2 passed')
+  const snap = join(p.dir, 'ubq-snapshots/msg.test.ts.snap')
+  const keys = () => [...readFileSync(snap, 'utf8').matchAll(/^exports\[`(.*)`\]/gm)].map(m => m[1])
+  assert.deepEqual(keys(), ['t > a*b 1', 't > a*b 2', 't > line two 1', 't 1', 'u > u 1'])
+  // A new call with a different message changes no other key.
+  write(
+    "  assert.snapshot('B', 'new')\n  assert.snapshot('A', 'a*b')\n  assert.snapshot('C', 'line\\n  two')\n  assert.snapshot('D')\n  assert.snapshot('E', 'a*b')\n",
+  )
+  const out = p.ubq('msg.test.ts').out
+  assert.match(out, /no snapshot for this assertion \(t > new 1\)/)
+  assert.match(out, /fail: 1 failed, 1 passed/)
+  // An update of one test keeps the entries of the other test.
+  assert.equal(p.ubq('--update', 'msg.test.ts > t').last, 'pass: 0 failed, 1 passed, 1 not selected')
+  assert.deepEqual(keys(), ['t > a*b 1', 't > a*b 2', 't > line two 1', 't > new 1', 't 1', 'u > u 1'])
+})

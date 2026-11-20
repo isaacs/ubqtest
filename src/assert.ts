@@ -274,7 +274,8 @@ export interface Assert {
   /**
    * Passes if the text of `value` is the text in the snapshot file
    * of the test file. `ubq --update <test>` writes the file. The
-   * files are in `ubq-snapshots/`: commit them.
+   * files are in `ubq-snapshots/`: commit them. The key of the entry
+   * has the message: `parse > circle > radius 1`.
    */
   snapshot(value: unknown, message?: string): void
   /**
@@ -702,7 +703,7 @@ const methods = {
     if (!state) return
     if (!state.id) throw new Error('assert.snapshot was called outside a test. A snapshot has the name of its test.')
     const file = state.id.slice(0, state.id.indexOf(' > '))
-    const result = checkSnapshot(file, state.id, value)
+    const result = checkSnapshot(file, state.id, value, message)
     if (!result.ok)
       fail(
         state,

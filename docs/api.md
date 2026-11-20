@@ -350,7 +350,8 @@ assert.rejects<const P extends ErrorMatch>(promise: PromiseLike<unknown> | (() =
 
 Passes if the text of `value` is the text in the snapshot file
 of the test file. `ubq --update <test>` writes the file. The
-files are in `ubq-snapshots/`: commit them.
+files are in `ubq-snapshots/`: commit them. The key of the entry
+has the message: `parse > circle > radius 1`.
 
 ```ts
 assert.snapshot(value: unknown, message?: string): void;

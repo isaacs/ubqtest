@@ -279,8 +279,12 @@ older run saved (D31).
   change of one entry is a change of one line (D121).
 - Each test file has one snapshot file:
   `ubq-snapshots/<test file path>.snap`. Commit it. The key of an
-  entry is the names of the test and the number of the call in
-  the test: `parse > circle 1`.
+  entry is the names of the test, the message of the assertion if
+  it has one, and the number of the call in the test with that
+  message: `parse > circle 1`, `parse > circle > radius 1`. Each
+  space, tab, or line end in the message is one space in the key.
+  A new assertion with a message changes no key of an assertion
+  with a different message.
 - The file has LF line ends, and a CR of a value is `\r` in it.
   A file that git checked out with CRLF line ends on Windows has
   the same entries.

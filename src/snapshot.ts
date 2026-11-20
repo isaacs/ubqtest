@@ -76,13 +76,22 @@ export interface SnapshotResult {
   more?: number
 }
 
-/** Compares `value` with its snapshot. `id` is the ID of the test. */
-export const checkSnapshot = (testFile: string, id: string, value: unknown): SnapshotResult => {
+/**
+ * Compares `value` with its snapshot. `id` is the ID of the test.
+ * The key has the names of the test, the message if there is one,
+ * and the number of the call with that message: a new call in the
+ * middle of a test changes no key of a call with a different
+ * message.
+ */
+export const checkSnapshot = (testFile: string, id: string, value: unknown, message?: string): SnapshotResult => {
   notInWorkerd('assert.snapshot')
   load(testFile)
-  const n = (counts.get(id) ?? 0) + 1
-  counts.set(id, n)
-  const key = `${id.slice(testFile.length + 3)} ${n}`
+  // A key is on one line.
+  const text = message?.replace(/\s+/g, ' ').trim()
+  const base = id.slice(testFile.length + 3) + (text ? ` > ${text}` : '')
+  const n = (counts.get(base) ?? 0) + 1
+  counts.set(base, n)
+  const key = `${base} ${n}`
   const actual = snapshotText(value)
   if (update) {
     written.set(key, actual)
@@ -127,11 +136,17 @@ export const checkSnapshot = (testFile: string, id: string, value: unknown): Sna
 export const saveSnapshots = (testFile: string, ran: Set<string>, all: Set<string>): number => {
   if (!update) return 0
   load(testFile)
-  const testOf = (key: string): string => `${testFile} > ${key.replace(/ \d+$/, '')}`
+  // The test of a key: the longest name that starts the key, and has
+  // the number or a message after it.
+  const names = [...all].map(id => id.slice(testFile.length + 3)).sort((x, y) => y.length - x.length)
+  const testOf = (key: string): string | undefined => {
+    const name = names.find(n => key.startsWith(n + ' ') && /^(\d+|> .* \d+)$/.test(key.slice(n.length + 1)))
+    return name === undefined ? undefined : `${testFile} > ${name}`
+  }
   const entries = new Map(written)
   for (const [key, text] of saved) {
     const test = testOf(key)
-    if (!ran.has(test) && all.has(test)) entries.set(key, text)
+    if (test && !ran.has(test)) entries.set(key, text)
   }
   let changed = 0
   for (const [key, text] of written) if (saved.get(key) !== text) changed++
