@@ -318,7 +318,10 @@ Things to check by hand:
 - **An option of one assertion: `{ skip }`, `{ todo }`.** ubq has
   none, so the assertion can fail now. The command writes a TODO.
   For `todo`, an expected failure is a failure in ubq: correct
-  the code, or skip the test with the reason.
+  the code, or skip the test with the reason. In a file whose
+  top-level code the command puts in one test, an assertion with
+  `{ skip: 'reason' }` and then `process.exit()` becomes
+  `return skip('reason')`.
 - **Options of a test that ubq does not have** (`bail`, `jobs`,
   `buffered`), and **`t.jobs = n`.** The command writes a TODO:
   remove them. The tests of a file run one at a time. For tests

@@ -11,6 +11,15 @@ const { parse, children }: typeof import('../src/instrument.ts') = process.versi
   ? await import('../src/instrument.ts')
   : createRequire(import.meta.url)('../src/instrument.ts')
 
+/** The TODO for an assertion of tap with the option skip or todo. */
+const assertOption = [
+  '  // TODO(ubq): tap does not count this assertion as a failure: it has the',
+  '  // option skip or todo. ubq has no such option for one assertion, so this',
+  '  // assertion can fail now. For skip, use the skip option of the test, or',
+  '  // skip(reason) of the test function. For todo, correct the code, or skip',
+  '  // the test with the reason.',
+]
+
 const cases: [name: string, file: string, source: string[], result: string[] | undefined, migrate?: string[]][] = [
   [
     'node:assert names',
@@ -853,6 +862,69 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
       "test('a', () => { assert(executionContext()) })",
     ],
     ['DB', 'LOGS'],
+  ],
+  [
+    'a tap file with a skip and an exit at the top level',
+    'a.ts',
+    [
+      "import t from 'tap'",
+      "if (process.platform === 'win32') {",
+      "  t.pass('n/a', { skip: 'no tilde here' })",
+      '  process.exit(0)',
+      '}',
+      't.equal(1, 1)',
+    ],
+    [
+      "import { assert, test } from 'ubqtest'",
+      '// TODO(ubq): The assertions of this file were at the top level, in no',
+      '// test. They are in this test now: give it a name that says what it',
+      '// checks.',
+      "test('a', ({ skip }) => {",
+      "  if (process.platform === 'win32') {",
+      "    return skip('no tilde here')",
+      '  }',
+      '  assert.equal(1, 1)',
+      '})',
+    ],
+  ],
+  [
+    // No exit after the skip, a reason that is not text, a comment
+    // before the exit, and a name skip of the file: the TODO stays.
+    'a tap file with skips that are not a skip of the rest of the file',
+    'a.ts',
+    [
+      "import t from 'tap'",
+      "t.pass('e', { skip: 'w' }) // why",
+      'process.exit(1)',
+      'const skip = 1',
+      "t.pass('a', { skip: 'x' })",
+      'process.exit(0)',
+      "t.pass('b', { skip: true })",
+      'process.exit(0)',
+      'if (skip) t.pass(`c`, { skip: `y` })',
+      't.equal(1, 1)',
+    ],
+    [
+      "import { assert, test } from 'ubqtest'",
+      '// TODO(ubq): The assertions of this file were at the top level, in no',
+      '// test. They are in this test now: give it a name that says what it',
+      '// checks.',
+      "test('a', () => {",
+      ...assertOption,
+      "  assert(true, 'e') // why",
+      '  process.exit(1)',
+      '  const skip = 1',
+      ...assertOption,
+      "  assert(true, 'a')",
+      '  process.exit(0)',
+      ...assertOption,
+      "  assert(true, 'b')",
+      '  process.exit(0)',
+      ...assertOption,
+      '  if (skip) assert(true, `c`)',
+      '  assert.equal(1, 1)',
+      '})',
+    ],
   ],
   [
     'a tap file with only top-level assertions',

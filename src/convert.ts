@@ -916,6 +916,8 @@ export const convertSource = (
   let wrapRoot = false
   /** The code that goes into that test. */
   let rootSpan: [number, number] | undefined
+  /** The edit that starts that test. */
+  let rootHead: { start: number; end: number; text: string } | undefined
   const rootAssert = (path: Node[]): void => {
     if (!rootSeen && !wrapRoot) todo(path, TODO.rootAssert)
     rootSeen = true
@@ -2917,6 +2919,30 @@ export const convertSource = (
       (extra.properties as Node[]).some(
         p => /^(skip|todo)$/.test(String(nameOf(p.key as Node))) && (p.value as Node | undefined)?.value !== false,
       )
+    // In the test of the top-level code: a skip with a reason, then
+    // the end of the process. tap skipped the rest of the file.
+    if (option && rootHead && !path.some(n => FUNCTION.has(n.type))) {
+      const statement = path.at(-2)!
+      const body = path.at(-3)?.body as Node[] | undefined
+      const next = body?.[body.indexOf(statement) + 1]
+      const reason = (extra.properties as Node[]).find(p => nameOf(p.key as Node) === 'skip')?.value as Node | undefined
+      if (
+        statement.type === 'ExpressionStatement' &&
+        next?.type === 'ExpressionStatement' &&
+        text(next).startsWith('process.exit(') &&
+        !source.slice(statement.end, next.start).trim() &&
+        (reason?.type === 'TemplateLiteral' || (reason?.type === 'Literal' && typeof reason.value === 'string')) &&
+        // A name skip of the file would hide the skip of the test.
+        !/\b(const|let|var|function)\s+skip\b/.test(source)
+      ) {
+        // One edit from the skip to the end of the exit: the line of
+        // the exit goes away.
+        replace(statement.start, next.end, `return skip(${text(reason)})`)
+        rootHead.text = rootHead.text.replace(/\(\) => \{\n$/, '({ skip }) => {\n')
+        changes++
+        return undefined
+      }
+    }
     if (option) todo(path, TODO.assertOption)
     const rule = table[method] && pick(table[method], args.length)
     if (!rule) {
@@ -3045,11 +3071,12 @@ export const convertSource = (
       .split(/[\\/]/)
       .pop()!
       .replace(/(\.(test|spec))?\.[cm]?[jt]sx?$/, '')
-    edits.push({
+    rootHead = {
       start: from,
       end: from,
       text: `${todoComment('', TODO.rootTest)}test('${name.replace(/['\\]/g, '\\$&')}', ${rest.some(top) ? 'async ' : ''}() => {\n`,
-    })
+    }
+    edits.push(rootHead)
     edits.push({ start: rest.at(-1)!.end, end: rest.at(-1)!.end, text: '\n})' })
     shifts.push({ start: from - 1, end: rest.at(-1)!.end, by: 2 })
     rootSpan = [from, rest.at(-1)!.end]
