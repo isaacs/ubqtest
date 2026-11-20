@@ -341,7 +341,7 @@ const TODO = {
   skip: "Give the reason: { skip: 'the reason' }.",
   context: 'ubq has no test object. Use the functions of ubqtest in place of the parameter of this test function.',
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
-  mock: "Use mockImport in each test that needs the mock: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { ...(await import('<the dependency>')), fn: spy(impl) }]]). The paths are from this test file. The mock replaces the dependency in each project module of the new instance. Each call gives a new instance.",
+  mock: "Use mockImport in each test that needs the mock: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { ...(await import('<the dependency>')), fn: spy(impl) }]]). The paths are from this test file. The mock replaces the dependency in each project module of the new instance, not in a package of node_modules: if only a package imports the dependency, see \"A dependency of a dependency\" in ubq guide. Each call gives a new instance.",
   spyImpl:
     'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). For a result that changes, the implementation reads a variable: let result = 1; const s = spy(() => result). For a different result in each call: spy.results(a, b), or for an async function spy.results(Promise.resolve(a), Promise.reject(error)). A call after the last result throws. A call is spy.calls[i]: { args, result, error }.',
   spyClear:
