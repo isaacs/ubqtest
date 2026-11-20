@@ -3037,3 +3037,30 @@ Not done, with the reason:
 - The formatter of a project changes `SKILL.md`, and `ubq skill`
   changes it back: no change. The file is of ubq.
 
+## D120. The stop hook does nothing in a project that does not have ubqtest (user, 2026-11-19)
+
+The user removed ubq from a project, and the stop hook of `ubq
+skill` (D67) failed each time the agent stopped. Its command was
+`npx --no ubq check --hook`. With no local command, `npx` reads
+`ubq` as the name of a package, which is not the name of this
+one, and the registry answers 404. The user: the command "should
+perhaps check to ensure that ubqtest is installed at all before
+doing anything".
+
+- The command of the hook is a line of Node. It looks for the
+  package `ubqtest` from the project. With no package, it ends
+  with code 0 and no text. With the package, it runs `check
+  --hook` of that package, with the input and the exit code of
+  the hook.
+- Not `npx --package ubqtest ubq`: with no package, that is an
+  error too.
+- The text has no `$`, and only `"` and `'` as quotes: a shell
+  reads `$1` in double quotes as its own value.
+- `ubq skill` puts the new command in the place of the old one.
+  A hook of the user with a different command that runs the
+  check stays as it is.
+- The line that `ubq skill` prints says that the hook is of
+  Claude Code, that it does nothing with no package, and how to
+  remove it. An agent said that the old line did not make the
+  hook clear.
+

@@ -1,6 +1,16 @@
 // `ubq doctor` and `ubq guide`.
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
@@ -175,7 +185,9 @@ test('skill writes to the skill folders of the project and to the folder of the 
       .stdout.trimEnd()
       .split('\n')
   const hookLine =
-    'wrote .claude/settings.json: a stop hook. While ubq check finds a problem, the agent cannot end its turn'
+    'wrote .claude/settings.json: a stop hook of Claude Code. While ubq check finds a problem, the agent cannot end its turn. The hook does nothing in a project that does not have ubqtest. To remove it, delete its entry in "hooks.Stop" of that file'
+  // The command has no `$`, and only `"` and `'` as quotes.
+  const command = `node -e "const p=require('path');let m;try{m=require.resolve('ubqtest')}catch{process.exit(0)}process.exit(require('child_process').spawnSync(process.execPath,[p.join(m,'..','cli'+p.extname(m)),'check','--hook'],{stdio:'inherit'}).status??1)"`
   const settings = join(p.dir, '.claude/settings.json')
   // The settings of Claude Code get the stop hook, one time, next to their other settings.
   mkdirSync(join(p.dir, '.claude'))
@@ -184,12 +196,31 @@ test('skill writes to the skill folders of the project and to the folder of the 
     JSON.stringify({ model: 'x', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }] } }),
   )
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
-  const hook = { hooks: [{ type: 'command', command: 'npx --no ubq check --hook', timeout: 120 }] }
+  const hook = { hooks: [{ type: 'command', command, timeout: 120 }] }
   assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), {
     model: 'x',
     hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }, hook] },
   })
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md'])
+  // The hook of an older ubq gets the command of this one.
+  const old = { hooks: [{ type: 'command', command: 'npx --no ubq check --hook', timeout: 120 }] }
+  writeFileSync(settings, JSON.stringify({ hooks: { Stop: [old] } }))
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
+  assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { hooks: { Stop: [hook] } })
+  // A hook of the user that runs the check stays, with no second hook.
+  const own = { hooks: [{ type: 'command', command: 'cd app && npx ubq check --hook' }] }
+  writeFileSync(settings, JSON.stringify({ hooks: { Stop: [own] } }))
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md'])
+  // The command runs the check of the package of the project, and
+  // does nothing in a project that does not have the package.
+  const run = (cwd: string) => spawnSync(command, { cwd, shell: true, encoding: 'utf8', input: '{}' })
+  const blocked = run(p.dir)
+  assert.deepEqual([blocked.status, blocked.stdout.startsWith('{"decision":"block"')], [0, true], blocked.stderr)
+  // Not in a folder below the project: Node finds the package of a folder above.
+  const outside = mkdtempSync(join(tmpdir(), 'ubq-no-package-'))
+  cleanup(() => rmSync(outside, { recursive: true }))
+  const none = run(outside)
+  assert.deepEqual([none.status, none.stdout, none.stderr], [0, '', ''])
   rmSync(settings)
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
   assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { hooks: { Stop: [hook] } })

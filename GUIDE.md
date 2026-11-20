@@ -306,7 +306,9 @@ list to the job summary for a pull request from a fork, whose
 token cannot write a comment.
 
 `ubq skill` adds `ubq check --hook` to `.claude/settings.json` as
-a stop hook of Claude Code. While `ubq check` finds a problem,
+a stop hook of Claude Code, and says so. The hook does nothing in
+a project that does not have `ubqtest`, such as one that removed
+it: remove the entry in `hooks.Stop` of that file too. While `ubq check` finds a problem,
 Claude Code cannot end its turn: it gets the report and works on.
 When it stops again with the same report, the hook lets it stop,
 so that it can tell the user what it could not do. A different

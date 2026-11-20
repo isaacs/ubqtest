@@ -171,7 +171,8 @@ ubq skill .myagent/skills`. The skill tells the
 agent to read the guides of the installed package.
 
 For Claude Code, `npx ubq skill` also adds a stop hook to
-`.claude/settings.json`: `ubq check --hook`. While the last test
+`.claude/settings.json`: `ubq check --hook`, which does nothing
+in a project that does not have `ubqtest`. While the last test
 results are failures, or are older than the code, or changed lines
 ran in no test, the agent cannot end its turn. It gets the report,
 with the command for each problem. It can stop on the second try

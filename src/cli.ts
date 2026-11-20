@@ -108,7 +108,19 @@ const USAGE = `usage:
 const out = (text: string): void => void process.stdout.write(text + '\n')
 
 /** The stop hook of Claude Code: the agent cannot end its turn while `ubq check` finds a problem (D67). */
-const HOOK = 'npx --no ubq check --hook'
+/** The command of the hook before this one. `ubq skill` puts the new command in its place. */
+const OLD_HOOK = 'npx --no ubq check --hook'
+/**
+ * The command of the hook. In a project that does not have the
+ * package, such as one that removed ubq, it does nothing: `npx`
+ * there asks the registry for a package with the name `ubq`. The
+ * command line of ubq is in the folder of the main file of the
+ * package. The text has no `$`, and only `"` and `'` as quotes, so
+ * that each shell gives it to Node as it is.
+ */
+const HOOK =
+  `node -e "const p=require('path');let m;try{m=require.resolve('ubqtest')}catch{process.exit(0)}` +
+  `process.exit(require('child_process').spawnSync(process.execPath,[p.join(m,'..','cli'+p.extname(m)),'check','--hook'],{stdio:'inherit'}).status??1)"`
 const stopEntry = { hooks: [{ type: 'command', command: HOOK, timeout: 120 }] }
 
 /** Adds the stop hook to the settings of Claude Code, if they do not have it. */
@@ -124,10 +136,17 @@ const stopHook = (path: string): void => {
     }
   }
   const stop = ((settings.hooks ??= {}).Stop ??= [])
-  if (stop.some(e => e.hooks?.some(h => h.command?.includes('ubq check')))) return
-  stop.push(stopEntry)
+  const hooks = stop.flatMap(e => e.hooks ?? [])
+  if (hooks.some(h => h.command === HOOK)) return
+  const old = hooks.find(h => h.command === OLD_HOOK)
+  // A hook with a different command that runs the check is of the user.
+  if (!old && hooks.some(h => h.command?.includes('ubq check'))) return
+  if (old) old.command = HOOK
+  else stop.push(stopEntry)
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n')
-  out(`wrote ${rel(path)}: a stop hook. While ubq check finds a problem, the agent cannot end its turn`)
+  out(
+    `wrote ${rel(path)}: a stop hook of Claude Code. While ubq check finds a problem, the agent cannot end its turn. The hook does nothing in a project that does not have ubqtest. To remove it, delete its entry in "hooks.Stop" of that file`,
+  )
 }
 
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
