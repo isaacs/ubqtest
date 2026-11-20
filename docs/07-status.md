@@ -430,7 +430,16 @@ All entries are from 2026-11-11 to 2026-11-14.
     pattern for a check with a matcher of `expect`, tuple types
     for a table of `each`, `it` as a value, and TODO texts for
     the order of hooks, `mock.instances`, `require` as a value,
-    and a type of the old tool. Q53 to Q58 wait for the user.
+    and a type of the old tool.
+  - The answers to Q53 to Q58 (D124): `assert.matchOnly` and
+    `isMatchOnly`, which `ubq convert` writes for an exact
+    comparison with a matcher of `expect`. `this` of a spy call.
+    The summary line of a failed run has `ubq failures <run>`. A
+    TODO text for a clock function in a callback that is not
+    async. The plugins note of `ubq convert` for a config that
+    the config imports. A `ubq doctor` note for a tsconfig with
+    which tsc does not define a class field. Q59 waits for the
+    user.
   - `release.yml` makes a GitHub release for the tag, with the
     subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on
@@ -707,9 +716,8 @@ Convert:
   rule of the old tool.
 - A helper file that gets `t` as an argument is not converted.
 - A comment between the arguments of a changed call goes away.
-- `beforeAll` in a `describe`, `expect.any` in an exact
-  comparison of an object literal (Q53), and
-  `expect.arrayContaining` stay hand work.
+- `beforeAll` in a `describe`, `expect.objectContaining` in an
+  exact object, and `expect.arrayContaining` stay hand work.
 - Playwright Test: hooks, fixtures other than `page` and
   `context`, a check with `not` on a value or with its own time
   limit, and `playwright.config` stay hand work (D105).

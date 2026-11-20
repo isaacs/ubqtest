@@ -108,7 +108,11 @@ Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/ubqtest/cli.js`.
 
 The last line of the output is the summary: `pass: 0 failed, 12
-passed (run 7)` or `fail: 2 failed, 10 passed (run 8)`. Passed
+passed (run 7)` or `fail: 2 failed, 10 passed (run 8: ubq
+failures 8)`. The command in a failed summary prints the failures
+of that run again. Use it with the number: with no number, `ubq
+failures` shows the newest run of the store, and a different
+person or agent can have a newer run. Passed
 tests print nothing. After a selection, `N not selected` counts the
 tests that did not run in the files that ran. It does not count
 the tests of files that did not run.
@@ -150,7 +154,7 @@ snapshot, the environment, the time, or the order of the tests.
 
 A run prints 20 failure blocks at most, and 20 type error blocks
 at most. Then one line gives the count of the others: `and 3 more
-failures. For all of them: ubq failures 8`. In CI (`CI` is set),
+failures.` The command of the summary line prints all of them. In CI (`CI` is set),
 each failure block prints.
 
 At a terminal, `FAIL`, `ERROR`, `TYPE`, `SURVIVED`, and `fail` are
@@ -330,6 +334,7 @@ assert.equal(actual, expected)     // Object.is. Does not narrow the type.
 assert.notEqual(actual, expected)
 assert.deepEqual(actual, expected) // strict: same structure, values, prototypes
 assert.match(actual, pattern)      // a partial object. A RegExp tests a string. A function tests a value: { id: (v: unknown) => typeof v === 'number' }
+assert.matchOnly(actual, pattern)  // as match, and the value has no key that the pattern does not have, at each depth. For an exact comparison with a value that changes: { id: 1, time: (v: unknown) => typeof v === 'number' }
 assert.contains(actual, expected)  // text in text, or an element of an array, Set, or other iterable
 assert.notContains(actual, expected)
 assert.greaterThan(value, target)  // value > target. A failure shows the two values.
@@ -345,8 +350,9 @@ assert.fail(message)
 // Each assertion takes a message as its last argument: assert.equal(a, b, `case ${name}`). A failure shows it first.
 isDeepEqual(a, b)                  // true or false, by the rules of deepEqual. Not an assertion. A failed assert(value) shows the values of its calls.
 isMatch(actual, pattern)           // true or false, by the rules of match. Not an assertion. assert(s.calls.some(call => isMatch(call.args, [{ id: 7 }])))
+isMatchOnly(actual, pattern)       // true or false, by the rules of matchOnly
 
-spy(impl?)                         // records calls in spy.calls: { args, result, error }. args is unknown[]
+spy(impl?)                         // records calls in spy.calls: { args, result, error, this }. args is unknown[]. this is not enumerable: deepEqual of a call does not see it
 spyOn(object, key, impl?)          // replaces a method until the test ends. A second spyOn on the key replaces the first.
 await mockImport(() => import('../src/a.ts'), [
   [() => import('../src/dep.ts'), { fn: replacement }],

@@ -89,7 +89,7 @@ FAIL test/parse.test.ts > parse > circle
   expected: 'circle'
   rerun: ubq test/parse.test.ts:6
 
-fail: 1 failed, 1 passed (run 2)
+fail: 1 failed, 1 passed (run 2: ubq failures 2)
 ```
 
 A test file is also a plain program: `node test/parse.test.ts`,

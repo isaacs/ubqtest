@@ -153,6 +153,7 @@ assert.fail(message)                           // returns never
 | `notEqual` | not `Object.is(actual, expected)`. |
 | `deepEqual` | same structure, same values, same prototypes. The rules of `assert.deepStrictEqual` in Node. |
 | `match` | `actual` has the shape of `pattern`. See below. |
+| `matchOnly` | as `match`, and `actual` has no key that the pattern does not have, at each depth (D124). |
 | `contains` | the text `actual` has the text `expected` in it, or an element of the iterable `actual` is `expected` (by the rule of `Array.prototype.includes`). `null` and `undefined` fail. A failure shows the text, or the part of long text near the longest start of `expected` that it has. |
 | `notContains` | the opposite of `contains`. `null` and `undefined` fail. |
 | `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual` | `value > target`, `value < target`, `value >= target`, `value <= target`, for a `number` or a `bigint`. A failure shows the two values, which `assert(a > b)` cannot. |
@@ -161,8 +162,9 @@ assert.fail(message)                           // returns never
 | `rejects` | the promise (or the promise that the function returns) rejects with an error that fits `expected`. |
 
 `isDeepEqual(a, b)` returns true or false by the rules of
-`deepEqual`, and `isMatch(actual, pattern)` by the rules of
-`match` (D50, D123). They are not assertions. If `assert(value)`
+`deepEqual`, `isMatch(actual, pattern)` by the rules of `match`,
+and `isMatchOnly(actual, pattern)` by the rules of `matchOnly`
+(D50, D123, D124). They are not assertions. If `assert(value)`
 fails, the report shows the two values and the result of each
 such call since the last assertion, 8 at most (D91). A call that
 gave false also has the place of its first difference. So
@@ -208,6 +210,20 @@ function is a class (D85).
 
 The pattern must fit the type of the value. For a pattern that
 does not, on purpose: `assert.match<unknown>(value, pattern)`.
+
+**`matchOnly`** is an exact comparison with the forms of a
+pattern. An object in the pattern matches an object with the same
+keys and no others, at each depth. It is for a value with a part
+that changes from run to run:
+
+```ts
+assert.matchOnly(event, { id: 1, time: (v: unknown) => typeof v === 'number' })
+```
+
+`deepEqual` of the same value needs the exact time. `match` passes
+if the event has keys that the test did not expect. As in `match`,
+an object of a class matches a plain object in the pattern, and a
+key with the value `undefined` is a key.
 
 This keeps expected values short when the full object is large.
 
@@ -295,7 +311,10 @@ spyOn(object, key, impl?): Spy<typeof object[key]>
 ```
 
 - A spy is a function that records each call in `spy.calls`, as
-  `{ args, result, error }`. `args` has the type `unknown[]`
+  `{ args, result, error, this }`. `this` is the `this` value of
+  the call (D124). It is not enumerable, so `deepEqual` of a call
+  with `{ args, result }` does not see it:
+  `assert.equal(s.calls[0]?.this, emitter)`. `args` has the type `unknown[]`
   (D123): the code under test can pass more arguments than the
   type of the function has, and an expected value of each type
   compares with it. To read a property of an argument, test its
@@ -535,7 +554,7 @@ guide in the package lists the replacement for each.
 | --- | --- | --- |
 | `test(name, options, fn)`, `describe` | Vitest, `node:test` | no hooks, no modifiers |
 | `assert.equal`, `deepEqual`, `throws`, `rejects`, `match`, `fail` | `node:assert/strict` | `expected` is required for `throws` and `rejects`, and both return the error |
-| `match` with object patterns | tap `t.match` | no constructor patterns |
+| `match` with object patterns, `matchOnly` | tap `t.match`, `t.matchOnly` | no constructor patterns |
 | `testdir(files)` | tap `t.testdir` | a free function |
 | `mockImport` | tap `t.mockImport` | paths and types come from `import()` expressions |
 | `spy`, `spyOn` | Vitest `vi.fn`, `vi.spyOn` | calls are plain records, no special assertions |

@@ -3278,3 +3278,71 @@ Not done, with the reason:
 - The type frictions of `spyOn` (an overloaded function, a spy
   with the type of an interface method, a key with
   `@ts-expect-error`): the report has no small case.
+
+## D124. `assert.matchOnly`, `this` of a spy call, and the command in a failed summary (user, 2026-11-19)
+
+The answers to Q53 to Q58.
+
+- **Q53: `assert.matchOnly(actual, pattern)`.** The user: the form
+  with two assertions (`assert.deepEqual(e, { id: 1, time: e.time
+  })`) is weaker than `toEqual({ id: 1, time: expect.any(Number)
+  })` unless a second assertion checks the type, "which is more
+  work for no gain. We need a predicate-taking matcher that also
+  is strict about object shape". Not a change to `deepEqual`.
+  The name and the rule are those of tap.
+  - It is `match`, and an object in the value must have no key
+    that the pattern does not have, at each depth. A RegExp and a
+    function in the pattern do what they do in `match`.
+  - As in `match`, an object of a class matches a plain object in
+    the pattern. A key with the value `undefined` is a key.
+  - `isMatchOnly(actual, pattern)` gives true or false by the same
+    rule. This is an assumption of the assistant: `toHaveBeenCalledWith({ id: 1 },
+    expect.any(Number))` passes if any call has the arguments, and
+    with no such function that check keeps its TODO.
+  - `ubq convert` writes `assert.matchOnly` or `isMatchOnly` for
+    an exact comparison with a matcher (`toEqual`, and the checks
+    of the arguments of a spy), if each matcher has a form in a
+    pattern and is a value of an object literal or an element of
+    an array literal. `objectContaining` in an exact object keeps
+    the TODO: one pattern cannot permit other keys in one part
+    only. `objectContaining` with no object around it stays
+    `assert.match` (D123).
+  - This replaces the text of D85 "In an exact comparison they
+    keep the TODO".
+- **Q54: the summary line of a failed run has the command.**
+  `fail: 2 failed, 9 passed (run 812: ubq failures 812)`. The
+  answer was "the last line of each run with a failure names the
+  command". It is in the summary line, and not on a line of its
+  own: the summary stays the last line, and a run has no new
+  line (assumption of the assistant). `ubq failures` itself prints
+  `(run 812)`. The line for more than 20 failures no longer names
+  the command. The guides say to use the number.
+- **Q55: a call of a spy has `this`.** `s.calls[0]?.this`. The
+  property is not enumerable, and optional in the type: `assert.deepEqual(s.calls,
+  [{ args: [1], result: 2 }])` of a test that exists must not
+  fail, or need a new key (assumption of the assistant). `ubq
+  convert` changes `mock.contexts` and `mock.instances` to
+  `calls.map(call => call.this)`.
+- **Q56: no tick that is not async.** The user asked to make this
+  less of a surprise for the agent that converts. `ubq convert`
+  adds a text to the TODO of a clock function of vitest in a
+  callback that is not async, and that is not the function of a
+  test or a hook: an `await` there makes the callback async for
+  the code that calls it. The text says to move the call and the
+  code after it into the test, and to make the callback async
+  only if the code under test awaits it. The convert guide has
+  the same.
+- **Q57: a note for the plugins of a shared config.** `ubq
+  convert` follows the relative imports of a vite or vitest
+  config, at each depth, and prints its note for a config with
+  plugins. The note has the advice of option 1: the source needs
+  a form with no plugin. No key for a transform of the project.
+  The user: the `transform` key of D111 exists for syntax that
+  cannot be erased, and this stays a different thing.
+- **Q58: a `note` line of `ubq doctor` for class fields.** For a
+  tsconfig of the tests with a target below ES2022 and no
+  `useDefineForClassFields: true`, or with that option false. Not
+  with the `transform` key, and not on Bun: they compile with the
+  options of the tsconfig. With no target in the tsconfig, no
+  note: the default depends on the version of TypeScript. The
+  point about `stub` with `undefined` had no answer: it is Q59.

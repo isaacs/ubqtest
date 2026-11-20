@@ -40,7 +40,9 @@ has the API and the rules of ubq.
    do not type it again: a string can have characters that you
    cannot see.
 5. **Run.** `npx ubq`. Do one failure at a time: `npx ubq
-   <file>:<line>` runs one test. Read "Failures after the
+   <file>:<line>` runs one test. The summary line of a failed run
+   has the command that prints its failures again, with the run
+   number (`ubq failures 812`): use that number. Read "Failures after the
    conversion" below before you change a test.
 6. **Compare.** The count of tests that pass must be the count of
    step 1, or you must know the reason for each difference. A
@@ -70,10 +72,11 @@ unless the test found a defect. Do not make an assertion weaker.
 **Many agents in one project.** For a large project, correct the
 shared helper files first: a type error in a helper is an error
 at each place that calls it. Then several agents can each do a
-set of files. They share one store, so use the run number of the
-summary line of your own run: `ubq failures 812`. With no number,
-`ubq failures` shows the newest run of the store, which can be
-the run of a different agent. A run of your files prints the
+set of files. They share one store, so use the command in the
+summary line of your own failed run: `fail: 2 failed, 9 passed
+(run 812: ubq failures 812)`. With no number, `ubq failures` shows
+the newest run of the store, which can be the run of a different
+agent. A run of your files prints the
 count of type errors in other files: those are not yours.
 
 ## What `ubq convert` changes
@@ -193,7 +196,10 @@ names, do one of these:
 - ubq has no plugins: it runs each source file as it is. If a
   vite config has a plugin that changes the code that the tests
   run (it removes a block, or adds an import), `ubq convert`
-  prints a note. Tell the user about it.
+  prints a note, also for a plugin of a config that the config of
+  the project imports. Tell the user about it: the source needs a
+  form that works with no plugin, such as a condition that the
+  code tests while it runs.
 - A test file is an ES module. `ubq convert` changes `__dirname`
   and `__filename` to `import.meta.dirname` and
   `import.meta.filename`. It writes a TODO for each use of
@@ -494,6 +500,8 @@ Things to check by hand:
 | `toHaveBeenCalledWith(...args)` | `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))` |
 | `toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.any(String))` | `assert(s.calls.some(call => isMatch(call.args, [{ id: 1 }, (v: unknown) => typeof v === 'string'])))` |
 | `toEqual(expect.objectContaining({ id: 1 }))` | `assert.match(a, { id: 1 })` |
+| `toEqual({ id: 1, time: expect.any(Number) })` | `assert.matchOnly(a, { id: 1, time: (v: unknown) => typeof v === 'number' })` |
+| `toHaveBeenCalledWith({ id: 1 }, expect.anything())` | `assert(s.calls.some(call => isMatchOnly(call.args, [{ id: 1 }, (v: unknown) => v != null])))` |
 | `toHaveBeenLastCalledWith(...args)` | `assert.deepEqual(s.calls.at(-1)?.args, [...args])` |
 | `not.toHaveBeenCalledWith(...args)` | `assert(!s.calls.some(call => isDeepEqual(call.args, [...args])))` |
 | `toHaveBeenNthCalledWith(2, ...args)` | `assert.deepEqual(s.calls[1]?.args, [...args])` |
@@ -551,22 +559,22 @@ Things to check by hand:
   `expect.any(URL)` becomes `(v: unknown) => v instanceof URL`,
   and `expect.anything()` becomes `(v: unknown) => v != null`.
   In an exact comparison (`toEqual`, `toHaveBeenCalledWith`,
-  `toHaveBeenLastCalledWith`, `toHaveBeenNthCalledWith`) the
-  command writes a pattern only if the pattern does the same
-  check: each value is a plain value or a matcher, and an object
-  is in `objectContaining`, with plain values and matchers in it.
-  `isMatch(actual, pattern)` gives true or false by the rules of
-  `assert.match`, for "a call of the spy has arguments of this
-  shape".
-  In each other exact comparison the matcher stays, with a TODO:
-  `assert.deepEqual` compares a function as a value, and
-  `assert.match` permits keys that the pattern does not have. You
-  must decide. If the other keys are not important, change the
-  assertion to `assert.match` with the functions. To keep the
-  comparison exact, check the value that changes by itself, then
-  put it in the expected value:
-  `assert.equal(typeof event.time, 'number')`, then
-  `assert.deepEqual(event, { id: 1, time: event.time })`.
+  `toHaveBeenLastCalledWith`, `toHaveBeenNthCalledWith`) with a
+  matcher, the command writes `assert.matchOnly`, or `isMatchOnly`
+  for "a call of the spy has these arguments". A pattern of
+  `matchOnly` permits no key that it does not have, at each depth,
+  so the check stays exact: `toEqual({ id: 1, time:
+  expect.any(Number) })` becomes `assert.matchOnly(a, { id: 1,
+  time: (v: unknown) => typeof v === 'number' })`. As
+  `assert.deepEqual`, it is more strict than `toEqual` for a key
+  with the value `undefined`.
+  With `objectContaining` and no object around it, the command
+  writes `assert.match` or `isMatch`, which permit other keys.
+  A matcher stays, with a TODO, where no pattern does the same
+  check: `objectContaining` in an exact object (one part permits
+  other keys, and the rest does not), a matcher as the argument of
+  a function, `expect.not`, and `arrayContaining`. Assert on that
+  part by itself.
   `expect.stringMatching(/re/)` becomes the RegExp, and
   `expect.fail('text')` becomes `assert.fail('text')`.
   `expect.stringContaining('text')` becomes a RegExp only in a
@@ -689,11 +697,9 @@ Things to check by hand:
   `args` has the type `unknown[]`: it compares with a value of
   each type. To read a property of an argument, test its type
   first, or cast it.
-- **`fn.mock.instances`, `fn.mock.contexts`.** A spy of ubq does
-  not record the value of `this`. The command writes a TODO. Give
-  the spy an implementation that keeps it: `const seen: unknown[]
-  = []`, `const s = spy(function (this: unknown) { seen.push(this)
-  })`.
+- **`fn.mock.contexts`, `fn.mock.instances`.** Each call of a spy
+  has its `this` value: `fn.calls[0]?.this`. The command writes
+  `fn.calls.map(call => call.this)` for the list.
 - **`vi.fn().mockReturnValue(v)`** becomes `spy(() => v)`, a
   function with no parameters. It fits each function type. If the
   test itself calls the spy with arguments, that call is a type
@@ -728,6 +734,15 @@ Things to check by hand:
   A timer of 0 ms runs after 1 ms, as in Node. So
   `clock.tick(0)` does not run a `setTimeout(fn, 0)`, and
   `vi.advanceTimersByTime(0)` did: use `await clock.tick(1)`.
+
+  The functions of vitest are not async, and `clock.tick` and
+  `clock.runAll` return a promise. In the test function, add
+  `await`. In a callback that the code under test calls, an
+  `await` makes the callback async, and that code then gets a
+  promise in place of the result. The command says so in the TODO
+  of such a call. Move the tick and the code after it out of the
+  callback, into the test. Make the callback async only if the
+  code under test awaits it.
 
   `fakeClock()` starts at the real time. `fakeClock({ now: 0 })`
   starts at 0, and code that subtracts from `Date.now()` then gets
