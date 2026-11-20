@@ -89,6 +89,11 @@ test('stub sets a property, and the old one comes back when the test ends', () =
   assert.equal((globalThis as { ubqStub?: number }).ubqStub, 3)
   assert.throws(() => stub(object, 'fixed', 2), /stub: fixed cannot be changed/)
   assert.equal(object.fixed, 1)
+  // The value undefined fits a key whose type has no undefined.
+  const real = globalThis.performance
+  cleanup(() => assert.equal(globalThis.performance, real))
+  stub(globalThis, 'performance', undefined)
+  assert.equal<unknown>(globalThis.performance, undefined)
 })
 
 test('testdir makes a folder that has the name of the test', () => {

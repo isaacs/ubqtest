@@ -438,8 +438,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     TODO text for a clock function in a callback that is not
     async. The plugins note of `ubq convert` for a config that
     the config imports. A `ubq doctor` note for a tsconfig with
-    which tsc does not define a class field. Q59 waits for the
-    user.
+    which tsc does not define a class field.
+  - `stub` takes `undefined` for each key (D125).
   - `release.yml` makes a GitHub release for the tag, with the
     subject lines of the commits after the last tag (D122).
   - The filter of D119 for type errors did not end for a file on

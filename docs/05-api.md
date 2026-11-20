@@ -434,7 +434,7 @@ cleanup(fn: () => void | Promise<void>): void         // run fn at test end
   object. The old property comes back when the test ends: its
   value or its getter, or no property if the object had none of
   its own. The value has the type of the property, if the object
-  type has the key. For a function, `spyOn` also records the
+  type has the key, or is `undefined` (D125). For a function, `spyOn` also records the
   calls. A property that is not configurable throws.
 - `cleanup` functions run in reverse order. An error in one fails
   the test.

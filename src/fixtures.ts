@@ -75,16 +75,18 @@ export const env = (vars: Record<string, string | undefined>): void => {
  * Sets `object[key]` to `value`. The old property comes back when
  * the test ends: its value or its getter, or no property if the
  * object had none of its own. For a function, `spyOn` also records
- * the calls.
+ * the calls. The value `undefined` fits each key: it is the form
+ * for code that tests if a global is there.
  *
  * ```ts
  * stub(globalThis, 'navigator', { userAgent: 'test' })
+ * stub(globalThis, 'performance', undefined)
  * ```
  */
 export const stub = <T extends object, K extends PropertyKey>(
   object: T,
   key: K,
-  value: K extends keyof T ? T[K] : unknown,
+  value: K extends keyof T ? T[K] | undefined : unknown,
 ): void => {
   const target = object as Record<PropertyKey, unknown>
   const own = Object.getOwnPropertyDescriptor(object, key)

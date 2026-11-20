@@ -3346,3 +3346,12 @@ The answers to Q53 to Q58.
   options of the tsconfig. With no target in the tsconfig, no
   note: the default depends on the version of TypeScript. The
   point about `stub` with `undefined` had no answer: it is Q59.
+
+## D125. `stub` takes `undefined` for each key (user, 2026-11-19)
+
+The answer to Q59. The value of `stub(object, key, value)` has
+the type of the property, or is `undefined`. This changes one
+point of D82. `stub(globalThis, 'performance', undefined)` needs
+no cast: it is the form for code that tests if a global is
+there. The property stays, with the value `undefined`, and the
+old property comes back when the test ends.

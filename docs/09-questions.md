@@ -25,7 +25,7 @@ Q43 are D109. The answer to Q41 is D111. The answer to Q42 is
 D110. The answer to Q44 is D112. The answers to Q45, Q46, and Q47
 are D114. The answer to Q48 is D115. The answers to Q49 and Q50
 are D117. The answers to Q51 and Q52 are D121. The answers to Q53
-to Q58 are D124.
+to Q58 are D124. The answer to Q59 is D125.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.
@@ -56,23 +56,4 @@ what is done for the rest of that report.
 Q53 to Q58 came from `23-sentry-core-feedback-0.0.22.md`. D123 has
 what is done for the rest of that report.
 
-## Open Questions
-
-Q59 comes from the same report.
-
-## Q59. `stub` with the value `undefined`
-
-**Blocked:** `stub(globalThis, 'performance', undefined)` is a type
-error: the value of `stub` has the type of the property (D82), and
-the type of `performance` has no `undefined`. A test that checks
-the code for a runtime with no such global needs a cast.
-
-**Options:**
-
-1. No change. The test casts: `undefined as never`.
-2. The value of `stub` is the type of the property, or
-   `undefined`, for each key.
-
-**The agent would do:** option 2. To remove a global for one test
-is a frequent use of `stub`, and the cast tells the reader
-nothing.
+Q59 came from the same report.
