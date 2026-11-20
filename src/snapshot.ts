@@ -20,13 +20,18 @@ export const setUpdate = (on: boolean): void => {
 /** The snapshot file of a test file. Paths are from the project root. */
 export const snapshotFile = (file: string): string => `ubq-snapshots/${file}.snap`
 
-/** The text of a value. A string is its own text. */
+/**
+ * The text of a value. A string is its own text. Each entry of an
+ * array or an object is on its own line: a change of one entry is
+ * a change of one line.
+ */
 export const snapshotText = (value: unknown): string =>
   typeof value === 'string'
     ? value
     : inspect(value, {
         depth: Infinity,
         breakLength: 80,
+        compact: false,
         maxArrayLength: Infinity,
         maxStringLength: Infinity,
         sorted: true,

@@ -249,16 +249,18 @@ const f = (a: string | null, b: string | undefined): void => {
 test('t', () => f('x', 'x'))
 `,
   )
-  const hints = p
-    .ubq('hint.test.ts')
-    .out.split('\n')
-    .filter(line => line.startsWith('  hint: ') || line.startsWith('  at '))
-  assert.deepEqual(hints, [
-    '  hint: this is the expected value of assert.equal. It must have the type of the actual value. To compare two different types on purpose: assert.equal<unknown>(a, b)',
-    '  at hint.test.ts:3:19',
-    '  hint: this is the expected value of assert.deepEqual. It must have the type of the actual value. To compare two different types on purpose: assert.deepEqual<unknown>(a, b)',
-    '  at hint.test.ts:4:32',
-  ])
+  const { out } = p.ubq('hint.test.ts')
+  const hints = out.split('\n').filter(line => line.startsWith('  hint: ') || line.startsWith('  at '))
+  assert.deepEqual(
+    hints,
+    [
+      '  hint: this is the expected value of assert.equal. It must have the type of the actual value. To compare two different types on purpose: assert.equal<unknown>(a, b)',
+      '  at hint.test.ts:3:19',
+      '  hint: this is the expected value of assert.deepEqual. It must have the type of the actual value. To compare two different types on purpose: assert.deepEqual<unknown>(a, b)',
+      '  at hint.test.ts:4:32',
+    ],
+    out,
+  )
 })
 
 test('a type error for syntax that Node cannot run has a hint', () => {
@@ -277,15 +279,20 @@ test('a type error for syntax that Node cannot run has a hint', () => {
     join(p.dir, 'enum.test.ts'),
     "import { assert, test } from 'ubqtest'\nenum E {\n  A,\n}\ntest('t', () => assert.equal(E.A, 0))\n",
   )
-  const lines = p.ubq('enum.test.ts').out.split('\n')
+  const { out } = p.ubq('enum.test.ts')
+  const lines = out.split('\n')
   const at = lines.indexOf('TYPE enum.test.ts')
-  assert.deepEqual(lines.slice(at, at + 5), [
-    'TYPE enum.test.ts',
-    "  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
-    '  hint: Node cannot run this syntax with only its types removed. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.',
-    '  at enum.test.ts:2:6',
-    '  > enum E {',
-  ])
+  assert.deepEqual(
+    lines.slice(at, at + 5),
+    [
+      'TYPE enum.test.ts',
+      "  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      '  hint: Node cannot run this syntax with only its types removed. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.',
+      '  at enum.test.ts:2:6',
+      '  > enum E {',
+    ],
+    out,
+  )
 })
 
 test('a tsconfig.json with only references: ubq makes tsconfig.ubq.json, one time, and reads it', () => {

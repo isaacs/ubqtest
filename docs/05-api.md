@@ -231,6 +231,8 @@ older run saved (D31).
 
 - The text of a string is the string. The text of any other value
   is its `util.inspect` form, with sorted keys and no size limit.
+  Each entry of an array or an object is on its own line, so a
+  change of one entry is a change of one line (D121).
 - Each test file has one snapshot file:
   `ubq-snapshots/<test file path>.snap`. Commit it. The key of an
   entry is the names of the test and the number of the call in

@@ -447,7 +447,8 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   the text as a `hint:` line.
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
   saved text fails. Only `ubq --update [file or test id]` writes
-  them. Read the new text before you commit it.
+  them. Read the new text before you commit it. Each entry of an
+  array or an object is on its own line in the text.
 
 ## Names that do not exist
 

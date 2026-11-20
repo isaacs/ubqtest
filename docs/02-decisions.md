@@ -3064,3 +3064,30 @@ doing anything".
   remove it. An agent said that the old line did not make the
   hook clear.
 
+## D121. No place for a warning of a passing test, and a snapshot has one entry on each line (user, 2026-11-19)
+
+The answers to Q51 and Q52, which came from
+`22-glob-fable-feedback-0.0.19.md`.
+
+- **Q51: no change.** ubq has no `note()` function, and the last
+  line has no count of tests that wrote to stderr. A check that
+  can fail is an assertion. A test that cannot give a result
+  calls `skip('reason')` (D117), and the run shows the reason.
+- **Q52: each entry of an array, an object, a Map, or a Set is on
+  its own line in the text of a snapshot.** The text was the
+  default layout of `util.inspect`, which puts short entries on
+  one line, and the entries of a long array in columns. A change
+  of one entry then changed a line with other entries. The text
+  now uses `compact: false`. A change of one entry is a change of
+  one line.
+- The change is not only for arrays, as Q52 said. `util.inspect`
+  has no option that stops only the columns. One rule for each
+  container is also less to learn, and it does not use the
+  width rules of `util.inspect`.
+- A stored snapshot of a value that is not a string fails until
+  `ubq --update` writes it again. The failure shows the two
+  texts.
+- The user: `util.inspect` "has changed in the past, though it's
+  fairly stable now". If its text changes again between versions
+  or runtimes, ubq can keep its own copy of the formatter. That
+  is not done now.
