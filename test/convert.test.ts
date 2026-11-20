@@ -19,7 +19,7 @@ const { parse, children }: typeof import('../src/instrument.ts') = process.versi
 
 /** The TODO text for a matcher of expect. */
 const MATCHER =
-  "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern])))."
+  "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))). assert.matchOnly and isMatchOnly are the same with no other keys in the value."
 
 /** The lines of a TODO comment. */
 const todo = (text: string, indent = ''): string[] => todoComment(indent, text).trimEnd().split('\n')
@@ -462,8 +462,8 @@ it('a', () => {
     "  assert.contains(row.tags, 'x')",
     "  assert.contains(rows[0], 'x')",
     "  assert.contains(a?.b, 'x')",
-    ...todo(MATCHER, '  '),
-    '  assert.deepEqual(res.json(), { count: expect.any(Number) })',
+    // An exact comparison with a matcher: a pattern with no other keys.
+    "  assert.matchOnly(res.json(), { count: (v: unknown) => typeof v === 'number' })",
     '  assert.match(last, { content: /a\\.b/ })',
     ...todo(MATCHER, '  '),
     "  assert.match(last, { content: expect.not.stringContaining('c') })",
@@ -513,9 +513,8 @@ it('a', () => {
     // A class with the name of the parameter, and wrong arguments.
     ...todo(MATCHER, '  '),
     "  assert.match(x, { a: expect.any(v), b: expect.any(), c: expect.any('text'), d: expect.anything(1) })",
-    // deepEqual compares a function as a value.
-    ...todo(MATCHER, '  '),
-    '  assert.deepEqual(x, { a: expect.any(Number), b: expect.anything() })',
+    // An exact comparison: no other keys.
+    "  assert.matchOnly(x, { a: (v: unknown) => typeof v === 'number', b: (v: unknown) => v != null })",
     '})',
   ])
   // A JavaScript file gets no type.
@@ -1015,6 +1014,8 @@ describe('g', () => {
     expect(fn).not.toHaveBeenCalledWith(expect.any(String))
     expect(fn).toHaveBeenLastCalledWith(expect.anything(), expect.stringContaining('c'))
     expect(box).toEqual(expect.objectContaining({ n: 1 }))
+    expect(box).toEqual({ n: 1, list: [expect.any(Number)] })
+    expect(fn).toHaveBeenCalledWith({ id: 1, more: expect.any(Number) }, 'c')
     expect(box).not.toBeInstanceOf(Map)
     expect(box?.list).toHaveLength(1)
   })
@@ -2909,6 +2910,8 @@ describe('service', () => {
     // or assert(list.some(item => isDeepEqual(item, x))) for an object.
     // For a call of a spy with arguments of a shape:
     // assert(s.calls.some(call => isMatch(call.args, [pattern]))).
+    // assert.matchOnly and isMatchOnly are the same with no other keys in
+    // the value.
     expect(list).toContainEqual(expect.stringContaining('warn'));
     if (!svc) assert.fail('no service');
   });
@@ -3013,10 +3016,10 @@ it('x', () => {
     "  assert.fail('no')",
     "  assert.fail('fail')",
     '  assert.throws(() => load(), /x/)',
-    // Not a pattern: this one has a TODO.
-    '  assert.deepEqual(v, { a: expect.stringMatching(/y/i) })',
+    // An exact comparison with a matcher is a pattern with no other keys.
+    '  assert.matchOnly(v, { a: /y/i })',
   ])
-  assert.equal(r!.todos.length, 1)
+  assert.equal(r!.todos.length, 0)
 })
 
 test('vitest: convert writes the env values of the vitest config, and the tests then run', () => {
@@ -3243,7 +3246,7 @@ describe('k', () => {
 `)
   assert(r)
   assert.deepEqual(r.code, [
-    "import { assert, describe, isDeepEqual, isMatch, test } from 'ubqtest'",
+    "import { assert, describe, isDeepEqual, isMatch, isMatchOnly, test } from 'ubqtest'",
     '// TODO(ubq): An ES module has no require. Use an import statement, await',
     "// import('name'), or createRequire(import.meta.url) of node:module.",
     'const cjs = { require }',
@@ -3267,13 +3270,10 @@ describe('k', () => {
     '    // types with no annotation: const make = () => ({ load: spy(async ()',
     '    // => user) }).',
     '    const m = fn as Mock',
-    '    // TODO(ubq): A spy of ubq records { args, result, error } for each',
-    '    // call, and not the value of this. Give the spy an implementation that',
-    '    // keeps it: const seen: unknown[] = []; const s = spy(function (this:',
-    '    // unknown) { seen.push(this) }). Then assert on seen.',
-    '    assert.equal(listener.mock.instances[0], 1)',
+    '    assert.equal(listener.calls.map(call => call.this)[0], 1)',
     "    assert(s.calls.some(call => isMatch(call.args, [{ a: 1, b: (v: unknown) => typeof v === 'number' }, 'c'])))",
     '    assert(!s.calls.some(call => isMatch(call.args, [(v: unknown) => v != null])))',
+    '    assert(s.calls.some(call => isMatchOnly(call.args, [{ a: 1 }, (v: unknown) => v != null])))',
     '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
     '    // the work of objectContaining, and a RegExp does the work of',
     '    // stringContaining and stringMatching. An object pattern is partial at',
@@ -3286,19 +3286,8 @@ describe('k', () => {
     '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
     '    // For a call of a spy with arguments of a shape:',
     '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
-    '    assert(s.calls.some(call => isDeepEqual(call.args, [{ a: 1 }, expect.anything()])))',
-    '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
-    '    // the work of objectContaining, and a RegExp does the work of',
-    '    // stringContaining and stringMatching. An object pattern is partial at',
-    '    // each depth, and an array pattern must have the same length. A',
-    '    // function does the work of any and anything: { id: (v: unknown) =>',
-    "    // typeof v === 'number' }, v instanceof URL, v != null.",
-    '    // assert.deepEqual compares a function as a value: change it to',
-    '    // assert.match, which permits keys that the pattern does not have. For',
-    '    // arrayContaining, assert on each element: assert.contains(list, x),',
-    '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
-    '    // For a call of a spy with arguments of a shape:',
-    '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    // assert.matchOnly and isMatchOnly are the same with no other keys in',
+    '    // the value.',
     '    assert(s.calls.some(call => isDeepEqual(call.args, [expect.objectContaining({ a: { b: 1 } })])))',
     '    assert.match(s.calls[1]?.args, [/x/])',
     '    assert.equal(s.calls.length, 1)',
@@ -3319,6 +3308,8 @@ describe('k', () => {
     '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
     '    // For a call of a spy with arguments of a shape:',
     '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    // assert.matchOnly and isMatchOnly are the same with no other keys in',
+    '    // the value.',
     '    assert(s.calls.some(call => isDeepEqual(call.args, [expect.any(), 1])))',
     '    // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
     '    // the work of objectContaining, and a RegExp does the work of',
@@ -3332,6 +3323,8 @@ describe('k', () => {
     '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
     '    // For a call of a spy with arguments of a shape:',
     '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+    '    // assert.matchOnly and isMatchOnly are the same with no other keys in',
+    '    // the value.',
     '    assert(s.calls.some(call => isDeepEqual(call.args, [[, 1], expect.anything()])))',
     '    // TODO(ubq): A spy gets its implementation as an argument: spy(impl),',
     '    // spyOn(object, key, impl). For a result that changes, the',
@@ -3397,6 +3390,148 @@ describe('k', () => {
     '      f()',
     '    })',
     '  })',
+    '})',
+  ])
+})
+
+test('vitest: an exact comparison with a matcher is matchOnly, the this value of a call, and a tick in a callback', () => {
+  const r = convert(`import { expect, it, vi } from 'vitest'
+it('a', () => {
+  expect(e).toEqual({ id: 1, time: expect.any(Number), user: { name: expect.stringContaining('a') } })
+  expect(e).not.toEqual({ id: expect.anything() })
+  expect(e).toEqual({ ...base, list: [expect.any(String), other] as unknown[] })
+  expect(e).toEqual({ id: 1, part: expect.objectContaining({ a: 1 }) })
+  expect(e).toEqual({ id: 1, not: expect.not.stringContaining('a') })
+  expect(e).toEqual(make(expect.any(Number)))
+  expect(s).toHaveBeenCalledWith({ id: 1 }, expect.anything())
+  expect(s).toHaveBeenLastCalledWith({ id: expect.any(Number) })
+  expect(s).toHaveBeenNthCalledWith(1, [{ id: expect.any(Number) }])
+  expect(s.mock.contexts[0]).toBe(self)
+  expect(s.mock.instances).toEqual([self])
+  run(() => {
+    vi.advanceTimersByTime(10)
+  })
+  vi.advanceTimersByTime(10)
+  run(async () => {
+    vi.runAllTimers()
+  })
+  emitter.on('x', () => {
+    vi.runOnlyPendingTimers()
+  })
+  expect(e).toEqual({ list: [...rest, expect.any(Number)] })
+  expect(e).toEqual({ list: [...expect.arrayContaining([1])] })
+})
+it.each([1])('each %s', () => {
+  vi.runAllTimers()
+})
+`)
+  assert(r)
+  assert.deepEqual(r.code, [
+    "import { assert, isMatchOnly, test } from 'ubqtest'",
+    "test('a', () => {",
+    "  assert.matchOnly(e, { id: 1, time: (v: unknown) => typeof v === 'number', user: { name: /a/ } })",
+    '  assert(!isMatchOnly(e, { id: (v: unknown) => v != null }))',
+    "  assert.matchOnly(e, { ...base, list: [(v: unknown) => typeof v === 'string', other] as unknown[] })",
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. An object pattern is partial at',
+    '  // each depth, and an array pattern must have the same length. A function',
+    '  // does the work of any and anything: { id: (v: unknown) => typeof v ===',
+    "  // 'number' }, v instanceof URL, v != null. assert.deepEqual compares a",
+    '  // function as a value: change it to assert.match, which permits keys',
+    '  // that the pattern does not have. For arrayContaining, assert on each',
+    '  // element: assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object. For a call of a spy with',
+    '  // arguments of a shape: assert(s.calls.some(call => isMatch(call.args,',
+    '  // [pattern]))). assert.matchOnly and isMatchOnly are the same with no',
+    '  // other keys in the value.',
+    '  assert.deepEqual(e, { id: 1, part: expect.objectContaining({ a: 1 }) })',
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. An object pattern is partial at',
+    '  // each depth, and an array pattern must have the same length. A function',
+    '  // does the work of any and anything: { id: (v: unknown) => typeof v ===',
+    "  // 'number' }, v instanceof URL, v != null. assert.deepEqual compares a",
+    '  // function as a value: change it to assert.match, which permits keys',
+    '  // that the pattern does not have. For arrayContaining, assert on each',
+    '  // element: assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object. For a call of a spy with',
+    '  // arguments of a shape: assert(s.calls.some(call => isMatch(call.args,',
+    '  // [pattern]))). assert.matchOnly and isMatchOnly are the same with no',
+    '  // other keys in the value.',
+    "  assert.deepEqual(e, { id: 1, not: expect.not.stringContaining('a') })",
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. An object pattern is partial at',
+    '  // each depth, and an array pattern must have the same length. A function',
+    '  // does the work of any and anything: { id: (v: unknown) => typeof v ===',
+    "  // 'number' }, v instanceof URL, v != null. assert.deepEqual compares a",
+    '  // function as a value: change it to assert.match, which permits keys',
+    '  // that the pattern does not have. For arrayContaining, assert on each',
+    '  // element: assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object. For a call of a spy with',
+    '  // arguments of a shape: assert(s.calls.some(call => isMatch(call.args,',
+    '  // [pattern]))). assert.matchOnly and isMatchOnly are the same with no',
+    '  // other keys in the value.',
+    '  assert.deepEqual(e, make(expect.any(Number)))',
+    '  assert(s.calls.some(call => isMatchOnly(call.args, [{ id: 1 }, (v: unknown) => v != null])))',
+    "  assert.matchOnly(s.calls.at(-1)?.args, [{ id: (v: unknown) => typeof v === 'number' }])",
+    "  assert.matchOnly(s.calls[0]?.args, [[{ id: (v: unknown) => typeof v === 'number' }]])",
+    '  assert.equal(s.calls.map(call => call.this)[0], self)',
+    '  assert.deepEqual(s.calls.map(call => call.this), [self])',
+    '  run(() => {',
+    '    // TODO(ubq): Use await clock.tick(ms), with the clock of fakeClock().',
+    '    // A timer of 0 ms runs after 1 ms, as in Node: for a time of 0, use',
+    '    // clock.tick(1). This call is in a callback that is not async. The',
+    '    // functions of the clock return a promise, and a callback with await',
+    '    // is async: the code that calls it then gets a promise. If you can,',
+    '    // move this call and the code after it out of the callback, into the',
+    '    // test, and return from the callback the values that this code needs.',
+    '    // If the code must run in the callback, make the callback async only',
+    '    // if the code under test awaits its callback.',
+    '    vi.advanceTimersByTime(10)',
+    '  })',
+    '  // TODO(ubq): Use await clock.tick(ms), with the clock of fakeClock(). A',
+    '  // timer of 0 ms runs after 1 ms, as in Node: for a time of 0, use',
+    '  // clock.tick(1).',
+    '  vi.advanceTimersByTime(10)',
+    '  run(async () => {',
+    '    // TODO(ubq): Use await clock.runAll(), with the clock of fakeClock().',
+    '    vi.runAllTimers()',
+    '  })',
+    "  emitter.on('x', () => {",
+    '    // TODO(ubq): Use await clock.runAll(), with the clock of fakeClock().',
+    '    // This call is in a callback that is not async. The functions of the',
+    '    // clock return a promise, and a callback with await is async: the code',
+    '    // that calls it then gets a promise. If you can, move this call and',
+    '    // the code after it out of the callback, into the test, and return',
+    '    // from the callback the values that this code needs. If the code must',
+    '    // run in the callback, make the callback async only if the code under',
+    '    // test awaits its callback.',
+    '    vi.runOnlyPendingTimers()',
+    '  })',
+    "  assert.matchOnly(e, { list: [...rest, (v: unknown) => typeof v === 'number'] })",
+    '  // TODO(ubq): ubq has no expect. In assert.match, a partial object does',
+    '  // the work of objectContaining, and a RegExp does the work of',
+    '  // stringContaining and stringMatching. An object pattern is partial at',
+    '  // each depth, and an array pattern must have the same length. A function',
+    '  // does the work of any and anything: { id: (v: unknown) => typeof v ===',
+    "  // 'number' }, v instanceof URL, v != null. assert.deepEqual compares a",
+    '  // function as a value: change it to assert.match, which permits keys',
+    '  // that the pattern does not have. For arrayContaining, assert on each',
+    '  // element: assert.contains(list, x), or assert(list.some(item =>',
+    '  // isDeepEqual(item, x))) for an object. For a call of a spy with',
+    '  // arguments of a shape: assert(s.calls.some(call => isMatch(call.args,',
+    '  // [pattern]))). assert.matchOnly and isMatchOnly are the same with no',
+    '  // other keys in the value.',
+    '  assert.deepEqual(e, { list: [...expect.arrayContaining([1])] })',
+    '})',
+    '// TODO(ubq): Use a for loop around test(). Each name must be different:',
+    '// put the value or the index in the name. Use JSON.stringify for an',
+    '// object: %s of an object is [object Object].',
+    "it.each([1])('each %s', () => {",
+    '  // TODO(ubq): Use await clock.runAll(), with the clock of fakeClock().',
+    '  vi.runAllTimers()',
     '})',
   ])
 })

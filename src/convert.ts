@@ -268,7 +268,7 @@ const TODO = {
   hookGroup:
     'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
-    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))).",
+    "ubq has no expect. In assert.match, a partial object does the work of objectContaining, and a RegExp does the work of stringContaining and stringMatching. An object pattern is partial at each depth, and an array pattern must have the same length. A function does the work of any and anything: { id: (v: unknown) => typeof v === 'number' }, v instanceof URL, v != null. assert.deepEqual compares a function as a value: change it to assert.match, which permits keys that the pattern does not have. For arrayContaining, assert on each element: assert.contains(list, x), or assert(list.some(item => isDeepEqual(item, x))) for an object. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))). assert.matchOnly and isMatchOnly are the same with no other keys in the value.",
   assertions:
     'Delete this call. A test with no assertion fails in ubq. If an assertion is in a callback, make the test wait for the callback: await a promise, then assert on the values that the callback got.',
   throwsText:
@@ -353,8 +353,8 @@ const TODO = {
   enum: 'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
   parameterProperty:
     'Node runs TypeScript with the types removed, and it cannot run a parameter property. Declare the field in the class, and assign it in the constructor.',
-  spyThis:
-    'A spy of ubq records { args, result, error } for each call, and not the value of this. Give the spy an implementation that keeps it: const seen: unknown[] = []; const s = spy(function (this: unknown) { seen.push(this) }). Then assert on seen.',
+  tickCallback:
+    'This call is in a callback that is not async. The functions of the clock return a promise, and a callback with await is async: the code that calls it then gets a promise. If you can, move this call and the code after it out of the callback, into the test, and return from the callback the values that this code needs. If the code must run in the callback, make the callback async only if the code under test awaits its callback.',
   testValue:
     "ubq has no test.skip and no test.only. For a function that skips a test: (name: string, fn: () => void) => test(name, { skip: 'the reason' }, fn).",
   dom: 'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
@@ -749,9 +749,9 @@ export const convertSource = (
     }
     pieces[pieces.length - 1] += rule.slice(last)
     changes++
+    const NAMES = /\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual|isMatchOnly|isMatch)\b/g
     // ubq: not measured: each rule names a function of ubqtest
-    for (const name of rule.match(/\b(assert|cleanup|testdir|spy|spyOn|mockImport|isDeepEqual|isMatch)\b/g) ?? [])
-      used.add(name)
+    for (const name of rule.match(NAMES) ?? []) used.add(name)
     if (!parts.length) {
       replace(node.start, node.end, pieces[0]!)
       return []
@@ -1484,12 +1484,44 @@ export const convertSource = (
     if (node.type === 'UnaryExpression') return (node.argument as Node).type === 'Literal'
     return node.type === 'TemplateLiteral' || (node.type === 'Literal' && !node.regex) || nameOf(node) === 'undefined'
   }
-  /** True if the arguments of a spy check have a matcher, and a pattern does the same check. */
-  const patternArgs = (node: Node, args: Node[]): boolean => {
-    const found = args.some(hasMatcher) && args.every(exactPattern)
+  /** True if the node has the name of `expect` in it. */
+  const usesExpect = (node: Node): boolean => roleOf(node) === 'expect' || children(node).some(usesExpect)
+  /**
+   * True if a pattern of `assert.matchOnly` does the check of this
+   * expected value of an exact comparison: each matcher in it has
+   * a form in a pattern, and is a value of an object literal or an
+   * element of an array literal. Not `objectContaining`: a pattern
+   * with no other keys has no part that permits them.
+   */
+  const onlyPattern = (node: Node | null): boolean => {
+    if (!node) return false
+    const matcher = matcherOf(node)
+    if (matcher) return matcher.name !== 'objectContaining' && exactPattern(node)
+    if (node.type === 'ObjectExpression')
+      return (node.properties as Node[]).every(p =>
+        p.type === 'Property' ? !usesExpect(p.key as Node) && onlyPattern(p.value as Node) : !usesExpect(p),
+      )
+    if (node.type === 'ArrayExpression')
+      return (node.elements as (Node | null)[]).every(e =>
+        e?.type === 'SpreadElement' ? !usesExpect(e) : onlyPattern(e),
+      )
+    if (/^TS(As|Satisfies|NonNull)Expression$/.test(node.type)) return onlyPattern(node.expression as Node)
+    return !usesExpect(node)
+  }
+  /**
+   * The kind of pattern that does the check of the arguments of a
+   * spy check, or of an expected value, with a matcher in it:
+   * `match`, or `matchOnly` if the value has an object literal.
+   * Undefined if no pattern does the same check.
+   */
+  const patternArgs = (node: Node, args: Node[]): 'match' | 'matchOnly' | undefined => {
+    if (!args.some(hasMatcher)) return undefined
+    const found = args.every(exactPattern) ? 'match' : args.every(onlyPattern) ? 'matchOnly' : undefined
     if (found) patterns.add(node)
     return found
   }
+  /** The function that gives true or false for a kind of pattern. */
+  const IS = { match: 'isMatch', matchOnly: 'isMatchOnly' } as const
 
   /**
    * True if a matcher of `expect` in the arguments of a call is in
@@ -1840,8 +1872,11 @@ export const convertSource = (
           : ''
       if (/^(calls|results|lastCall)$/.test(read)) {
         if (!spyCalls(node, path)) todo(path, TODO.spyImpl)
-      } else if (/^(instances|contexts)$/.test(read)) todo(path, TODO.spyThis)
-      else if (/^(invocationCallOrder|settledResults)$/.test(read)) todo(path, TODO.spyImpl)
+      } else if (/^(instances|contexts)$/.test(read)) {
+        // Each call of a spy has its `this` value.
+        replace((node.property as Node).start, parent!.end, 'calls.map(call => call.this)')
+        changes++
+      } else if (/^(invocationCallOrder|settledResults)$/.test(read)) todo(path, TODO.spyImpl)
       // mock.timers.enable() of node:test
       else if (roleOf(node.object as Node) === 'mock' && nameOf(node.property as Node) === 'timers')
         todo(path, TODO.timers)
@@ -2159,16 +2194,32 @@ export const convertSource = (
         if (!removeStatement(path)) todo(path, TODO.restore)
         else if (!(inHook(path) || lastInFunction(path))) todo(path, TODO.restored)
         return []
-      } else
+      } else {
+        // The function of the call, if it is a callback of other
+        // code than the test tool: the code under test calls it.
+        const at = path.findLastIndex(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration')
+        const fn = path[at]
+        const outer = at > 0 ? path[at - 1]! : undefined
+        let base = outer?.type === 'CallExpression' ? (outer.callee as Node) : undefined
+        while (base?.type === 'MemberExpression' || base?.type === 'CallExpression')
+          base = (base.type === 'MemberExpression' ? base.object : base.callee) as Node
+        const callback =
+          /^(advanceTimers|runAllTimers|runOnlyPendingTimers)/.test(method) &&
+          !!fn &&
+          !fn.async &&
+          !!base &&
+          (outer!.arguments as Node[]).includes(fn) &&
+          !/^(test|describe|hook)$/.test(roleOf(base) ?? '')
         todo(
           path,
-          VI[method] ??
+          (VI[method] ??
             (/mock|Mock|module/.test(method)
               ? TODO.mock
               : /[Tt]imer|Time/.test(method)
                 ? TODO.timers
-                : `ubq has no ${nameOf(object)}.${method}.`),
+                : `ubq has no ${nameOf(object)}.${method}.`)) + (callback ? ` ${TODO.tickCallback}` : ''),
         )
+      }
       return undefined
     }
     if (/^mock(Implementation|ReturnValue|ResolvedValue|RejectedValue|Reset|Clear|Restore)(Once)?$/.test(method)) {
@@ -2336,14 +2387,14 @@ export const convertSource = (
       )
       return []
     }
-    // expect(a).toEqual(expect.objectContaining({ id: 1 })) is a pattern.
-    if (
-      (method === 'toEqual' || method === 'toStrictEqual') &&
-      !promise &&
-      args.length === 1 &&
-      patternArgs(node, args)
-    )
-      return rewrite(node, not ? 'assert(!isMatch($0, $1))' : 'assert.match($0, $1)', all)
+    // expect(a).toEqual(expect.objectContaining({ id: 1 })) is a
+    // pattern. So is { id: 1, time: expect.any(Number) }, with no
+    // other keys.
+    const exact =
+      (method === 'toEqual' || method === 'toStrictEqual') && !promise && args.length === 1
+        ? patternArgs(node, args)
+        : undefined
+    if (exact) return rewrite(node, not ? `assert(!${IS[exact]}($0, $1))` : `assert.${exact}($0, $1)`, all)
     // isDeepEqual does not know a matcher of expect.
     if (method === 'toContainEqual' && args.some(arg => /\bexpect\./.test(text(arg)))) {
       todo(path, TODO.matcher)
@@ -2404,7 +2455,7 @@ export const convertSource = (
         return fail()
       changes++
       used.add('assert')
-      replace(node.start, subject.start, patternArgs(node, args.slice(1)) ? 'assert.match(' : 'assert.deepEqual(')
+      replace(node.start, subject.start, `assert.${patternArgs(node, args.slice(1)) ?? 'deepEqual'}(`)
       if (args.length === 1) replace(subject.end, node.end, `.calls[${n.value - 1}]?.args, [])`)
       else {
         replace(subject.end, args[1]!.start, `.calls[${n.value - 1}]?.args, [`)
@@ -2421,7 +2472,7 @@ export const convertSource = (
     ) {
       changes++
       used.add('assert')
-      const head = `assert.equal(${text(subject)}.calls.length, 1)\n${indentAt(node.start)}assert.${patternArgs(node, args) ? 'match' : 'deepEqual'}(`
+      const head = `assert.equal(${text(subject)}.calls.length, 1)\n${indentAt(node.start)}assert.${patternArgs(node, args) ?? 'deepEqual'}(`
       replace(node.start, subject.start, head)
       if (!args.length) replace(subject.end, node.end, '.calls[0]?.args, [])')
       else {
@@ -2435,7 +2486,8 @@ export const convertSource = (
       const name = ['call', 'entry', 'one'].find(n => !all.some(arg => mentions(arg, n))) ?? '_call'
       const wrap = !SIMPLE.has(subject.type)
       // With a matcher of expect, the arguments are a pattern.
-      const compare = patternArgs(node, args) ? 'isMatch' : 'isDeepEqual'
+      const kind = patternArgs(node, args)
+      const compare = kind ? IS[kind] : 'isDeepEqual'
       const head = `${wrap ? ')' : ''}.calls.some(${name} => ${compare}(${name}.args, [`
       changes++
       used.add('assert').add(compare)
@@ -2451,7 +2503,7 @@ export const convertSource = (
       // The arguments of the last call.
       changes++
       used.add('assert')
-      replace(node.start, subject.start, patternArgs(node, args) ? 'assert.match(' : 'assert.deepEqual(')
+      replace(node.start, subject.start, `assert.${patternArgs(node, args) ?? 'deepEqual'}(`)
       if (!args.length) replace(subject.end, node.end, '.calls.at(-1)?.args, [])')
       else {
         replace(subject.end, args[0]!.start, '.calls.at(-1)?.args, [')

@@ -433,6 +433,8 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
       '    // or assert(list.some(item => isDeepEqual(item, x))) for an object.',
       '    // For a call of a spy with arguments of a shape:',
       '    // assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
+      '    // assert.matchOnly and isMatchOnly are the same with no other keys in',
+      '    // the value.',
       "    assert.deepEqual(names(), expect.arrayContaining(['a']))",
       '    assert.equal(',
       '      f(x),',
