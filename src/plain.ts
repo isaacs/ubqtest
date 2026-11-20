@@ -8,7 +8,7 @@ import { headCommit } from './git.ts'
 import { hangReruns } from './hang.ts'
 import { EVENT_VERSION, type FileEvent, type RunStart, type Sink, type TestId, type TypeCheckError } from './events.ts'
 import { textSink } from './sink-text.ts'
-import { uncoveredCount } from './query.ts'
+import { uncoveredRanges } from './query.ts'
 import { openStore, type Store } from './store.ts'
 import { statusSink } from './status.ts'
 import { withSince } from './since.ts'
@@ -153,12 +153,13 @@ export const startPlain = (): void => {
         if (types?.length) process.exitCode = 1
         // The store has the coverage of the run before the count.
         stored?.flush()
-        const uncovered =
-          stored &&
-          uncoveredCount(
-            store!.db,
-            [...used].filter(f => f !== event.file),
-          )
+        const ranges = stored
+          ? uncoveredRanges(
+              store!.db,
+              [...used].filter(f => f !== event.file),
+            )
+          : []
+        const uncovered = ranges.length
         const full = fullCheck && !!uncovered
         if (full) process.exitCode = 1
         send({
@@ -173,6 +174,7 @@ export const startPlain = (): void => {
           ...(split?.others.length && { otherTypes: split.others.length }),
           ...(uncovered && { uncovered }),
           ...(full && { full }),
+          ...(full && uncovered < 5 && { ranges }),
           code: types?.length || full ? 1 : code,
         })
         store?.close()

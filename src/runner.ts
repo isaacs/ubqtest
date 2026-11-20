@@ -22,7 +22,7 @@ import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { config, UsageError } from './config.ts'
 import { placeFromCache, prepareAll, transformer } from './counter-collector.ts'
-import { uncoveredCount } from './query.ts'
+import { uncoveredRanges } from './query.ts'
 import { startCoverage } from './coverage.ts'
 import {
   EVENT_VERSION,
@@ -1098,12 +1098,13 @@ export const run = async (args: string[]): Promise<number> => {
   // The store has the coverage of the run before the count.
   stored?.flush()
   const tests = new Set(files.map(f => f.file))
-  const uncovered =
-    stored &&
-    uncoveredCount(
-      store!.db,
-      [...used].filter(f => !tests.has(f)),
-    )
+  const ranges = stored
+    ? uncoveredRanges(
+        store!.db,
+        [...used].filter(f => !tests.has(f)),
+      )
+    : []
+  const uncovered = ranges.length
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')
   // A run of a selection does not run all code. The one-file path
@@ -1122,6 +1123,7 @@ export const run = async (args: string[]): Promise<number> => {
     ...(otherTypes && { otherTypes }),
     ...(uncovered && { uncovered }),
     ...(full && { full }),
+    ...(full && uncovered < 5 && { ranges }),
     code,
   })
   store?.close()

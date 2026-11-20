@@ -942,7 +942,8 @@ for each test process (`"env": { "MODE": "dev" }`): a value of
 the key is before a value of the shell. `skipTypecheck` (`true`)
 turns off the type check of each run. `"coverage": "full"` fails a
 run of all tests if code ran in no test: the code that `ubq
-uncovered` lists. A run of some tests does not check. `transform`
+uncovered` lists. The output shows fewer than 5 of them, or else
+names the command. A run of some tests does not check. `transform`
 is in "Source
 that Node cannot run". A folder
 with its own `package.json` is a different project: run `ubq` in

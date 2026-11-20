@@ -16,6 +16,14 @@ export interface Location {
   column: number
 }
 
+/** A range of code that ran in no test. */
+export interface UncoveredRange extends Location {
+  /** The first line of the range. */
+  text: string
+  /** Lines in the range after the first. */
+  moreLines: number
+}
+
 export type FailureKind =
   | 'assert' // an assertion failed
   | 'error' // the test threw something that is not an assertion failure
@@ -266,6 +274,12 @@ export interface RunEnd {
    * of all tests, and `uncovered` is not 0. Then `code` is 1.
    */
   full?: boolean
+  /**
+   * The ranges that `ubq uncovered` lists, if `full` is true and
+   * there are fewer than 5. A longer list is only in
+   * `ubq uncovered`.
+   */
+  ranges?: UncoveredRange[]
   /** The exit code of the run. See docs/04-architecture.md, section 9. */
   code: number
 }

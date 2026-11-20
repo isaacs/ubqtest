@@ -266,7 +266,7 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
   mkdirSync(join(p.dir, 'lib'))
   writeFileSync(
     join(p.dir, 'lib/add.ts'),
-    'export const add = (a: number, b: number): number => a + b\nexport const never = (): number => 0\n',
+    'export const add = (a: number, b: number): number => a + b\nexport const never = (): number => {\n  return 0\n}\nexport const zero = (): number => 0\n',
   )
   const body = (name: string) =>
     `import { assert, test } from 'ubqtest'\nimport { add } from './lib/add.ts'\ntest('${name}', () => assert.equal(add(1, 2), 3))\n`
@@ -284,8 +284,11 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
   const failed = (passed: number) => [
     1,
     [
-      '1 range of code ran in no test, and the configuration has "coverage": "full". See them: ubq uncovered',
-      `fail: 0 failed, ${passed} passed, 1 uncovered range`,
+      // A short list is in the output.
+      '2 ranges of code ran in no test, and the configuration has "coverage": "full":',
+      '  lib/add.ts:2:22  (): number => { (+2 lines)',
+      '  lib/add.ts:5:21  (): number => 0',
+      `fail: 0 failed, ${passed} passed, 2 uncovered ranges`,
     ],
   ]
   // One test file runs in the process of the command.
@@ -295,6 +298,19 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
   // Each test file in its own process.
   writeFileSync(join(p.dir, 'b.test.ts'), body('b'))
   assert.deepEqual(lines(), failed(2))
+  // A list of 5 or more is only in ubq uncovered.
+  writeFileSync(
+    join(p.dir, 'lib/add.ts'),
+    'export const add = (a: number, b: number): number => a + b\n' +
+      [1, 2, 3, 4, 5].map(n => `export const never${n} = (): number => ${n}\n`).join(''),
+  )
+  assert.deepEqual(lines(), [
+    1,
+    [
+      '5 ranges of code ran in no test, and the configuration has "coverage": "full". See them: ubq uncovered',
+      'fail: 0 failed, 2 passed, 5 uncovered ranges',
+    ],
+  ])
   // A range with a "not measured" comment is not a failure.
   writeFileSync(
     join(p.dir, 'lib/add.ts'),

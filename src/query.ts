@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import type { Failure, TypeCheckError } from './events.ts'
+import type { Failure, TypeCheckError, UncoveredRange } from './events.ts'
 import { projectRoot } from './project.ts'
 import { isBuild, isHelper, UsageError } from './config.ts'
 import { fileHash, RUN_ENV } from './store.ts'
@@ -129,11 +129,12 @@ export const coveredFiles = (db: DatabaseSync): string[] =>
     // The store keeps the coverage of a file that is gone.
     .filter(file => existsSync(join(projectRoot(), file)))
 
-/** The count of ranges that `ubq uncovered` lists in `files`. */
-export const uncoveredCount = (db: DatabaseSync, files: string[]): number =>
+/** The ranges that `ubq uncovered` lists in `files`. */
+export const uncoveredRanges = (db: DatabaseSync, files: string[]): UncoveredRange[] =>
   files
     .filter(f => !isHelper(f) && !isBuild(f) && existsSync(join(projectRoot(), f)) && !stale(db, f))
-    .reduce((sum, f) => sum + uncovered(db, f).filter(u => !u.notMeasured).length, 0)
+    .flatMap(f => uncovered(db, f).filter(u => !u.notMeasured))
+    .map(({ file, line, column, text, moreLines }) => ({ file, line, column, text, moreLines }))
 
 /** A file that can have code. */
 const CODE = /\.([cm]?[jt]s|[jt]sx)$/

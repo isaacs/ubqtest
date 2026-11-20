@@ -214,9 +214,16 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (event.otherTypes) parts.push(counted`${event.otherTypes} type error|errors in other files`)
         if (event.full) {
           parts.push(counted`${event.uncovered!} uncovered range|ranges`)
-          write(
-            counted`${event.uncovered!} range|ranges of code ran in no test, and the configuration has "coverage": "full". See them: ubq uncovered\n`,
-          )
+          const text = counted`${event.uncovered!} range|ranges of code ran in no test, and the configuration has "coverage": "full"`
+          // A short list is in the output. A long one is a command.
+          if (!event.ranges) write(`${text}. See them: ubq uncovered\n`)
+          else {
+            write(`${text}:\n`)
+            for (const r of event.ranges)
+              write(
+                `  ${r.file}:${r.line}:${r.column}  ${r.text}${r.moreLines ? counted` (+${r.moreLines} line|lines)` : ''}\n`,
+              )
+          }
         }
         const status = event.code ? 'fail' : 'pass'
         // A failed run names the command with its number: a different

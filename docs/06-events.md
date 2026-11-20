@@ -56,7 +56,7 @@ run in parallel. Events of one file keep their order.
 | `exit` | runner role | exit code and signal of the test process |
 | `hang` | runner role | the result of a hang rerun: the places that opened what a timed-out test left open |
 | `type-error` | runner role | one error from the type checker of the project, after all file streams |
-| `run-end` | runner role | totals, the count of uncovered ranges in the files of the run (`uncovered`, absent if 0), `full` (true if `"coverage": "full"` made the run fail for those ranges), and the exit code of the run |
+| `run-end` | runner role | totals, the count of uncovered ranges in the files of the run (`uncovered`, absent if 0), `full` (true if `"coverage": "full"` made the run fail for those ranges), `ranges` (those ranges, if `full` is true and there are fewer than 5), and the exit code of the run |
 
 ## 3. Rules
 
