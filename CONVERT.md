@@ -100,6 +100,9 @@ count of type errors in other files: those are not yours.
 - A promise that an assertion needs gets `await`, and its
   function becomes `async`.
 - A tap test with subtests becomes `describe`.
+- `process.env.NAME = 'text'` in a test becomes
+  `env({ NAME: 'text' })`: the old value comes back when the test
+  ends.
 
 It does not change the name of a file or the source of the
 project. It changes `package.json` in two cases:
@@ -244,6 +247,8 @@ names, do one of these:
 | `t.doesNotThrow(() => f())` | `f()` |
 | `t.ok(a)`, `t.notOk(a)` | `assert(a)`, `assert(!a)` |
 | `t.match(a, pattern)`, `t.has` | `assert.match(a, pattern)` |
+| `t.match(a, { b: String, c: URL })` | `assert.match(a, { b: any.string, c: any.instanceOf(URL) })` |
+| `process.env.NAME = 'text'` in a test, `delete process.env.NAME` | `env({ NAME: 'text' })`, `env({ NAME: undefined })` |
 | `t.throws(fn, expected)` | `assert.throws(fn, expected)` (`Error` if there was none) |
 | `await t.rejects(p, expected)` | `await assert.rejects(p, expected)` |
 | `t.resolveMatch(p, pattern)` | `assert.match(await p, pattern)` |
@@ -273,9 +278,20 @@ Things to check by hand:
   that code runs when the file loads. Setup that makes values is
   fine there. Move each assertion into a `test`. Move setup that
   must be new for each test into a function, and call it in each
-  test.
-- **Assertions at the top level of the file.** Put them in a
+  test. The function of a `describe` must not be async. If the
+  outer test has an `await` that is not in a subtest, the command
+  writes a TODO: move that code into each test, or into a setup
+  function that each test awaits. The plan of the outer test goes
+  away.
+- **Assertions at the top level of the file.** In a file with no
+  tests, the command puts the code after the imports in one test,
+  with the name of the file, and writes a TODO: give it a better
+  name. In a file with tests, put them in a
   `test('name', () => { ... })`.
+- **The last argument of an assertion, after the message**
+  (`t.equal(a, b, 'msg', { pattern })`). tap showed its values
+  when the assertion failed. The command removes it, with a TODO.
+  If a failure needs the values, put them in the message.
 - **When a test runs.** A tap subtest ran at its place in the
   file. A ubq test runs after the whole file loaded. A test that
   reads a variable that the file changes later sees the last
@@ -350,7 +366,9 @@ Things to check by hand:
   `ubq uncovered` exits with code 1 if it lists code.
 - **A fixture or helper that uses `t`.** A helper function that
   gets `t` as an argument must import `assert` from `ubqtest` and
-  must not get `t`.
+  must not get `t`. A helper that calls `t.test` makes tests, and
+  a test cannot make tests: the command writes a TODO. Call the
+  helper at the top level of the file or in a `describe`.
 
 ## tape
 

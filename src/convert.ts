@@ -310,6 +310,14 @@ const TODO = {
     "ubq starts the browser, and closes the page when the test ends: const page = await browser(), from 'ubqtest/browser'. Remove the launch, the new page, and the close.",
   subtests:
     'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
+  describeAwait:
+    'The function of describe() must not be async: it runs when the file loads, and ubq does not wait for it. Move the code with await into each test, or into a setup function that each test awaits.',
+  helperTests:
+    'ubq has no test in a test. This function gets the test object of tap, and makes tests with it: a test of ubq cannot make tests. Call this function at the top level of the file or in a describe(), not in a test, and remove its test parameter.',
+  rootTest:
+    'The assertions of this file were at the top level, in no test. They are in this test now: give it a name that says what it checks.',
+  diagnostic:
+    'tap showed the values of the last argument when the assertion failed. ubq has no place for them, so they are not in this call now. If a failure needs them, put them in the message.',
   planSkip:
     't.plan(0, reason) of tap skips the file. In ubq, give each test or describe of the file the option: { skip: condition && "the reason" }. Then remove this line, and the process.exit() after it: a test file must not end the process.',
   assertOption:
@@ -497,6 +505,8 @@ export const convertSource = (
   const endCalls = new Map<Node, string>()
   /** The functions of those tests. */
   const promised = new Set<Node>()
+  /** The functions of tap tests with subtests: each is the function of a describe now. */
+  const groupFunctions = new Set<Node>()
   const bind = (module: string, imported: string, local: string): void => {
     if (ASSERT_MODULES.has(module)) {
       roles.set(
@@ -869,7 +879,8 @@ export const convertSource = (
       // A name with a small first letter is a value, not a class.
       if (new RegExp(`\\b(const|let|var)\\s+${nameOf(arg)}\\s*=\\s*new\\s`).test(source))
         replace(arg.start, arg.end, `{ message: ${nameOf(arg)}.message }`)
-      else todo(path, TODO.throwsText)
+      // tap and tape take the same values as ubq here.
+      else if (framework !== 'tap' && framework !== 'tape') todo(path, TODO.throwsText)
     }
   }
 
@@ -899,8 +910,12 @@ export const convertSource = (
       : rule
   /** A TODO for the first assertion of the file that is in no test. One is enough for a file. */
   let rootSeen = false
+  /** True if the code after the imports goes into one test: a file of tap with assertions and no tests. */
+  let wrapRoot = false
+  /** The code that goes into that test. */
+  let rootSpan: [number, number] | undefined
   const rootAssert = (path: Node[]): void => {
-    if (!rootSeen) todo(path, TODO.rootAssert)
+    if (!rootSeen && !wrapRoot) todo(path, TODO.rootAssert)
     rootSeen = true
   }
   /** True if the node is in a loop of its function. */
@@ -1741,19 +1756,27 @@ export const convertSource = (
           children(n).some(c => !FUNCTION.has(c.type) && c.type !== 'FunctionDeclaration' && awaits(c))
         if (direct.some(s => isSub(s) || subLoop(s))) {
           name = 'describe'
+          groupFunctions.add(fn)
           // Not the end or the plan of the parent: they go away.
           const rest = direct.filter(s => !isSub(s) && !subLoop(s) && !/^\s*\w+\.(end|plan)\(/.test(text(s)))
           // The rest of the body must be in a test.
           const own = rest.filter(s => mentions(s, param))
           // Also the loop itself: `for await (...) t.test(...)`.
           const waits = rest.some(awaits) || direct.some(s => s.type === 'ForOfStatement' && s.await === true)
-          if (own.length || waits) todo(path, TODO.subtests)
+          if (own.length) todo(path, TODO.subtests)
           // Code that does work, and that tap ran when the test ran.
           else if (rest.some(s => s.type === 'ExpressionStatement')) todo(path, TODO.describeBody)
           // The function of a describe is not async. With an await
           // in it, the function stays as it is until the TODO is done.
-          if (fn.async && !waits)
+          if (waits) todo(path, TODO.describeAwait)
+          else if (fn.async) {
             replace(fn.start, fn.start + 'async'.length + (source[fn.start + 5] === ' ' ? 1 : 0), '')
+            // `await t.test(...)`: test() gives no promise.
+            for (const s of direct) {
+              const e = s.type === 'ExpressionStatement' ? (s.expression as Node) : undefined
+              if (isSub(s) && e?.type === 'AwaitExpression') replace(e.start, (e.argument as Node).start, '')
+            }
+          }
         }
         // A test that ends in a callback returns a promise, and the
         // callback resolves it.
@@ -1824,6 +1847,21 @@ export const convertSource = (
     replace(callee.start, callee.end, name)
   }
 
+  /** True if the innermost function of the path is the function of a test, not of a group. */
+  const inTestFunction = (path: Node[]): boolean => {
+    const at = path.findLastIndex(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration')
+    const fn = path[at]
+    const owner = path[at - 1]
+    if (!fn || groupFunctions.has(fn) || owner?.type !== 'CallExpression') return false
+    const callee = owner.callee as Node
+    const root = callee.type === 'MemberExpression' ? (callee.object as Node) : callee
+    return (
+      roleOf(root) === 'test' ||
+      tapTests.has(nameOf(callee) ?? '') ||
+      (roleOf(root) === 'tap' && nameOf((callee as { property?: Node }).property) === 'test')
+    )
+  }
+
   const walk = (node: Node, path: Node[]): void => {
     if (drop.has(node.start)) {
       if (node.type === 'Property') return removeProperty(node)
@@ -1880,6 +1918,30 @@ export const convertSource = (
     }
     // jest.Mocked<Service>, vi.Mock: a type of the old tool.
     if (node.type === 'TSQualifiedName' && roleOf(node.left as Node) === 'vi') todo(path, TODO.mockType)
+    // process.env.NAME = 'text' in a test: env() puts the old value
+    // back when the test ends.
+    if (node.type === 'ExpressionStatement' && inTestFunction(path)) {
+      const e = node.expression as Node
+      const target = (e.type === 'UnaryExpression' && e.operator === 'delete' ? e.argument : e.left) as Node | undefined
+      const value = e.type === 'AssignmentExpression' && e.operator === '=' ? (e.right as Node) : undefined
+      const name =
+        target?.type === 'MemberExpression' && !target.computed && text(target.object as Node) === 'process.env'
+          ? nameOf(target.property as Node)
+          : undefined
+      const plain =
+        e.type === 'UnaryExpression'
+          ? 'undefined'
+          : (value?.type === 'Literal' && typeof value.value === 'string') ||
+              (value?.type === 'TemplateLiteral' && !(value.expressions as Node[]).length)
+            ? text(value)
+            : undefined
+      if (name && plain) {
+        replace(e.start, e.end, `env({ ${name}: ${plain} })`)
+        used.add('env')
+        changes++
+        return
+      }
+    }
     // t.jobs = 64
     if (node.type === 'AssignmentExpression') {
       const left = node.left as Node
@@ -2659,6 +2721,26 @@ export const convertSource = (
     /** True if the call is in the function of a test. */
     const inTest = path.some(n => FUNCTION.has(n.type))
     if (method === 'test') {
+      // The function that has the test object as its parameter: a
+      // test of tap, or a helper function that gets the object.
+      const object = callee.type === 'MemberExpression' ? nameOf(callee.object as Node) : undefined
+      const at = path.findLastIndex(
+        n =>
+          (FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') &&
+          (n.params as Node[]).some(p => nameOf(p) === object),
+      )
+      const owner = path[at - 1]
+      const ownerCallee = owner?.type === 'CallExpression' ? (owner.callee as Node) : undefined
+      if (
+        at >= 0 &&
+        !tapTests.has(nameOf(ownerCallee) ?? '') &&
+        !(
+          ownerCallee?.type === 'MemberExpression' &&
+          roleOf(ownerCallee.object as Node) === 'tap' &&
+          nameOf(ownerCallee.property as Node) === 'test'
+        )
+      )
+        todo(path, TODO.helperTests)
       definition(node, path, 'test', true)
       return args
     }
@@ -2697,7 +2779,16 @@ export const convertSource = (
       }
       // tap and tape: a test with a plan ends after that count of
       // assertions, also if its function ended before.
-      if (method === 'plan' && framework !== 'ava' && fn && !fn.async && !promised.has(fn) && inner(fn))
+      // The plan of a describe counts its subtests: it goes away.
+      if (
+        method === 'plan' &&
+        framework !== 'ava' &&
+        fn &&
+        !fn.async &&
+        !promised.has(fn) &&
+        !groupFunctions.has(fn) &&
+        inner(fn)
+      )
         todo(path, TODO.plan)
       else if (!removeStatement(path)) todo(path, `ubq has no t.${method}. A test ends when its function ends.`)
       return []
@@ -2801,13 +2892,12 @@ export const convertSource = (
     const table = framework === 'ava' ? AVA : framework === 'tape' ? TAPE : TAP
     // t.equal(a, b, 'message', { todo: 'reason' })
     const extra = args.at(-1)
-    if (
+    const option =
       extra?.type === 'ObjectExpression' &&
       (extra.properties as Node[]).some(
         p => /^(skip|todo)$/.test(String(nameOf(p.key as Node))) && (p.value as Node | undefined)?.value !== false,
       )
-    )
-      todo(path, TODO.assertOption)
+    if (option) todo(path, TODO.assertOption)
     const rule = table[method] && pick(table[method], args.length)
     if (!rule) {
       todo(
@@ -2830,6 +2920,47 @@ export const convertSource = (
     if (method === 'fail' && inLoop(path)) todo(path, TODO.failLoop)
     if (method === 'rejects' || method.startsWith('resolveMatch')) awaited(node, path)
     if (!inTest && use.startsWith('assert')) rootAssert(path)
+    // t.equal(a, b, 'message', { pattern }): tap shows the values of
+    // the object when the assertion fails.
+    const kept = new Set(use.match(/\$\d/g))
+    if (
+      !option &&
+      use.startsWith('assert') &&
+      extra?.type === 'ObjectExpression' &&
+      !kept.has(`$${args.length - 1}`) &&
+      (extra.properties as Node[]).some(p => !/^(skip|todo)$/.test(String(nameOf(p.key as Node))))
+    )
+      todo(path, TODO.diagnostic)
+    // A class in a pattern of tap is a check of the class of the
+    // value: String is a check of its typeof.
+    if (use.startsWith('assert.match(') && !ownAny) {
+      const classes = (n: Node | undefined | null): void => {
+        // A name that the file declares with const, let, or var can
+        // be an object of a pattern.
+        if (
+          n?.type === 'Identifier' &&
+          /^[A-Z][a-z]/.test(nameOf(n)!) &&
+          !new RegExp(`\\b(const|let|var)\\s+${nameOf(n)}\\b`).test(source)
+        ) {
+          const name = nameOf(n)!
+          replace(
+            n.start,
+            n.end,
+            /^(Number|String|Boolean|Function|BigInt|Symbol|Object)$/.test(name)
+              ? `any.${name.toLowerCase()}`
+              : name === 'Array'
+                ? 'any.array'
+                : `any.instanceOf(${name})`,
+          )
+          used.add('any')
+        } else if (n?.type === 'ObjectExpression')
+          for (const p of n.properties as Node[]) {
+            if (p.type === 'Property' && !p.shorthand) classes(p.value as Node)
+          }
+        else if (n?.type === 'ArrayExpression') for (const e of n.elements as (Node | null)[]) classes(e)
+      }
+      classes(args[1])
+    }
     return rewrite(node, use, args)
   }
 
@@ -2865,6 +2996,42 @@ export const convertSource = (
         /^process\.env\b[^=]*=[^=]/.test(text(node))
       )
         todo([program, node], TODO.envFirst)
+  // A file of tap with assertions at the top level, and no tests:
+  // the code after the imports goes into one test.
+  const rest = (program.body as Node[]).filter(node => lastImport && node.start > lastImport.start)
+  const tapNames = [...roles].filter(([, role]) => role === 'tap').map(([name]) => name)
+  const calls = (pattern: string): boolean =>
+    tapNames.some(name => new RegExp(`\\b${name}\\.(${pattern})\\(`).test(rest.map(text).join('\n')))
+  if (
+    framework === 'tap' &&
+    esm &&
+    rest.length &&
+    !tapTests.size &&
+    !rest.some(node => node.type.startsWith('Export')) &&
+    !calls('test|only|skip|todo') &&
+    calls(Object.keys(TAP).join('|'))
+  ) {
+    wrapRoot = true
+    const top = (n: Node): boolean =>
+      n.type === 'AwaitExpression' ||
+      (n.type === 'ForOfStatement' && n.await === true) ||
+      children(n).some(c => !FUNCTION.has(c.type) && c.type !== 'FunctionDeclaration' && top(c))
+    const from = lineStart(rest[0]!.start)
+    const name = file
+      .split(/[\\/]/)
+      .pop()!
+      .replace(/(\.(test|spec))?\.[cm]?[jt]sx?$/, '')
+    edits.push({
+      start: from,
+      end: from,
+      text: `${todoComment('', TODO.rootTest)}test('${name.replace(/['\\]/g, '\\$&')}', ${rest.some(top) ? 'async ' : ''}() => {\n`,
+    })
+    edits.push({ start: rest.at(-1)!.end, end: rest.at(-1)!.end, text: '\n})' })
+    shifts.push({ start: from - 1, end: rest.at(-1)!.end, by: 2 })
+    rootSpan = [from, rest.at(-1)!.end]
+    used.add('test')
+    changes++
+  }
   walk(program, [])
 
   // --- The import of ubqtest, in place of the old imports ---
@@ -2938,7 +3105,8 @@ export const convertSource = (
         if (
           /^[\r\n]?$/.test(source.charAt(at + lead)) ||
           templates.some(t => t.start < at && at < t.end) ||
-          edits.some(e => e.start < at + Math.max(cut, 1) && e.end > at)
+          // Spaces put in come before a change that starts at the line.
+          edits.some(e => (by > 0 ? e.start < at : e.start < at + Math.max(cut, 1)) && e.end > at)
         )
           continue
         edits.push(by < 0 ? { start: at, end: at + cut, text: '' } : { start: at, end: at, text: ' '.repeat(by) })
@@ -2950,7 +3118,10 @@ export const convertSource = (
   const full = new Map<string, string>()
   for (const [at, messages] of [...todos].sort((a, b) => a[0] - b[0])) {
     const from = lineStart(at)
-    const indent = /^\s*/.exec(source.slice(from, at))![0]
+    // A line in the code that goes into a test moves right. Its
+    // spaces are put in before this TODO: the line gets them again.
+    const root = !!rootSpan && rootSpan[0] <= from && from < rootSpan[1]
+    const indent = (root ? '  ' : '') + /^\s*/.exec(source.slice(from, at))![0]
     const comment = (message: string): string => {
       // ubq: not measured: each TODO text has a full stop
       const short = `${/^.*?[.:](?=\s|$)/.exec(message)?.[0] ?? message} ${AS_ABOVE}`
@@ -2960,7 +3131,8 @@ export const convertSource = (
       if (!full.has(short)) full.set(short, message)
       return todoComment(indent, message)
     }
-    edits.push({ start: from, end: from, text: [...messages].map(comment).join('') })
+    const lines = [...messages].map(comment).join('')
+    edits.push({ start: from, end: from, text: root ? lines.slice(2) + '  ' : lines })
   }
 
   // Text that is put in comes before a change at the same place.
