@@ -48,7 +48,7 @@ One row for each run.
 | `ci` | integer | 1 if `CI` was set, else 0. |
 | `commit_hash` | text | The git commit at the start, or null. |
 | `seed` | integer | The seed of the order of the files. |
-| `env` | text | JSON object of the variables that can change a result and that were set: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`, `UBQ_COVERAGE`, `UBQ_BROWSER`. |
+| `env` | text | JSON object of the variables that can change a result and that were set: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`, `UBQ_COVERAGE`, `UBQ_COVERAGE_CHECK`, `UBQ_BROWSER`. Also `ubq`: the version of ubq. |
 | `ms` | real | The duration. Null until the run ends. |
 | `pass`, `fail`, `errors`, `skip`, `unselected` | integer | The counts of the summary line. Null until the run ends. |
 | `code` | integer | The exit code. Null until the run ends, or if the run stopped. |

@@ -122,8 +122,8 @@ it, and `ubq check` names the changed lines that no test ran. To
 fail a CI job for such code, run `ubq uncovered` as a second step:
 its exit code is 1 if it lists code.
 
-Exit codes: 0 pass, 1 failure, 2 no tests ran, 4 wrong command or
-configuration.
+Exit codes: 0 pass (also if each test skipped), 1 failure, 2 no
+tests matched, 4 wrong command or configuration.
 
 A failure block has the test ID, the message, the location, the
 source line, the difference, and the command that runs the test
@@ -150,7 +150,9 @@ the changed lines that ran while its test file loaded, such as a
 constant of a module. If none of those changed, the line says so:
 then the cause is outside the code, such as a data file, a
 snapshot, the environment, the time, or the order of the tests.
-`ubq --repeat 10 '<test id>'` tells if the test is flaky.
+`ubq --repeat 10 '<test id>'` tells if the test is flaky. If the
+version of ubq changed since that run, the line names the two
+versions.
 
 A run prints 20 failure blocks at most, and 20 type error blocks
 at most. Then one line gives the count of the others: `and 3 more
@@ -529,8 +531,8 @@ columns and example queries for `ubq sql`.
 
 A run record has the variables of the environment that can change
 a result: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`,
-`UBQ_COVERAGE`, and `UBQ_BROWSER`. If they differ from the run
-before, `ubq failures` and `ubq show` print a line that names them:
+`UBQ_COVERAGE`, `UBQ_COVERAGE_CHECK`, and `UBQ_BROWSER`, and the
+version of ubq. If they differ from the run before, `ubq failures` and `ubq show` print a line that names them:
 `environment: TZ=UTC. In run 7: TZ not set`.
 
 Coverage is always on, for each test. Before a change to a line,
@@ -943,7 +945,9 @@ the key is before a value of the shell. `skipTypecheck` (`true`)
 turns off the type check of each run. `"coverage": "full"` fails a
 run of all tests if code ran in no test: the code that `ubq
 uncovered` lists. The output shows fewer than 5 of them, or else
-names the command. A run of some tests does not check. `transform`
+names the command. A run of some tests does not check.
+`UBQ_COVERAGE_CHECK=off` turns the check off for one run, such as
+in a CI job on a system where many tests skip. `transform`
 is in "Source
 that Node cannot run". A folder
 with its own `package.json` is a different project: run `ubq` in
@@ -1020,7 +1024,8 @@ examples of this guide do, also set `"allowImportingTsExtensions":
 true`. An import with no extension needs no option. If the project
 builds JavaScript from that tsconfig (for example with tshy), and
 has imports with `.ts`, set `"rewriteRelativeImportExtensions":
-true` in place of `"noEmit"`. It needs TypeScript 5.7 or later.
+true` in place of `"noEmit"` and `"allowImportingTsExtensions"`.
+It needs TypeScript 5.7 or later.
 `ubq doctor` has a FIX line for each option that the project
 needs, and a note for `"erasableSyntaxOnly"`: the doctor finds
 the files with such syntax itself, and the option makes the type

@@ -53,7 +53,7 @@ test('a run of files with only skipped tests, and an early end with stderr', () 
   writeFileSync(join(p.dir, 'a.test.ts'), SKIP)
   writeFileSync(join(p.dir, 'b.test.ts'), SKIP)
   const skipped = p.ubq('a.test.ts', 'b.test.ts')
-  assert.deepEqual([skipped.code, skipped.last], [2, 'fail: 0 failed, 0 passed, 2 skipped'])
+  assert.deepEqual([skipped.code, skipped.last], [0, 'pass: 0 failed, 0 passed, 2 skipped'])
   writeFileSync(join(p.dir, 'b.test.ts'), "console.error('a message')\nprocess.exit(3)\n")
   const early = p.ubq('a.test.ts', 'b.test.ts')
   assert.match(

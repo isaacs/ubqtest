@@ -360,10 +360,14 @@ export const envChange = (db: DatabaseSync, run: number): string | undefined => 
     Record<string, string>,
     Record<string, string>,
   ]
-  const names = RUN_ENV.filter(name => now[name] !== before[name])
+  const names = [...RUN_ENV, 'ubq'].filter(name => now[name] !== before[name])
   if (!names.length) return undefined
   const show = (env: Record<string, string>): string =>
-    names.map(name => (env[name] === undefined ? `${name} not set` : `${name}=${env[name]}`)).join(', ')
+    names
+      .map(name =>
+        env[name] === undefined ? `${name} not set` : name === 'ubq' ? `ubq ${env[name]}` : `${name}=${env[name]}`,
+      )
+      .join(', ')
   return `environment: ${show(now)}. In run ${rows[1]!.id}: ${show(before)}`
 }
 

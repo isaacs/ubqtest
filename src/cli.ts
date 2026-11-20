@@ -41,7 +41,7 @@ import { paint } from './color.ts'
 import { sinceLine, textSink } from './sink-text.ts'
 import { isBuild, isHelper } from './config.ts'
 import { run, UsageError } from './runner.ts'
-import { openStore } from './store.ts'
+import { openStore, ubqVersion } from './store.ts'
 import { counted } from './counted.ts'
 
 /**
@@ -184,9 +184,7 @@ const main = async (args: string[]): Promise<number> => {
   if (command && COMMANDS.includes(command) && existsSync(command))
     process.stderr.write(`note: "${command}" is a ubq command. To run the tests in ./${command}: ubq run ${command}\n`)
   if (command === '--version') {
-    // package.json is at the package root. The bundle is there too.
-    const path = import.meta.url.endsWith('.ts') ? '../package.json' : './package.json'
-    out((JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as { version: string }).version)
+    out(ubqVersion())
     return 0
   }
   if (command === 'guide') {

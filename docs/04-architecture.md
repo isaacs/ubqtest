@@ -360,7 +360,7 @@ Exit codes:
 
 | Code | Meaning |
 | --- | --- |
-| 0 | all selected tests passed |
+| 0 | no selected test failed (a skip is not a failure) |
 | 1 | one or more tests failed |
 | 2 | no tests matched |
 | 4 | error in the tool, the config, or the command |

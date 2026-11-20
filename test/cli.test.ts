@@ -76,7 +76,7 @@ test('later', { skip: 'not now' }, () => assert(true))
   assert.deepEqual(p.ubq('failures', '1').out, 'pass: 0 failed, 12 passed, 1 skipped (run 1)\n')
   // A run of one test: the others are not selected.
   p.ubq('many.test.ts > later')
-  assert.equal(p.ubq('failures').last, 'fail: 0 failed, 0 passed, 1 skipped, 12 not selected')
+  assert.equal(p.ubq('failures').last, 'pass: 0 failed, 0 passed, 1 skipped, 12 not selected')
   // A test that passed, and now is skipped, is an other change.
   writeFileSync(join(p.dir, 'many.test.ts'), "import { test } from 'ubqtest'\ntest('later', { skip: 'x' }, () => {})\n")
   p.ubq('many.test.ts')
@@ -171,7 +171,7 @@ test('much output', () => {
   assert.equal(ci.stdout.match(/^  \| line /gm)?.length, 30)
   writeFileSync(join(p.dir, 'skipped.test.ts'), "import { test } from 'ubqtest'\ntest('s', { skip: 'x' }, () => {})\n")
   const skipped = p.ubq('skipped.test.ts')
-  assert.deepEqual([skipped.code, skipped.last], [2, 'fail: 0 failed, 0 passed, 1 skipped'])
+  assert.deepEqual([skipped.code, skipped.last], [0, 'pass: 0 failed, 0 passed, 1 skipped'])
   // A line with no code.
   assert.deepEqual(
     [p.ubq('covers', 'skipped.test.ts:99').code, p.ubq('covers', 'skipped.test.ts:99').err],

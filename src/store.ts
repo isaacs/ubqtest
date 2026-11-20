@@ -22,7 +22,23 @@ const COMMIT_MS = 50
  * The environment variables that can change a result. A run record
  * has the ones that are set.
  */
-export const RUN_ENV = ['NODE_OPTIONS', 'NODE_ENV', 'TZ', 'LANG', 'LC_ALL', 'UBQ_COVERAGE', 'UBQ_BROWSER']
+/** The version of ubq. */
+export const ubqVersion = (): string => {
+  // package.json is at the package root. The bundle is there too.
+  const path = import.meta.url.endsWith('.ts') ? '../package.json' : './package.json'
+  return (JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as { version: string }).version
+}
+
+export const RUN_ENV = [
+  'NODE_OPTIONS',
+  'NODE_ENV',
+  'TZ',
+  'LANG',
+  'LC_ALL',
+  'UBQ_COVERAGE',
+  'UBQ_COVERAGE_CHECK',
+  'UBQ_BROWSER',
+]
 
 /** The option that ubq adds to `NODE_OPTIONS` for a test process. */
 const PRELOAD_OPTION = /(^|\s+)--import \S*[\\/]child-preload\.[jt]s\b/g
@@ -263,7 +279,8 @@ export const openStore = (): Store => {
           +start.ci,
           start.commit ?? null,
           start.seed ?? null,
-          JSON.stringify(runEnv(process.env)),
+          // The version of ubq is with them: it can also change a result.
+          JSON.stringify({ ...runEnv(process.env), ubq: ubqVersion() }),
         )
       db.prepare('delete from test where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)
       db.prepare('delete from output where run <= ?').run(Number(lastInsertRowid) - KEEP_RUNS)

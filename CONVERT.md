@@ -358,7 +358,9 @@ Things to check by hand:
 - **Coverage settings.** tap fails a run with less than full
   coverage. ubq does the same with `"coverage": "full"` in the
   `ubq` key of `package.json`. `npx ubq uncovered` lists the
-  code that no test ran. ubq does not read `c8 ignore` or
+  code that no test ran. For a CI job where tap had a lower
+  limit, such as on Windows, set `UBQ_COVERAGE_CHECK=off` in the
+  environment of that job. ubq does not read `c8 ignore` or
   `istanbul ignore` comments, and the report of `ubq convert`
   names them. At each range that no test can run, write `// ubq:
   not measured: <reason>`. A `c8 ignore start` and `stop` region

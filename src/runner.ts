@@ -839,6 +839,14 @@ export const run = async (args: string[]): Promise<number> => {
   const rest = selection.filter(a => !a.startsWith('--'))
   for (const flag of flags)
     if (flag !== '--failed' && flag !== '--changed') throw new UsageError(`unknown option: ${flag}`)
+  // UBQ_COVERAGE_CHECK=off turns off "coverage": "full" for one run,
+  // such as on a system where many tests skip.
+  const check = process.env.UBQ_COVERAGE_CHECK
+  if (check !== undefined && check !== 'off')
+    throw new UsageError(`UBQ_COVERAGE_CHECK must be "off", not ${JSON.stringify(check)}`)
+  // A run of a selection does not run all code. The one-file path
+  // has the same check (UBQ_FULL).
+  const fullCheck = config().coverage === 'full' && check !== 'off' && !rest.length && !flags.length
   // The root of a monorepo with no tests of its own: each workspace
   // is a project, and gets its own run of the command.
   if (!rest.length) {
@@ -940,7 +948,7 @@ export const run = async (args: string[]): Promise<number> => {
     process.env.UBQ_LINES = lines.join(',')
     process.env.UBQ_IDS = JSON.stringify(ids)
     if (update) process.env.UBQ_UPDATE = '1'
-    if (config().coverage === 'full' && !rest.length && !flags.length) process.env.UBQ_FULL = '1'
+    if (fullCheck) process.env.UBQ_FULL = '1'
     process.argv[1] = join(projectRoot(), file)
     process.env.UBQ_COMMAND = JSON.stringify(['ubq', ...args])
     // A file with no import of the library has no reporter. If it
@@ -1107,10 +1115,9 @@ export const run = async (args: string[]): Promise<number> => {
   const uncovered = ranges.length
   const count = (s: string): number => [...status.values()].filter(v => v === s).length
   const fail = count('fail')
-  // A run of a selection does not run all code. The one-file path
-  // has the same check (UBQ_FULL).
-  const full = config().coverage === 'full' && !rest.length && !flags.length && !!uncovered
-  const code = fail || errors || typeErrors.length || full ? 1 : count('pass') === 0 ? 2 : 0
+  const full = fullCheck && !!uncovered
+  // A run with no test file or no selected test ended above, with 2.
+  const code = fail || errors || typeErrors.length || full ? 1 : 0
   send({
     type: 'run-end',
     ms: performance.now() - t0,

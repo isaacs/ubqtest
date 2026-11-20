@@ -68,13 +68,19 @@ test('doctor states the fix for each problem of the setup', () => {
   // that changes the extension of an import.
   assert.match(
     doctor().lines[2]!,
-    /^FIX  tsconfig\.json: set "allowImportingTsExtensions": true and "rewriteRelativeImportExtensions": true in compilerOptions\. .* tsc then changes the \.ts extension of an import to \.js\./,
+    /^FIX  tsconfig\.json: set "rewriteRelativeImportExtensions": true in compilerOptions\. .* tsc then changes the \.ts extension of an import to \.js\./,
   )
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "compilerOptions": { "noEmit": true, "erasableSyntaxOnly": true } }')
   assert.match(doctor().lines[2]!, /^FIX  tsconfig\.json: set "allowImportingTsExtensions": true in compilerOptions\./)
+  // rewriteRelativeImportExtensions also permits the import.
   writeFileSync(
     join(p.dir, 'tsconfig.json'),
-    '{ "compilerOptions": { "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "rewriteRelativeImportExtensions": true } }',
+    '{ "compilerOptions": { "noEmit": true, "erasableSyntaxOnly": true, "rewriteRelativeImportExtensions": true } }',
+  )
+  assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    '{ "compilerOptions": { "erasableSyntaxOnly": true, "rewriteRelativeImportExtensions": true } }',
   )
   assert.deepEqual(doctor().lines.slice(2), ['ok   tsconfig.json', 'doctor: 0 problems'])
   // Syntax that Node cannot run. The project then needs Bun, and
@@ -349,7 +355,7 @@ test('doctor: a folder with no package.json, a browser test, a Workers project, 
   writeFileSync(join(p.dir, 'tsconfig.json'), '{}')
   assert.equal(
     find(doctor(), 'FIX  tsconfig'),
-    'FIX  tsconfig.json: set "allowImportingTsExtensions": true and "rewriteRelativeImportExtensions": true in compilerOptions. fail.ts imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
+    'FIX  tsconfig.json: set "rewriteRelativeImportExtensions": true in compilerOptions. fail.ts imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
   )
 
   // The project cannot import ubqtest. The link is a junction on Windows.
@@ -525,7 +531,7 @@ test('doctor: the tsconfig.json that has the test files', () => {
   assert.deepEqual(lines(), ['ok   tsconfig.json'])
   writeFileSync(join(p.dir, 'test/a.test.ts'), "import './deep/b.test.ts'\n" + source)
   assert.deepEqual(lines(), [
-    'FIX  tsconfig.json: set "allowImportingTsExtensions": true and "rewriteRelativeImportExtensions": true in compilerOptions. test/a.test.ts imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
+    'FIX  tsconfig.json: set "rewriteRelativeImportExtensions": true in compilerOptions. test/a.test.ts imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
   ])
   writeFileSync(join(p.dir, 'test/a.test.ts'), source)
   // The compiler of the transform key has the options of the tsconfig.

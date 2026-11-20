@@ -72,6 +72,8 @@ export interface Since {
   changed: string[]
   /** If `changed` is empty: the lines that ran while the test file loaded, and that are different now. */
   loaded?: string[]
+  /** If no code changed: the versions of ubq in `run` and now, if they differ. */
+  ubq?: { then: string; now: string }
 }
 
 /** A resource that a test opened, and the user code that opened it. */

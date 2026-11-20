@@ -387,15 +387,18 @@ export const doctor = (out: (text: string) => void): number => {
         allowImportingTsExtensions: `${tsImport()} imports a file with the .ts extension.`,
         erasableSyntaxOnly:
           'The runtime runs only TypeScript syntax that it can erase (no enum, no namespace, no parameter properties).',
-        rewriteRelativeImportExtensions:
-          'This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.',
+        rewriteRelativeImportExtensions: `${tsImport()} imports a file with the .ts extension. This tsconfig makes JavaScript files: tsc then changes the .ts extension of an import to .js. It needs TypeScript 5.7 or later.`,
       }
       const emits = options.noEmit !== true && options.emitDeclarationOnly !== true
       const missing = (
         [
           // Only for a project with such an import: an import with
-          // no extension needs no option (D78).
-          ...(tsImport() ? (['allowImportingTsExtensions'] as const) : []),
+          // no extension needs no option (D78). tsc refuses it with
+          // emit, and rewriteRelativeImportExtensions also permits
+          // such an import.
+          ...(tsImport() && !emits && options.rewriteRelativeImportExtensions !== true
+            ? (['allowImportingTsExtensions'] as const)
+            : []),
           // Not for a project that must run on Bun.
           ...(v.bun || hard.length || transform ? [] : (['erasableSyntaxOnly'] as const)),
           ...(emits && tsImport() ? (['rewriteRelativeImportExtensions'] as const) : []),

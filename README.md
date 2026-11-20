@@ -126,8 +126,8 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq guide`, `ubq guide convert` | The guides, for the installed version. |
 | `ubq server` | Optional. Keeps test processes ready, which makes runs faster. |
 
-Exit codes: 0 pass, 1 failure, 2 no tests ran, 4 wrong command or
-configuration.
+Exit codes: 0 pass (also if each test skipped), 1 failure, 2 no
+tests matched, 4 wrong command or configuration.
 
 ## What a run does
 

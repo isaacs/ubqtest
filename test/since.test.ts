@@ -1,6 +1,6 @@
 // What changed since a failed test last passed: the lines that the
 // test ran in its last pass, and that are different now (D69).
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
 import { DatabaseSync } from 'node:sqlite'
@@ -148,6 +148,25 @@ test('flip', () => assert.equal(readFileSync(process.env.FLIP_FILE!, 'utf8'), 'o
   assert.match(
     r.out,
     /^ {2}since run 1, where it passed, these lines that it runs changed: lib\/many\.ts:1, lib\/many\.ts:3, lib\/many\.ts:5, lib\/many\.ts:7, lib\/many\.ts:9, and 3 more$/m,
+  )
+  // A pass with a different version of ubq, then a failure.
+  p.set('ok')
+  assert.equal(p.ubq('test/flip.test.ts').code, 0)
+  const db = new DatabaseSync(p.file('.ubq/runs.db'))
+  db.exec(`update run set env = json_set(env, '$.ubq', '0.0.1') where id = 3`)
+  db.close()
+  p.set('not ok')
+  const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
+  assert.match(
+    p.ubq('test/flip.test.ts').out,
+    new RegExp(
+      `^  since run 3, where it passed, no code that it runs changed, and ubq changed from 0\\.0\\.1 to ${version.replaceAll('.', '\\.')}\\. The new version can be the cause$`,
+      'm',
+    ),
+  )
+  assert.match(
+    p.ubq('failures').out,
+    new RegExp(`^environment: ubq ${version.replaceAll('.', '\\.')}\\. In run 3: ubq 0\\.0\\.1$`, 'm'),
   )
 })
 

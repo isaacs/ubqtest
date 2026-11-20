@@ -140,7 +140,7 @@ export const startPlain = (): void => {
     } else if (event.type === 'file-end') {
       const count = (s: string): number => [...status.values()].filter(v => v === s).length
       const fail = count('fail')
-      const code = fail || errors ? 1 : noTests || status.size - count('skip') === 0 ? 2 : 0
+      const code = fail || errors ? 1 : noTests || status.size === 0 ? 2 : 0
       process.exitCode = code
       send({ type: 'exit', file: event.file, code, signal: null })
       for (const hang of hangReruns(hung)) send(hang)

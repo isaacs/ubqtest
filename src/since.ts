@@ -132,7 +132,16 @@ export const since = (db: DatabaseSync, run: number, id: string): Since | undefi
       .prepare("select file, hash, ranges from coverage where test = '' and tfile = ? and run < ? order by file")
       .all(tfile, run) as Row[]),
   ])
-  return { run: last.run, changed, ...(loaded.length && { loaded }) }
+  if (loaded.length) return { run: last.run, changed, loaded }
+  // No code changed. A different version of ubq can be the cause.
+  const ubq = (id: number): string | undefined =>
+    (
+      JSON.parse((db.prepare('select env from run where id = ?').get(id) as { env: string }).env) as {
+        ubq?: string
+      }
+    ).ubq
+  const [then, now] = [ubq(last.run), ubq(run)]
+  return { run: last.run, changed, ...(then && now && then !== now && { ubq: { then, now } }) }
 }
 
 /**

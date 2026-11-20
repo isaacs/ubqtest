@@ -50,7 +50,9 @@ export const sinceLine = (s: Since, id: TestId): string => {
     ? `since run ${s.run}, where it passed, these lines that it runs changed: ${places(s.changed)}`
     : s.loaded
       ? `since run ${s.run}, where it passed, no line that it runs changed. These lines that ran while its file loaded changed: ${places(s.loaded)}`
-      : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 ${shellArg(id)}`
+      : s.ubq
+        ? `since run ${s.run}, where it passed, no code that it runs changed, and ubq changed from ${s.ubq.then} to ${s.ubq.now}. The new version can be the cause`
+        : `since run ${s.run}, where it passed, no code that it runs changed. The cause is in its data or its environment, or it is flaky: ubq --repeat 10 ${shellArg(id)}`
 }
 
 /**
