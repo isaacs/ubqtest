@@ -419,16 +419,16 @@ All entries are from 2026-11-11 to 2026-11-14.
     comment. A top-level `beforeAll` block has no `;` after it.
     `const s = vi.fn() as T` loses the cast. A note for a vite
     config with plugins.
-  - The stop hook of `ubq skill` does nothing in a project that
-    does not have ubqtest (D120).
+  - The filter of D119 for type errors did not end for a file on
+    a different drive of Windows. It leaves such a file alone.
   - The text of a snapshot has one entry of an array or an object
     on each line. Stored snapshots of such values need `ubq
     --update` (D121).
-  - The filter of D119 for type errors did not end for a file on
-    a different drive of Windows. It leaves such a file alone.
+  - The stop hook of `ubq skill` does nothing in a project that
+    does not have ubqtest (D120).
   - From the glob report (D119): tap forms in `ubq convert`, a
     failure for a mock that no import got, and no type errors of
-    a different project. Q51 and Q52 are open.
+    a different project.
   - CI runs Node 26 on each system, and Node latest, 24.15.0, and
     22.18.0 on Linux. Windows has three jobs (D118).
   - `skip()` in a test, `assert` outside a test, and each count
