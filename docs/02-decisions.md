@@ -3554,3 +3554,26 @@ from tap. Q65 to Q69 have the points that need the user.
   an expression, that a test file is never a helper, how to
   compare the assertion count of tap, and how to fail a run with
   less than full coverage (`"posttest": "ubq uncovered"`).
+
+## D130. Full coverage as a config key, and the answers to Q66 to Q69 (user, 2026-11-20)
+
+The answers to Q65 to Q69, from the minimatch report (D129).
+
+- Q65, "yes": the key `"coverage": "full"`. A run of all tests
+  fails if code ran in no test: the ranges that `ubq uncovered`
+  lists. The summary has the count, and a line names `ubq
+  uncovered`. A run of some tests (files, test IDs, `--failed`,
+  `--changed`) does not check, because it does not run all code.
+  The `run-end` event has `full: true` when the key made the run
+  fail.
+- Q66, "yes": `ubq doctor` gives a note, not a `FIX`, for a
+  tsconfig with no `erasableSyntaxOnly`. The doctor finds each
+  file with syntax that Node cannot run itself. The option only
+  makes the type check report new such syntax.
+- Q67: no compare of new snapshots with `tap-snapshots/`. The
+  user: "it's really not necessary. If the test passed on tap's
+  snapshot, it'll pass on ubq's."
+- Q68: a TODO of `ubq convert` stays at each place.
+- Q69: "a simple API" in place of "one small API" on the home page
+  and in the README. The user: "the api has grown a bit ... Maybe
+  'a simple API', not implying that it's literally one function?"

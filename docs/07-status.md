@@ -456,6 +456,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - The answers to Q65 to Q69 (D130): `"coverage": "full"` fails
+    a run of all tests with code that no test ran. The doctor
+    note for `erasableSyntaxOnly` is not a problem now.
   - From the minimatch report on 0.0.24 (D129): the message of
     an assertion in the key of a snapshot, each duplicate test
     name in one run, help for one command, the names of the
