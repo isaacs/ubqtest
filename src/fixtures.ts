@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { projectRoot, rel, stateDir } from './project.ts'
-import { current, fileCleanups, type TestState } from './state.ts'
+import { current, fileCleanups, groups, type TestState } from './state.ts'
 import { notInWorkerd } from './workerd.ts'
 
 /**
@@ -118,17 +118,25 @@ const write = (dir: string, files: Files): void => {
 
 const safe = (text: string): string => text.replace(/[^A-Za-z0-9._-]+/g, '-')
 
-/** Folders that `testdir` made, by test ID. For the `-2` of a second call. */
+/** Folders that `testdir` made, by path. For the `-2` of a second call. */
 const made = new Map<string, number>()
 
-/** The folder of the first `testdir` call of a test. `file` is the test file, `id` the test ID. */
+/**
+ * The folder of the first `testdir` call of a test. `file` is the
+ * test file, `id` the test ID. With no test: the folder of the file,
+ * or of the `describe` groups whose function runs now.
+ */
 export const testdirPath = (file: string, id: string | undefined): string =>
   join(
     projectRoot(),
     '.ubq',
     'testdir',
     ...file.split('/').map(safe),
-    id === undefined ? '_file' : safe(id.slice(file.length + 3)),
+    id !== undefined
+      ? safe(id.slice(file.length + 3))
+      : groups.length
+        ? `_group-${safe(groups.map(g => g.name).join(' > '))}`
+        : '_file',
   )
 
 /**
@@ -140,10 +148,10 @@ export const makeTestdir = (file: string, files: Files = {}): string => {
   notInWorkerd('testdir')
   const state = owner('testdir')
   stateDir()
-  const key = state?.id ?? ''
-  const n = (made.get(key) ?? 0) + 1
-  made.set(key, n)
-  const dir = testdirPath(file, state?.id) + (n > 1 ? `-${n}` : '')
+  const base = testdirPath(file, state?.id)
+  const n = (made.get(base) ?? 0) + 1
+  made.set(base, n)
+  const dir = base + (n > 1 ? `-${n}` : '')
   // A failed run of this test left its folder.
   rmSync(dir, { recursive: true, force: true })
   write(dir, files)

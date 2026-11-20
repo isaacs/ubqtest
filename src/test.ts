@@ -15,7 +15,7 @@ import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
 import { saveSnapshots } from './snapshot.ts'
 import { callSite, userFrames } from './stack.ts'
-import { current, moreCoverage, type TestState } from './state.ts'
+import { current, groups, moreCoverage, type TestState } from './state.ts'
 import { workerd } from './workerd.ts'
 import type { WatchData, WatchMessage } from './watchdog.ts'
 
@@ -90,7 +90,6 @@ interface Entry {
 }
 
 const queue: Entry[] = []
-const groups: { name: string; options: TestOptions }[] = []
 const ids = new Set<string>()
 let file: string | undefined
 let scheduled = false

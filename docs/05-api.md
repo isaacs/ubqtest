@@ -392,7 +392,11 @@ The loaders must be arrow functions of the form
 the real dependency.
 
 - A mock of a function with overloads (`readFileSync`) can be a
-  function that fits the last overload.
+  function that fits the last overload. If the type check
+  refuses a mock, give it the type of the real export:
+  `readdirSync: fakeReaddir as typeof fs.readdirSync`. A function
+  with properties, such as `realpathSync` with `.native`, needs
+  `as unknown as typeof fs.realpathSync`.
 - The module under test gets a new instance, and so does each
   project module that it imports. Packages in `node_modules` and
   builtins are not loaded again.
@@ -445,8 +449,10 @@ cleanup(fn: () => void | Promise<void>): void         // run fn at test end
 - The path comes from the test ID:
   `.ubq/testdir/<test file path>/<test name>`, with characters
   that are not safe in a path replaced by `-`. A second call in
-  the same test adds `-2`. An agent can find the folder with no
-  need to read the output.
+  the same test adds `-2`. A call outside a test uses `_file`
+  for the name, or `_group-<group names>` in the function of a
+  `describe`. An agent can find the folder with no need to read
+  the output.
 - When the test passes, the folder is removed. When the test
   fails, the folder stays, and the failure block prints its path.
   The next run of that test removes the old folder first.

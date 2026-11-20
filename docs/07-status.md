@@ -456,6 +456,13 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - From the minimatch retest and the glob report (D131): a run
+    of only skipped tests passes, `UBQ_COVERAGE_CHECK=off`, the
+    ubq version in the run record and the `since` line, a short
+    list of uncovered ranges in the output, a doctor fix for
+    `rewriteRelativeImportExtensions`, a `testdir` name for a
+    group, and `ubq convert` for ignore files, the tap `before`
+    script, a top-level skip with an exit, and comments.
   - The answers to Q65 to Q69 (D130): `"coverage": "full"` fails
     a run of all tests with code that no test ran. The doctor
     note for `erasableSyntaxOnly` is not a problem now.

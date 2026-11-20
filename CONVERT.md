@@ -321,7 +321,11 @@ Things to check by hand:
 - **An option of one assertion: `{ skip }`, `{ todo }`.** ubq has
   none, so the assertion can fail now. The command writes a TODO.
   For `todo`, an expected failure is a failure in ubq: correct
-  the code, or skip the test with the reason. In a file whose
+  the code, or skip the test with the reason. A file whose
+  tests only print a report and never fail, such as a list of
+  places where two programs differ, is a script, not a test:
+  make it a plain program (an npm script) that prints the report
+  and exits 1 if it found a difference. In a file whose
   top-level code the command puts in one test, an assertion with
   `{ skip: 'reason' }` and then `process.exit()` becomes
   `return skip('reason')`.

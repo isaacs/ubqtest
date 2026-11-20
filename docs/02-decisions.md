@@ -3577,3 +3577,53 @@ The answers to Q65 to Q69, from the minimatch report (D129).
 - Q69: "a simple API" in place of "one small API" on the home page
   and in the README. The user: "the api has grown a bit ... Maybe
   'a simple API', not implying that it's literally one function?"
+
+## D131. The minimatch retest on 0.0.26 and the glob report (user, 2026-11-20)
+
+From `docs/24-minimatch-feedback-0.0.24.md`, the sections "Retest
+on 0.0.26" and "Second project on 0.0.26: glob". The user chose
+the first three items.
+
+- A run where tests ran and each one skipped exits 0, with
+  `pass:`. Exit code 2 is for a run with no test file or no
+  selected test, as section 9 of `docs/04-architecture.md` says.
+- `UBQ_COVERAGE_CHECK=off` turns off `"coverage": "full"` for one
+  run, such as a CI job on Windows where many tests skip. The user
+  chose an environment variable. A config key per system would
+  need more shape, and a CLI flag is not the place for a policy.
+  `UBQ_COVERAGE` already selects the collector (`v8`), so the
+  name is a different one. Any value but `off` is an error.
+- No hint for a range that an earlier run covered (glob item 9).
+  The cause in glob was the order of its walks.
+- The run record has the version of ubq, in `env` (key `ubq`). If
+  a test fails and no code that it runs changed, the `since` line
+  names a change of the ubq version, not "flaky". `ubq failures`
+  and `ubq show` name it in the `environment` line.
+- With `"coverage": "full"`, a run lists the uncovered ranges if
+  there are fewer than 5. The `run-end` event has them in
+  `ranges`.
+- `ubq doctor` asks for `allowImportingTsExtensions` only for a
+  tsconfig with no emit and no `rewriteRelativeImportExtensions`.
+  tsc 5.9 permits an import with `.ts` with that option, and
+  refuses `allowImportingTsExtensions` with emit (TS5096).
+- A `testdir` in the function of a `describe` has the folder
+  `_group-<group names>`, not `_file`.
+- `ubq convert`:
+  - adds `.ubq` to `.prettierignore`, `.eslintignore`, and the
+    `ignorePatterns` of `.oxfmtrc.json` and `.oxlintrc.json`. A
+    config that is code, or JSON with comments, gets a note.
+  - does not convert the `before` script of tap. It writes a TODO
+    at its top.
+  - changes a skip with a reason and a `process.exit` at the top
+    level to `return skip(reason)`.
+  - keeps a comment above the first statement of the top-level
+    code with that statement, in the new test.
+  - names the first `await` in the TODO for an async `describe`,
+    and gives both fixes.
+  - names the guide section for a mock of a dependency that only
+    a package imports.
+- The guide: a cast for the mock of a function with overloads,
+  and a test that only prints a report is a script.
+- Not changed: the trim of a snapshot message (`' hasMagic'`), and
+  the TODO for assertions next to tests at the top level
+  (`merge-rows.ts`).

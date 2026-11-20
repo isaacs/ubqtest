@@ -1,6 +1,6 @@
 // Fixtures, spies, and module mocks: cleanup, env, stub, testdir,
 // spy, spyOn, mockImport.
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { inspect } from 'node:util'
 import {
@@ -106,6 +106,33 @@ test('testdir makes a folder that has the name of the test', () => {
   )
   assert.equal(readFileSync(join(dir, 'sub/b.txt'), 'utf8'), 'b')
   assert.equal(existsSync(join(dir, '../../../../.gitignore')), true)
+})
+
+test('testdir outside a test: the folder of the file, or of the group', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'grp.ts'),
+    `import { assert, describe, test, testdir } from 'ubqtest'
+const top = testdir()
+describe('a group', () => {
+  const dirs = [testdir(), testdir()]
+  describe('inner', () => {
+    const inner = testdir()
+    test('paths', () => {
+      const name = (dir: string) => dir.replaceAll('\\\\', '/').split('/.ubq/testdir/')[1]
+      assert.deepEqual([top, ...dirs, inner].map(name), [
+        'grp.ts/_file',
+        'grp.ts/_group-a-group',
+        'grp.ts/_group-a-group-2',
+        'grp.ts/_group-a-group-inner',
+      ])
+    })
+  })
+})
+`,
+  )
+  assert.equal(p.ubq('grp.ts').last, 'pass: 0 failed, 1 passed')
 })
 
 test('a spy records its calls', () => {
