@@ -34,3 +34,6 @@ Q45 to Q48 came from `private/22-vitest-monorepo-feedback-0.0.19.md`
 (not public).
 
 Q49 and Q50 came from `21-whosonfirst.ai-feedback-0.0.19.md`.
+
+Q51 and Q52 came from `22-glob-fable-feedback-0.0.19.md`. D119 has
+what is done for the rest of that report.
