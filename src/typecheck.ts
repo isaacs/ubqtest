@@ -3,7 +3,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { TypeCheckError } from './events.ts'
 import type { Checking } from './plain.ts'
 import { projectRoot, rel, stateDir } from './project.ts'
@@ -230,7 +230,9 @@ const check = (
       const reported = errors.length
       const foreign = new Map<string, boolean>()
       const other = (dir: string): boolean => {
-        if (dir === '.' || dir.startsWith('..')) return false
+        // A file on a different drive of Windows has an absolute
+        // path here.
+        if (dir === '.' || dir.startsWith('..') || isAbsolute(dir)) return false
         let known = foreign.get(dir)
         if (known === undefined)
           foreign.set(dir, (known = existsSync(join(root, dir, 'package.json')) || other(dirname(dir))))

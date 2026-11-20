@@ -424,6 +424,8 @@ All entries are from 2026-11-11 to 2026-11-14.
   - The text of a snapshot has one entry of an array or an object
     on each line. Stored snapshots of such values need `ubq
     --update` (D121).
+  - The filter of D119 for type errors did not end for a file on
+    a different drive of Windows. It leaves such a file alone.
   - From the glob report (D119): tap forms in `ubq convert`, a
     failure for a mock that no import got, and no type errors of
     a different project. Q51 and Q52 are open.
