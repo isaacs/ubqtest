@@ -705,8 +705,6 @@ Mocks, fixtures, clock:
 - `mockImport` does not replace a `require` dependency, and a mock
   of a package does not reach other packages. Its hooks stay for
   the life of the process.
-- Two tests whose names differ only in characters that are not
-  safe in a path share one `testdir` folder.
 
 Type check and doctor:
 

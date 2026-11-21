@@ -552,7 +552,7 @@ write(
   'llms.txt',
   `# ubq
 
-> ubq is a test tool for TypeScript and JavaScript, made for coding agents and the people who work with them. The package is \`ubqtest\`. The command is \`ubq\`. It runs on Node 22.18 or later, Bun, and Deno. This index is for version ${pkg.version}.
+> ubq is a test tool for TypeScript and JavaScript, made for coding agents and the people who work with them. The package is \`ubqtest\`. The command is \`ubq\`. It runs on Node 22.18 or later, Bun 1.4 or later, and Deno. This index is for version ${pkg.version}.
 
 Each page of this site is also a markdown file: \`<page>.md\`. In a project that has the package, \`npx ubq guide\` prints the guide for the installed version. Use that text if it is available, because it is correct for that version.
 

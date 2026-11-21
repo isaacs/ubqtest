@@ -58,7 +58,8 @@ A first word that is the name of a ubq command, such as `diff` or
 `sql`, is the command. If a file or folder has that name too, ubq
 prints a note. `ubq run <paths>` treats each argument as a path,
 so `ubq run diff` runs the tests in the folder `diff`. `./diff`
-also works.
+also works. `ubq --help` lists the commands, and `ubq <command>
+--help` prints the lines of one command.
 
 Put this script in `package.json`:
 
@@ -119,8 +120,10 @@ the tests of files that did not run.
 
 A run does not list code that no test ran. `ubq uncovered` lists
 it, and `ubq check` names the changed lines that no test ran. To
-fail a CI job for such code, run `ubq uncovered` as a second step:
-its exit code is 1 if it lists code.
+fail a run of all tests for such code, set `"coverage": "full"`
+(see "Configuration"). The run then lists the code if it has
+fewer than 5 ranges. `ubq uncovered` also exits with 1 if it
+lists code.
 
 Exit codes: 0 pass (also if each test skipped), 1 failure, 2 no
 tests matched, 4 wrong command or configuration.
@@ -150,9 +153,9 @@ the changed lines that ran while its test file loaded, such as a
 constant of a module. If none of those changed, the line says so:
 then the cause is outside the code, such as a data file, a
 snapshot, the environment, the time, or the order of the tests.
-`ubq --repeat 10 '<test id>'` tells if the test is flaky. If the
-version of ubq changed since that run, the line names the two
-versions.
+`ubq --repeat 10 '<test id>'` tells if the test is flaky. If no
+code changed and the version of ubq changed since that run, the
+line names the two versions.
 
 A run prints 20 failure blocks at most, and 20 type error blocks
 at most. Then one line gives the count of the others: `and 3 more
@@ -329,7 +332,7 @@ report blocks again.
 test(name, fn)
 test(name, { skip?: string | false, timeout?: number }, fn)
 // fn gets { signal, skip }. skip('reason') ends the test as skipped, for a condition that the test knows only while it runs.
-describe(name, fn)                 // a name prefix for its tests. fn is sync.
+describe(name, fn)                 // a name prefix for its tests. fn is sync: an async fn throws a TypeError.
 describe(name, { skip?, timeout? }, fn)
 
 assert(value, message?)            // truthy. Narrows the type.
@@ -491,7 +494,9 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
   saved text fails. Only `ubq --update [file or test id]` writes
   them. Read the new text before you commit it. Each entry of an
-  array or an object is on its own line in the text.
+  array or an object is on its own line in the text. The key of a
+  snapshot has the test name, the message of the assertion if it
+  has one, and a number: `basic tests > a*b 1`.
 
 ## Names that do not exist
 

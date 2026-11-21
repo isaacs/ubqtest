@@ -294,8 +294,8 @@ These checks make a wrong pass hard to produce (D2, D3).
 | Assertion after the test ended | the state of the test knows that it ended, and `AsyncLocalStorage` identifies the test for free calls (M 8: no cost) |
 | Unhandled rejection, uncaught error | process event, plus `AsyncLocalStorage` for the test |
 | Test promise never settles and the event loop is empty | the process is about to exit while a test is open |
-| Filter matched nothing | count in the runner |
-| Duplicate test name | check at `test-start` |
+| Filter matched nothing | a `no-tests` error of the file, from the test process |
+| Duplicate test name | check at the `test()` call: an error of the file, and the other tests run |
 | Child died | `file-end` with a signal or a missing `test-end` |
 
 Console capture: the core library replaces the write functions of
@@ -361,8 +361,8 @@ Exit codes:
 | Code | Meaning |
 | --- | --- |
 | 0 | no selected test failed (a skip is not a failure) |
-| 1 | one or more tests failed |
-| 2 | no tests matched |
+| 1 | a test failed, a file had an error, the type check found an error, or `"coverage": "full"` found uncovered code (D130) |
+| 2 | no test file, no test for `--failed` or `--changed`, or a run of one file with no selected test |
 | 4 | error in the tool, the config, or the command |
 
 ## 10. Module mocks

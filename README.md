@@ -17,11 +17,11 @@ many times in one task. Most test tools print for a person at a
 terminal: progress, colors, and a long report. ubq is made for
 that loop.
 
-- **Short output.** A pass is one line, with a note before it if
-  the run used code that no test ran. A failure is one block
-  with the place, the source line, the difference, the lines
-  that the test ran and that changed after its last pass, and the
-  command that runs that one test again.
+- **Short output.** A pass is one line, with a line before it for
+  each skipped test. A failure is one block with the place, the
+  source line, the difference, the lines that the test ran and
+  that changed after its last pass, and the command that runs
+  that one test again.
 - **Rules that catch a test that passes for the wrong reason.** A
   test with no assertion fails. A promise that nothing waits for
   fails. Work that goes on after the test ended fails. A test
@@ -112,6 +112,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq --baseline <commit> ...` | Shows only the failures that the commit does not have. |
 | `ubq --max-time <ms> ...` | Stops the run after that time. Each file that did not end is an error. |
 | `ubq failures`, `ubq show`, `ubq history`, `ubq diff`, `ubq slow` | Questions about stored runs. |
+| `ubq sql <query>` | A read-only SQL query on the store of runs. See [docs/store.md](docs/store.md). |
 | `ubq uncovered`, `ubq covers <file>:<line>` | Code of the program that no test ran (exit code 1 if there is some). The tests that ran a line. |
 | `ubq uncovered --diff` | Code that you changed and that no test runs. |
 | `ubq check` | Checks that the last result of each test is a pass, that it is the result of the code as it is now, and that each changed line ran in a test. Runs no test. On a pass, it lists the changes to the tests to look at: the output is the evidence for the last message of an agent or a pull request. `--hook`: a stop hook for a coding agent. |
@@ -125,6 +126,9 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq doctor` | Checks the setup of the project. |
 | `ubq guide`, `ubq guide convert` | The guides, for the installed version. |
 | `ubq server` | Optional. Keeps test processes ready, which makes runs faster. |
+
+`ubq --help` lists all commands. `ubq <command> --help` prints
+the lines of one command.
 
 Exit codes: 0 pass (also if each test skipped), 1 failure, 2 no
 tests matched, 4 wrong command or configuration.
@@ -224,8 +228,8 @@ comment with the instruction.
   project installs `wrangler`.
 - Configuration is the `ubq` key of `package.json`: `include`,
   `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`,
-  `define`, `env`, `transform`, and three switches. Most projects
-  need none.
+  `define`, `env`, `transform`, `coverage`, and three switches.
+  Most projects need none.
   See [docs/08-config.md](docs/08-config.md).
 
 ## More documents

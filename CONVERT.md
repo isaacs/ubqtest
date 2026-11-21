@@ -29,8 +29,9 @@ has the API and the rules of ubq.
    not installed or fails, a note gives the command to run by
    hand. The command adds `.ubq` to `.prettierignore`,
    `.eslintignore`, and the `ignorePatterns` of `.oxfmtrc.json`
-   and `.oxlintrc.json` in the project root, if they exist. For
-   an ESLint or Biome config, a note says to add it by hand.
+   (or `.jsonc`) and `.oxlintrc.json` in the project root, if they
+   exist. For `eslint.config.*`, `biome.json`, or a JSON config
+   with comments, a note says to add it by hand.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. If a file has the same
    text more than one time, only the first TODO has the full
@@ -705,7 +706,9 @@ Things to check by hand:
     code under test imports. To change only some, spread the real
     module: `{ ...(await import('../src/payment.ts')), charge }`.
   - The mock replaces the dependency in each project module that
-    the new instance imports, at each depth.
+    the new instance imports, at each depth. It does not replace
+    it in a package of `node_modules`: see "A dependency of a
+    dependency" in `ubq guide`.
   - Each call gives a new instance of the module under test and of
     the project modules that it imports. A class or an object of
     that instance is not the one of the import at the top of the

@@ -154,7 +154,7 @@ The `failure` columns hold JSON with these fields:
 | `actual`, `expected`, `diff` | For `assert`: the two values and the difference, as text. |
 | `pending` | For `timeout`: what kept the test open, such as `Timeout x2`. |
 | `opened` | For `timeout`, after a rerun: the places that opened what is in `pending`. |
-| `since` | For a test that passed in an earlier run: `run`, the last run where it passed, and `changed`, the lines that it ran then and that are different now, such as `src/a.ts:12-14`. |
+| `since` | For a test that passed in an earlier run: `run`, the last run where it passed, and `changed`, the lines that it ran then and that are different now, such as `src/a.ts:12-14`. If `changed` is empty: `loaded`, the changed lines that ran while the test file loaded. If both are empty and the version of ubq changed: `ubq`, with `then` and `now`. |
 
 ## Examples
 

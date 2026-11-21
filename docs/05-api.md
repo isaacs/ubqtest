@@ -76,7 +76,7 @@ test('writes a report', { timeout: 500 }, async ({ signal }) => {
 ## 3. `test`
 
 ```ts
-test(name: string, fn: (ctx: { signal: AbortSignal }) => void | Promise<void>): void
+test(name: string, fn: (ctx: { signal: AbortSignal; skip(reason: string): never }) => void | Promise<void>): void
 test(name: string, options: { skip?: string | false; timeout?: number }, fn): void
 ```
 
@@ -118,7 +118,7 @@ A group gives its tests a name prefix and can give them options.
 It does nothing else.
 
 - `fn` runs at once, and it must be synchronous. A promise from
-  `fn` is an error.
+  `fn` is an error: `describe` throws a `TypeError`.
 - Groups can nest.
 - There are no hooks. For shared setup, write a function and call
   it in each test (section 7).
@@ -133,6 +133,7 @@ assert.equal(actual, expected, message?)
 assert.notEqual(actual, expected, message?)
 assert.deepEqual(actual, expected, message?)
 assert.match(actual, pattern, message?)
+assert.matchOnly(actual, pattern, message?)
 assert.contains(actual, expected, message?)
 assert.notContains(actual, expected, message?)
 assert.greaterThan(value, target, message?)
@@ -596,7 +597,8 @@ guide in the package lists the replacement for each.
 ## 11. Open points
 
 - **`match` patterns have no type matchers** (tap permits
-  `{ id: Number }`). Add them only if tests need them often.
+  `{ id: Number }`). Settled by the `any` object (D128), with a
+  predicate for each common type: `{ id: any.number }`.
 - **Snapshots across runtimes.** The text comes from `util.inspect`,
   which differs between runtimes. A formatter of our own would fix
   this.
