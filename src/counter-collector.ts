@@ -435,6 +435,7 @@ export const startCounters = (): Counters | undefined => {
         return undefined
       }
       // The source of a mutation check is not in the cache.
+      // ubq: not measured: this module loads before the counters start
       if (compiler && result.js === undefined && TS.test(path))
         // ubq: not measured: this module loads before the counters start
         Object.assign(result, compiler.compile(result.code, path))
@@ -460,6 +461,7 @@ export const startCounters = (): Counters | undefined => {
         const changed = this.change(path, source)
         if (changed?.format) return { source: changed.source, format: changed.format, shortCircuit: true }
         // With no counters, the file still needs its JavaScript.
+        // ubq: not measured: this module loads before the counters start
         const made = compiler.compile(source, path)
         return { source: made.js, format: made.format, shortCircuit: true }
       },

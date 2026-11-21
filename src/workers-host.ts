@@ -239,6 +239,7 @@ const RESERVED = new Set(
 // Node prints a warning the first time that a program removes types.
 const strip = (source: string): string => {
   const emitWarning = process.emitWarning
+  // ubq: not measured: Node warns once, and counter-collector.ts strips first
   process.emitWarning = () => {}
   try {
     return nodeModule.stripTypeScriptTypes(source)
@@ -297,6 +298,7 @@ const moduleOf = (path: string): Record<string, unknown> => {
     // ubq: not measured: the test that started this process counts ubq
     const own = changed?.source ?? source
     // A module that workerd gets this way has no `import.meta.url`.
+    // ubq: not measured: a test of ubq counts ubq, and gives its JavaScript
     code = (ts && !changed?.js ? strip(own) : own)
       .replaceAll('import.meta.url', JSON.stringify(pathToFileURL(path).href))
       // The path module of workerd has the rules of POSIX, also on

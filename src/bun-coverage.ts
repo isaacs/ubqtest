@@ -112,6 +112,37 @@ export const mapper = (source: string, made: string): ToSource => {
 }
 
 /**
+ * The ranges of the source, as `[start, end, count]` triples, from
+ * the functions that Bun gives for the JavaScript `made`. The data
+ * differs between versions of Bun, so a test gives it here.
+ */
+export const sourceRanges = (functions: Script['functions'], made: string, toSource: ToSource): number[] => {
+  // A range that starts or ends in the middle of a word is not a
+  // range of this text.
+  const inWord = (at: number): boolean => /[\w$]{2}/.test(made.slice(at - 1, at + 1))
+  const good = (r: Range): boolean => !inWord(r.startOffset) && !inWord(r.endOffset)
+  const ran: Script['functions'] = []
+  for (const f of functions) {
+    const [outer, ...blocks] = f.ranges
+    if (outer!.startOffset > 0) {
+      if (outer!.count && f.ranges.every(good)) ran.push(f)
+    } else if (blocks.some(r => r.count))
+      // The first range is the module. The others are blocks of
+      // functions that ran.
+      for (const r of blocks) if (good(r)) ran.push({ ranges: [r] })
+  }
+  const flat = flatten(ran)
+  const ranges: number[] = []
+  for (let k = 0; k < flat.length; k += 3) {
+    const start = toSource(flat[k]!, false)
+    const end = toSource(flat[k + 1]!, true)
+    const from = Math.max(start ?? 0, ranges.at(-2) ?? 0)
+    if (start !== undefined && end !== undefined && end > from) ranges.push(from, end, flat[k + 2]!)
+  }
+  return ranges
+}
+
+/**
  * The inspector collector of a Bun process that has no counters.
  * The mode is `partial`:
  *
@@ -177,29 +208,7 @@ export const startBunInspector = (): Collector => {
           files.push(unknown)
           continue
         }
-        // A range that starts or ends in the middle of a word is
-        // not a range of this text.
-        const inWord = (at: number): boolean => /[\w$]{2}/.test(text.made.slice(at - 1, at + 1))
-        const good = (r: Range): boolean => !inWord(r.startOffset) && !inWord(r.endOffset)
-        const ran: Script['functions'] = []
-        for (const f of script.functions) {
-          const [outer, ...blocks] = f.ranges
-          // ubq: not measured: this Bun gives no function range after 0
-          if (outer!.startOffset > 0) {
-            if (outer!.count && f.ranges.every(good)) ran.push(f)
-          } else if (blocks.some(r => r.count))
-            // The first range is the module. The others are blocks
-            // of functions that ran.
-            for (const r of blocks) if (good(r)) ran.push({ ranges: [r] })
-        }
-        const flat = flatten(ran)
-        const ranges: number[] = []
-        for (let k = 0; k < flat.length; k += 3) {
-          const start = text.toSource(flat[k]!, false)
-          const end = text.toSource(flat[k + 1]!, true)
-          const from = Math.max(start ?? 0, ranges.at(-2) ?? 0)
-          if (start !== undefined && end !== undefined && end > from) ranges.push(from, end, flat[k + 2]!)
-        }
+        const ranges = sourceRanges(script.functions, text.made, text.toSource)
         files.push(ranges.length ? { file, ranges } : unknown)
       }
       return files

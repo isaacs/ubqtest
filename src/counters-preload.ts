@@ -90,6 +90,7 @@ if (counters?.transformed)
     // On these versions, a file that `import` loaded gets a
     // `require` of the ES module loader, which has no `cache`. On
     // Node 22 it fails for a module that is not CommonJS.
+    // ubq: not measured: in the tests, each require here has a cache
     const base = real.cache ? real : createRequire(file)
     return Object.assign((name: string): unknown => {
       if (!/^\.\.?(\/|$)/.test(name)) return base(name)
@@ -133,4 +134,5 @@ if (counters)
 // a second copy of the library.
 // ubq: not measured: this module loads before the counters start
 if (counters?.transformed && process.env.UBQ_CHILD)
+  // ubq: not measured: no test runs the built package with the transform key
   await import(new URL(import.meta.url.endsWith('.ts') ? './index.ts' : './index.js', import.meta.url).href)

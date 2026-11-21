@@ -130,8 +130,7 @@ jobs:
 
   # Which code of ubq does no job run? One runtime on one system
   # cannot run each line: there is code for Bun, for Deno, and for
-  # Windows. This job does not fail for the list yet: the suite has
-  # gaps (docs/07-status.md).
+  # Windows. The job fails if no job ran a range of code.
   coverage:
     name: coverage of all jobs
     needs: test
@@ -159,7 +158,7 @@ jobs:
       - name: Merge the stores
         run: node src/cli.ts merge stores/*
       - name: Code that no job runs
-        run: node src/cli.ts uncovered || true
+        run: node src/cli.ts uncovered
       # The changes to the tests that a person must look at (D68),
       # with the merged coverage: an item says if the test runs code
       # that changed. The comment is one comment, changed on each

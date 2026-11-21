@@ -172,8 +172,20 @@ test('adds', () => {
     p.ubq('uncovered').out.trimEnd().split('\n').at(-2),
     '4 uncovered ranges in 3 of the 3 files that tests ran',
   )
+  p.configure({ helpers: [], build: ['scripts/**'] })
+  assert.match(p.ubq('uncovered').out, /\(1 build file is not in this list: scripts\/tool\.ts\)$/m)
   p.configure({ helpers: ['test/**', 'lib/**'], build: ['scripts/**'] })
   assert.deepEqual(uncovered(), [0, ['uncovered: none']])
+  // More than 10 such files: the line names 10.
+  const names = ['h0', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8']
+  for (const name of names) writeFileSync(join(p.dir, `test/${name}.ts`), `export const ${name} = 1\n`)
+  writeFileSync(
+    join(p.dir, 'test/more.test.ts'),
+    `import { assert, test } from 'ubqtest'\n${names.map(n => `import { ${n} } from './${n}.ts'\n`).join('')}test('more', () => assert(${names.join(' + ')}))\n`,
+  )
+  p.configure()
+  p.ubq()
+  assert.match(p.ubq('uncovered').out, /are not in this list: ([^,]+, ){10}and 1 more\)$/m)
 })
 
 test('a "ubq: not measured:" comment with a reason takes a range out of the list', () => {

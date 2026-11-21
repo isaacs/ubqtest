@@ -585,9 +585,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with
   only the module range. ubq then stores only the first character
-  of each file. Bun 1.4.3 gives places. The 5 ranges that stay in
-  the CI list, all in `src/bun-coverage.ts`, are there for this
-  reason.
+  of each file. Bun 1.4.3 gives places. A unit test gives
+  `sourceRanges` the data of each form, so the CI list does not
+  depend on the Bun version.
 - A Workers test file that throws after its first `test()` call
   gives "the test process ended before the file did ... in test:
   t", with a stack frame of `src/workers-entry.ts`. On Node the

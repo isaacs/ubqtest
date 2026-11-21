@@ -1402,18 +1402,35 @@ export default defineConfig({
 })
 
 test('vitest: toContainEqual', () => {
-  const r = convert(`import { expect, it } from 'vitest'
+  const source = `import { expect, it } from 'vitest'
 it('a', () => {
   expect(list).toContainEqual({ contents: 'write' })
   expect(list).not.toContainEqual(item)
 })
-`)
+`
+  const r = convert(source)
   assert(r)
   assert.deepEqual(r.code, [
     "import { assert, isDeepEqual, test } from 'ubqtest'",
     "test('a', () => {",
     "  assert(list.some((item: unknown) => isDeepEqual(item, { contents: 'write' })))",
     '  assert(!(list.some((element: unknown) => isDeepEqual(element, item))))',
+    '})',
+  ])
+  // In JavaScript, the parameter has no type.
+  assert.equal(
+    convert(source, 'a.js')?.code[2],
+    "  assert(list.some(item => isDeepEqual(item, { contents: 'write' })))",
+  )
+  // A matcher of expect in a promise gets a TODO.
+  const promise = convert(`import { expect, it } from 'vitest'
+it('a', async () => {
+  await expect(p).resolves.toContainEqual(expect.objectContaining({ id: 7 }))
+})
+`)
+  assert.deepEqual(promise?.code.slice(2), [
+    ...todo(MATCHER, '  '),
+    '  await expect(p).resolves.toContainEqual(expect.objectContaining({ id: 7 }))',
     '})',
   ])
 })
@@ -1692,6 +1709,14 @@ test('tap: the scripts test and snap of package.json become ubq and ubq --update
   pkg({ test: 'tap --coverage-report=text', snap: 'tap' })
   assert(!p.ubq('convert', 'test').out.includes('package.json'))
   assert.deepEqual(scripts(), { test: 'tap --coverage-report=text', snap: 'tap' })
+  // A package.json on one line gets an indent of 2.
+  writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ scripts: { test: 'tap', snap: 'tap' } }))
+  assert(p.ubq('convert', 'test').out.includes(`\n${line}\n`))
+  assert.equal(
+    readFileSync(join(p.dir, 'package.json'), 'utf8'),
+    '{\n  "scripts": {\n    "test": "ubq",\n    "snap": "ubq --update"\n  }\n}\n',
+  )
   // A package.json that is not JSON.
   writeFileSync(join(p.dir, 'test/a.test.ts'), "import t from 'tap'\nt.equal(1, 1)\n")
   writeFileSync(join(p.dir, 'package.json'), '{ not json')
@@ -3689,4 +3714,35 @@ test('convert adds .ubq to the ignore files of formatters and linters', () => {
   writeFileSync(join(p.dir, 'old/a.test.ts'), source)
   writeFileSync(join(p.dir, '.oxfmtrc.jsonc'), '{ "ignorePatterns": "dist" }')
   assert.deepEqual(lines('old'), [note])
+  // One file to change by hand.
+  writeFileSync(join(p.dir, 'old/a.test.ts'), source)
+  rmSync(join(p.dir, 'eslint.config.js'))
+  assert.deepEqual(lines('old'), [
+    'note: add .ubq to the files that .oxfmtrc.jsonc leaves out. It has the store and the test folders of ubq.',
+  ])
+})
+
+test('convert works when the compiler of the transform key is not there', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.configure({ transform: 'swc' })
+  mkdirSync(join(p.dir, 'old'))
+  writeFileSync(join(p.dir, 'old/a.test.ts'), "import { expect, it } from 'vitest'\nit('a', () => expect(1).toBe(1))\n")
+  assert.equal(p.ubq('convert', 'old').code, 0)
+  assert.equal(
+    readFileSync(join(p.dir, 'old/a.test.ts'), 'utf8'),
+    "import { assert, test } from 'ubqtest'\ntest('a', () => assert.equal(1, 1))\n",
+  )
+})
+
+test('the message of an assertion is a comment only at the end of a statement', () => {
+  // The message of a declaration goes away.
+  const ava = convert(`import test from 'ava'
+test('a', t => {
+  const error = t.throws(() => f(), undefined, 'a message')
+})
+`)
+  assert.equal(ava?.code[2], '  const error = assert.throws(() => f(), Error)')
+  // The last line of the file, with no newline.
+  assert.deepEqual(convert("import t from 'tap'\nt.doesNotThrow(() => f(), 'a message')")?.code, ['f() // a message'])
 })

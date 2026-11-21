@@ -158,6 +158,10 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const before = readFileSync(file, 'utf8')
   ubq('failures', '1')
   assert.equal(readFileSync(file, 'utf8'), before)
+  // A value that is not an Error has no place.
+  writeFileSync(join(p.dir, 'd.test.ts'), "import { test } from 'ubqtest'\nthrow 'boom'\n")
+  ubq('d.test.ts')
+  assert.match(readFileSync(file, 'utf8'), /^\| ERROR \| d\.test\.ts \| threw boom \|  \| `ubq d\.test\.ts` \|$/m)
 })
 
 test('the summary of a step has type errors, and the count of those in files that the run did not use', () => {

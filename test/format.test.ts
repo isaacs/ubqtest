@@ -137,6 +137,11 @@ test('a function in a pattern is a predicate for the value at its place', () => 
     /the function in the pattern threw: .*null/,
   )
   assert.match(diffs({ u: new URL('http://a') }, { u: URL })[0]!, /the function in the pattern threw: /)
+  // A function that throws a value that is not an Error.
+  const no = () => {
+    throw 'no'
+  }
+  assert.match(diffs({ a: 1 }, { a: no })[0]!, /the function in the pattern threw: .*no/)
   // The text of a long function is cut, on one line.
   const long = (v: unknown) =>
     v === 'a text that is long enough to make the source of this function more than two hundred characters' ||

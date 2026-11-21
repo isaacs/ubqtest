@@ -2745,7 +2745,7 @@ export const convertSource = (
     if (method === 'test') {
       // The function that has the test object as its parameter: a
       // test of tap, or a helper function that gets the object.
-      const object = callee.type === 'MemberExpression' ? nameOf(callee.object as Node) : undefined
+      const object = nameOf(callee.object as Node)
       const at = path.findLastIndex(
         n =>
           (FUNCTION.has(n.type) || n.type === 'FunctionDeclaration') &&

@@ -1,11 +1,14 @@
 // Wrong uses of mockImport, a mock with a default export, and a
 // module under test that throws when it loads.
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { assert, cleanup, mockImport, test } from 'ubqtest'
-import { project, remove } from './setup.ts'
+import { cli, project, remove } from './setup.ts'
+
+const bun = spawnSync('bun', ['--version']).status === 0
 
 const SHAPE = "must be an arrow function of the form () => import('...')"
 
@@ -164,4 +167,10 @@ test('an instance of the package with the mock, as the mock of the package', asy
     ],
   )
   assert(blocks[1]!.includes(`\n  hint: ${hint}\n`), blocks[1])
+  // Bun gives the URL of a mock that no import got as a path. The
+  // message has the path from the root of the project.
+  if (bun) {
+    const r = spawnSync('bun', [cli, 'unused.ts'], { cwd: p.dir, encoding: 'utf8' })
+    assert.match(r.stdout, /the mock of pass\.ts, fix\.ts replaced no import/)
+  }
 })

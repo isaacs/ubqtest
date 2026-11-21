@@ -126,6 +126,15 @@ test('assert at the start of the line after an import is a statement', async () 
   assert.equal(body.length, 1)
 })
 
+test('a TypeScript file that fails also with its types removed gives the first error', async () => {
+  const { parse } = await import('../src/instrument.ts')
+  // Node removes the types, but the parser refuses the second `a`.
+  assert.throws(
+    () => parse('let a: number = 1\nlet a = 2\n', 'a.ts'),
+    /Identifier 'a' has already been declared \(2:4\)/,
+  )
+})
+
 test('an arrow function with one type parameter parses in a .tsx file', async () => {
   const { parse } = await import('../src/instrument.ts')
   const body = parse('const f = <T extends object>(v: T): T => v\nconst el = <a>{f}</a>\n', 'a.tsx').body as {

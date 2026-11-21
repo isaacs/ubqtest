@@ -252,6 +252,26 @@ test('the code runs', async () => {
   })
 }
 
+test('the compiler makes the JavaScript of a file that the parser cannot read, and of each mutation', () => {
+  const p = transformProject('typescript', { module: 'nodenext', target: 'es2022' }, 'module')
+  // The parser does not know a `const` type parameter in an
+  // interface, and Node cannot remove the types of an enum.
+  p.write('src/odd.ts', 'interface A {\n  m<const T>(a: T): void\n}\nexport enum Odd {\n  One = 1,\n}\n')
+  p.write('src/sign.ts', "export const sign = (n: number): string => (n > 0 ? 'plus' : 'minus')\n")
+  p.write(
+    'spec/a.spec.ts',
+    `import { assert, test } from 'ubqtest'
+import { Odd } from '../src/odd.ts'
+import { sign } from '../src/sign.ts'
+test('odd', () => assert.equal(Odd.One, 1))
+test('sign', () => assert.deepEqual([sign(1), sign(0)], ['plus', 'minus']))
+`,
+  )
+  assert.equal(p.ubq().last, 'pass: 0 failed, 2 passed')
+  const r = p.ubq('mutate', 'src/sign.ts')
+  assert.deepEqual([r.code, r.out.trimEnd().split('\n').at(-1)], [0, 'mutate: 0 of 2 changes survived'], r.out)
+})
+
 test('a stuck test in compiled code has the place of the source, and convert keeps the names of CommonJS', () => {
   const p = transformProject('typescript', NEST)
   p.write(

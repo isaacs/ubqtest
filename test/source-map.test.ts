@@ -6,6 +6,10 @@ import { assert, cleanup, test } from 'ubqtest'
 import type { Region } from '../src/counters.ts'
 import { builtSources, inlineMap, mapOf, sourceRegions } from '../src/source-map.ts'
 
+// The runner loads this module before the counters start. A copy
+// has counters.
+const { sourcePlace }: typeof import('../src/source-map.ts') = await import('../src/source-map.ts?copy' as string)
+
 const url = (map: unknown): string =>
   `//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(map)).toString('base64')}`
 const fn = (start: number, end: number, parent = -1): Region => ({ start, end, fn: true, parent })
@@ -26,6 +30,10 @@ test('the map of a built file: at its end, in a file next to it, or none', () =>
   writeFileSync(join(dir, 'out.js.map'), '{"mappings":"AAAA"}')
   assert.deepEqual(mapOf('a\n//# sourceMappingURL=out.js.map\n', path)?.map, { mappings: 'AAAA' })
   assert.equal(inlineMap('a\n//# sourceMappingURL=data:application/json;base64,bm90IGpzb24=\n'), undefined)
+})
+
+test('a place in JavaScript with no source map has no place in the source', () => {
+  assert.equal(sourcePlace('const a = 1\n', 1, 1), undefined)
 })
 
 test('the regions of code that a runtime made from one source file', () => {

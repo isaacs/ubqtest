@@ -218,7 +218,8 @@ test('skill writes to the skill folders of the project and to the folder of the 
   assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { hooks: { Stop: [hook] } })
   // A hook of the user that runs the check stays, with no second hook.
   const own = { hooks: [{ type: 'command', command: 'cd app && npx ubq check --hook' }] }
-  writeFileSync(settings, JSON.stringify({ hooks: { Stop: [own] } }))
+  // An entry with no "hooks" key has no hook.
+  writeFileSync(settings, JSON.stringify({ hooks: { Stop: [{}, own] } }))
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md'])
   // The command runs the check of the package of the project, and
   // does nothing in a project that does not have the package.
@@ -440,6 +441,9 @@ test('doctor: the tsconfig.json that has the test files', () => {
   // It is the config of the folder, also if it does not have the files.
   writeFileSync(join(p.dir, 'tsconfig.ubq.json'), `{ ${options}, "include": ["spec/**/*"] }`)
   assert.match(lines()[0]!, /^FIX  2 test files are in no tsconfig\.json: /)
+  // A tsconfig.json that is not JSON.
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ not json')
+  assert.match(lines()[0]!, /^FIX  2 test files are in no tsconfig\.json: /)
   rmSync(join(p.dir, 'tsconfig.ubq.json'))
   // No files, and the word is only in a comment.
   writeFileSync(join(p.dir, 'tsconfig.json'), '{ "files": [] /* no "references" */ }')
@@ -606,5 +610,11 @@ test('doctor names the test files of a different tool that ubq does not run', ()
       .out.split('\n')
       .find(line => line.includes('a different test tool')),
     'FIX  1 file imports a different test tool, and "ubq" does not run it: c.spec.ts. Read "ubq guide convert", then: ubq convert c.spec.ts',
+  )
+  // More than 5 files: the line names 5.
+  for (const n of [1, 2, 3, 4, 5]) writeFileSync(join(p.dir, `d${n}.spec.ts`), tap)
+  assert.match(
+    p.ubq('doctor').out,
+    /^FIX  6 files import .*: c\.spec\.ts, d1\.spec\.ts, d2\.spec\.ts, d3\.spec\.ts, d4\.spec\.ts, and 1 more\. /m,
   )
 })

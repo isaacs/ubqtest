@@ -240,6 +240,16 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
     p.ubq('doctor').out,
     /^note this folder is the root of a monorepo with 2 projects \(packages\/a, packages\/empty\)\. ubq runs the tests of one project: /m,
   )
+  // More than 3 projects: the note names 3.
+  for (const name of ['c', 'd']) {
+    mkdirSync(join(p.dir, 'packages', name))
+    writeFileSync(join(p.dir, 'packages', name, 'package.json'), JSON.stringify({ name, type: 'module' }))
+  }
+  assert.match(
+    p.ubq('doctor').out,
+    /^note this folder is the root of a monorepo with 4 projects \(packages\/a, packages\/c, packages\/d, \.\.\.\)\. /m,
+  )
+  for (const name of ['c', 'd']) rmSync(join(p.dir, 'packages', name), { recursive: true })
   // No workspace has tests.
   for (const name of ['a', 'b']) rmSync(join(p.dir, 'packages', name, 'one.test.ts'))
   assert.equal(p.ubq().code, 2)

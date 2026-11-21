@@ -168,3 +168,28 @@ test('ubq nvim with no nvim on the PATH', () => {
     [4, 'ubq: nvim is not on the PATH. ubq nvim asks nvim for the folder of its configuration.\n'],
   )
 })
+
+// A stand-in for nvim gives the folder, so the copy of the plugin
+// runs also on a system with no Neovim. Windows cannot run the
+// shell script as nvim.
+test(
+  'ubq nvim writes the plugin to the folder that nvim names',
+  { skip: process.platform === 'win32' && 'a shell script is not a program on Windows' },
+  () => {
+    const home = mkdtempSync(join(tmpdir(), 'ubq-nvim-'))
+    cleanup(() => rmSync(home, { recursive: true, force: true }))
+    const config = join(home, 'config')
+    writeFileSync(join(home, 'nvim'), `#!/bin/sh\nprintf '%s' '${config}'\n`)
+    chmodSync(join(home, 'nvim'), 0o755)
+    const r = spawnSync(process.execPath, [cli, 'nvim'], {
+      cwd: tmpdir(),
+      env: { ...process.env, PATH: home },
+      encoding: 'utf8',
+    })
+    assert.deepEqual(
+      [r.status, r.stdout],
+      [0, `wrote ${join(config, 'lsp', 'ubq.lua')}\nwrote ${join(config, 'plugin', 'ubq.lua')}\n`],
+    )
+    assert.match(readFileSync(join(config, 'plugin', 'ubq.lua'), 'utf8'), /^vim\.lsp\.enable\('ubq'\)$/m)
+  },
+)
