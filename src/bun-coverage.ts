@@ -209,6 +209,7 @@ export const startBunInspector = (): Collector => {
           continue
         }
         const ranges = sourceRanges(script.functions, text.made, text.toSource)
+        // ubq: not measured: the Bun of CI gives no ranges here (docs/07-status.md)
         files.push(ranges.length ? { file, ranges } : unknown)
       }
       return files

@@ -3,6 +3,7 @@
 // `ubq` command, and for the type checker.
 import { spawn, spawnSync } from 'node:child_process'
 import {
+  chmodSync,
   cpSync,
   mkdirSync,
   mkdtempSync,
@@ -15,7 +16,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { addBare, addDefine, addJsx, project, remove } from './setup.ts'
@@ -197,18 +198,29 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     ])
   })
 
-test('ubq nvim from the package', { skip: has('nvim') }, () => {
-  const config = join(dir, 'xdg')
-  cleanup(() => remove(config))
-  const r = spawnSync('node', [join(built, 'cli.js'), 'nvim'], {
-    cwd: dir,
-    encoding: 'utf8',
-    env: { ...process.env, XDG_CONFIG_HOME: config, NVIM_APPNAME: '' },
-  })
-  assert.equal(r.status, 0)
-  for (const file of ['lsp/ubq.lua', 'plugin/ubq.lua'])
-    assert.equal(readFileSync(join(config, 'nvim', file), 'utf8'), readFileSync(join(root, 'nvim', file), 'utf8'))
-})
+// A stand-in for nvim gives the folder, so the test runs also on a
+// system with no Neovim. Windows cannot run the shell script as nvim.
+test(
+  'ubq nvim from the package',
+  { skip: process.platform === 'win32' && 'a shell script is not a program on Windows' },
+  () => {
+    const config = join(dir, 'xdg')
+    cleanup(() => remove(config))
+    const bin = join(dir, 'nvim-bin')
+    mkdirSync(bin)
+    cleanup(() => remove(bin))
+    writeFileSync(join(bin, 'nvim'), `#!/bin/sh\nprintf '%s' '${config}'\n`)
+    chmodSync(join(bin, 'nvim'), 0o755)
+    const r = spawnSync('node', [join(built, 'cli.js'), 'nvim'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}` },
+    })
+    assert.equal(r.status, 0, r.stderr)
+    for (const file of ['lsp/ubq.lua', 'plugin/ubq.lua'])
+      assert.equal(readFileSync(join(config, file), 'utf8'), readFileSync(join(root, 'nvim', file), 'utf8'))
+  },
+)
 
 test('docs/api.md is current', () => {
   const r = spawnSync('node', ['scripts/api-docs.ts', '--check', join(pkg, 'types')], { cwd: root, encoding: 'utf8' })
