@@ -216,7 +216,9 @@ names, do one of these:
   `define` key of the ubq configuration: `"ubq": { "define": {
   "__DEBUG_BUILD__": true } }`. ubq sets each one on `globalThis`
   before the test file loads. `ubq convert` writes the key from a
-  vite or vitest config at the project root. If that config gets
+  vite or vitest config at the project root. With no config
+  there, it reads the config of the root of the workspaces above
+  the project. If that config gets
   `define` from a different file, the command prints a note: then
   add the key by hand. Do not write a loader or a preload for it.
 - ubq has no plugins: it runs each source file as it is. If a

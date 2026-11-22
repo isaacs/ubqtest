@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, cleanup, test } from 'ubqtest'
-import { playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from '../src/vitest-config.ts'
+import { configFolder, playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from '../src/vitest-config.ts'
 
 // See test/convert.test.ts for the reason of this form.
 const { parse, children }: typeof import('../src/instrument.ts') = process.versions.deno
@@ -274,4 +274,34 @@ test('a note for the setup files of a vitest config', () => {
   assert.deepEqual(viteDefine(dir, parse, children)?.notes, [note('setup.ts')])
   writeFileSync(join(dir, 'vitest.config.ts'), 'export default { test: { setupFiles: files } }')
   assert.deepEqual(viteDefine(dir, parse, children)?.notes, [note('not plain text')])
+})
+
+test('the config of the workspace root, for a workspace with none', () => {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-vite-')))
+  cleanup(() => rmSync(dir, { recursive: true, force: true }))
+  // A folder with no package.json between the workspace and the root.
+  const p = join(dir, 'packages', 'p')
+  mkdirSync(p, { recursive: true })
+  writeFileSync(join(p, 'package.json'), '{}')
+  writeFileSync(join(dir, 'vitest.config.ts'), "export default { test: { setupFiles: ['test/setup.ts'] } }")
+  // A root with no workspaces is a different project.
+  writeFileSync(join(dir, 'package.json'), '{}')
+  assert.equal(configFolder(p), p)
+  writeFileSync(join(dir, 'package.json'), '{')
+  assert.equal(configFolder(p), p)
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'packages: [packages/*]')
+  writeFileSync(join(dir, 'package.json'), '{}')
+  assert.equal(configFolder(p), dir)
+  rmSync(join(dir, 'pnpm-workspace.yaml'))
+  writeFileSync(join(dir, 'package.json'), '{ "workspaces": ["packages/*"] }')
+  assert.deepEqual(viteDefine(p, parse, children)?.notes, [
+    '../../vitest.config.ts has setup files (../../test/setup.ts). ubq has no setup files. Export the work of each file as a function, and call that function at the top level of each test file, or in each test that needs it.',
+  ])
+  // A config of the workspace is before the config of the root.
+  writeFileSync(join(p, 'vite.config.ts'), 'export default {}')
+  assert.equal(configFolder(p), p)
+  // A workspace root with no config.
+  rmSync(join(p, 'vite.config.ts'))
+  rmSync(join(dir, 'vitest.config.ts'))
+  assert.equal(configFolder(p), p)
 })

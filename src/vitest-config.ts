@@ -162,9 +162,33 @@ export const vitestWorkers = (
   return projects.length ? { file, projects } : undefined
 }
 
+const CONFIGS = [...NAMES, ...NAMES.map(name => name.replace('vitest', 'vite'))]
+
 /**
- * The `define` values of the vitest and vite configs at the project
- * root, as JSON values for the `define` key of the ubq
+ * The folder of the vitest and vite configs of the project at root:
+ * the root, or else the root of the workspaces above it, if that
+ * folder has a config. The search ends at the first folder above
+ * the root that has a `package.json`.
+ */
+export const configFolder = (root: string): string => {
+  const has = (dir: string): boolean => CONFIGS.some(name => existsSync(join(dir, name)))
+  if (has(root)) return root
+  for (let dir = dirname(root); dir !== dirname(dir); dir = dirname(dir)) {
+    if (!existsSync(join(dir, 'package.json'))) continue
+    let workspaces: unknown
+    try {
+      workspaces = (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { workspaces?: unknown }).workspaces
+    } catch {
+      return root
+    }
+    return (workspaces || existsSync(join(dir, 'pnpm-workspace.yaml'))) && has(dir) ? dir : root
+  }
+  return root
+}
+
+/**
+ * The `define` values of the vitest and vite configs of the project
+ * (in the folder of configFolder), as JSON values for the `define` key of the ubq
  * configuration (D83). Undefined if no config has `define`, and no
  * config spreads a config from a different file.
  */
@@ -179,11 +203,15 @@ export const viteDefine = (
   const env: Record<string, string> = {}
   const notes: string[] = []
   let found = false
-  for (const file of [...NAMES, ...NAMES.map(name => name.replace('vitest', 'vite'))]) {
-    if (!existsSync(join(root, file))) continue
+  const dir = configFolder(root)
+  for (const name of CONFIGS) {
+    const at = join(dir, name)
+    if (!existsSync(at)) continue
+    /** The config, as a path from the project root. */
+    const file = relative(root, at).split(sep).join('/')
     let program: Node
     try {
-      program = parse(readFileSync(join(root, file), 'utf8'), join(root, file))
+      program = parse(readFileSync(at, 'utf8'), at)
     } catch {
       continue
     }
@@ -223,7 +251,7 @@ export const viteDefine = (
       if (files)
         try {
           for (const one of [plain(files)].flat()) {
-            const path = relative(root, resolve(root, String(one)))
+            const path = relative(root, resolve(dir, String(one)))
               .split(sep)
               .join('/')
             if (!noted.includes(path)) setup.push(path)
@@ -270,7 +298,7 @@ export const viteDefine = (
       )
     // A config that this one imports can have the plugins: the
     // shared config of a monorepo.
-    const seen = new Set([join(root, file)])
+    const seen = new Set([at])
     const shared = (from: string, program: Node): string | undefined => {
       for (const node of program.body as Node[]) {
         const name = node.type === 'ImportDeclaration' ? String((node.source as { value?: unknown }).value) : ''
@@ -297,7 +325,7 @@ export const viteDefine = (
       }
       return undefined
     }
-    const other = plugins ? undefined : shared(join(root, file), program)
+    const other = plugins ? undefined : shared(at, program)
     if (other)
       notes.push(
         `${file} imports ${relative(root, other).split(sep).join('/')}, which has plugins. ubq has no plugins: it runs the source files as they are. If a plugin changes the code that the tests run (it removes a block, or adds an import), tell the user: that source needs a form with no plugin, such as a condition that the code tests while it runs.`,
