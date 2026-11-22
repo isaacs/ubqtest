@@ -94,6 +94,31 @@ test('kind', () => {
   // two files.
   assert.equal(ubq('kind.ts'), 'pass: 1 test\n')
   assert.equal(ubq('kind.ts', 'kind2.ts'), 'pass: 2 tests\n')
+  // Bun reads the condition from BUN_OPTIONS.
+  if (spawnSync('bun', ['--version']).status === 0) {
+    writeFileSync(
+      join(p.dir, 'bun.ts'),
+      "// @ts-expect-error: the package has no types\nimport kind from 'kind'\nimport { assert, test } from 'ubqtest'\ntest('kind', () => assert.equal(kind, 'source'))\n",
+    )
+    const bun = spawnSync('bun', [cli, 'bun.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
+    assert.equal(bun.stdout.replace(/ \(run \d+\)/, ''), 'pass: 1 test\n', bun.stdout)
+  }
+})
+
+test('conditionsEnv gives the export conditions of NODE_OPTIONS of the env key to Bun and Deno', async () => {
+  const { conditionsEnv }: typeof import('../src/config.ts') = await import('../src/config.ts?copy' as string)
+  const options = '--no-warnings --conditions=source -C dev'
+  assert.deepEqual(conditionsEnv(options, 'bun', {}), { BUN_OPTIONS: '--conditions=source --conditions=dev' })
+  assert.deepEqual(conditionsEnv(options, 'bun', { BUN_OPTIONS: '--smol' }), {
+    BUN_OPTIONS: '--smol --conditions=source --conditions=dev',
+  })
+  assert.deepEqual(conditionsEnv(options, 'deno', {}), { DENO_CONDITIONS: 'source,dev' })
+  assert.deepEqual(conditionsEnv(options, 'deno', { DENO_CONDITIONS: 'a' }), { DENO_CONDITIONS: 'a,source,dev' })
+  // Node reads NODE_OPTIONS. No condition: nothing to give.
+  assert.equal(conditionsEnv(options, 'node', {}), undefined)
+  assert.equal(conditionsEnv('--no-warnings', 'bun', {}), undefined)
+  // The defaults: the key of this project has no NODE_OPTIONS.
+  assert.equal(conditionsEnv(), undefined)
 })
 
 test('nodeOptions puts the value of the env key after the value of the process', async () => {

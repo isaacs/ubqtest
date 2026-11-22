@@ -982,7 +982,8 @@ for each test process (`"env": { "MODE": "dev" }`): a value of
 the key is before a value of the shell. `NODE_OPTIONS` is
 different: ubq adds the value of the key to the value of the
 shell, and starts each test process with it, so an option such as
-`--conditions=source` works on Node. A test file that runs as a plain
+`--conditions=source` works. Bun and Deno get its export
+conditions in `BUN_OPTIONS` and `DENO_CONDITIONS`. A test file that runs as a plain
 program (`node test/a.test.ts`) started before ubq read the key:
 give it the option on the command line. `skipTypecheck` (`true`)
 turns off the type check of each run. `"coverage": "full"` fails a
@@ -1070,8 +1071,9 @@ runtime finds:
 For a custom export condition, such as a `source` condition that
 points to the TypeScript of the packages of a workspace, put the
 option in `NODE_OPTIONS` of the `env` key:
-`"env": { "NODE_OPTIONS": "--conditions=source" }`. Only Node reads
-it: on Bun and Deno, the tests load the other condition.
+`"env": { "NODE_OPTIONS": "--conditions=source" }`. On Bun and
+Deno, ubq gives each condition of that value to the test process
+in the form of that runtime.
 
 A test file that imports the name of an alias does not load. The
 failure has a hint that names the config with the alias.

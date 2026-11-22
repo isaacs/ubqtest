@@ -153,6 +153,25 @@ export const nodeOptions = (
 ): string | undefined => (own && !now.includes(own) ? `${now} ${own}`.trim() : undefined)
 
 /**
+ * The variables that give a Bun or Deno test process the export
+ * conditions of `NODE_OPTIONS` of the `env` key (`--conditions=x`,
+ * `-C x`), after the values that `env` has: Bun reads them from
+ * `BUN_OPTIONS`, and Deno from `DENO_CONDITIONS`. Undefined on Node,
+ * which reads `NODE_OPTIONS`, or with no condition.
+ */
+export const conditionsEnv = (
+  own = config().env?.NODE_OPTIONS ?? '',
+  runtime = process.versions.bun ? 'bun' : process.versions.deno ? 'deno' : 'node',
+  env: Record<string, string | undefined> = process.env,
+): Record<string, string> | undefined => {
+  const names = [...own.matchAll(/(?:^|\s)(?:--conditions|-C)(?:=|\s+)(\S+)/g)].map(m => m[1]!)
+  if (!names.length || runtime === 'node') return undefined
+  return runtime === 'deno'
+    ? { DENO_CONDITIONS: [env.DENO_CONDITIONS, ...names].filter(Boolean).join(',') }
+    : { BUN_OPTIONS: [env.BUN_OPTIONS, ...names.map(name => `--conditions=${name}`)].filter(Boolean).join(' ') }
+}
+
+/**
  * With no `helpers` key: a file in a folder with the name `test`,
  * `tests`, or `__tests__`, at each depth. A regular expression does
  * not load the glob code of Node, which costs time at the end of

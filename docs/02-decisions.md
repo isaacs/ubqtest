@@ -3773,3 +3773,22 @@ a person most needs the review.
 - The five type checks that the agent of the report removed are
   `fewer assertions` items now.
 
+## D137. The export conditions of `NODE_OPTIONS` on Bun and Deno (user, 2026-11-22)
+
+`"env": { "NODE_OPTIONS": "--conditions=source" }` worked only on
+Node: Bun and Deno do not read `NODE_OPTIONS`, and their tests
+loaded the default export of the package.
+
+- The runner takes each condition of `NODE_OPTIONS` of the `env`
+  key (`--conditions=x`, `--conditions x`, `-C x`). A Bun test
+  process gets `--conditions=x` in `BUN_OPTIONS`, and a Deno test
+  process gets `DENO_CONDITIONS=x,y`, after the value of the
+  shell. A process that a Bun test starts gets them too.
+- Only the conditions of the key. The other options of
+  `NODE_OPTIONS` are options of Node. A condition in the
+  `NODE_OPTIONS` of the shell stays an option of Node, as for a
+  plain `bun` command.
+- On Bun and Deno, a run of one file with such a condition runs in
+  a test process, not in the process of the runner, which started
+  without it.
+
