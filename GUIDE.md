@@ -982,7 +982,7 @@ for each test process (`"env": { "MODE": "dev" }`): a value of
 the key is before a value of the shell. `NODE_OPTIONS` is
 different: ubq adds the value of the key to the value of the
 shell, and starts each test process with it, so an option such as
-`--conditions=source` works. A test file that runs as a plain
+`--conditions=source` works on Node. A test file that runs as a plain
 program (`node test/a.test.ts`) started before ubq read the key:
 give it the option on the command line. `skipTypecheck` (`true`)
 turns off the type check of each run. `"coverage": "full"` fails a
@@ -1044,6 +1044,37 @@ project. The text of a function, from `String(fn)` or
 that runs it in a sandbox, a worker, or `new Function`, gets the
 function as it is in the source. On Bun, the text can have a pair
 of brackets that the source does not have.
+
+### Aliases and export conditions
+
+ubq has no key for an alias of imports, such as `resolve.alias`
+of vite or the `paths` of a tsconfig. The tests load each import
+as the runtime loads it in production. Use a name that the
+runtime finds:
+
+- The `imports` key of `package.json`. Each name starts with `#`.
+  Node, Bun, Deno, and TypeScript (`"module": "nodenext"`) read
+  it:
+
+  ```json
+  { "imports": { "#lib/*": "./src/lib/*" } }
+  ```
+
+  ```ts
+  import { add } from '#lib/math.ts'
+  ```
+
+- A package of the workspace, with its name.
+- A relative path.
+
+For a custom export condition, such as a `source` condition that
+points to the TypeScript of the packages of a workspace, put the
+option in `NODE_OPTIONS` of the `env` key:
+`"env": { "NODE_OPTIONS": "--conditions=source" }`. Only Node reads
+it: on Bun and Deno, the tests load the other condition.
+
+A test file that imports the name of an alias does not load. The
+failure has a hint that names the config with the alias.
 
 ## Requirements
 
