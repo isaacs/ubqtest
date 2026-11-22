@@ -49,6 +49,10 @@ test('fixtures end with their test, and a failed test keeps its testdir', () => 
     '  > setTimeout(() => cleanup(() => {}), 5)',
     '  rerun: ubq fix.ts:49',
     '',
+    // The cleanup of the file ran after each test and its cleanups.
+    'LOG fix.ts',
+    '  | file cleanup true second first third',
+    '',
     'fail: 3 failed, 4 passed',
   ])
   // Only the folder of the failed test stays.

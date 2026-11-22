@@ -187,7 +187,10 @@ test('--repeat runs the tests many times and counts the failures of each test', 
 
   // A file error, after output at the top level of the file.
   appendFileSync(join(p.dir, 'flip.ts'), '\nconsole.log("load")\nthrow new Error("at load")\n')
-  assert.match(p.ubq('--repeat', '2', 'flip.ts').out, /^ERROR flip\.ts\n  failed 2 of 2 times\.\n  Error: at load\n/)
+  assert.match(
+    p.ubq('--repeat', '2', 'flip.ts').out,
+    /^LOG flip\.ts\n {2}\| load\n\nERROR flip\.ts\n {2}failed 2 of 2 times\.\n {2}Error: at load\n/,
+  )
 
   // A test that ends the process: the file error reports it.
   writeFileSync(

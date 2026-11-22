@@ -325,11 +325,16 @@ test('fails', () => {
 })
 `,
     )
-    // One file runs in the process of the runner.
+    // One file runs in the process of the runner. The console of the
+    // file shows also for a test that passes.
     const r = spawnSync('bun', [cli, 'logs.test.ts'], { cwd: p.dir, encoding: 'utf8', env: { ...process.env, CI: '' } })
     assert.deepEqual(
-      [r.stdout.includes('from a test that passes'), r.stderr, /^ {2}\| from a test that fails$/m.test(r.stdout)],
-      [false, '', true],
+      [
+        r.stdout.includes('LOG logs.test.ts > passes\n  | from a test that passes\n  | to stderr\n'),
+        r.stderr,
+        /^ {2}\| from a test that fails$/m.test(r.stdout),
+      ],
+      [true, '', true],
     )
     const rows = spawnSync('bun', [cli, 'sql', "select test, text from output where text like '%passes%'"], {
       cwd: p.dir,

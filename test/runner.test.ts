@@ -101,10 +101,16 @@ test('in CI, the first line states the runtime and the command', () => {
   assert.match(ubq(['pass.ts'], { CI: '1' }).out[0]!, /^ubq: node \S+, \S+ \S+, ubq pass\.ts$/)
 })
 
-test('a failed test shows its own console output, a passed test shows none', () => {
+test('a failed test shows its console output, and a passed test shows the output of the console of its file', () => {
   const r = ubq(['output.ts'])
   assert.equal(r.err, '')
   assert.deepEqual(r.out, [
+    'LOG output.ts',
+    '  | printed while the file loads',
+    '',
+    'LOG output.ts > passes and prints',
+    '  | from a test that passes',
+    '',
     'FAIL output.ts > fails and prints',
     '  expected values to be equal',
     '  at output.ts:14:10',
@@ -239,4 +245,76 @@ test('a closed stdout does not stop a run of many files', () => {
   const r = spawnSync(`node "${cli}" fail.ts pass.ts | node head.mjs`, { cwd: p.dir, encoding: 'utf8', shell: true })
   assert.deepEqual([r.stdout.split('\n').length, r.stderr], [3, ''])
   assert.equal(p.ubq('failures').last, 'fail: 15 failed, 5 passed, 1 skipped')
+})
+
+test('the console of a test file: a spy sees the code under test, and the output of the code stays hidden', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(
+    join(p.dir, 'parse.ts'),
+    "export const parse = (text: string): number => {\n  if (!text) console.error('empty text')\n  console.log('parsed', text)\n  return text.length\n}\n",
+  )
+  writeFileSync(
+    join(p.dir, 'a.test.ts'),
+    `import { assert, spyOn, test } from 'ubqtest'
+import { parse } from './parse.ts'
+test('a spy', () => {
+  const error = spyOn(console, 'error', () => {})
+  parse('')
+  assert.equal(error.calls.length, 1)
+  // The original of the spy is the global method: hidden.
+  spyOn(console, 'log')
+  parse('b')
+})
+test('logs no error', () => {
+  const error = spyOn(console, 'error')
+  parse('c')
+  assert.equal(error.calls.length, 0)
+})
+test('after the spies', () => {
+  console.error('own error')
+  globalThis.console.log('hidden')
+  // A method that the console of the file does not have.
+  assert.equal(console.profile, globalThis.console.profile)
+})
+`,
+  )
+  // A file with its own name console gets no import.
+  writeFileSync(
+    join(p.dir, 'b.test.ts'),
+    `import { Console } from 'node:console'
+import { assert, test } from 'ubqtest'
+const console = new Console(process.stdout)
+test('own console', () => {
+  console.log('from its own console')
+  assert(true)
+})
+`,
+  )
+  const r = p.ubq()
+  assert.equal(
+    r.out.replace(/ \(run \d+\)/, ''),
+    [
+      'LOG a.test.ts > after the spies',
+      '  | own error',
+      '',
+      "ubq does not show the console output of 4 tests that passed. The first: ubq show 'a.test.ts > a spy'",
+      'pass: 4 tests',
+      '',
+    ].join('\n'),
+  )
+  assert.equal(
+    p.ubq('b.test.ts').out.split('\n')[0],
+    "ubq does not show the console output of 1 test that passed. See it: ubq show 'b.test.ts > own console'",
+  )
+  // Outside the runner, the module is the global console.
+  const plain = spawnSync(
+    'node',
+    ['--input-type=module', '-e', "import c from 'ubqtest/console'\nc.log(c === console)"],
+    {
+      cwd: p.dir,
+      encoding: 'utf8',
+    },
+  )
+  assert.equal(plain.stdout, 'true\n')
 })

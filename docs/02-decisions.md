@@ -3696,3 +3696,36 @@ The answers to Q70 and Q71.
   value, the failure has a hint: `toEqual` passes for such a key,
   and the fix is to remove the key or add it with `undefined`. An
   element of an array is not a key, and gets no hint.
+
+## D134. The `console` of a test file shows also when the test passes (user, 2026-11-21)
+
+From the hermetic report: an agent added a `console.log` to a test,
+the test passed, and the agent saw nothing. A `console.log` in a
+test file is a choice of the person who wrote it. Most other
+output comes from the code under test, and stays hidden.
+
+- The runner adds `import console from 'ubqtest/console'` at the
+  end of each test file that uses `console` (an import loads before
+  the code of the file, so no line or column changes). It does not
+  add it to a file that is not a module, or that has its own name
+  `console`, or to a test file of workerd: the host of workerd puts
+  the file in a function.
+- That `console` writes `output` events with `print: true`. The
+  events go through the same capture as other output, so the order
+  stays. The text report shows the marked text of a test that
+  passes in a `LOG` block, and the marked text of the file while it
+  loads, before its first test. A failure block has all output.
+- The `console` of the test file is a proxy of the global console.
+  If a method of the global console is not the one it had at the
+  start (a spy, `console.log = fn`), the proxy gives the global
+  method: the test sees the calls of the code under test. `spyOn`
+  on the test file's console puts the spy on the global console,
+  and its original is the global method. A spy that does not catch
+  the calls of the code under test would let `assert.equal(
+  error.calls.length, 0)` pass with no check.
+- A passing run with other output of tests that passed has one
+  line: `ubq does not show the console output of 3 tests that
+  passed. The first: ubq show '<test id>'`. The first is in sort
+  order, so the line is the same in each run.
+- No stack trace for each call, and no config key.
+

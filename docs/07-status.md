@@ -456,6 +456,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - The `console` of a test file (D134): its output shows also
+    when the test passes, in a `LOG` block, and one line points to
+    the output of the code under test that a passing run hides.
   - The answers to Q70 and Q71 (D133): `assert.type<Actual,
     Expected>()`, which `ubq convert` writes for
     `toEqualTypeOf`, and a hint for a failure that is only keys
@@ -677,7 +680,11 @@ Selection and history:
   in the second run.
 - The store keeps the rows of a test file that is gone. `ubq
   covers` can name a test of such a file.
-- The output of a test that passes shows only in `ubq show`.
+- In workerd and in a CommonJS test file, the `console` of the
+  test file is the global console. Its output shows only for a
+  failure.
+- A test that replaces `globalThis.console` with a new object: the
+  `console` of the test file keeps the old object.
 
 Coverage:
 

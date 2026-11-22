@@ -336,6 +336,21 @@ export const prepareAll = (paths: string[]): void => {
   }
 }
 
+/** A name `console` that the file declares or imports. */
+const OWN_CONSOLE =
+  /\b(?:const|let|var|class|function)\s+console\b|\bimport\s+console\b|\bas\s+console\b|\bimport\s*(?:type\s+)?(?:\w+\s*,\s*)?\{[^}]*\bconsole\b/
+
+/**
+ * The text of a test file with an import of the `console` of test
+ * files (D134), if the file is a module that uses `console` and has
+ * no name `console` of its own. Imports load before the code of the
+ * file, so the import goes at the end: no line or column changes.
+ */
+export const withConsole = (source: string): string =>
+  /\bconsole\b/.test(source) && /(?:^|;)\s*import\s*[\w{*'"]/m.test(source) && !OWN_CONSOLE.test(source)
+    ? source.replace(/(\n\/\/# source\w*=[^\n]*\s*)?$/, "\n;import console from 'ubqtest/console'$1")
+    : source
+
 /**
  * Makes the collector for source counters. Returns undefined if the
  * process has a collector.
@@ -447,9 +462,13 @@ export const startCounters = (): Counters | undefined => {
       if (sources && sources.length < result.sources!.length) unread++
       shifts.set(file, result.shifts)
       const { imports, format } = result
+      // A process of the pool gets its test file after it starts. The
+      // host of workerd puts the test file in a function: no import.
+      const of = (text: string): string =>
+        file === process.env.UBQ_FILE && !process.env.UBQ_WORKERS_CONFIG ? withConsole(text) : text
       return result.js === undefined
-        ? { source: result.code, js: false, imports }
-        : { source: result.js, js: true, imports, format }
+        ? { source: of(result.code), js: false, imports }
+        : { source: of(result.js), js: true, imports, format }
     },
     transformed:
       // ubq: not measured: this module loads before the counters start

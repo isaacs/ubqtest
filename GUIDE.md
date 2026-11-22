@@ -609,8 +609,27 @@ run 12: ubq test/ (pid 4242, 31.0 s)
 test/cart.test.ts, 30.2 s: test/cart.test.ts > checkout sends the order, 29.8 s
 ```
 
-Console output of a test is captured. It shows only in the
-failure block of its test, and in `ubq show`.
+Console output of a test is captured. A failed test shows all of
+it in its failure block. The `console` of a test file shows also
+when the test passes, in a `LOG` block: a `console.log` in a test
+is a choice of the person who wrote it.
+
+```
+LOG test/parse.test.ts > reads the header
+  | { len: 12 }
+```
+
+The output of the code under test shows only for a failure, and
+in `ubq show`. If a passing run has such output, one line says so,
+with the `ubq show` command.
+
+- `globalThis.console.log` in a test file is hidden, as the output
+  of the code under test is.
+- `spyOn(console, 'error')` in a test file is a spy on the global
+  console: it sees the calls of the code under test.
+- In workerd, and in a CommonJS test file, the `console` of the
+  test file is the global console: its output shows only for a
+  failure.
 
 ## Tests in a browser
 

@@ -1,4 +1,5 @@
 // `spy` and `spyOn`. See docs/05-api.md, section 6.
+import { TEST_CONSOLE } from './capture.ts'
 import { cleanup } from './fixtures.ts'
 import { counted } from './counted.ts'
 
@@ -118,16 +119,19 @@ type MethodKeys<T> = { [K in keyof T]-?: T[K] extends AnyFn ? K : never }[keyof 
  * ```
  */
 export const spyOn = <T extends object, K extends MethodKeys<T>>(object: T, key: K, impl?: T[K]): Spy<T[K] & AnyFn> => {
-  const original = object[key]
+  // The console of a test file (D134): the spy is on the global
+  // console, which the code under test calls.
+  const owner = object === (globalThis as Record<symbol, unknown>)[TEST_CONSOLE] ? (globalThis.console as T) : object
+  const original = owner[key]
   if (typeof original !== 'function') throw new TypeError(`spyOn: ${String(key)} is not a function of the object`)
-  const own = Object.getOwnPropertyDescriptor(object, key)
+  const own = Object.getOwnPropertyDescriptor(owner, key)
   const replacement = spy((impl ?? original) as T[K] & AnyFn)
   cleanup(() => {
-    if (own) Object.defineProperty(object, key, own)
-    else delete object[key]
+    if (own) Object.defineProperty(owner, key, own)
+    else delete owner[key]
   })
   // The original can be on the prototype, or have no setter.
-  Object.defineProperty(object, key, {
+  Object.defineProperty(owner, key, {
     value: replacement,
     configurable: true,
     writable: true,

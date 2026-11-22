@@ -13,7 +13,8 @@
     "./workers": "./src/workers.ts",
     "./preload": "./src/preload.ts",
     "./bun-preload": "./src/bun-preload.ts",
-    "./counters-preload": "./src/counters-preload.ts"
+    "./counters-preload": "./src/counters-preload.ts",
+    "./console": "./src/console.ts"
   },
   "engines": {
     "node": ">=22.18"

@@ -213,3 +213,29 @@ test('hideCounters replaces toString one time, and keeps a function with no coun
   // A function of the copy has counters.
   assert(!made.call(originalColumn).includes('__ubqc'), made.call(originalColumn))
 })
+
+test('withConsole adds the import of the console of test files to a module that uses console', async () => {
+  const { withConsole }: typeof import('../src/counter-collector.ts') = await import(
+    '../src/counter-collector.ts?copy' as string
+  )
+  const add = "\n;import console from 'ubqtest/console'"
+  const file = "import { test } from 'ubqtest'\ntest('a', () => console.log(1))\n"
+  assert.equal(withConsole(file), file + add)
+  // After the counters of the first line.
+  assert.equal(withConsole(`__ubqc[0]++;${file}`), `__ubqc[0]++;${file}${add}`)
+  // Before a source map comment.
+  assert.equal(
+    withConsole(`${file}//# sourceMappingURL=a.map\n`),
+    `${file.trimEnd()}${add}\n//# sourceMappingURL=a.map\n`,
+  )
+  // No change: no console, no import (CommonJS), or a name console of its own.
+  for (const source of [
+    "import { test } from 'ubqtest'\n",
+    "const { test } = require('ubqtest')\nconsole.log(1)\n",
+    "import { test } from 'ubqtest'\nconst console = make()\n",
+    "import console from 'node:console'\n",
+    "import { Console, console } from 'x'\nconsole.log(1)\n",
+    "import { log as console } from 'x'\n",
+  ])
+    assert.equal(withConsole(source), source)
+})

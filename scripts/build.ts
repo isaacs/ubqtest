@@ -27,6 +27,7 @@ const entries = [
   'transform',
   'watchdog',
   'warm',
+  'console',
 ]
 
 // An `import` of `node:fs` or `node:util` makes Node run each lazy
@@ -118,6 +119,7 @@ const manifest = {
     './preload': './preload.js',
     './bun-preload': './bun-preload.js',
     './counters-preload': './counters-preload.js',
+    './console': './console.js',
   },
 }
 writeFileSync(new URL('package.json', dist), JSON.stringify(manifest, null, 2) + '\n')

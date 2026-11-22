@@ -73,6 +73,25 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
   const starts = new Map<TestId, Location | undefined>()
   const skips: string[] = []
   const output = new Map<TestId, string>()
+  /** Output of the `console` of the test file, for each test or file (D134). */
+  const printed = new Map<string, string>()
+  /** Tests with other output. */
+  const quiet = new Set<TestId>()
+  /** Tests that passed with output that the run does not show. */
+  const hidden: TestId[] = []
+  const log = (key: string): void => {
+    const text = printed.get(key)?.trimEnd()
+    printed.delete(key)
+    if (text)
+      write(
+        `LOG ${key}\n${indent(
+          text
+            .split('\n')
+            .map(l => `| ${l}`)
+            .join('\n'),
+        )}\n\n`,
+      )
+  }
   let ci = false
   let run: number | undefined
 
@@ -143,11 +162,15 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         break
       case 'test-start':
         starts.set(event.id, event.at)
+        // The output of the file while it loaded.
+        log(event.id.slice(0, event.id.indexOf(' > ')))
         break
       case 'output':
         // Text from outside a test is output of the file: it can
         // say why the file ended.
         output.set(event.id ?? event.file, (output.get(event.id ?? event.file) ?? '') + event.text)
+        if (event.print) printed.set(event.id ?? event.file, (printed.get(event.id ?? event.file) ?? '') + event.text)
+        else if (event.id) quiet.add(event.id)
         break
       case 'test-end':
         if (event.repeat) repeats.set(event.id, event.repeat)
@@ -155,6 +178,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
           row('FAIL', event.id, event.failure, rerunOf(event.id))
           if (shown()) block(`FAIL ${event.id}`, event.failure, event.id, event.repeat, event.kept)
         } else if (event.status === 'skip') skips.push(`skip ${event.id}: ${event.reason}`)
+        // A failure block has all of the output.
+        if (event.status === 'fail') printed.delete(event.id)
+        else {
+          log(event.id)
+          if (quiet.has(event.id)) hidden.push(event.id)
+        }
+        quiet.delete(event.id)
         output.delete(event.id)
         break
       case 'late-failure':
@@ -173,8 +203,10 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
             event.failure.message.startsWith('process.exit(') ? event.file : undefined,
             event.repeat,
           )
+        if (event.failure.message.startsWith('process.exit(')) printed.delete(event.file)
         break
       case 'file-end':
+        log(event.file)
         if (event.updated)
           write(counted`updated ${event.updated} snapshot|snapshots: ubq-snapshots/${event.file}.snap\n`)
         break
@@ -208,6 +240,10 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (failures > FAILURES && !ci && !all) write(counted`and ${failures - FAILURES} more failure|failures.\n`)
         if (typeErrors > TYPE_ERRORS && !all) write(counted`and ${typeErrors - TYPE_ERRORS} more type error|errors.\n`)
         if (skips.length) write(skips.join('\n') + '\n')
+        if (hidden.length && !all)
+          write(
+            counted`ubq does not show the console output of ${hidden.length} test|tests that passed. ${hidden.length > 1 ? 'The first' : 'See it'}: ubq show ${shellArg(hidden.sort()[0]!)}\n`,
+          )
         // A pass has no failure to count. A run of only skips has
         // only that count.
         const parts = event.code

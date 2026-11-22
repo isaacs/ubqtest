@@ -170,6 +170,8 @@ export interface Output {
   id?: TestId
   stream: 'stdout' | 'stderr'
   text: string
+  /** True for text from the `console` of the test file: it shows also when the test passes. */
+  print?: true
 }
 
 /** Code that ran since the last coverage event of this process. */
