@@ -521,7 +521,7 @@ ${list('use')}
 - [Design documents](docs/README.md): the decisions, the
   measurements, and the status of the work.
 
-## If you are an agent
+## Documents for agents
 
 Each page is also a markdown file: \`<page>.md\`. The index of the
 documents is [llms.txt](/llms.txt). All the user documentation is in
@@ -554,9 +554,9 @@ write(
 
 > ubq is a test tool for TypeScript and JavaScript, made for coding agents and the people who work with them. The package is \`ubqtest\`. The command is \`ubq\`. It runs on Node 22.18 or later, Bun 1.4 or later, and Deno. This index is for version ${pkg.version}.
 
-Each page of this site is also a markdown file: \`<page>.md\`. In a project that has the package, \`npx ubq guide\` prints the guide for the installed version. Use that text if it is available, because it is correct for that version.
+Each page of this site is also a markdown file: \`<page>.md\`. In a project that has the package, \`npx ubq guide\` prints the guide for the installed version. That text is correct for that version.
 
-ubq has no \`it\`, no \`expect\`, no hooks, and no \`.only\`. Read the guide before you write a test.
+ubq has no \`it\`, no \`expect\`, no hooks, and no \`.only\`. The guide has the API and its rules.
 
 ## Documentation
 
