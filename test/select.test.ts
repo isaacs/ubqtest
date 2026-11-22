@@ -1,7 +1,9 @@
 // Selection of tests: by ID, and by the result of the last run.
-import { appendFileSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
-import { assert, test } from 'ubqtest'
+import { fileURLToPath } from 'node:url'
+import { assert, cleanup, test } from 'ubqtest'
 import { project } from './setup.ts'
 
 test('a test ID selects one test, and a group ID selects its tests', () => {
@@ -174,6 +176,63 @@ test('a wrong ubq key in package.json is an error that names the keys', () => {
       'ubq: "ubq.define" in package.json must be an object of names and JSON values, such as { "__DEBUG_BUILD__": true }. Each name is a global name: a dot is not permitted\n',
     ])
   rmSync(p.dir, { recursive: true })
+})
+
+test('the workspaces run at the same time, and share the slots of one run', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ type: 'module', workspaces: ['packages/*'] }))
+  const slots = availableParallelism() + 1
+  const log = join(p.dir, 'log.txt')
+  // With no shared slots, each workspace would run this many files
+  // at the same time. The files end at different times: a slot that
+  // a gives back goes to b while other files of a still run.
+  for (const name of ['a', 'b']) {
+    mkdirSync(join(p.dir, 'packages', name), { recursive: true })
+    writeFileSync(join(p.dir, 'packages', name, 'package.json'), JSON.stringify({ name, type: 'module' }))
+    for (let i = 0; i < slots; i++)
+      writeFileSync(
+        join(p.dir, 'packages', name, `t${i}.test.ts`),
+        `import { appendFileSync } from 'node:fs'
+import { assert, test } from 'ubqtest'
+test('t', async () => {
+  appendFileSync(${JSON.stringify(log)}, '+ ${name} ' + Date.now() + '\\n')
+  await new Promise(resolve => setTimeout(resolve, ${300 + i * 100}))
+  appendFileSync(${JSON.stringify(log)}, '- ${name} ' + Date.now() + '\\n')
+  assert(true)
+})
+`,
+      )
+  }
+  // A workspace with a type check: the checker holds a slot too.
+  const c = join(p.dir, 'packages', 'c')
+  mkdirSync(join(c, 'lib'), { recursive: true })
+  mkdirSync(join(c, 'node_modules'))
+  writeFileSync(join(c, 'package.json'), JSON.stringify({ name: 'c', type: 'module' }))
+  writeFileSync(join(c, 'lib/n.ts'), 'export const n: number = 1\n')
+  writeFileSync(join(c, 'one.test.ts'), "import { assert, test } from 'ubqtest'\ntest('one', () => assert(true))\n")
+  writeFileSync(join(c, 'tsconfig.json'), JSON.stringify({ compilerOptions: { noEmit: true }, include: ['lib'] }))
+  const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
+  symlinkSync(join(modules, 'typescript'), join(c, 'node_modules/typescript'), 'junction')
+  const r = p.ubq()
+  assert.equal(r.last, 'workspaces: 3 passed', r.out)
+  const events = readFileSync(log, 'utf8')
+    .trim()
+    .split('\n')
+    .map(line => line.split(' '))
+    .map(([sign, name, at]) => ({ sign, name, at: +at! }))
+  // At the same time, an end comes before a start.
+  events.sort((x, y) => x.at - y.at || (x.sign === '-' ? -1 : 1))
+  let most = 0
+  const running = { a: 0, b: 0 }
+  let both = false
+  for (const { sign, name } of events) {
+    running[name as 'a' | 'b'] += sign === '+' ? 1 : -1
+    most = Math.max(most, running.a + running.b)
+    both ||= running.a > 0 && running.b > 0
+  }
+  assert.lessThanOrEqual(most, slots)
+  assert(both, 'the files of a and b ran at the same time')
 })
 
 test('at the root of a monorepo with no tests, ubq runs each workspace', () => {

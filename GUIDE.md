@@ -1045,7 +1045,10 @@ that Node cannot run". A folder
 with its own `package.json` is a different project: run `ubq` in
 that folder. At the root of a monorepo with no tests of its own,
 `ubq` runs each workspace: the folders of `workspaces` in
-`package.json`, or of `packages` in `pnpm-workspace.yaml`.
+`package.json`, or of `packages` in `pnpm-workspace.yaml`. The
+workspaces run at the same time, and their test files share the
+processes of one run. The output of each workspace is in the order
+of the list.
 
 Build output and build tools are not source of the program. `ubq
 uncovered` does not list them. With no `build` key, they are the

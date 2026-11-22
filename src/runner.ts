@@ -37,6 +37,7 @@ import { type TestProcess, warmProcess } from './pool.ts'
 import { debugProcess, GRACE_MS, pausedStack, STOPPED, stuckMessage } from './probe.ts'
 import { projectRoot, rel } from './project.ts'
 import { textSink } from './sink-text.ts'
+import { colors } from './color.ts'
 import { type Checking, ownTypeErrors, TYPES } from './plain.ts'
 import { startBrowserServer } from './browser-server.ts'
 import { OWN_CONFIG, tsOptions } from './tsconfig.ts'
@@ -46,6 +47,7 @@ import { headCommit } from './git.ts'
 import { hangReruns } from './hang.ts'
 import { repeater } from './repeat.ts'
 import { shuffle } from './shuffle.ts'
+import { rootSlots, serveSlots } from './slots.ts'
 import { fileHash, openStore, pruneSources, stateDir, storedSource, type Store } from './store.ts'
 import { statusSink } from './status.ts'
 import { withSince } from './since.ts'
@@ -764,25 +766,64 @@ export const workspaces = (): string[] => {
 }
 
 /**
- * Runs the command in each workspace, one after the other. Each
- * workspace has its own store, and the paths of its report are
- * from its own folder.
+ * Runs the command in each workspace, all at the same time (D140).
+ * They share the slots of one run. Each workspace has its own store,
+ * and the paths of its report are from its own folder. The output
+ * of each workspace is in the order of the list: the first one that
+ * has not ended prints as it runs, and the others wait in memory.
  */
-const runWorkspaces = (folders: string[], args: string[]): number => {
+const runWorkspaces = async (folders: string[], args: string[]): Promise<number> => {
+  const slots = await serveSlots(availableParallelism() + 1)
   const failed: string[] = []
   let ran = 0
-  for (const folder of folders) {
-    process.stdout.write(`workspace ${folder}:\n`)
-    const r = spawnSync(
-      process.execPath,
-      // ubq: not measured: the tests run the command line on Node
-      [...(process.versions.deno ? ['run', '-A'] : []), process.argv[1]!, ...args],
-      { cwd: join(projectRoot(), folder), stdio: 'inherit' },
-    )
-    // Exit code 2: the workspace has no tests.
-    if (r.status !== 2) ran++
-    if (r.status !== 0 && r.status !== 2) failed.push(folder)
+  /** The output of each workspace that does not print yet. */
+  const waiting = folders.map(() => [] as [NodeJS.WriteStream, Buffer][])
+  const codes: (number | null | undefined)[] = folders.map(() => undefined)
+  let shown = 0
+  const show = (at: number, to: NodeJS.WriteStream, data: Buffer): void =>
+    void (at === shown ? to.write(data) : waiting[at]!.push([to, data]))
+  const next = (): void => {
+    for (; shown < folders.length; shown++) {
+      process.stdout.write(`workspace ${folders[shown]}:\n`)
+      for (const [to, data] of waiting[shown]!.splice(0)) to.write(data)
+      if (codes[shown] === undefined) return
+    }
   }
+  next()
+  await Promise.all(
+    folders.map(
+      (folder, at) =>
+        new Promise<void>(resolve => {
+          const child = spawn(
+            process.execPath,
+            // ubq: not measured: the tests run the command line on Node
+            [...(process.versions.deno ? ['run', '-A'] : []), process.argv[1]!, ...args],
+            {
+              cwd: join(projectRoot(), folder),
+              stdio: ['ignore', 'pipe', 'pipe'],
+              // The output goes through a pipe: it keeps the colors
+              // of a terminal.
+              env: { ...process.env, UBQ_SLOTS: String(slots.port), ...(colors() && { UBQ_COLOR: '1' }) },
+            },
+          )
+          child.stdout.on('data', (data: Buffer) => show(at, process.stdout, data))
+          child.stderr.on('data', (data: Buffer) => show(at, process.stderr, data))
+          child.on('close', code => {
+            codes[at] = code
+            // Exit code 2: the workspace has no tests.
+            if (code !== 2) ran++
+            if (code !== 0 && code !== 2) failed.push(folder)
+            if (at === shown) {
+              shown++
+              next()
+            }
+            resolve()
+          })
+        }),
+    ),
+  )
+  slots.close()
+  failed.sort((a, b) => folders.indexOf(a) - folders.indexOf(b))
   process.stdout.write(
     failed.length
       ? `workspaces: ${failed.length} of ${ran} failed: ${failed.join(', ')}. Run ubq in the folder of a workspace for its tests.\n`
@@ -796,6 +837,8 @@ export const run = async (args: string[]): Promise<number> => {
   // A wrong configuration is an error of the command, before any
   // test process starts.
   config()
+  /** The slots of the root run, in the run of a workspace (D140). */
+  const slots = rootSlots()
   let repeat = 0
   let selection = args
   const at = args.indexOf('--repeat')
@@ -857,7 +900,7 @@ export const run = async (args: string[]): Promise<number> => {
   // is a project, and gets its own run of the command.
   if (!rest.length) {
     const folders = workspaces()
-    if (folders.length && !select([]).length) return runWorkspaces(folders, args)
+    if (folders.length && !select([]).length) return await runWorkspaces(folders, args)
   }
   let files: Selected[]
   if (flags.length) {
@@ -945,9 +988,17 @@ export const run = async (args: string[]): Promise<number> => {
   // The user named what to run. The type errors of files that the
   // run does not use are counted, and do not fail it (D49).
   if (checking) checking.partial = rest.length > 0 || flags.length > 0
+  // In the run of a workspace, the type checker uses a slot too. It
+  // started already: it holds the slot from when it gets one.
+  if (checking && slots) {
+    const give = (): void => slots.give()
+    void slots.take().then(() => checking.errors.then(give, give))
+  }
 
   // One file runs in this process. It has the runner role for itself.
   if (lone) {
+    // Its slot goes back when the process ends.
+    await slots?.take()
     // The runner role of the library waits for the type check.
     if (checking) (globalThis as { [TYPES]?: Checking })[TYPES] = checking
     const { file, lines, ids } = files[0]!
@@ -1089,8 +1140,10 @@ export const run = async (args: string[]): Promise<number> => {
             })
             continue
           }
+          await slots?.take()
           started?.start(next.file)
           await runFile(next, to, cacheDir, update, {}, limit.signal)
+          slots?.give()
         }
       }),
     )

@@ -472,6 +472,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     (D139). On Bun, Deno, and workerd, a named import of such a
     function does not count: their `syncBuiltinESMExports` does
     not change it.
+  - The workspaces of a monorepo run at the same time (D140), and
+    share the slots of one run.
   - The guide is a core and topics (D138): `ubq guide` prints the
     core, about 500 lines, and the list of topics. `ubq guide
     <topic>` prints one, and `ubq guide all` prints all.
@@ -639,10 +641,6 @@ Each idea waits for a real project that needs it (D60).
   run.
 - A seeded random source, with the seed in the failure report.
 - A check of globals, for each test or for each test file.
-- Workspaces in parallel. At a monorepo root, `ubq` runs each
-  workspace one after the other. hermetic (two packages): 9.0 s,
-  and 7.7 s for vitest (report of 0.0.29). The user wants to
-  discuss it.
 
 ## Not done, and known limits
 

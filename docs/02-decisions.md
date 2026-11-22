@@ -3838,3 +3838,40 @@ exists to stop.
   does not have it). A call through the module object counts.
 - `ubq review` lists a new `assert` of a constant as `cannot fail`.
 
+## D140. The workspaces of a monorepo run at the same time (user, 2026-11-22)
+
+The report of 0.0.29: at the root of hermetic (two packages), ubq
+took 9.0 s, and vitest 7.7 s. ubq ran the workspaces one after the
+other. The user's goal is a project of the size of
+sentry-javascript: an Nx monorepo with many packages.
+
+- The root `ubq` starts the run of each workspace at the same time.
+- The runs share the slots of one run: the count of the CPUs, plus
+  one (D107). The root holds them on a local TCP socket, and gives
+  each run the port in `UBQ_SLOTS`. A run takes a slot before each
+  test file, and gives it back when the file ends. A run that ends
+  gives back its slots when its socket closes. A run of one file
+  in its own process holds one slot.
+- A fixed share for each run is worse: when a short run ends, its
+  slots would wait while a long run goes on with fewer.
+- The type checker of a workspace holds a slot from when it gets
+  one. It starts before that, so for a short time it can be over
+  the count.
+- The slots go in the order of the requests. The first workspace
+  can take all of them. That does not change the time of the
+  whole run, and its output shows first.
+- The output of each workspace is in the order of the list, so it
+  is the same in each run. The first workspace that has not ended
+  prints as it runs. The output of the others waits in memory, and
+  prints when its turn comes.
+- The output of a run of a workspace goes through a pipe. If the
+  root is at a terminal, it sets `UBQ_COLOR` for the run, which
+  keeps the colors. A run removes `UBQ_COLOR` and `UBQ_SLOTS` from
+  its environment, so a test process does not get them.
+- No key turns it off. Each workspace runs its test files at the
+  same time already, so its tests cannot share state. Two
+  workspaces that use the same port or database can now clash: if a
+  project has that problem, a key can come then.
+- Measured on a fixture of two workspaces (60 and 12 files): 1.96 s
+  before, 1.84 s now.
+
