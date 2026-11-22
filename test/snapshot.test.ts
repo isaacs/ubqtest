@@ -25,10 +25,7 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
   ])
   assert.equal(existsSync(snap), false)
 
-  assert.deepEqual(out('--update', 'snap.ts'), [
-    'updated 3 snapshots: ubq-snapshots/snap.ts.snap',
-    'pass: 0 failed, 2 passed',
-  ])
+  assert.deepEqual(out('--update', 'snap.ts'), ['updated 3 snapshots: ubq-snapshots/snap.ts.snap', 'pass: 2 tests'])
   assert.equal(
     readFileSync(snap, 'utf8'),
     [
@@ -60,9 +57,9 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
       '',
     ].join('\n'),
   )
-  assert.deepEqual(out('snap.ts'), ['pass: 0 failed, 2 passed'])
+  assert.deepEqual(out('snap.ts'), ['pass: 2 tests'])
   // An update with no change writes nothing.
-  assert.deepEqual(out('--update', 'snap.ts'), ['pass: 0 failed, 2 passed'])
+  assert.deepEqual(out('--update', 'snap.ts'), ['pass: 2 tests'])
 
   // The values change.
   env({ SNAP_TEXT: 'two' })
@@ -92,7 +89,7 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
   // An update of one test keeps the snapshots of the other tests.
   assert.deepEqual(out('--update', 'snap.ts > text'), [
     'updated 1 snapshot: ubq-snapshots/snap.ts.snap',
-    'pass: 0 failed, 1 passed, 1 not selected',
+    'pass: 1 test, 1 not selected',
   ])
   assert.match(readFileSync(snap, 'utf8'), /a: 'one',[^]*\nexports\[`text 1`\] = `\ntwo\n`\n$/)
   assert.equal(p.ubq('snap.ts').last, 'fail: 1 failed, 1 passed')
@@ -101,7 +98,7 @@ test('a snapshot fails until --update writes it, and then compares text', () => 
     p.ubq('--update', 'snap.ts', 'flip.ts').out.split('\n')[0],
     'updated 2 snapshots: ubq-snapshots/snap.ts.snap',
   )
-  assert.equal(p.ubq('snap.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('snap.ts').last, 'pass: 2 tests')
 
   // A test that the file no longer has loses its snapshots.
   writeFileSync(
@@ -138,20 +135,20 @@ test('a snapshot file with CRLF line ends, and a value with a CR', () => {
     "import { assert, test } from 'ubqtest'\ntest('t', () => {\n  assert.snapshot('a\\r\\nb\\rc \\\\r')\n  assert.snapshot('one\\ntwo')\n})\n",
   )
   const snap = join(p.dir, 'ubq-snapshots/crlf.ts.snap')
-  assert.equal(p.ubq('--update', 'crlf.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('--update', 'crlf.ts').last, 'pass: 1 test')
   // A CR of a value is an escape in the file.
   const text = readFileSync(snap, 'utf8')
   assert.equal(text.split('exports[`t 1`] = `\n')[1]?.split('\n`\n')[0], 'a\\r\nb\\rc \\\\r')
-  assert.equal(p.ubq('crlf.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('crlf.ts').last, 'pass: 1 test')
   // Git on Windows can check the file out with CRLF line ends.
   writeFileSync(snap, text.replaceAll('\n', '\r\n'))
-  assert.equal(p.ubq('crlf.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('crlf.ts').last, 'pass: 1 test')
   assert.equal(
     p
       .ubq('--update', 'crlf.ts')
       .out.split('\n')[0]
       ?.replace(/ \(run \d+[^)]*\)$/, ''),
-    'pass: 0 failed, 1 passed',
+    'pass: 1 test',
   )
 })
 
@@ -172,9 +169,9 @@ test('ubq --update with no file writes the snapshots of all tests', () => {
   const all = p.ubq('--update')
   assert.deepEqual(
     [all.out.split('\n')[0], all.last],
-    ['updated 1 snapshot: ubq-snapshots/b.test.ts.snap', 'pass: 0 failed, 2 passed'],
+    ['updated 1 snapshot: ubq-snapshots/b.test.ts.snap', 'pass: 2 tests'],
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq().last, 'pass: 2 tests')
 })
 
 test('the message of a snapshot assertion is in its key', () => {
@@ -189,7 +186,7 @@ test('the message of a snapshot assertion is in its key', () => {
   write(
     "  assert.snapshot('A', 'a*b')\n  assert.snapshot('C', 'line\\n  two')\n  assert.snapshot('D')\n  assert.snapshot('E', 'a*b')\n",
   )
-  assert.equal(p.ubq('--update', 'msg.test.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('--update', 'msg.test.ts').last, 'pass: 2 tests')
   const snap = join(p.dir, 'ubq-snapshots/msg.test.ts.snap')
   const keys = () => [...readFileSync(snap, 'utf8').matchAll(/^exports\[`(.*)`\]/gm)].map(m => m[1])
   assert.deepEqual(keys(), ['t > a*b 1', 't > a*b 2', 't > line two 1', 't 1', 'u > u 1'])
@@ -201,6 +198,6 @@ test('the message of a snapshot assertion is in its key', () => {
   assert.match(out, /no snapshot for this assertion \(t > new 1\)/)
   assert.match(out, /fail: 1 failed, 1 passed/)
   // An update of one test keeps the entries of the other test.
-  assert.equal(p.ubq('--update', 'msg.test.ts > t').last, 'pass: 0 failed, 1 passed, 1 not selected')
+  assert.equal(p.ubq('--update', 'msg.test.ts > t').last, 'pass: 1 test, 1 not selected')
   assert.deepEqual(keys(), ['t > a*b 1', 't > a*b 2', 't > line two 1', 't > new 1', 't 1', 'u > u 1'])
 })

@@ -20,7 +20,7 @@ import { join, matchesGlob, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { config, UsageError } from './config.ts'
+import { config, nodeOptions, UsageError } from './config.ts'
 import { placeFromCache, prepareAll, transformer } from './counter-collector.ts'
 import { uncoveredRanges } from './query.ts'
 import { startCoverage } from './coverage.ts'
@@ -488,7 +488,8 @@ export const runFile = async (
   env: Record<string, string> = {},
   limit?: AbortSignal,
 ): Promise<void> => {
-  const base = { ...process.env, NODE_COMPILE_CACHE: cacheDir }
+  const options = nodeOptions()
+  const base = { ...process.env, NODE_COMPILE_CACHE: cacheDir, ...(options && { NODE_OPTIONS: options }) }
   const job = {
     UBQ_CHILD: '1',
     UBQ_CAPTURE: '1',
@@ -909,7 +910,8 @@ export const run = async (args: string[]): Promise<number> => {
 
   // Each run of a TypeScript project also checks the types (D38).
   // A Workers test file cannot load in this process.
-  const lone = files.length === 1 && !repeat && !baselineRef && !workersConfig(files[0]!.file)
+  // This process started with no `NODE_OPTIONS` of the `env` key.
+  const lone = files.length === 1 && !repeat && !baselineRef && !workersConfig(files[0]!.file) && !nodeOptions()
   // A project with no cache of source with counters: a new copy of
   // the project, or a job in CI. One process makes the cache, before
   // the test processes start.

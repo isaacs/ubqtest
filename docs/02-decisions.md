@@ -3627,3 +3627,45 @@ the first three items.
 - Not changed: the trim of a snapshot message (`' hasMagic'`), and
   the TODO for assertions next to tests at the top level
   (`merge-rows.ts`).
+
+## D132. The hermetic report on 0.0.23: function text, NODE_OPTIONS, the pass line, and convert (user, 2026-11-21)
+
+From `docs/25-hermetic-feedback-0.0.23.md`, and the notes of the
+user on it.
+
+- The text of a function has no coverage counters. The library
+  replaces `Function.prototype.toString` in each process that
+  counts (Node, Bun, Deno, workerd). The new function removes the
+  text that the instrumenter adds: each counter, and each bracket,
+  which has the mark `/*__ubqc*/`. Code that reads the text of a
+  function, or runs it in a sandbox, a worker, `new Function`, or
+  a page, gets the source. On Node and Deno the text is the text
+  of the source. Bun prints the code again with no comments, so a
+  pair of brackets stays. The user chose this over an opt-out of
+  coverage: coverage stays on, and the code under test sees no
+  change. `prepareContext` of `ubqtest/browser` is not necessary
+  now, and stays for tests that call it. The `toString` of a
+  different realm (`node:vm`, an iframe) still gives the counters,
+  and the error `__ubqc is not defined` has a hint for it.
+- `NODE_OPTIONS` in the `env` key goes after the `NODE_OPTIONS` of
+  the shell, for each test process: ubq adds its own option to
+  that value, and a project can have its own, such as
+  `--conditions=source`. A run of one file then runs in a test
+  process, not in the process of the runner, which started with
+  no such option.
+- A passing run prints `pass: 12 tests`, not `pass: 0 failed, 12
+  passed`. A run of only skips prints `pass: 2 skipped`. A failed
+  run keeps all counts.
+- `ubq convert`:
+  - gives a new name to a name of the file that hides a name of
+    the ubqtest import (`test` becomes `testCase`, `spy` becomes
+    `spyFn`). If the file also has that name from the old tool, a
+    TODO says to change it by hand.
+  - keeps the import of the old tool for the names that code
+    under a TODO still uses (`expectTypeOf`, `it.each`), so the
+    file loads.
+  - prints a note for `test.setupFiles` of a vitest config.
+- The convert guide shows how to give the `RuleTester` of ESLint
+  the functions of ubq.
+- Open: a type assertion in place of `expectTypeOf` (Q70), and
+  `toEqual`, which ignores a key with the value `undefined` (Q71).

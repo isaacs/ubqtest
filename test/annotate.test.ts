@@ -152,7 +152,7 @@ test('a run in GitHub Actions writes a summary of the step: the result, and a ta
   const second = readFileSync(file, 'utf8').split('### ')[2]!
   assert.match(
     second,
-    /^ubq: pass: 0 failed, 1 passed \(run 2\)\n\n- 1 range of code in the files of this run ran in no test: `ubq uncovered`\n\n$/,
+    /^ubq: pass: 1 test \(run 2\)\n\n- 1 range of code in the files of this run ran in no test: `ubq uncovered`\n\n$/,
   )
   // A second print of stored failures writes no summary.
   const before = readFileSync(file, 'utf8')

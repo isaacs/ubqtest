@@ -70,7 +70,7 @@ test('a server that the test stops', async () => {
 })
 `,
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq().last, 'pass: 3 tests')
   assert.deepEqual(lines(p.ubq('uncovered').out), [
     "lib/greet.ts:1:62  ? 'no'",
     'lib/greet.ts:2:22  (): number => 0',
@@ -113,6 +113,6 @@ test('the command on bun', () => {
 })
 `,
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   assert.deepEqual(lines(p.ubq('covers', 'lib/cli.ts:7').out), ['test/bun.test.ts > the command on bun'])
 })

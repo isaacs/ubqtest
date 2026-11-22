@@ -50,23 +50,23 @@ const NOTE =
 
 test('runs on two runtimes in one project fold together', { skip: !bun && 'bun is not installed' }, () => {
   const p = make()
-  assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+  assert.deepEqual(p.run('node'), ['pass: 1 test'])
   assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered range in 1 of the 1 file that tests ran', NOTE])
-  assert.deepEqual(p.run('bun'), ['pass: 0 failed, 1 passed'])
+  assert.deepEqual(p.run('bun'), ['pass: 1 test'])
   // The run on Bun replaced the coverage of the test. The run on Node stays.
   const both = ['uncovered: none']
   assert.deepEqual(p.run('node', 'uncovered'), both)
-  assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+  assert.deepEqual(p.run('node'), ['pass: 1 test'])
   assert.deepEqual(p.run('node', 'uncovered'), both)
   // Coverage of a different content of a file does not count.
   appendFileSync(join(p.dir, 'lib/where.ts'), '// a change\n')
-  assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+  assert.deepEqual(p.run('node'), ['pass: 1 test'])
   assert.deepEqual(p.run('node', 'uncovered'), [BUN, '1 uncovered range in 1 of the 1 file that tests ran', NOTE])
 })
 
 test('merge adds the coverage of the store of a second copy of the project', () => {
   const p = make()
-  assert.deepEqual(p.run('node'), ['pass: 0 failed, 1 passed'])
+  assert.deepEqual(p.run('node'), ['pass: 1 test'])
   // A copy with no runs, as a CI job that only merges.
   const copy = `${p.dir}-copy`
   cleanup(() => rmSync(copy, { recursive: true, force: true }))

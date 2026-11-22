@@ -101,10 +101,7 @@ vim.cmd('qa!')
     encoding: 'utf8',
     timeout: 40_000,
   })
-  assert.deepEqual(JSON.parse(run.stdout), [
-    'LSP[ubq] ubq run a.test.ts > positive',
-    'LSP[ubq] pass: 0 failed, 1 passed (run 2)',
-  ])
+  assert.deepEqual(JSON.parse(run.stdout), ['LSP[ubq] ubq run a.test.ts > positive', 'LSP[ubq] pass: 1 test (run 2)'])
 
   // :UbqTests goes to the tests that ran the code of the cursor: to
   // the test if there is one, else to a list of them.

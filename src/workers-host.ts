@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url'
 import { init, parse as parseCommonJs } from 'cjs-module-lexer'
 import { config } from './config.ts'
 import { startCounters } from './counter-collector.ts'
-import { COLUMN, COUNTERS } from './counters.ts'
+import { COLUMN, COUNTERS, hideCounters } from './counters.ts'
 import type { Collector } from './coverage.ts'
 import type { Coverage, UbqEvent } from './events.ts'
 import { projectRoot, rel } from './project.ts'
@@ -391,6 +391,7 @@ const RUNNER = 'UbqTestRunner'
 // the Worker. The collector gives the counts to the test API,
 // which sends them to this process: it has the regions.
 const SETUP = `
+;(${hideCounters})()
 const counters = new Map()
 globalThis[Symbol.for(${JSON.stringify(COUNTERS)})] = {
   get(file, size) {

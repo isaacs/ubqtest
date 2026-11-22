@@ -14,7 +14,7 @@ const runtimes: [string, string[]][] = [
   ['bun', []],
 ]
 const cases: [file: string, code: number, summary: string][] = [
-  ['pass', 0, 'pass: 0 failed, 5 passed, 1 skipped'],
+  ['pass', 0, 'pass: 5 tests, 1 skipped'],
   ['fail', 1, 'fail: 15 failed, 0 passed'],
   ['empty', 2, 'fail: 0 failed, 0 passed'],
   ['load-error', 1, 'fail: 2 errors, 0 failed, 2 passed'],

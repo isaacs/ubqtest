@@ -4,7 +4,8 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { assert, test } from 'ubqtest'
+import { runInNewContext } from 'node:vm'
+import { assert, cleanup, test } from 'ubqtest'
 import { fixtures, resetStore } from './setup.ts'
 
 const cwd = `${fixtures}diff/`
@@ -28,7 +29,7 @@ interface Answers {
 
 const answers = (preload: string): Answers => {
   resetStore(cwd)
-  assert.match(sh('--import', `ubqtest/${preload}`, 'test/flow.test.ts'), /^pass: 0 failed, 13 passed/m)
+  assert.match(sh('--import', `ubqtest/${preload}`, 'test/flow.test.ts'), /^pass: 13 tests/m)
   const uncovered = new Set<number>()
   for (const line of sh(cli, 'uncovered', FILE).split('\n')) {
     const m = /^[^:]+:(\d+):\d+ .*?(?: \(\+(\d+) lines\))?$/.exec(line)
@@ -95,7 +96,7 @@ test('the cache holds the changed source, and a second run reads it', () => {
   const files = readdirSync(dir)
   // The source file and the test file.
   assert.equal(files.length, 2)
-  assert.match(sh('--import', 'ubqtest/counters-preload', 'test/flow.test.ts'), /^pass: 0 failed, 13 passed/m)
+  assert.match(sh('--import', 'ubqtest/counters-preload', 'test/flow.test.ts'), /^pass: 13 tests/m)
   assert.deepEqual(readdirSync(dir), files)
   resetStore(cwd)
 })
@@ -144,4 +145,71 @@ test('an arrow function with one type parameter parses in a .tsx file', async ()
     body.map(n => n.declarations[0]!.init.type),
     ['ArrowFunctionExpression', 'JSXElement'],
   )
+})
+
+// This file has counters, so its functions have them too.
+const pick = (n: number) => (n > 0 ? 'a' : n || 'b')
+function first(list: number[]) {
+  for (const n of list) if (n) return n
+  if (list.length) return 1
+  else return 0
+}
+class Box {
+  value = 1
+  static of(n = 1) {
+    return n ?? 2
+  }
+}
+
+test('the text of a function has no counters, and it runs in a place that has none', () => {
+  for (const fn of [pick, first, Box, Box.of]) assert(!String(fn).includes('__ubqc'), String(fn))
+  assert.equal(new Function(`return (${pick})(1)`)(), 'a')
+  assert.equal(new Function(`return (${first})([0, 3])`)(), 3)
+  // The function looks like one of the runtime.
+  const real = (name: string): string => String(Math.max).replace('max', name)
+  assert.equal(String(Function.prototype.toString), real('toString'))
+  assert.equal(Function.prototype.toString.name, 'toString')
+  assert(!('prototype' in Function.prototype.toString))
+})
+
+test(
+  'the text of a function is its text in the source',
+  { skip: !!(process.versions.bun || process.versions.deno) && 'Bun and Deno print the code again' },
+  () => {
+    const own = readFileSync(fileURLToPath(import.meta.url), 'utf8').replace(/: number(\[\])?/g, m =>
+      ' '.repeat(m.length),
+    )
+    for (const fn of [pick, first, Box, Box.of]) assert(own.includes(String(fn)), String(fn))
+  },
+)
+
+test('hideCounters replaces toString one time, and keeps a function with no counters as it is', async () => {
+  // A copy of the module, which has counters: the library loaded the
+  // module before the counters started.
+  const { hideCounters, originalColumn }: typeof import('../src/counters.ts') = await import(
+    '../src/counters.ts?copy' as string
+  )
+  const key = Symbol.for('ubqtest.toString')
+  const shared = globalThis as Record<symbol, unknown>
+  const now = Function.prototype.toString
+  cleanup(() => {
+    Function.prototype.toString = now
+    shared[key] = true
+  })
+  // With the mark, a second call changes nothing.
+  hideCounters()
+  assert.equal(Function.prototype.toString, now)
+  // The toString of a different realm shows the counters.
+  const raw = runInNewContext('Function.prototype.toString') as typeof now
+  Function.prototype.toString = raw
+  delete shared[key]
+  hideCounters()
+  const made = Function.prototype.toString
+  assert.notEqual(made, raw)
+  assert.equal(made.call(made), now.call(Math.max).replace('max', 'toString'))
+  // Text with no counters stays as it is.
+  const plain = new Function('a', 'return a ? 1 : 2')
+  assert.equal(made.call(plain), now.call(plain))
+  // A function of the copy has counters.
+  assert(!made.call(originalColumn).includes('__ubqc'), made.call(originalColumn))
 })

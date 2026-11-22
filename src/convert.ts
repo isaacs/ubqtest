@@ -466,6 +466,15 @@ const SIMPLE = new Set([
 ])
 
 const FUNCTION = new Set(['ArrowFunctionExpression', 'FunctionExpression'])
+/** A node with names of its own: a name in it can hide a name of the file. */
+const SCOPE = /^(Program|BlockStatement|CatchClause|For(In|Of)?Statement|.*Function.*)$/
+/** The new name of a name of the file that hides a name of ubqtest. */
+const RENAME: Record<string, string> = {
+  test: 'testCase',
+  spy: 'spyFn',
+  assert: 'assertFn',
+  describe: 'describeFn',
+}
 const LOOP = /^(For|ForIn|ForOf|While|DoWhile)Statement$/
 
 /**
@@ -3085,6 +3094,112 @@ export const convertSource = (
   }
   walk(program, [])
 
+  // --- The names of the file ---
+  /**
+   * A name that a scope declares: the start of the statement of
+   * its first declaration, and each place of the name in the code,
+   * with the text between the old name and the new one there:
+   * `{ test }` becomes `{ test: testCase }`. `keep` is true for a
+   * name of the old tool, and for an export.
+   */
+  type Binding = { at: number; keep: boolean; places: Map<number, string> }
+  const scopes = new Map<Node, Map<string, Binding>>()
+  /** The names that a pattern declares. */
+  const declared = (pattern: Node | null | undefined): string[] =>
+    !pattern
+      ? []
+      : pattern.type === 'Identifier'
+        ? [nameOf(pattern)!]
+        : pattern.type === 'ObjectPattern'
+          ? (pattern.properties as Node[]).flatMap(p => declared((p.value ?? p.argument) as Node))
+          : pattern.type === 'ArrayPattern'
+            ? (pattern.elements as (Node | null)[]).flatMap(declared)
+            : // `a = 1`, `...rest`
+              declared((pattern.left ?? pattern.argument) as Node | undefined)
+  const declare = (node: Node, scope: Node, path: Node[]): void => {
+    path = [...path, node]
+    const inner = SCOPE.test(node.type) ? node : scope
+    const patterns =
+      node.type === 'VariableDeclaration'
+        ? (node.declarations as Node[]).map(d => d.id)
+        : node.type === 'ImportDeclaration'
+          ? (node.specifiers as Node[]).map(s => s.local)
+          : node.type === 'CatchClause'
+            ? [node.param]
+            : node.type === 'ClassDeclaration'
+              ? [node.id]
+              : ((node.params ?? []) as Node[])
+    const add = (to: Node, pattern: unknown): void => {
+      const names = scopes.get(to) ?? new Map<string, Binding>()
+      scopes.set(to, names)
+      const statement = statementOf(path)
+      for (const name of declared(pattern as Node | null | undefined))
+        if (!names.has(name))
+          names.set(name, {
+            at: statement.start,
+            keep:
+              removed.includes(statement) ||
+              workersImports.includes(statement) ||
+              (to !== node && path.at(-2)!.type.startsWith('Export')),
+            places: new Map(),
+          })
+    }
+    for (const pattern of patterns) add(inner, pattern)
+    // The name of a function declaration is a name of the code
+    // around it. The name of a function expression is a name of
+    // the function.
+    if (node.type.includes('Function')) add(node.type === 'FunctionDeclaration' ? scope : inner, node.id)
+    for (const child of children(node)) declare(child, inner, path)
+  }
+  declare(program, program, [])
+  const resolveNames = (node: Node, chain: Node[], path: Node[]): void => {
+    path = [...path, node]
+    if (scopes.has(node)) chain = [...chain, node]
+    const name = nameOf(node)
+    const parent = path.at(-2)
+    const binding = name === undefined ? undefined : chain.findLast(s => scopes.get(s)!.has(name))
+    if (
+      binding &&
+      parent &&
+      // Not the name of a property, of a key, or of a method.
+      !(parent.type === 'MemberExpression' && parent.property === node && !parent.computed) &&
+      !(parent.key === node && !parent.computed) &&
+      // `import { a as b }`, `export { a as b }`: only the name of the file.
+      !(/^(Im|Ex)portSpecifier$/.test(parent.type) && parent.local !== node)
+    ) {
+      const found = scopes.get(binding)!.get(name!)!
+      if (parent.type === 'ExportSpecifier') found.keep = true
+      // `{ test }` and `{ test = 1 }`: the key keeps its name.
+      const pair = parent.type === 'AssignmentPattern' && parent.left === node ? path.at(-3)! : parent
+      found.places.set(node.start, pair.shorthand ? ': ' : parent.imported === node ? ' as ' : '')
+    }
+    for (const child of children(node)) resolveNames(child, chain, path)
+  }
+  resolveNames(program, [], [])
+  /** True if a change of the command has the name at this place in it. */
+  const changed = (at: number, name: string): boolean => edits.some(e => e.start < at + name.length && e.end > at)
+  // A name of the file that hides a name of the ubqtest import
+  // gets a new name. Not if the old tool gave the file that name:
+  // the rules of the old tool changed the code that uses it.
+  for (const names of scopes.values())
+    for (const [name, binding] of names) {
+      if (!used.has(name) || binding.keep) continue
+      const places = [...binding.places]
+      if (scopes.get(program)?.get(name)?.keep || places.some(([at]) => changed(at, name))) {
+        todos.set(
+          binding.at,
+          (todos.get(binding.at) ?? new Set()).add(
+            `The name ${name} of this code hides the ${name} of ubqtest. Give it a different name, in each place that uses it.`,
+          ),
+        )
+        continue
+      }
+      let to = RENAME[name] ?? `${name}_`
+      while (mentions(program, to)) to += '_'
+      for (const [at, between] of places) replace(at, at + name.length, between ? name + between + to : to)
+      changes++
+    }
+
   // --- The import of ubqtest, in place of the old imports ---
   const names = [...used].sort().join(', ')
   // The new line has the form of the line that it replaces, or of
@@ -3114,9 +3229,48 @@ export const convertSource = (
     const end = source.indexOf('\n', node.end)
     return source.slice(node.end, end < 0 ? source.length : end).trim() ? ';' : ''
   }
+  // A name of the old tool that the new text still uses, under a
+  // TODO: its import stays. Not a hook: ubq has a message for a
+  // hook that is not defined.
+  /** The statements of the old tool that go away. */
+  const gone = new Set(removed)
+  const stays = (local: Node): boolean => {
+    const name = nameOf(local)!
+    return (
+      !used.has(name) &&
+      roles.get(name) !== 'hook' &&
+      // The command imports it from `playwright-core`.
+      !libraryTypes.includes(name) &&
+      !libraryValues.includes(name) &&
+      [...scopes.get(program)!.get(name)!.places.keys()].some(
+        at => ![...gone].some(node => node.start <= at && at < node.end) && !changed(at, name),
+      )
+    )
+  }
+  /** The text that stays of a statement of the old tool. */
+  const left = new Map<Node, string>()
+  // From the last statement: `const test = anyTest as TestFn` of
+  // ava uses the import above it.
+  for (const node of [...removed].reverse())
+    if (node.type === 'ImportDeclaration') {
+      const keep = (node.specifiers as Node[]).filter(s => stays(s.local as Node))
+      const named = keep.filter(s => s.type === 'ImportSpecifier').map(text)
+      const parts = keep.filter(s => s.type !== 'ImportSpecifier').map(text)
+      if (named.length) parts.push(`{ ${named.join(', ')} }`)
+      if (parts.length) left.set(node, `import ${parts.join(', ')} from ${text(node.source as Node)}${semi}`)
+    } else {
+      const { id, init } = (node.declarations as { id: Node; init: Node }[])[0]!
+      const keep = children(id).filter(p => nameOf(p.value as Node | undefined) && stays(p.value as Node))
+      if (keep.length) left.set(node, `${node.kind} { ${keep.map(text).join(', ')} } = ${text(init)}${semi}`)
+      else if (id.type === 'Identifier' && stays(id)) {
+        left.set(node, text(node))
+        gone.delete(node)
+      }
+    }
   removed.forEach((node, i) => {
     const join = before(node)
-    if (i === 0 && line) replace(node.start, node.end, line + more + (semi ? '' : join))
+    const lines = [i === 0 && line ? line + more : '', left.get(node) ?? ''].filter(Boolean)
+    if (lines.length) replace(node.start, node.end, lines.join('\n') + (semi ? '' : join))
     else replace(node.start, source[node.end] === '\n' ? node.end + 1 : node.end, '')
   })
   if (!removed.length && line) {
@@ -3614,7 +3768,12 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   // Vite puts each define value in the source. ubq sets it as a
   // global (D83). vitest sets each value of `test.env` in the
   // environment of the tests, and so does ubq (D114).
-  const defined = viteDefine(root, parse, children)
+  const defined = viteDefine(
+    root,
+    parse,
+    children,
+    (vitest?.projects ?? []).flatMap(project => project.setupFiles),
+  )
   for (const key of ['define', 'env'] as const) {
     if (!defined || config()[key] || !Object.keys(defined[key]).length) continue
     const pkgPath = join(root, 'package.json')

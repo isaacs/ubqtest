@@ -11,7 +11,7 @@ import { basename, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { type ChildCounts, type Children, CHILDREN } from './child-read.ts'
 import { builtMap, cached, cachePath } from './counter-collector.ts'
-import { COUNTERS, mutated, SOURCE } from './counters.ts'
+import { COUNTERS, hideCounters, mutated, SOURCE } from './counters.ts'
 import { builtin, type Counting, withCounters } from './load-hook.ts'
 import { projectRoot } from './project.ts'
 
@@ -159,6 +159,7 @@ const writers: (() => void)[] = []
 const count = ([root, dir]: Scope): Counting => {
   const shared = globalThis as Record<symbol, unknown>
   const all = (shared[Symbol.for(COUNTERS)] ??= new Map<string, Uint32Array>()) as Map<string, Uint32Array>
+  hideCounters()
   const files = new Map<string, { cache: string; counts: Uint32Array }>()
   const start = root + sep
   const modules = `${sep}node_modules${sep}`

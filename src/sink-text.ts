@@ -208,7 +208,13 @@ export const textSink = (write: (text: string) => void, all = false): Sink => {
         if (failures > FAILURES && !ci && !all) write(counted`and ${failures - FAILURES} more failure|failures.\n`)
         if (typeErrors > TYPE_ERRORS && !all) write(counted`and ${typeErrors - TYPE_ERRORS} more type error|errors.\n`)
         if (skips.length) write(skips.join('\n') + '\n')
-        const parts = [`${event.fail} failed`, `${event.pass} passed`]
+        // A pass has no failure to count. A run of only skips has
+        // only that count.
+        const parts = event.code
+          ? [`${event.fail} failed`, `${event.pass} passed`]
+          : event.pass || !event.skip
+            ? [counted`${event.pass} test|tests`]
+            : []
         if (event.errors) parts.unshift(counted`${event.errors} error|errors`)
         if (event.skip) parts.push(`${event.skip} skipped`)
         if (event.unselected) parts.push(`${event.unselected} not selected`)

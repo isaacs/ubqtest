@@ -77,7 +77,7 @@ test('one', () => assert.equal(run('1'), 'one'))
 test('two', () => assert.equal(run('2'), 'other'))
 `,
   )
-  assert.equal(p.ubq('tool.test.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('tool.test.ts').last, 'pass: 2 tests')
   const r = p.ubq('mutate', 'src/tool.ts')
   assert.deepEqual([r.code, r.out.trimEnd().split('\n').at(-1)], [0, 'mutate: 0 of 3 changes survived'], r.out)
 })
@@ -88,7 +88,7 @@ test('mutate lists each change that no test fails for, and does not change the f
   mkdirSync(join(p.dir, 'src'), { recursive: true })
   writeFileSync(join(p.dir, 'src/price.ts'), SOURCE)
   writeFileSync(join(p.dir, 'price.test.ts'), TEST)
-  assert.deepEqual([p.ubq('mutate', 'src/price.ts').code, p.ubq('price.test.ts').last], [4, 'pass: 0 failed, 2 passed'])
+  assert.deepEqual([p.ubq('mutate', 'src/price.ts').code, p.ubq('price.test.ts').last], [4, 'pass: 2 tests'])
   /** The summary of a check. */
   const mutate = (...args: string[]) =>
     p
@@ -111,7 +111,7 @@ test('mutate lists each change that no test fails for, and does not change the f
   assert.equal(mutate('src/price.ts:3'), 'mutate: 0 of 0 changes survived')
   assert.equal(readFileSync(join(p.dir, 'src/price.ts'), 'utf8'), SOURCE)
   // The check does not add runs to the store.
-  assert.equal(p.ubq('failures').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('failures').last, 'pass: 2 tests')
 
   // A test for the missing case, and the change does not survive.
   writeFileSync(
@@ -272,7 +272,7 @@ test('half', () => {
 `,
   )
   writeFileSync(join(p.dir, 'crashed'), '')
-  assert.equal(p.ubq('half.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('half.test.ts').last, 'pass: 1 test')
   rmSync(join(p.dir, 'crashed'))
   // The first change ends the process. The run again passes.
   assert.equal(p.ubq('mutate', 'lib/half.ts').out.trimEnd().split('\n').at(-1), 'mutate: 2 of 2 changes survived')
@@ -281,7 +281,7 @@ test('half', () => {
     join(p.dir, 'half.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { half } from './lib/half.ts'\ntest('half', () => {\n  assert.equal(typeof half(4), 'number')\n  if (half(4) !== 2) process.exit(1)\n})\n",
   )
-  assert.equal(p.ubq('half.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('half.test.ts').last, 'pass: 1 test')
   assert.equal(p.ubq('mutate', 'lib/half.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 2 changes survived')
 })
 
@@ -297,7 +297,7 @@ test('a change that makes a loop that does not end is killed after two runs', ()
     join(p.dir, 'steps.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { steps } from './lib/steps.ts'\ntest('steps', () => assert.equal(steps(4), 4))\n",
   )
-  assert.equal(p.ubq('steps.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('steps.test.ts').last, 'pass: 1 test')
   // `2` changed to `0` never ends: a timeout in each run.
   assert.equal(p.ubq('mutate', 'lib/steps.ts').out.trimEnd().split('\n').at(-1), 'mutate: 0 of 3 changes survived')
 })

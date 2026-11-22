@@ -59,6 +59,7 @@ t.equal(1, 1)
   assert(r)
   assert.deepEqual(r.code, [
     "import { assert, cleanup, describe, mockImport, test } from 'ubqtest'",
+    "import t from 'tap'",
     "import { parse, load } from '../src/shape.js'",
     '',
     "test('basic', () => {",
@@ -86,7 +87,7 @@ t.equal(1, 1)
     '// of the code under test, put it in a test().',
     'assert.equal(1, 1)',
   ])
-  assert.deepEqual([r.framework, r.todos.map(t => t.line)], ['tap', [21, 24]])
+  assert.deepEqual([r.framework, r.todos.map(t => t.line)], ['tap', [22, 25]])
 })
 
 test('vitest: expect, not, promises, spies, skip, a time limit', () => {
@@ -111,6 +112,7 @@ describe('g', () => {
   assert(r)
   assert.deepEqual(r.code, [
     "import { assert, describe, isDeepEqual, spy, test } from 'ubqtest'",
+    "import { expect } from 'vitest'",
     "describe('g', () => {",
     "  test('a', async () => {",
     '    assert.deepEqual(f(), { a: 1 })',
@@ -199,7 +201,7 @@ t.test('load', async t => {
     'next: read `ubq guide convert`, do each TODO(ubq), then run: ubq',
     '',
   ])
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 2 tests')
   // A second conversion finds nothing to do.
   assert.equal(
     p.ubq('convert', 'old.ts').out,
@@ -281,6 +283,7 @@ describe('group', () => {
     )
   assert.deepEqual(r.code, [
     "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
+    "import { expect } from 'vitest'",
     '',
     '{ await migrate() }',
     ...todo('ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.'),
@@ -457,6 +460,7 @@ it('a', () => {
   assert(r)
   assert.deepEqual(r.code, [
     "import { any, assert, test } from 'ubqtest'",
+    "import { expect } from 'vitest'",
     "test('a', () => {",
     '  assert(!text.match(/re/))',
     "  assert.contains(row.tags, 'x')",
@@ -497,6 +501,7 @@ it('a', () => {
   assert(r)
   assert.deepEqual(r.code, [
     "import { any, assert, test } from 'ubqtest'",
+    "import { expect } from 'vitest'",
     "test('a', () => {",
     '  assert.match(x, {',
     '    a: any.number,',
@@ -518,7 +523,7 @@ it('a', () => {
     '})',
   ])
   // A JavaScript file has the same form.
-  assert.deepEqual(convert(source, 'a.test.js')?.code.slice(2, 4), ['  assert.match(x, {', '    a: any.number,'])
+  assert.deepEqual(convert(source, 'a.test.js')?.code.slice(3, 5), ['  assert.match(x, {', '    a: any.number,'])
 })
 
 test('vitest: code that an ES module on Node cannot run', () => {
@@ -878,7 +883,7 @@ describe('group', () => {
 `,
   )
   assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 11 changes, 0 TODO')
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 3 tests')
 })
 
 test('vitest: rejects, checks of many calls of one spy, optional chains, and stringContaining', () => {
@@ -919,6 +924,7 @@ expect(fn).toHaveBeenCalledWith('a')
     .split('\n')
   assert.deepEqual(r.code, [
     "import { assert, isDeepEqual, spy, test } from 'ubqtest'",
+    "import { expect } from 'vitest'",
     "test('a', async () => {",
     '  const fn = spy()',
     // Two checks of one spy in one function: any call, as in vitest.
@@ -989,7 +995,7 @@ it('a', async () => {
 `,
   )
   assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 14 changes, 0 TODO')
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 1 test')
 })
 
 test('vitest: the converted setup call, pattern checks of a spy, and rows of each pass, with their types', () => {
@@ -1046,7 +1052,7 @@ describe('g', () => {
   for (const name of ['typescript', '@types'])
     symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
   const run = p.ubq('old.ts')
-  assert.equal(run.last, 'pass: 0 failed, 3 passed', run.out)
+  assert.equal(run.last, 'pass: 3 tests', run.out)
 })
 
 test('vitest: other names of matchers, the nth call, exactly one call, typeof, and the hints', () => {
@@ -1085,6 +1091,7 @@ describe.runIf(a)('c', () => {})
   assert(r)
   assert.deepEqual(r.code, [
     "import { assert, describe, env, isDeepEqual, stub, test } from 'ubqtest'",
+    "import { expect, it, vi } from 'vitest'",
     "test('a', () => {",
     '  assert(s.calls.length > 0)',
     '  assert.equal(s.calls.length, 2)',
@@ -1203,7 +1210,7 @@ it('b', () => {
 `,
   )
   assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 22 changes, 0 TODO')
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 2 tests')
 })
 
 test('vitest: a spy of a module namespace, and a spy assertion on a real import', () => {
@@ -1428,7 +1435,7 @@ it('a', async () => {
   await expect(p).resolves.toContainEqual(expect.objectContaining({ id: 7 }))
 })
 `)
-  assert.deepEqual(promise?.code.slice(2), [
+  assert.deepEqual(promise?.code.slice(3), [
     ...todo(MATCHER, '  '),
     '  await expect(p).resolves.toContainEqual(expect.objectContaining({ id: 7 }))',
     '})',
@@ -1947,7 +1954,7 @@ test('vitest: convert writes the define values of the vite config, and the tests
   assert.deepEqual(JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')).ubq, {
     define: { __DEBUG_BUILD__: true },
   })
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 1 test')
   // The key is there: only the note.
   assert.deepEqual(lines(p.ubq('convert', 'old.ts')), [note])
   // A package.json that is not JSON: the command prints the key.
@@ -2016,6 +2023,7 @@ it.each([{ 'k': 1 }])('$k', row => {})
     'Use a for loop around test(). Each name must be different: put the value or the index in the name. Use JSON.stringify for an object: %s of an object is [object Object].'
   assert.deepEqual(r.code, [
     "import { assert, describe, test } from 'ubqtest'",
+    "import { it } from 'vitest'",
     'for (const [a, b, sum] of [[1, 2, 3], [2, 3, 5]] as const) test(`${a} + ${b} is ${sum}`, () => {',
     '  assert.equal(a + b, sum)',
     '})',
@@ -2114,7 +2122,7 @@ describe.each([['a'], ['b']])('group %s', s => {
 `,
   )
   assert.equal(p.ubq('convert', 'old.ts').out.split('\n')[0], 'converted old.ts (vitest): 10 changes, 0 TODO')
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 8 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 8 tests')
   assert.deepEqual(
     p
       .ubq('sql', 'select id from test order by line, id')
@@ -2599,6 +2607,7 @@ test.describe.parallel('at the same time', () => {
 import { browser } from 'ubqtest/browser';
 import type { Page } from 'playwright-core';
 import { devices } from 'playwright-core';
+import { expect } from '@playwright/test';
 
 // TODO(ubq): ubq has no test.use. browser(options) takes the options of a
 // context, such as viewport and locale: const page = await browser({
@@ -3079,7 +3088,7 @@ test('vitest: convert writes the env values of the vitest config, and the tests 
       'note: vitest.config.ts has values in test.env that are not plain text (UBQ_TEST_KEY). Add them to "env" in "ubq" in package.json by hand.',
     ],
   )
-  assert.equal(p.ubq('old.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('old.ts').last, 'pass: 1 test')
 })
 
 test('ava: the message of notThrows is a comment, or a TODO if it is not text', () => {
@@ -3149,6 +3158,7 @@ t.equal(2, 2)
   assert.deepEqual(code, [
     "import { assert, describe, test } from 'ubqtest'",
     // A type that the file uses stays, with a TODO.
+    "import t from 'tap'",
     "import type { Test } from 'tap'",
     "import { glob } from '../src/index.js'",
     '',
@@ -3284,6 +3294,7 @@ describe('k', () => {
   assert(r)
   assert.deepEqual(r.code, [
     "import { any, assert, describe, isDeepEqual, isMatch, isMatchOnly, test } from 'ubqtest'",
+    "import { expect, type Mock, vi } from 'vitest'",
     '// TODO(ubq): An ES module has no require. Use an import statement, await',
     "// import('name'), or createRequire(import.meta.url) of node:module.",
     'const cjs = { require }',
@@ -3456,6 +3467,7 @@ it.each([1])('each %s', () => {
   assert(r)
   assert.deepEqual(r.code, [
     "import { any, assert, isMatchOnly, test } from 'ubqtest'",
+    "import { expect, it, vi } from 'vitest'",
     "test('a', () => {",
     '  assert.matchOnly(e, { id: 1, time: any.number, user: { name: /a/ } })',
     '  assert(!isMatchOnly(e, { id: any.defined }))',
@@ -3580,6 +3592,7 @@ test("a", async () => {
   assert(r)
   assert.deepEqual(r.code, [
     'import { any, assert, isDeepEqual, spy, spyOn, test } from "ubqtest";',
+    'import { expectTypeOf, setDefaultTimeout } from "bun:test";',
     'import * as ns from "../src/ns";',
     '// TODO(ubq): ubq has no time limit for one file. Remove this call. Give',
     '// the limit to a group or to a test: describe(name, { timeout: ms }, fn),',
@@ -3633,6 +3646,7 @@ it('a', () => {
   assert(r)
   assert.deepEqual(r.code, [
     "import { any, assert, isMatch, isMatchOnly, test } from 'ubqtest'",
+    "import { expect } from 'vitest'",
     "test('a', () => {",
     '  assert.match(x, { a: any.number, b: any.defined, c: any.instanceOf(URL), d: any.array, e: any.object })',
     '  assert.matchOnly(x, { list: any.arrayWith(1, { id: 7 }), n: any.number })',
@@ -3670,6 +3684,7 @@ it('a', () => {
     r.code.filter(line => !/^\s*\/\/ (?!TODO)/.test(line)),
     [
       "import { assert, test } from 'ubqtest'",
+      "import { expect } from 'vitest'",
       'const any = 1',
       "test('a', () => {",
       '  // TODO(ubq): ubq has no expect. In a pattern, a partial object does the',
@@ -3745,4 +3760,115 @@ test('a', t => {
   assert.equal(ava?.code[2], '  const error = assert.throws(() => f(), Error)')
   // The last line of the file, with no newline.
   assert.deepEqual(convert("import t from 'tap'\nt.doesNotThrow(() => f(), 'a message')")?.code, ['f() // a message'])
+})
+
+test('a name of the file that hides a name of ubqtest gets a new name', () => {
+  const r = convert(`import { expect, it, vi } from 'vitest'
+const tests = [{ name: 'a', run: () => {} }]
+for (const test of tests) it(test.name, test.run)
+it('b', () => {
+  const spy = vi.fn()
+  spy(1)
+  expect(spy).toHaveBeenCalled()
+  const { test } = { test: 1 }
+  const o = { test }
+  expect(o.test).toBe(1)
+})
+const testCase = 2
+`)
+  assert.deepEqual(r?.code, [
+    "import { assert, spy, test } from 'ubqtest'",
+    "const tests = [{ name: 'a', run: () => {} }]",
+    // testCase is a name of the file too.
+    'for (const testCase_ of tests) test(testCase_.name, testCase_.run)',
+    "test('b', () => {",
+    '  const spyFn = spy()',
+    '  spyFn(1)',
+    '  assert(spyFn.calls.length > 0)',
+    // A key keeps its name.
+    '  const { test: testCase_ } = { test: 1 }',
+    '  const o = { test: testCase_ }',
+    '  assert.equal(o.test, 1)',
+    '})',
+    'const testCase = 2',
+  ])
+  // A name with no word of its own in the map gets a _.
+  assert.deepEqual(
+    convert(`import { expect, it } from 'vitest'
+it('a', () => {
+  const f = (any: number) => any
+  expect(f(1)).toEqual(expect.any(Number))
+})
+`)?.code,
+    [
+      "import { any, assert, test } from 'ubqtest'",
+      "test('a', () => {",
+      '  const f = (any_: number) => any_',
+      '  assert.match(f(1), any.number)',
+      '})',
+    ],
+  )
+  // In a file that has the name from the old tool, a name of the
+  // code with the same name gets a TODO.
+  const todo = convert(`import { expect, test } from 'vitest'
+for (const test of [1]) {
+  expect(test).toBe(1)
+}
+test('a', () => {})
+`)
+  assert.deepEqual(todo?.code, [
+    "import { assert, test } from 'ubqtest'",
+    '// TODO(ubq): The name test of this code hides the test of ubqtest. Give it',
+    '// a different name, in each place that uses it.',
+    'for (const test of [1]) {',
+    '  assert.equal(test, 1)',
+    '}',
+    "test('a', () => {})",
+  ])
+})
+
+test('the import of the old tool keeps the names that the code under a TODO uses', () => {
+  const r = convert(`import { expect, expectTypeOf, it } from 'vitest'
+it.each(rows)('row %s', row => expect(row).toBeTruthy())
+it('t', () => {
+  expectTypeOf(1).toBeNumber()
+})
+`)
+  assert.deepEqual(
+    r?.code.filter(line => !line.startsWith('//')),
+    [
+      "import { assert, test } from 'ubqtest'",
+      "import { expectTypeOf, it } from 'vitest'",
+      "it.each(rows)('row %s', row => assert(row))",
+      "test('t', () => {",
+      '  // TODO(ubq): ubq has no expectTypeOf.',
+      '  expectTypeOf(1).toBeNumber()',
+      '})',
+    ],
+  )
+  // A require of CommonJS.
+  const cjs = convert(
+    `const { expect, expectTypeOf, it } = require('vitest')
+it('a', () => {
+  expectTypeOf(1).toBeNumber()
+})
+`,
+    'a.test.cjs',
+  )
+  assert.deepEqual(cjs?.code.slice(0, 2), [
+    "const { test } = require('ubqtest')",
+    "const { expectTypeOf } = require('vitest')",
+  ])
+  // A name that has the value of the import, and code under a TODO
+  // that uses it.
+  const ava = convert(`import anyTest, { type TestFn } from 'ava'
+const avaTest = anyTest as TestFn<{ n: number }>
+const macro = avaTest.macro((t, n: number) => t.is(n, 1))
+avaTest('a', macro, 1)
+`)
+  assert.deepEqual(ava?.code.slice(0, 3), [
+    "import { assert, test } from 'ubqtest'",
+    "import anyTest, { type TestFn } from 'ava'",
+    'const avaTest = anyTest as TestFn<{ n: number }>',
+  ])
 })

@@ -8,10 +8,10 @@ test('a test ID selects one test, and a group ID selects its tests', () => {
   const p = project()
   p.set('pass')
   const one = p.ubq('flip.ts > c')
-  assert.deepEqual([one.code, one.last, one.err], [0, 'pass: 0 failed, 1 passed, 2 not selected', ''])
-  assert.equal(p.ubq('flip.ts > group').last, 'pass: 0 failed, 2 passed, 1 not selected')
-  assert.equal(p.ubq('flip.ts > group > b', 'flip.ts > c').last, 'pass: 0 failed, 2 passed, 1 not selected')
-  assert.equal(p.ubq('flip.ts > c', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped, 2 not selected')
+  assert.deepEqual([one.code, one.last, one.err], [0, 'pass: 1 test, 2 not selected', ''])
+  assert.equal(p.ubq('flip.ts > group').last, 'pass: 2 tests, 1 not selected')
+  assert.equal(p.ubq('flip.ts > group > b', 'flip.ts > c').last, 'pass: 2 tests, 1 not selected')
+  assert.equal(p.ubq('flip.ts > c', 'pass.ts').last, 'pass: 6 tests, 1 skipped, 2 not selected')
   const none = p.ubq('flip.ts > nope')
   assert.equal(none.code, 2)
   assert.match(
@@ -29,7 +29,7 @@ test('--failed runs the tests that failed in their last run', () => {
   // Only the failed test runs. It fails again.
   assert.equal(p.ubq('--failed').last, 'fail: 1 failed, 0 passed, 2 not selected')
   p.set('pass')
-  assert.equal(p.ubq('--failed').last, 'pass: 0 failed, 1 passed, 2 not selected')
+  assert.equal(p.ubq('--failed').last, 'pass: 1 test, 2 not selected')
   // Now no test has a failure as its last result.
   assert.deepEqual([p.ubq('--failed').code, p.ubq('--failed').err], [2, 'ubq: no failed tests\n'])
   assert.equal(p.ubq('--failed', 'flip.ts').code, 4)
@@ -40,7 +40,7 @@ test('--failed runs the tests that failed in their last run', () => {
 test('--changed runs the test files that loaded a changed file', () => {
   const p = project()
   p.set('pass')
-  assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'pass: 0 failed, 8 passed, 1 skipped')
+  assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'pass: 8 tests, 1 skipped')
   const none = p.ubq('--changed')
   assert.equal(none.code, 2)
   assert.match(none.err, /^ubq: no changes, no new tests, no failed tests$/m)
@@ -49,12 +49,9 @@ test('--changed runs the test files that loaded a changed file', () => {
   appendFileSync(join(p.dir, 'src/shape.ts'), '\n// a change\n')
   assert.equal(
     p.ubq('--changed').out.replace(/ \(run \d+[^)]*\)/, ''),
-    [
-      'changed: src/shape.ts',
-      'skip pass.ts > not on this platform: needs a GPU',
-      'pass: 0 failed, 5 passed, 1 skipped',
-      '',
-    ].join('\n'),
+    ['changed: src/shape.ts', 'skip pass.ts > not on this platform: needs a GPU', 'pass: 5 tests, 1 skipped', ''].join(
+      '\n',
+    ),
   )
   assert.equal(p.ubq('--changed').code, 2)
 
@@ -64,7 +61,7 @@ test('--changed runs the test files that loaded a changed file', () => {
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/new.test.ts'))
   const both = p.ubq('--changed')
   assert.deepEqual(both.out.split('\n').slice(0, 2), ['changed: flip.ts', 'new: test/new.test.ts'])
-  assert.equal(both.last, 'pass: 0 failed, 6 passed')
+  assert.equal(both.last, 'pass: 6 tests')
   assert.equal(p.ubq('--changed').code, 2)
   assert.equal(p.ubq('--changed', '--failed').code, 4)
   rmSync(p.dir, { recursive: true })
@@ -77,9 +74,9 @@ test('ubq does not go into a folder that has its own package.json', () => {
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/a.test.ts'))
   mkdirSync(join(p.dir, 'other/test'), { recursive: true })
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'other/test/b.test.ts'))
-  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+  assert.equal(p.ubq().last, 'pass: 6 tests')
   writeFileSync(join(p.dir, 'other/package.json'), '{}')
-  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq().last, 'pass: 3 tests')
   const r = p.ubq('other')
   assert.deepEqual(
     [r.code, r.err],
@@ -89,7 +86,7 @@ test('ubq does not go into a folder that has its own package.json', () => {
     ],
   )
   // A file that is an argument always runs.
-  assert.equal(p.ubq('other/test/b.test.ts').last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq('other/test/b.test.ts').last, 'pass: 3 tests')
   // A build of the test files in `dist` is a second copy of each
   // test. A `dist` folder that is not at the root is not known as
   // build output.
@@ -99,13 +96,13 @@ test('ubq does not go into a folder that has its own package.json', () => {
     join(p.dir, 'dist/test/a.test.js'),
     "import { assert, test } from 'ubqtest'\ntest('built', () => assert(true))\n",
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq().last, 'pass: 3 tests')
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'src/dist/c.test.ts'))
-  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+  assert.equal(p.ubq().last, 'pass: 6 tests')
   // As an argument, and with an `include` key, the files of `dist` run.
-  assert.equal(p.ubq('dist/test/a.test.js').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('dist/test/a.test.js').last, 'pass: 1 test')
   p.configure({ include: ['dist/**/*.test.js'] })
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   rmSync(p.dir, { recursive: true })
 })
 
@@ -115,17 +112,17 @@ test('the ubq key of package.json sets include, exclude, and timeout', () => {
   mkdirSync(join(p.dir, 'test/slow'), { recursive: true })
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/a.test.ts'))
   cpSync(join(p.dir, 'flip.ts'), join(p.dir, 'test/slow/b.test.ts'))
-  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
+  assert.equal(p.ubq().last, 'pass: 6 tests')
 
   p.configure({ exclude: ['test/slow/**'] })
-  assert.equal(p.ubq().last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq().last, 'pass: 3 tests')
   // A file that is an argument always runs.
-  assert.equal(p.ubq('test/slow/b.test.ts').last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq('test/slow/b.test.ts').last, 'pass: 3 tests')
 
   // `include` replaces the name pattern.
   p.configure({ include: ['flip.ts', 'test/**'], exclude: ['test/slow/**'] })
-  assert.equal(p.ubq().last, 'pass: 0 failed, 6 passed')
-  assert.equal(p.ubq('test').last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq().last, 'pass: 6 tests')
+  assert.equal(p.ubq('test').last, 'pass: 3 tests')
 
   writeFileSync(
     join(p.dir, 'wait.ts'),
@@ -204,7 +201,7 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
       .filter(l => /^(workspace|pass|fail|FAIL)/.test(l)),
     [
       'workspace packages/a:',
-      'pass: 0 failed, 1 passed',
+      'pass: 1 test',
       'workspace packages/b:',
       'FAIL one.test.ts > one',
       'fail: 1 failed, 0 passed',

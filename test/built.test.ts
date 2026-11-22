@@ -60,7 +60,7 @@ for (const minify of [false, true])
   test(`the coverage of a bundle is coverage of its source files${minify ? ', also with minify' : ''}`, () => {
     const p = make()
     p.build(minify)
-    assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+    assert.equal(p.ubq().last, 'pass: 1 test')
     // The list has the code that the bundler removed. The built file is not in it.
     assert.deepEqual(p.uncovered(), LIST)
     // A test ran the line: the output names it.
@@ -71,7 +71,7 @@ test('a source that changed after the build has no coverage until the next build
   const p = make()
   p.build(false)
   appendFileSync(join(p.dir, 'lib/math.ts'), '// a change\n')
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   assert.deepEqual(p.uncovered(), [
     'lib/index.ts:4:21  { (+2 lines)',
     'lib/index.ts:10:22  (): number => 0',
@@ -79,6 +79,6 @@ test('a source that changed after the build has no coverage until the next build
     'note: coverage is not complete for 1 test file: out.test.ts (partial). Code can be missing from this list. For full coverage, run the file with ubq: ubq <test file>',
   ])
   p.build(false)
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   assert.deepEqual(p.uncovered(), LIST)
 })

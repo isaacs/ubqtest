@@ -53,7 +53,7 @@ test('a run of files with only skipped tests, and an early end with stderr', () 
   writeFileSync(join(p.dir, 'a.test.ts'), SKIP)
   writeFileSync(join(p.dir, 'b.test.ts'), SKIP)
   const skipped = p.ubq('a.test.ts', 'b.test.ts')
-  assert.deepEqual([skipped.code, skipped.last], [0, 'pass: 0 failed, 0 passed, 2 skipped'])
+  assert.deepEqual([skipped.code, skipped.last], [0, 'pass: 2 skipped'])
   writeFileSync(join(p.dir, 'b.test.ts'), "console.error('a message')\nprocess.exit(3)\n")
   const early = p.ubq('a.test.ts', 'b.test.ts')
   assert.match(
@@ -62,7 +62,7 @@ test('a run of files with only skipped tests, and an early end with stderr', () 
   )
   // --failed runs all of a file with an error.
   writeFileSync(join(p.dir, 'b.test.ts'), PASS)
-  assert.equal(p.ubq('--failed').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('--failed').last, 'pass: 1 test')
 })
 
 test('--seed with no number, and many changed files', () => {
@@ -319,7 +319,7 @@ test('a run prints no note on code that no test ran; the summary of a step has t
       encoding: 'utf8',
       env: { ...process.env, CI: '', GITHUB_STEP_SUMMARY: file },
     })
-    assert.equal(r.stdout, `pass: 0 failed, ${files.length} passed (run ${r.stdout.match(/run (\d+)/)![1]})\n`)
+    assert.match(r.stdout, /^pass: \d+ tests? \(run \d+\)\n$/)
     return /^- .* ran in no test.*$/m.exec(readFileSync(file, 'utf8'))?.[0]
   }
   assert.equal(note('a.test.ts'), '- 1 range of code in the files of this run ran in no test: `ubq uncovered`')

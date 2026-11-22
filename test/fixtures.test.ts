@@ -132,7 +132,7 @@ describe('a group', () => {
 })
 `,
   )
-  assert.equal(p.ubq('grp.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('grp.ts').last, 'pass: 1 test')
 })
 
 test('a spy records its calls', () => {

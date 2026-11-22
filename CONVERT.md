@@ -93,7 +93,15 @@ count of type errors in other files: those are not yours.
 ## What `ubq convert` changes
 
 - The import of the old tool becomes `import { ... } from
-  'ubqtest'`, with the names that the file uses.
+  'ubqtest'`, with the names that the file uses. If code under a
+  TODO still uses a name of the old tool, such as `expectTypeOf`,
+  the import of the old tool stays with only those names. Do the
+  TODO, then remove that import.
+- A name of the file that hides a name of the new import gets a
+  new name: `for (const test of tests)` becomes `for (const
+  testCase of tests)`, and `const spy = vi.fn()` becomes `const
+  spyFn = spy()`. If the file has that name from the old tool
+  too, a TODO says to change the name by hand.
 - `it` becomes `test`. `describe` stays.
 - An assertion with a certain form in ubq gets that form. The
   tables below list them.
@@ -184,6 +192,10 @@ names, do one of these:
   configuration: `"ubq": { "env": { "MODE": "dev" } }`. The
   command writes the key from the values that are plain text,
   and prints a note for the others.
+- A setup file of a vitest config (`test.setupFiles`) gets a
+  note: ubq has no setup files. Export the work of the file as a
+  function, and call it at the top level of each test file, or
+  in each test that needs it.
 - An alias for imports (`resolve.alias`, `test.alias`) has no key
   in ubq, and the command prints a note. ubq does not change the
   name of an import: use the `imports` key of `package.json`
@@ -1126,6 +1138,28 @@ The forms:
 - **Setup one time for all files.** ubq has none. Each test file
   is its own process. Put the setup in a module, and import it in
   each test file that needs it.
+- **A library that needs `describe`, `it`, and `afterAll`.** The
+  `RuleTester` of ESLint makes its tests with these functions.
+  Give it the functions of ubq. It checks each case with
+  `node:assert`, which ubq does not count, so `it` adds one
+  assertion after the check:
+
+  ```ts
+  import { RuleTester } from 'eslint'
+  import { assert, cleanup, describe, test } from 'ubqtest'
+
+  const it = (name: string, check: () => void) =>
+    test(name, () => {
+      check()
+      assert(true, 'RuleTester checked the case')
+    })
+  RuleTester.describe = describe
+  RuleTester.it = it
+  RuleTester.itOnly = it
+  RuleTester.afterAll = cleanup
+  ```
+
+  The `RuleTester` of typescript-eslint has the same properties.
 
 ## Failures after the conversion
 

@@ -108,9 +108,8 @@ project then runs its type checker as a separate step.
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/ubqtest/cli.js`.
 
-The last line of the output is the summary: `pass: 0 failed, 12
-passed (run 7)` or `fail: 2 failed, 10 passed (run 8: ubq
-failures 8)`. The command in a failed summary prints the failures
+The last line of the output is the summary: `pass: 12 tests (run
+7)` or `fail: 2 failed, 10 passed (run 8: ubq failures 8)`. The command in a failed summary prints the failures
 of that run again. Use it with the number: with no number, `ubq
 failures` shows the newest run of the store, and a different
 person or agent can have a newer run. Passed
@@ -651,13 +650,8 @@ test('the button counts', async () => {
   of Playwright, such as `viewport` and `locale`.
 - A test can start a browser itself, with the Playwright of the
   project: for a server of its own, or for headers that
-  `browser()` does not give. Then call `await
-  prepareContext(context)` of `ubqtest/browser` for each browser
-  context that the test makes. A function that the test gives to
-  `page.evaluate` has the coverage counters of ubq in its text,
-  and with no call it throws `ReferenceError: __ubqc is not
-  defined` in the page. Such a page gives no coverage of the code
-  that it runs.
+  `browser()` does not give. Such a page gives no coverage of the
+  code that it runs.
 
 Coverage: the code of the project that a page runs is coverage of
 the test, as the code that the test process runs. So `ubq
@@ -950,7 +944,12 @@ of a Cloudflare Worker"), and `define` (global values that the
 source reads, as the `define` of vite gives them: `"define": {
 "__DEBUG__": true }`). `env` has values of the environment
 for each test process (`"env": { "MODE": "dev" }`): a value of
-the key is before a value of the shell. `skipTypecheck` (`true`)
+the key is before a value of the shell. `NODE_OPTIONS` is
+different: ubq adds the value of the key to the value of the
+shell, and starts each test process with it, so an option such as
+`--conditions=source` works. A test file that runs as a plain
+program (`node test/a.test.ts`) started before ubq read the key:
+give it the option on the command line. `skipTypecheck` (`true`)
 turns off the type check of each run. `"coverage": "full"` fails a
 run of all tests if code ran in no test: the code that `ubq
 uncovered` lists. The output shows fewer than 5 of them, or else
@@ -1003,6 +1002,13 @@ such as the entry of a browser worker, put the comment before the
 first code of the file: `ubq check` then does not fail for a
 change to that file. Look for a test first: the comment
 is for code that a test cannot reach.
+
+ubq counts the code that runs with counters in the code of the
+project. The text of a function, from `String(fn)` or
+`fn.toString()`, has no counters: code that reads the text, or
+that runs it in a sandbox, a worker, or `new Function`, gets the
+function as it is in the source. On Bun, the text can have a pair
+of brackets that the source does not have.
 
 ## Requirements
 

@@ -33,14 +33,14 @@ test('--changed also runs each test that failed in its last run', () => {
   // No file of the project changed: the test reads a file that is
   // not code. Its last result is a failure, so it runs.
   p.set('pass')
-  assert.equal(p.ubq('--changed').last, 'pass: 0 failed, 1 passed, 2 not selected')
+  assert.equal(p.ubq('--changed').last, 'pass: 1 test, 2 not selected')
   assert.equal(p.ubq('--changed').err, 'ubq: no changes, no new tests, no failed tests\n')
   // With a change for a different test of the file, the two run.
   p.set('fail')
   p.ubq('flip.ts')
   p.set('pass')
   writeFileSync(join(p.dir, 'flip.ts'), readFileSync(join(p.dir, 'flip.ts'), 'utf8') + '\n')
-  assert.equal(p.ubq('--changed').last, 'pass: 0 failed, 3 passed')
+  assert.equal(p.ubq('--changed').last, 'pass: 3 tests')
   // A change for one test of a file, and a failed test in it: the
   // two run, and the third test does not.
   writeFileSync(join(p.dir, 'src/n.ts'), 'export const n = (): number => 1\n')
@@ -58,18 +58,18 @@ test('z', () => assert(true))
   assert.equal(p.ubq('three.test.ts').last, 'fail: 1 failed, 2 passed')
   p.set('pass')
   writeFileSync(join(p.dir, 'src/n.ts'), 'export const n = (): number => 2 - 1\n')
-  assert.equal(p.ubq('--changed').last, 'pass: 0 failed, 2 passed, 1 not selected')
+  assert.equal(p.ubq('--changed').last, 'pass: 2 tests, 1 not selected')
 })
 
 test('--changed runs only the tests that ran the code that changed', () => {
   const p = setup()
   p.edit('export const load', 'export const never = (): number => 1\n\nexport const load')
-  assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
+  assert.equal(p.ubq('pass.ts').last, 'pass: 5 tests, 1 skipped')
   p.edit("'unknown shape: ?'", "'unknown shape: ?' + ''")
-  assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 0 failed, 1 passed, 5 not selected'])
+  assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 1 test, 5 not selected'])
   p.edit('side: 2', 'side: 1 + 1')
   // `kind of s` and `load` ran that line.
-  assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 0 failed, 2 passed, 4 not selected'])
+  assert.deepEqual(p.lines('--changed'), ['changed: src/shape.ts', 'pass: 2 tests, 4 not selected'])
   assert.deepEqual(p.lines('--changed'), ['ubq: no changes, no new tests, no failed tests'])
   // The coverage of the tests that did not run has the places of
   // the new content.
@@ -84,7 +84,7 @@ test('--changed runs only the tests that ran the code that changed', () => {
   assert.deepEqual(p.lines('uncovered', 'src/shape.ts')[0], 'src/shape.ts:12:22  (): number => 2')
   // Code that runs while the test file loads can change each test.
   p.edit('export const load', 'export const more = 1\nexport const load')
-  assert.deepEqual(p.lines('--changed').slice(-1), ['pass: 0 failed, 5 passed, 1 skipped'])
+  assert.deepEqual(p.lines('--changed').slice(-1), ['pass: 5 tests, 1 skipped'])
 })
 
 test('--diff of uncovered and mutate: only the lines that differ from a git commit', () => {
@@ -104,7 +104,7 @@ test('--diff of uncovered and mutate: only the lines that differ from a git comm
   git('init', '-q')
   git('add', '.')
   git('commit', '-q', '-m', 'first')
-  assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
+  assert.equal(p.ubq('pass.ts').last, 'pass: 5 tests, 1 skipped')
   assert.deepEqual(p.lines('uncovered', '--diff'), ['uncovered: none'])
 
   p.edit(
@@ -165,7 +165,7 @@ test('--diff finds a file whose name git puts in quotes', () => {
   git('init', '-q')
   git('add', '.')
   git('commit', '-q', '-m', 'first')
-  assert.equal(p.ubq('pass.ts').last, 'pass: 0 failed, 5 passed, 1 skipped')
+  assert.equal(p.ubq('pass.ts').last, 'pass: 5 tests, 1 skipped')
   // A changed file, and a new file, for each name.
   for (const name of names) {
     writeFileSync(join(p.dir, 'src', name), 'export const x = 2\n')

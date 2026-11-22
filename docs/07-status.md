@@ -456,6 +456,11 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - From the hermetic report (D132): the text of a function has
+    no counters, `NODE_OPTIONS` of the `env` key goes after the
+    one of the shell, `pass: 12 tests`, and `ubq convert` gives
+    new names to names that hide an import, keeps the import of
+    names under a TODO, and notes setup files.
   - From the minimatch retest and the glob report (D131): a run
     of only skipped tests passes, `UBQ_COVERAGE_CHECK=off`, the
     ubq version in the run record and the `since` line, a short
@@ -762,8 +767,6 @@ Convert:
   macros stay hand work.
 - No sentence in the output for a project helper that returns a
   restore function.
-- `const spy = vi.fn()` becomes `const spy = spy()`: the local
-  name hides the import.
 
 Browser:
 

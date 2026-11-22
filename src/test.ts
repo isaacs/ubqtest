@@ -290,7 +290,7 @@ const errorFailure = (error: unknown): Failure => {
         (error.name === 'ReferenceError' && HOOK.test(text)
           ? '. ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test. ubq convert leaves a TODO(ubq) at each hook.'
           : text.includes(`${COUNTER_NAME} is not defined`)
-            ? `\nhint: a function of the test ran in a page of a browser that the test started itself, and its text has the coverage counters of ubq. Use browser() of 'ubqtest/browser', or call prepareContext(context) of 'ubqtest/browser' for each browser context that the test makes.`
+            ? `\nhint: the text of a function has the coverage counters of ubq, and it ran in a place that has no counters. String(fn) and fn.toString() give the text with no counters. The toString of a different realm (node:vm, an iframe) does not: get the text in the realm of the test.`
             : '')
       : `threw ${String(error)}`,
     ...(stack[0] && { at: stack[0], stack }),

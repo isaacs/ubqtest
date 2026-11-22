@@ -119,7 +119,7 @@ test('the build has no errors, and the package has no dependencies', async () =>
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
   test(`a test file is a plain program on ${cmd}`, { skip: has(cmd) }, () => {
     const r = sh(cmd, ...args, 'test/add.test.ts')
-    assert.deepEqual([r.lines, r.err], [['pass: 0 failed, 2 passed'], ''])
+    assert.deepEqual([r.lines, r.err], [['pass: 2 tests'], ''])
   })
 
 for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const)
@@ -128,12 +128,12 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
     // The store keeps the coverage of each runtime (D54). This test
     // is about one runtime.
     remove(join(dir, '.ubq'))
-    assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 0 failed, 2 passed'])
+    assert.deepEqual(sh(cmd, ...args, ubq).lines, ['pass: 2 tests'])
     // With a repeat, the runner starts a process for the file. That is
     // the code of the runner for this runtime.
     assert.deepEqual(sh(cmd, ...args, ubq, '--repeat', '2').lines, [
       'repeat 2: 0 failed some times, 0 failed each time, 2 passed each time',
-      'pass: 0 failed, 2 passed',
+      'pass: 2 tests',
     ])
     assert.deepEqual(sh(cmd, ...args, ubq, 'uncovered').lines, [
       'src/add.ts:4:22  (): number => 0',
@@ -188,7 +188,7 @@ for (const [cmd, ...args] of [['node'], ['deno', 'run', '-A'], ['bun']] as const
         r.stderr,
       ]
     }
-    assert.deepEqual(run(), [['pass: 0 failed, 7 passed'], ''])
+    assert.deepEqual(run(), [['pass: 7 tests'], ''])
     assert.deepEqual(run('uncovered'), [
       [
         "src/index.ts:33:32  return new Response('this line has no test')",
@@ -309,18 +309,18 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
     join(p.dir, 'one.ts'),
     "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.js'\ntest('one', () => {\n  assert.equal(one(), 1)\n})\n",
   )
-  assert.deepEqual(await run(deno, 'one.ts'), ['pass: 0 failed, 1 passed', ''])
+  assert.deepEqual(await run(deno, 'one.ts'), ['pass: 1 test', ''])
   // An import of `./two` finds `./two.ts`, and an import of a folder
   // finds its index file, as on Node.
   addBare(p.dir)
-  assert.deepEqual(await run(deno, 'one.ts'), ['pass: 0 failed, 2 passed', ''])
+  assert.deepEqual(await run(deno, 'one.ts'), ['pass: 2 tests', ''])
   // Deno compiles JSX before a load hook sees the file. The
   // counters go into its JavaScript, and its source map gives the
   // places in the source.
   addJsx(p.dir)
   // Only the coverage of the run on Deno.
   remove(join(p.dir, '.ubq'))
-  assert.deepEqual(await run(deno, 'view.tsx'), ['pass: 0 failed, 3 passed', ''])
+  assert.deepEqual(await run(deno, 'view.tsx'), ['pass: 3 tests', ''])
   assert.deepEqual(await run(deno, 'uncovered', 'src/view.tsx'), [
     'src/view.tsx:8:37  <b>many',
     'src/view.tsx:17:22  <T,>({ value }: { value: T }) => <i>{String(value',
@@ -338,7 +338,7 @@ test('the runner on deno gives the same output as on node', { skip: has('deno'),
   ])
 
   addDefine(p)
-  assert.deepEqual(await run(deno, 'flag.ts'), ['pass: 0 failed, 1 passed', ''])
+  assert.deepEqual(await run(deno, 'flag.ts'), ['pass: 1 test', ''])
 })
 
 test('the type declarations of the package', () => {

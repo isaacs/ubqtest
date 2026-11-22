@@ -125,13 +125,7 @@ test('passes at run time', () => {
         .split('\n')
         .slice(-2),
     ],
-    [
-      0,
-      [
-        'skip pass.ts > not on this platform: needs a GPU',
-        'pass: 0 failed, 5 passed, 1 skipped, 2 type errors in other files',
-      ],
-    ],
+    [0, ['skip pass.ts > not on this platform: needs a GPU', 'pass: 5 tests, 1 skipped, 2 type errors in other files']],
   )
   const repeat = p.ubq('--repeat', '2', 'pass.ts')
   assert.deepEqual([repeat.code, repeat.out.includes('TS2322')], [0, false])
@@ -434,7 +428,7 @@ test('a tsconfig.json with only references: ubq makes tsconfig.ubq.json, one tim
     "import { assert, test } from 'ubqtest'\nconst f = (a) => a\ntest('three', () => assert.equal(f(1), 1))\n",
   )
   const second = p.ubq('apps/app/src/three.spec.ts')
-  assert.deepEqual([second.err, second.last], ['', 'pass: 0 failed, 1 passed'])
+  assert.deepEqual([second.err, second.last], ['', 'pass: 1 test'])
   assert.match(readFileSync(made, 'utf8'), /"noImplicitAny": false/)
   // `ubq doctor` reads the options of the same file.
   assert.match(p.ubq('doctor').out, /^note apps\/app\/tsconfig\.ubq\.json: "erasableSyntaxOnly"/m)
@@ -503,8 +497,8 @@ test('with the skipTypecheck key, a run does not check the types', () => {
   )
   assert.equal(p.ubq('wrong.test.ts').last, 'fail: 0 failed, 1 passed, 1 type error')
   p.configure({ skipTypecheck: true })
-  assert.equal(p.ubq('wrong.test.ts').last, 'pass: 0 failed, 1 passed')
-  assert.equal(p.ubq('wrong.test.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')
+  assert.equal(p.ubq('wrong.test.ts').last, 'pass: 1 test')
+  assert.equal(p.ubq('wrong.test.ts', 'pass.ts').last, 'pass: 6 tests, 1 skipped')
 })
 
 test('a type error in a folder that is a different project is not an error of this project', () => {
@@ -535,7 +529,7 @@ test('a type error in a folder that is a different project is not an error of th
     join(p.dir, 'own/fine.test.ts'),
     "import { assert, test } from 'ubqtest'\ntest('fine', () => assert(true))\n",
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   // With no package.json there, the folder is of this project.
   rmSync(join(p.dir, 'other/package.json'))
   assert.equal(p.ubq().last, 'fail: 0 failed, 1 passed, 1 type error')

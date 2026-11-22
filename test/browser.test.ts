@@ -117,7 +117,7 @@ const check = () => fetch('http://localhost:${port}').then(() => (Date.now() > e
 check()`,
     ]).status === 0
   const one = p.ubq('served.test.ts')
-  assert.equal(one.last, 'pass: 0 failed, 1 passed', one.out + one.err)
+  assert.equal(one.last, 'pass: 1 test', one.out + one.err)
   assert.equal(stopped(), true)
   // A run with no browser test does not start the server.
   rmSync(join(p.dir, 'server.pid'))
@@ -126,7 +126,7 @@ check()`,
   assert.equal(existsSync(join(p.dir, 'server.pid')), false)
   // Two files: the test processes are children of the runner.
   const two = p.ubq('served.test.ts', 'pass.ts')
-  assert.deepEqual([two.last, two.err], ['pass: 0 failed, 6 passed, 1 skipped', ''], two.out)
+  assert.deepEqual([two.last, two.err], ['pass: 6 tests, 1 skipped', ''], two.out)
   assert.equal(existsSync(join(p.dir, 'server.pid')), true)
   assert.equal(stopped(), true)
 
@@ -151,7 +151,7 @@ check()`,
     '-e',
     `const check = () => fetch('http://localhost:${port}').then(() => process.exit(0), () => setTimeout(check, 50))\ncheck()`,
   ])
-  assert.equal(p.ubq('served.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('served.test.ts').last, 'pass: 1 test')
   p.configure({ browser: { command: 'x' } })
   assert.match(p.ubq('pass.ts').err, /"ubq\.browser" in package\.json must be an object with "url"/)
 })
@@ -185,7 +185,7 @@ test('minus', async () => {
 `,
   )
   const first = p.ubq('app.test.ts:3')
-  assert.equal(first.last, 'pass: 0 failed, 1 passed, 1 not selected', first.out + first.err)
+  assert.equal(first.last, 'pass: 1 test, 1 not selected', first.out + first.err)
   assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), [
     "src/app.js:2:22  () => 'never'",
     "src/app.js:3:33  ? 'minus'",
@@ -193,7 +193,7 @@ test('minus', async () => {
     '',
   ])
   const both = p.ubq('app.test.ts')
-  assert.equal(both.last, 'pass: 0 failed, 2 passed', both.out + both.err)
+  assert.equal(both.last, 'pass: 2 tests', both.out + both.err)
   assert.deepEqual(p.ubq('uncovered', 'src/app.js').out.split('\n'), [
     "src/app.js:2:22  () => 'never'",
     '1 uncovered range in src/app.js',
@@ -203,10 +203,7 @@ test('minus', async () => {
   // A change to code that the pages ran selects the tests. A change
   // to code that no page ran selects none.
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a'))
-  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 2), [
-    'changed: src/app.js',
-    'pass: 0 failed, 2 passed (run 3)',
-  ])
+  assert.deepEqual(p.ubq('--changed').out.split('\n').slice(0, 2), ['changed: src/app.js', 'pass: 2 tests (run 3)'])
   writeFileSync(join(p.dir, 'src/app.js'), APP.replace('a + b', 'b + a').replace("'never'", "'not one time'"))
   assert.equal(p.ubq('--changed').err, 'ubq: no tests for changes in src/app.js\n')
 })
@@ -250,7 +247,7 @@ test('title', { timeout: 30_000 }, async () => {
   )
   p.configure({ browser: { url: `http://localhost:${port}`, command: 'node server.js' } })
   const run = p.ubq('app.test.ts')
-  assert.equal(run.last, 'pass: 0 failed, 1 passed', run.out + run.err)
+  assert.equal(run.last, 'pass: 1 test', run.out + run.err)
   assert.deepEqual(p.ubq('uncovered', 'src/app.ts').out.split('\n'), [
     "src/app.ts:2:22  (): string => 'never'",
     "src/app.ts:4:53  'minus'",
@@ -280,7 +277,7 @@ test('a browser that is not there: in UBQ_BROWSER, or not installed', () => {
 })
 
 test(
-  'a browser that the test starts itself: prepareContext, and the hint with no call',
+  'a browser that the test starts itself: a function for the page has no counters in its text',
   { ...skip, timeout: 60_000 },
   () => {
     const p = project()
@@ -317,11 +314,6 @@ test('with no call', { timeout: 30_000 }, async () => {
     // the limit of the configuration.
     p.configure({ timeout: 30_000 })
     const r = p.ubq('own.test.ts')
-    assert.match(
-      r.out,
-      /FAIL own\.test\.ts > with no call\n {2}Error: page\.evaluate: ReferenceError: __ubqc is not defined[^]*\n {2}hint: a function of the test ran in a page of a browser that the test started itself, and its text has the coverage counters of ubq\. Use browser\(\) of 'ubqtest\/browser', or call prepareContext\(context\) of 'ubqtest\/browser' for each browser context that the test makes\.\n/,
-    )
-    // The whole output, so that a failure of this check shows it.
-    assert.match(r.out, /\nfail: 1 failed, 1 passed \(run 1: ubq failures 1\)\n$/)
+    assert.equal(r.out, 'pass: 2 tests (run 1)\n')
   },
 )

@@ -67,7 +67,7 @@ describe('parse', () => {
 
 ```
 $ npx ubq
-pass: 0 failed, 2 passed (run 1)
+pass: 2 tests (run 1)
 ```
 
 Put this script in `package.json`:

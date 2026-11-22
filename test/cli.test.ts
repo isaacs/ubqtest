@@ -49,8 +49,8 @@ describe('group', () => {
 test('later', { skip: 'not now' }, () => assert(true))
 `,
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 12 passed, 1 skipped')
-  assert.equal(p.ubq().last, 'pass: 0 failed, 12 passed, 1 skipped')
+  assert.equal(p.ubq().last, 'pass: 12 tests, 1 skipped')
+  assert.equal(p.ubq().last, 'pass: 12 tests, 1 skipped')
   assert.deepEqual(error('covers'), [4, 'ubq: ubq covers needs <file>:<line>'])
   assert.deepEqual(error('covers', 'many.test.ts'), [4, 'ubq: ubq covers needs <file>:<line>'])
   assert.deepEqual(error('failures', '99'), [4, 'ubq: run 99 is not in the store'])
@@ -73,10 +73,10 @@ test('later', { skip: 'not now' }, () => assert(true))
     '  skip reason: not now',
   ])
   assert.match(p.ubq('history', 'many.test.ts > later').out, /\n0 failed, 0 passed, 2 skipped in 2 runs\n$/)
-  assert.deepEqual(p.ubq('failures', '1').out, 'pass: 0 failed, 12 passed, 1 skipped (run 1)\n')
+  assert.deepEqual(p.ubq('failures', '1').out, 'pass: 12 tests, 1 skipped (run 1)\n')
   // A run of one test: the others are not selected.
   p.ubq('many.test.ts > later')
-  assert.equal(p.ubq('failures').last, 'pass: 0 failed, 0 passed, 1 skipped, 12 not selected')
+  assert.equal(p.ubq('failures').last, 'pass: 1 skipped, 12 not selected')
   // A test that passed, and now is skipped, is an other change.
   writeFileSync(join(p.dir, 'many.test.ts'), "import { test } from 'ubqtest'\ntest('later', { skip: 'x' }, () => {})\n")
   p.ubq('many.test.ts')
@@ -171,7 +171,7 @@ test('much output', () => {
   assert.equal(ci.stdout.match(/^  \| line /gm)?.length, 30)
   writeFileSync(join(p.dir, 'skipped.test.ts'), "import { test } from 'ubqtest'\ntest('s', { skip: 'x' }, () => {})\n")
   const skipped = p.ubq('skipped.test.ts')
-  assert.deepEqual([skipped.code, skipped.last], [0, 'pass: 0 failed, 0 passed, 1 skipped'])
+  assert.deepEqual([skipped.code, skipped.last], [0, 'pass: 1 skipped'])
   // A line with no code.
   assert.deepEqual(
     [p.ubq('covers', 'skipped.test.ts:99').code, p.ubq('covers', 'skipped.test.ts:99').err],
@@ -203,10 +203,10 @@ test('ubq run takes paths only, and a path with the name of a command gets a not
   )
   // `ubq run <folder>` runs the folder, also with the name of a command.
   const run = p.ubq('run', 'diff')
-  assert.deepEqual([run.code, run.last, run.err], [0, 'pass: 0 failed, 1 passed', ''])
+  assert.deepEqual([run.code, run.last, run.err], [0, 'pass: 1 test', ''])
   // `ubq run` with no path runs all test files.
   const all = p.ubq('run')
-  assert.deepEqual([all.code, all.last], [0, 'pass: 0 failed, 1 passed'])
+  assert.deepEqual([all.code, all.last], [0, 'pass: 1 test'])
   // The command wins, and a note tells how to run the folder.
   const command = p.ubq('diff')
   assert.equal(command.err, 'note: "diff" is a ubq command. To run the tests in ./diff: ubq run diff\n')

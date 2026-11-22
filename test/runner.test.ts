@@ -30,14 +30,14 @@ const ubq = ubqIn(cwd)
 test('one file runs in the CLI process', () => {
   assert.deepEqual(ubq(['pass.ts']), {
     code: 0,
-    out: ['skip pass.ts > not on this platform: needs a GPU', 'pass: 0 failed, 5 passed, 1 skipped'],
+    out: ['skip pass.ts > not on this platform: needs a GPU', 'pass: 5 tests, 1 skipped'],
     err: '',
   })
 })
 
 test('a line selects the test that contains it', () => {
-  assert.deepEqual(ubq(['pass.ts:14']).out, ['pass: 0 failed, 1 passed, 5 not selected'])
-  assert.deepEqual(ubq(['pass.ts:14', 'pass.ts:26']).out, ['pass: 0 failed, 2 passed, 4 not selected'])
+  assert.deepEqual(ubq(['pass.ts:14']).out, ['pass: 1 test, 5 not selected'])
+  assert.deepEqual(ubq(['pass.ts:14', 'pass.ts:26']).out, ['pass: 2 tests, 4 not selected'])
 })
 
 test('a line before all tests selects nothing, exit code 2', () => {
@@ -50,7 +50,7 @@ test('many files run in child processes', () => {
   const r = ubq(['pass.ts', 'cov/test/calc.test.ts'])
   assert.deepEqual(r, {
     code: 0,
-    out: ['skip pass.ts > not on this platform: needs a GPU', 'pass: 0 failed, 10 passed, 1 skipped'],
+    out: ['skip pass.ts > not on this platform: needs a GPU', 'pass: 10 tests, 1 skipped'],
     err: '',
   })
 })

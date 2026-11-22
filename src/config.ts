@@ -136,8 +136,21 @@ export const config = (): Config => {
 export const setDefines = (): void => {
   for (const [name, value] of Object.entries(config().define ?? {}))
     (globalThis as Record<string, unknown>)[name] = value
-  Object.assign(process.env, config().env)
+  // `NODE_OPTIONS` keeps the options of the shell and of ubq.
+  const options = nodeOptions() ?? process.env.NODE_OPTIONS
+  Object.assign(process.env, config().env, options !== undefined && { NODE_OPTIONS: options })
 }
+
+/**
+ * `NODE_OPTIONS` for a test process: the value that this process
+ * has, then the value of the `env` key. Undefined if the key has no
+ * value, or if this process has it: the runner starts each test
+ * process with it.
+ */
+export const nodeOptions = (
+  own = config().env?.NODE_OPTIONS,
+  now = process.env.NODE_OPTIONS ?? '',
+): string | undefined => (own && !now.includes(own) ? `${now} ${own}`.trim() : undefined)
 
 /**
  * With no `helpers` key: a file in a folder with the name `test`,

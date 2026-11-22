@@ -9,6 +9,9 @@ import type { SourceRegions } from './source-map.ts'
 
 /** The name of the counter array in a changed file. */
 const NAME = COUNTER_NAME
+// Each bracket that this file adds has this comment, so that
+// `hideCounters` can find the pair in the text of a function.
+const MARK = `/*${NAME}*/`
 
 export interface Instrumented {
   /** The source with counters. Each line has the same number as before. */
@@ -201,14 +204,14 @@ export const instrument = (source: string, file: string): Instrumented | undefin
     if (!node) return
     if (node.type === 'BlockStatement') edit(node.start + 1, `${region(node, false, fn, from)};`)
     else {
-      edit(node.start, `{${region(node, false, fn, from)};`)
-      edit(node.end, '}', true)
+      edit(node.start, `{${MARK}${region(node, false, fn, from)};`)
+      edit(node.end, `${MARK}}`, true)
     }
   }
   /** A counter in front of an expression that is a branch. */
   const expression = (node: Node, fn: number, from?: number, isFn = false): void => {
-    edit(node.start, `(${region(node, isFn, fn, from)},`)
-    edit(node.end, ')', true)
+    edit(node.start, `(${MARK}${region(node, isFn, fn, from)},`)
+    edit(node.end, `${MARK})`, true)
   }
   /**
    * In a list of statements, the code after a statement that can
@@ -237,8 +240,8 @@ export const instrument = (source: string, file: string): Instrumented | undefin
         const [at, before] = afterDirectives(stmts, body.start + 1)
         edit(at, `${before}${count};`)
       } else {
-        edit(body.start, `(${count},`)
-        edit(body.end, ')', true)
+        edit(body.start, `(${MARK}${count},`)
+        edit(body.end, `${MARK})`, true)
       }
     }
     switch (node.type) {

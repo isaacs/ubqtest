@@ -172,6 +172,8 @@ export const viteDefine = (
   root: string,
   parse: Parse,
   children: Children,
+  /** The setup files that have a note of their own: those of a Workers project. */
+  noted: string[] = [],
 ): { define: Record<string, unknown>; env: Record<string, string>; notes: string[] } | undefined => {
   const define: Record<string, unknown> = {}
   const env: Record<string, string> = {}
@@ -191,6 +193,8 @@ export const viteDefine = (
     /** The names of `test.env` with a value that is not plain text, and of the aliases for imports. */
     const hard: string[] = []
     const alias: string[] = []
+    /** The setup files, as paths from the project root. */
+    const setup: string[] = []
     const names = (object: Node | undefined): string[] =>
       object?.type === 'ObjectExpression'
         ? (object.properties as Node[]).map(p => keyOf(p) ?? 'a computed key')
@@ -215,6 +219,18 @@ export const viteDefine = (
         }
       else if (given) hard.push('not a plain object')
       alias.push(...names(get(get(node, 'test'), 'alias')), ...names(get(get(node, 'resolve'), 'alias')))
+      const files = get(get(node, 'test'), 'setupFiles')
+      if (files)
+        try {
+          for (const one of [plain(files)].flat()) {
+            const path = relative(root, resolve(root, String(one)))
+              .split(sep)
+              .join('/')
+            if (!noted.includes(path)) setup.push(path)
+          }
+        } catch {
+          setup.push('not plain text')
+        }
       const timeout = node.type === 'ObjectExpression' ? get(node, 'testTimeout') : undefined
       if (timeout?.type === 'Literal' && typeof timeout.value === 'number') limit = timeout.value
       const values = node.type === 'ObjectExpression' ? get(node, 'define') : undefined
@@ -297,6 +313,10 @@ export const viteDefine = (
     if (alias.length)
       notes.push(
         `${file} has an alias for imports (${alias.join(', ')}). ubq does not change the name of an import. Use a name that the runtime finds: a relative path, the "imports" key of package.json, or a package of the workspace.`,
+      )
+    if (setup.length)
+      notes.push(
+        `${file} has setup files (${setup.join(', ')}). ubq has no setup files. Export the work of each file as a function, and call that function at the top level of each test file, or in each test that needs it.`,
       )
     if (spread && !found)
       notes.push(

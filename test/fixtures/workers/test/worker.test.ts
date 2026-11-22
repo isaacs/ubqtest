@@ -20,6 +20,8 @@ describe('fetch', () => {
 
   test('the runtime is workerd', async () => {
     assert.equal(await (await get('/agent')).text(), 'Cloudflare-Workers')
+    // The text of a function has no coverage counters.
+    assert(!String((n: number) => (n ? 1 : 2)).includes('__ubqc'))
   })
 
   test('rows from D1, with the migrations and the trigger', async () => {

@@ -59,7 +59,7 @@ test('at a terminal, FAIL and fail are red, and pass is cyan', () => {
   assert.equal(p.ubq({}, 'show', 'b.test.ts > later').split('\n')[0], 'skip b.test.ts > later')
   assert.match(p.ubq({}, 'history', 'a.test.ts > bad'), new RegExp(`  ${RED('fail').replaceAll('[', '\\[')}  `))
   assert.equal(p.ubq({}, 'check').split('\n').at(-2), `${RED('fail')}: 1 failed tests`)
-  assert.equal(p.ubq({}, 'b.test.ts').split('\n').at(-2), `${CYAN('pass')}: 0 failed, 1 passed, 1 skipped (run 2)`)
+  assert.equal(p.ubq({}, 'b.test.ts').split('\n').at(-2), `${CYAN('pass')}: 1 test, 1 skipped (run 2)`)
 })
 
 const esc = (text: string) => text.replaceAll('[', '\\[')

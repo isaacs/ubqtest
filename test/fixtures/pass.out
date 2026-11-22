@@ -1,2 +1,2 @@
 skip pass.ts > not on this platform: needs a GPU
-pass: 0 failed, 5 passed, 1 skipped
+pass: 5 tests, 1 skipped

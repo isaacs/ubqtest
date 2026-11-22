@@ -248,7 +248,7 @@ test('the code runs', async () => {
 `,
     )
     const run = p.ubq()
-    assert.deepEqual([run.err, run.out], ['', 'pass: 0 failed, 1 passed (run 1)\n'])
+    assert.deepEqual([run.err, run.out], ['', 'pass: 1 test (run 1)\n'])
   })
 }
 
@@ -267,7 +267,7 @@ test('odd', () => assert.equal(Odd.One, 1))
 test('sign', () => assert.deepEqual([sign(1), sign(0)], ['plus', 'minus']))
 `,
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq().last, 'pass: 2 tests')
   const r = p.ubq('mutate', 'src/sign.ts')
   assert.deepEqual([r.code, r.out.trimEnd().split('\n').at(-1)], [0, 'mutate: 0 of 2 changes survived'], r.out)
 })
@@ -325,7 +325,7 @@ it('has a folder', () => {
   const report = p.ubq('convert', 'spec/old.spec.ts')
   assert.match(report.out, /^converted spec\/old\.spec\.ts \(jest\): 2 changes, 0 TODO$/m)
   assert.match(readFileSync(join(p.dir, 'spec/old.spec.ts'), 'utf8'), /assert\.contains\(join\(__dirname, 'x'\)/)
-  assert.equal(p.ubq('spec/old.spec.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('spec/old.spec.ts').last, 'pass: 1 test')
 })
 
 test('a project that does not have the compiler, and a typescript with no function for one file', () => {
@@ -378,7 +378,7 @@ test('ubq convert --transform sets the key, and installs swc with the package ma
     readFileSync(join(p.dir, 'package.json'), 'utf8'),
     '{\n\t"name": "x",\n\t"ubq": {\n\t\t"include": [\n\t\t\t"spec/**/*.spec.ts"\n\t\t],\n\t\t"transform": "typescript"\n\t}\n}\n',
   )
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   const doctor = p.ubq('doctor').out
   assert.deepEqual([doctor.includes('ok   transform: typescript'), doctor.includes('Node cannot run')], [true, false])
   assert.equal(

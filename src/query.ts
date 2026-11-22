@@ -381,9 +381,13 @@ export interface RunRow {
   code: number | null
 }
 
-/** The counts of a run, as the summary line has them: `1 errors, 2 failed, 10 passed, 1 skipped`. */
+/** The counts of a run, as the summary line has them: `1 error, 2 failed, 10 passed, 1 skipped`, or `12 tests` for a pass. */
 export const runCounts = (row: RunRow): string[] => {
-  const parts = [`${row.fail} failed`, `${row.pass} passed`]
+  const parts = row.code
+    ? [`${row.fail} failed`, `${row.pass} passed`]
+    : row.pass || !row.skip
+      ? [counted`${row.pass} test|tests`]
+      : []
   if (row.errors) parts.unshift(counted`${row.errors} error|errors`)
   if (row.skip) parts.push(`${row.skip} skipped`)
   if (row.unselected) parts.push(`${row.unselected} not selected`)

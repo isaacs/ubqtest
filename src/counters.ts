@@ -5,6 +5,37 @@
 /** The name of the counter array in the code of a file with counters. */
 export const COUNTER_NAME = '__ubqc'
 
+/**
+ * Makes `Function.prototype.toString` give the text of a function
+ * with no counters. Code that reads the text of a function, or runs
+ * it in a different place (a sandbox, a worker, `new Function`),
+ * then gets the source as it is.
+ *
+ * The function uses no name of this module: the Workers host puts
+ * its text in the code of workerd.
+ */
+export const hideCounters = (): void => {
+  const key = Symbol.for('ubqtest.toString')
+  const shared = globalThis as Record<symbol, unknown>
+  if (shared[key]) return
+  shared[key] = true
+  const real = Function.prototype.toString
+  // The text that the instrumenter adds (`instrument.ts`): a
+  // counter, and brackets with a mark. Bun prints the code again
+  // with no comments: there, the brackets stay, as a pair.
+  const added = /[{(]\/\*__ubqc\*\/__ubqc\[\d+\]\+\+[;,]|\/\*__ubqc\*\/[)}]|__ubqc\[\d+\]\+\+[;,]/g
+  // A method has no `prototype`, as the function of the runtime.
+  const { toString } = {
+    toString(this: unknown): string {
+      // The text of this function is the text of the real one.
+      if (this === toString) return real.call(real)
+      const text = real.call(this)
+      return text.includes('__ubqc') ? text.replace(added, '') : text
+    },
+  }
+  Function.prototype.toString = toString
+}
+
 /** The key of the global Map from file path to counter array. */
 export const COUNTERS = 'ubqtest.counters'
 

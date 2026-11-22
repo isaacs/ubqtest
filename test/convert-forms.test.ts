@@ -44,6 +44,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     ],
     [
       "import { assert, describe, test } from 'ubqtest'",
+      "import * as all from 'node:assert/strict'",
       "describe('g', () => {",
       "  test('a', () => {",
       "    assert.equal(1, 1, 'one')",
@@ -88,6 +89,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     ],
     [
       "import { assert, describe, spy, spyOn, test } from 'ubqtest'",
+      "import { mock } from 'node:test'",
       "describe('s', () => {",
       '  // TODO(ubq): ubq has no test object. Use the functions of ubqtest in',
       '  // place of the parameter of this test function.',
@@ -633,6 +635,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     ],
     [
       "import { assert, test } from 'ubqtest'",
+      "import { vi } from 'vitest'",
       '// TODO(ubq): ubq has no hooks. Make a setup function and call it in each',
       '// test. Use cleanup() for the work after a test.',
       'afterEach(reset)',
@@ -728,6 +731,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     ],
     [
       "import { assert, spy, spyOn, test } from 'ubqtest'",
+      "import { expect, vi } from 'vitest'",
       "test('a', () => {",
       '  // TODO(ubq): A spy gets its implementation as an argument: spy(impl),',
       '  // spyOn(object, key, impl). For a result that changes, the',
@@ -815,6 +819,7 @@ const cases: [name: string, file: string, source: string[], result: string[] | u
     'a.ts',
     ["import { vi } from 'vitest'", 'export const fake = () => vi.useFakeTimers()'],
     [
+      "import { vi } from 'vitest'",
       '// TODO(ubq): Use fakeClock: const clock = fakeClock(). It replaces the',
       '// timers and Date until the test ends. Make it in the test that uses it:',
       '// if this is in a hook, make the clock in a setup function that each test',

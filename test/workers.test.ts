@@ -51,7 +51,7 @@ const slow = { timeout: 120_000 }
 
 test('a Worker with D1, a Durable Object, and a scheduled handler', slow, () => {
   const p = project()
-  assert.deepEqual(p.ubq(), { code: 0, out: ['pass: 0 failed, 7 passed'], err: '' })
+  assert.deepEqual(p.ubq(), { code: 0, out: ['pass: 7 tests'], err: '' })
   // Coverage of each test, from the source of the Worker.
   assert.deepEqual(p.ubq('uncovered').out.slice(0, 2), [
     "src/index.ts:33:32  return new Response('this line has no test')",
@@ -63,7 +63,7 @@ test('a Worker with D1, a Durable Object, and a scheduled handler', slow, () => 
     'test/worker.test.ts > fetch > a greeting from a var',
     'test/exports.test.ts (while the file loads)',
   ])
-  assert.deepEqual(p.ubq('test/worker.test.ts:38').out, ['pass: 0 failed, 1 passed, 5 not selected'])
+  assert.deepEqual(p.ubq('test/worker.test.ts:38').out, ['pass: 1 test, 5 not selected'])
 })
 
 test('failures in workerd have the place in the source, and the output of the test', slow, () => {
@@ -229,7 +229,7 @@ test('an alias and packages', () => {
 })
 `,
   )
-  assert.deepEqual(p.ubq('test/env.test.ts'), { code: 0, out: ['pass: 0 failed, 3 passed'], err: '' })
+  assert.deepEqual(p.ubq('test/env.test.ts'), { code: 0, out: ['pass: 3 tests'], err: '' })
 })
 
 test('modules in workerd: each form of a package, and files that are not code', slow, () => {
@@ -327,7 +327,7 @@ test('a JSX file, and a file that is not there', async () => {
   )
   assert.deepEqual(p.ubq('test/modules.test.ts'), {
     code: 0,
-    out: ['pass: 0 failed, 3 passed'],
+    out: ['pass: 3 tests'],
     err: '',
   })
 })
@@ -378,7 +378,7 @@ test('a config with no name, no main, and no vars', async () => {
     ],
     services: [{ binding: 'SELF', service: 'ubq' }],
   })
-  assert.deepEqual(p.ubq('small/small.test.ts'), { code: 0, out: ['pass: 0 failed, 1 passed'], err: '' })
+  assert.deepEqual(p.ubq('small/small.test.ts'), { code: 0, out: ['pass: 1 test'], err: '' })
 
   // The main module of the Worker throws a value that is not an error.
   writeFileSync(join(p.dir, 'small/main.ts'), "throw 'not an error'\n")

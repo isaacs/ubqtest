@@ -258,3 +258,20 @@ test('the env of a vitest config, and a note for its aliases', () => {
     'vitest.config.ts has values in test.env that are not plain text (not a plain object). Add them to "env" in "ubq" in package.json by hand.',
   ])
 })
+
+test('a note for the setup files of a vitest config', () => {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'ubq-vite-')))
+  cleanup(() => rmSync(dir, { recursive: true, force: true }))
+  writeFileSync(
+    join(dir, 'vitest.config.ts'),
+    "export default defineConfig({ test: { setupFiles: ['./test/setup.ts', 'workers/setup.ts'] } })",
+  )
+  const note = (files: string) =>
+    `vitest.config.ts has setup files (${files}). ubq has no setup files. Export the work of each file as a function, and call that function at the top level of each test file, or in each test that needs it.`
+  // The setup file of a Workers project has a note of its own.
+  assert.deepEqual(viteDefine(dir, parse, children, ['workers/setup.ts'])?.notes, [note('test/setup.ts')])
+  writeFileSync(join(dir, 'vitest.config.ts'), "export default { test: { setupFiles: 'setup.ts' } }")
+  assert.deepEqual(viteDefine(dir, parse, children)?.notes, [note('setup.ts')])
+  writeFileSync(join(dir, 'vitest.config.ts'), 'export default { test: { setupFiles: files } }')
+  assert.deepEqual(viteDefine(dir, parse, children)?.notes, [note('not plain text')])
+})

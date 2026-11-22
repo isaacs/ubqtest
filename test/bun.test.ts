@@ -102,7 +102,10 @@ describe('instrument', () => {
     const src = 'export const f = <T,>(x: T): T => x as T\nenum E { A }\n'
     const result = instrument(src, 'f.ts')
     assert(result)
-    assert.match(result.code, /<T,>\(x: T\): T => \(__ubqc\[1\]\+\+,x as T\)\nenum E \{ A \}/)
+    assert.match(
+      result.code,
+      /<T,>\(x: T\): T => \(\/\*__ubqc\*\/__ubqc\[1\]\+\+,x as T\/\*__ubqc\*\/\)\nenum E \{ A \}/,
+    )
   })
 })
 
@@ -126,9 +129,7 @@ describe('bun', () => {
     // Not the store: coverage.test.ts can remove it during the copy.
     cpSync(`${fixtures}cov/`, cov, { recursive: true, filter: path => !path.endsWith('.ubq') })
     resetStore(cov)
-    assert.deepEqual(sh('bun', ['--preload', 'ubqtest/bun-preload', 'test/calc.test.ts'], cov), [
-      'pass: 0 failed, 5 passed',
-    ])
+    assert.deepEqual(sh('bun', ['--preload', 'ubqtest/bun-preload', 'test/calc.test.ts'], cov), ['pass: 5 tests'])
     assert.deepEqual(sh('node', [cli, 'uncovered'], cov), [
       "src/calc.ts:8:3  return 'fail'",
       'src/calc.ts:12:17  (): string => { (+2 lines)',
@@ -149,12 +150,9 @@ describe('bun', () => {
     cpSync(`${fixtures}cov/`, join(p.dir, 'cov'), { recursive: true, filter: path => !path.endsWith('.ubq') })
     assert.deepEqual(sh('bun', [cli, 'pass.ts'], p.dir), [
       'skip pass.ts > not on this platform: needs a GPU',
-      'pass: 0 failed, 5 passed, 1 skipped',
+      'pass: 5 tests, 1 skipped',
     ])
-    assert.equal(
-      sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], p.dir).at(-1),
-      'pass: 0 failed, 10 passed, 1 skipped',
-    )
+    assert.equal(sh('bun', [cli, 'pass.ts', 'cov/test/calc.test.ts'], p.dir).at(-1), 'pass: 10 tests, 1 skipped')
     assert.deepEqual(sh('node', [cli, 'sql', "select coverage from test_file where tfile = 'pass.ts'"], p.dir), [
       '{"coverage":"full"}',
     ])
@@ -193,14 +191,14 @@ describe('bun', () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
     addBare(p.dir)
-    assert.deepEqual(sh('bun', [cli, 'one.ts'], p.dir), ['pass: 0 failed, 2 passed'])
+    assert.deepEqual(sh('bun', [cli, 'one.ts'], p.dir), ['pass: 2 tests'])
   })
 
   test('the values of the define key are globals before the source loads', { skip }, () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
     addDefine(p)
-    assert.deepEqual(sh('bun', [cli, 'flag.ts'], p.dir), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('bun', [cli, 'flag.ts'], p.dir), ['pass: 1 test'])
   })
 
   test('doctor on Bun does not ask for erasableSyntaxOnly', { skip }, () => {
@@ -245,19 +243,19 @@ describe('bun', () => {
       return r.stdout.replace(/ \(run \d+[^)]*\)\n$/, '')
     }
     // Off by default: a plain program on Bun records no coverage.
-    assert.equal(plain(), 'pass: 0 failed, 1 passed')
+    assert.equal(plain(), 'pass: 1 test')
     assert.deepEqual(sh('node', [cli, 'covers', 'src/size.ts:4'], p.dir), ['no test ran src/size.ts:4'])
     p.configure({ bunInspectorCoverage: true })
     // The data of the inspector is not the same in each version of
     // Bun, so the places, and the note of code that no test ran,
     // are not a part of this check.
-    assert.equal(plain().split('\n').at(-1), 'pass: 0 failed, 1 passed')
+    assert.equal(plain().split('\n').at(-1), 'pass: 1 test')
     // The store must have the file that the test ran.
     assert.deepEqual(sh('node', [cli, 'sql', "select distinct file from coverage where file = 'src/size.ts'"], p.dir), [
       '{"file":"src/size.ts"}',
     ])
     // The runner uses counters, with or without the option.
-    assert.deepEqual(sh('bun', [cli, 'size.ts'], p.dir), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('bun', [cli, 'size.ts'], p.dir), ['pass: 1 test'])
     assert.deepEqual(sh('node', [cli, 'uncovered', 'src/size.ts'], p.dir), [
       "src/size.ts:3:14  return 'big'",
       'src/size.ts:6:8  function never(): number { (+2 lines)',
@@ -269,7 +267,7 @@ describe('bun', () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
     addJsx(p.dir)
-    assert.deepEqual(sh('bun', [cli, 'view.tsx'], p.dir), ['pass: 0 failed, 3 passed'])
+    assert.deepEqual(sh('bun', [cli, 'view.tsx'], p.dir), ['pass: 3 tests'])
     assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/view.tsx'], p.dir), [
       'src/view.tsx:2:32  (type: unknown, props: unknown) => ({ type, props })',
       'src/view.tsx:8:35  ? <b>many</b>',
@@ -284,7 +282,7 @@ describe('bun', () => {
       join(p.dir, 'plain.ts'),
       "import { assert, test } from 'ubqtest'\nimport { Plain } from './src/plain.js'\ntest('on', () => {\n  assert.equal(Plain(true).type, 'b')\n})\n",
     )
-    assert.deepEqual(sh('bun', [cli, 'plain.ts'], p.dir), ['pass: 0 failed, 1 passed'])
+    assert.deepEqual(sh('bun', [cli, 'plain.ts'], p.dir), ['pass: 1 test'])
     assert.deepEqual(sh('bun', [cli, 'uncovered', 'src/plain.js'], p.dir), [
       'src/plain.js:1:44  : <i>off</i>',
       '1 uncovered range in src/plain.js',

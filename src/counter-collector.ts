@@ -6,7 +6,7 @@ import * as nodeModule from 'node:module'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { addCoverage, type Collector, flatten, sourceCoverage } from './coverage.ts'
-import { COLUMN, COUNTERS, mutated, originalColumn, type Region, snapshot } from './counters.ts'
+import { COLUMN, COUNTERS, hideCounters, mutated, originalColumn, type Region, snapshot } from './counters.ts'
 import type { Coverage } from './events.ts'
 import { config } from './config.ts'
 import type { Instrumented } from './instrument.ts'
@@ -20,7 +20,7 @@ const hash = (algorithm: 'sha1', data: string | Buffer): string =>
   process.getBuiltinModule('node:crypto').hash(algorithm, data)
 
 /** Changes when the form of the changed source or the regions changes. */
-const CACHE_VERSION = 5
+const CACHE_VERSION = 7
 
 const KEY = Symbol.for('ubqtest.collector')
 const shared = globalThis as { [KEY]?: Collector; [key: symbol]: unknown }
@@ -347,6 +347,7 @@ export const startCounters = (): Counters | undefined => {
   // process can also count for the test that started it
   // (`child-coverage.ts`). This Map has only the files of this one.
   const all = (shared[Symbol.for(COUNTERS)] ??= new Map<string, Uint32Array>()) as Map<string, Uint32Array>
+  hideCounters()
   const counters = new Map<string, Uint32Array>()
   const regions = new Map<string, Region[]>()
   /** For a built file with a source map: the source files that its counters are for. */

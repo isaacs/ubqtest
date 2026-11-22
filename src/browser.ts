@@ -68,14 +68,13 @@ const start = async (): Promise<Browser> => {
 /**
  * Import from `'ubqtest/browser'`.
  *
- * Makes a browser context that the test started itself, with the
- * Playwright of the project, ready for a test of ubq. A function
- * that the test gives to `page.evaluate` has the coverage counters
- * of the test file in its text. In a page of this context, they
- * count into an object that keeps nothing. With no call, such a
- * function throws `ReferenceError: __ubqc is not defined`.
+ * A test does not need this call: the text of a function that the
+ * test gives to `page.evaluate` has no coverage counters. The
+ * function stays for tests that call it.
  *
- * A page of `browser()` needs no call.
+ * It gives a browser context that the test started itself, with
+ * the Playwright of the project, an object for the counters of ubq
+ * that keeps nothing.
  *
  * ```ts
  * const context = await chromium.launch().then(b => b.newContext())

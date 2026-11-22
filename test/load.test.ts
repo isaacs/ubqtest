@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
 import { projectRoot } from '../src/project.ts'
 import { loadFailure } from '../src/runner.ts'
-import { addBare, addDefine, project, remove } from './setup.ts'
+import { addBare, addDefine, cli, project, remove } from './setup.ts'
 
 test('a test file that does not load is an error of the file, with the place', () => {
   const p = project()
@@ -58,6 +58,78 @@ test('a hook of an other test tool gets a hint', () => {
   )
 })
 
+test('NODE_OPTIONS of the env key goes to each test process, with the options of the shell', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.configure({ env: { NODE_OPTIONS: '--conditions=source' } })
+  // A package with an export for the condition.
+  mkdirSync(join(p.dir, 'node_modules/kind'), { recursive: true })
+  writeFileSync(
+    join(p.dir, 'node_modules/kind/package.json'),
+    JSON.stringify({ name: 'kind', type: 'module', exports: { source: './source.js', default: './built.js' } }),
+  )
+  writeFileSync(join(p.dir, 'node_modules/kind/source.js'), "export default 'source'\n")
+  writeFileSync(join(p.dir, 'node_modules/kind/built.js'), "export default 'built'\n")
+  const file = `import { spawnSync } from 'node:child_process'
+// @ts-expect-error: the package has no types
+import kind from 'kind'
+import { assert, test } from 'ubqtest'
+test('kind', () => {
+  assert.equal(kind, 'source')
+  assert.match(process.env.NODE_OPTIONS, /--no-warnings .*--conditions=source/)
+  // A process that the test starts has the options too.
+  const child = spawnSync(process.execPath, ['-e', "import('kind').then(m => console.log(m.default))"], { encoding: 'utf8' })
+  assert.equal(child.stdout, 'source\\n')
+})
+`
+  writeFileSync(join(p.dir, 'kind.ts'), file)
+  writeFileSync(join(p.dir, 'kind2.ts'), file)
+  const ubq = (...args: string[]) =>
+    spawnSync('node', [cli, ...args], {
+      cwd: p.dir,
+      encoding: 'utf8',
+      env: { ...process.env, CI: '', NODE_OPTIONS: '--no-warnings' },
+    }).stdout.replace(/ \(run \d+\)/, '')
+  // One file, which does not run in the process of the runner, and
+  // two files.
+  assert.equal(ubq('kind.ts'), 'pass: 1 test\n')
+  assert.equal(ubq('kind.ts', 'kind2.ts'), 'pass: 2 tests\n')
+})
+
+test('nodeOptions puts the value of the env key after the value of the process', async () => {
+  // A copy of the module, which has counters: a test process loads
+  // the module before the counters start.
+  const { nodeOptions }: typeof import('../src/config.ts') = await import('../src/config.ts?copy' as string)
+  assert.equal(nodeOptions('--b', '--a'), '--a --b')
+  assert.equal(nodeOptions('--b', ''), '--b')
+  // The process has it, or the key has none.
+  assert.equal(nodeOptions('--b', '--a --b'), undefined)
+  assert.equal(nodeOptions('', '--a'), undefined)
+})
+
+test('the text of a function from the toString of a different realm gets a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'realm.ts'),
+    `import { runInNewContext } from 'node:vm'
+import { assert, test } from 'ubqtest'
+const double = (n: number) => (n ? n * 2 : 0)
+test('same realm', () => assert.equal(new Function('return (' + double + ')(2)')(), 4))
+test('other realm', () => {
+  const text = runInNewContext('f => Function.prototype.toString.call(f)')(double)
+  assert.equal(new Function('return (' + text + ')(2)')(), 4)
+})
+`,
+  )
+  const out = p.ubq('realm.ts').out
+  assert.contains(
+    out,
+    'FAIL realm.ts > other realm\n  ReferenceError: __ubqc is not defined\n  hint: the text of a function has the coverage counters of ubq, and it ran in a place that has no counters. String(fn) and fn.toString() give the text with no counters. The toString of a different realm (node:vm, an iframe) does not: get the text in the realm of the test.\n',
+  )
+  assert.contains(out, 'fail: 1 failed, 1 passed')
+})
+
 test('an import of ./a.js finds the file ./a.ts', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
@@ -71,8 +143,8 @@ test('an import of ./a.js finds the file ./a.ts', () => {
     "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.js'\ntest('one', () => {\n  assert.equal(one(), 1)\n})\n",
   )
   // In the process of the runner, and in a child process.
-  assert.equal(p.ubq('one.ts').last, 'pass: 0 failed, 1 passed')
-  assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 0 failed, 6 passed, 1 skipped')
+  assert.equal(p.ubq('one.ts').last, 'pass: 1 test')
+  assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 6 tests, 1 skipped')
   assert.equal(p.ubq('covers', 'src/two.ts:1').out, 'one.ts > one\none.ts (while the file loads)\n')
   // A file that does not exist with either name.
   writeFileSync(join(p.dir, 'src/two.ts'), "import './three.js'\n")
@@ -95,8 +167,8 @@ test('an import with no extension finds the file, and an import of a folder find
   cleanup(() => rmSync(p.dir, { recursive: true }))
   addBare(p.dir)
   // In the process of the runner, and in a child process.
-  assert.equal(p.ubq('one.ts').last, 'pass: 0 failed, 2 passed')
-  assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 0 failed, 7 passed, 1 skipped')
+  assert.equal(p.ubq('one.ts').last, 'pass: 2 tests')
+  assert.equal(p.ubq('one.ts', 'pass.ts').last, 'pass: 7 tests, 1 skipped')
   // Also in the new instance of a mock.
   assert.equal(p.ubq('covers', 'src/two.ts:1').out, 'one.ts > mock\none.ts > one\none.ts (while the file loads)\n')
   // A query makes a new instance of the module, and the name still has no extension.
@@ -113,7 +185,7 @@ test('an import with no extension finds the file, and an import of a folder find
       '',
     ].join('\n'),
   )
-  assert.equal(p.ubq('query.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('query.ts').last, 'pass: 1 test')
   // `require` too, also for the name of the file after a build.
   writeFileSync(
     join(p.dir, 'req.cts'),
@@ -134,7 +206,7 @@ test('an import with no extension finds the file, and an import of a folder find
     .stdout.split('.')
     .map(Number) as [number, number]
   if (major === 24 ? minor >= 18 : major > 26 || (major === 26 && minor >= 5))
-    assert.equal(p.ubq('req.cts').last, 'pass: 0 failed, 1 passed')
+    assert.equal(p.ubq('req.cts').last, 'pass: 1 test')
   // A name with no file: the report has the name as it is written.
   writeFileSync(join(p.dir, 'src/two.ts'), "import './three'\n")
   assert.match(
@@ -196,8 +268,8 @@ test('the values of the define key are globals before the source loads', () => {
   const file = readFileSync(join(p.dir, 'flag.ts'), 'utf8')
   writeFileSync(join(p.dir, 'flag2.ts'), file)
   // In the process of the runner, in a child process, and as a plain program.
-  assert.equal(p.ubq('flag.ts').last, 'pass: 0 failed, 1 passed')
-  assert.equal(p.ubq('flag.ts', 'flag2.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('flag.ts').last, 'pass: 1 test')
+  assert.equal(p.ubq('flag.ts', 'flag2.ts').last, 'pass: 2 tests')
   // A plain program sets them when it loads ubqtest.
   const [source, ubqtest, ...rest] = file.split('\n')
   writeFileSync(join(p.dir, 'plain.ts'), [ubqtest, source, ...rest].join('\n'))
@@ -226,7 +298,7 @@ test('${name}', () => assert.deepEqual([two(), typeof kind], [2, 'function']))
 `,
     )
   const r = p.ubq('a.test.ts', 'b.test.ts')
-  assert.deepEqual([r.last, r.err], ['pass: 0 failed, 2 passed', ''])
+  assert.deepEqual([r.last, r.err], ['pass: 2 tests', ''])
   // One entry for each file: the two test files, and the three
   // files of `lib`. Each has the source with no types, but the file
   // that Node cannot change.
@@ -253,8 +325,8 @@ test('the values of the env key are in the environment before the source loads',
   writeFileSync(join(p.dir, 'mode.ts'), file)
   writeFileSync(join(p.dir, 'mode2.ts'), file)
   // In the process of the runner, in a child process, and as a plain program.
-  assert.equal(p.ubq('mode.ts').last, 'pass: 0 failed, 1 passed')
-  assert.equal(p.ubq('mode.ts', 'mode2.ts').last, 'pass: 0 failed, 2 passed')
+  assert.equal(p.ubq('mode.ts').last, 'pass: 1 test')
+  assert.equal(p.ubq('mode.ts', 'mode2.ts').last, 'pass: 2 tests')
   // The value of the key is before a value of the shell: a test
   // has the same result on each machine.
   const plain = spawnSync('node', ['mode.ts'], {
@@ -331,7 +403,7 @@ test('with coverage that is not complete, ubq uncovered does not say only "none"
     join(p.dir, 'one.test.ts'),
     "import { assert, test } from 'ubqtest'\nimport { one } from './src/one.ts'\ntest('one', () => assert.equal(one(), 1))\n",
   )
-  assert.equal(p.ubq('one.test.ts').last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq('one.test.ts').last, 'pass: 1 test')
   assert.equal(p.ubq('uncovered', 'src/one.ts').out.split('\n')[0], 'uncovered: none')
   // As a plain program, the file has no counters in the files that
   // loaded before the library.

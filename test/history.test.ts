@@ -178,13 +178,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
   const one = p.ubq('--repeat', '3', 'flip.ts > c')
   assert.deepEqual(
     [one.code, lines(one.out.replace(/ \(run \d+[^)]*\)\n$/, ''))],
-    [
-      0,
-      [
-        'repeat 3: 0 failed some times, 0 failed each time, 1 passed each time',
-        'pass: 0 failed, 1 passed, 2 not selected',
-      ],
-    ],
+    [0, ['repeat 3: 0 failed some times, 0 failed each time, 1 passed each time', 'pass: 1 test, 2 not selected']],
   )
   assert.match(
     p.ubq('--failed', '--repeat', '2').out,

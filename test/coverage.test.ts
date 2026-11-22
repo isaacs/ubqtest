@@ -57,7 +57,7 @@ test('a column in the text of a counter is the place where the counter went', ()
 test('a run with preload has full coverage', () => {
   reset()
   const r = run('node', '--import', 'ubqtest/preload', 'test/calc.test.ts')
-  assert.deepEqual(r, { code: 0, out: ['pass: 0 failed, 5 passed (run 1)'], err: '' })
+  assert.deepEqual(r, { code: 0, out: ['pass: 5 tests (run 1)'], err: '' })
   assert.deepEqual(ubq('uncovered').out, [
     "src/calc.ts:8:3  return 'fail'",
     'src/calc.ts:12:17  (): string => { (+2 lines)',
@@ -81,7 +81,7 @@ test('covers names the tests that ran a line', () => {
 
 test('show, failures, and sql read the store', () => {
   assert.deepEqual(ubq('show', 'test/calc.test.ts > grade A').out.slice(0, 1), ['pass test/calc.test.ts > grade A'])
-  assert.deepEqual(ubq('failures'), { code: 0, out: ['pass: 0 failed, 5 passed (run 1)'], err: '' })
+  assert.deepEqual(ubq('failures'), { code: 0, out: ['pass: 5 tests (run 1)'], err: '' })
   assert.deepEqual(ubq('sql', 'select status, count(*) n from test group by status').out, ['{"status":"pass","n":5}'])
 })
 
@@ -151,7 +151,7 @@ test('adds', () => {
     const r = p.ubq('uncovered', ...args)
     return [r.code, r.out.trimEnd().split('\n')]
   }
-  assert.equal(p.ubq().last, 'pass: 0 failed, 1 passed')
+  assert.equal(p.ubq().last, 'pass: 1 test')
   assert.deepEqual(uncovered(), [
     1,
     [
@@ -306,7 +306,7 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
   // One test file runs in the process of the command.
   assert.deepEqual(lines(), failed(1))
   // A run of a selection does not check.
-  assert.deepEqual(lines('a.test.ts'), [0, ['pass: 0 failed, 1 passed']])
+  assert.deepEqual(lines('a.test.ts'), [0, ['pass: 1 test']])
   // Each test file in its own process.
   writeFileSync(join(p.dir, 'b.test.ts'), body('b'))
   assert.deepEqual(lines(), failed(2))
@@ -325,7 +325,7 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
   ])
   // An environment variable turns the check off for one run.
   env({ UBQ_COVERAGE_CHECK: 'off' })
-  assert.deepEqual(lines(), [0, ['pass: 0 failed, 2 passed']])
+  assert.deepEqual(lines(), [0, ['pass: 2 tests']])
   env({ UBQ_COVERAGE_CHECK: 'no' })
   assert.equal(p.ubq().err, 'ubq: UBQ_COVERAGE_CHECK must be "off", not "no"\n')
   env({ UBQ_COVERAGE_CHECK: undefined })
@@ -334,7 +334,7 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
     join(p.dir, 'lib/add.ts'),
     'export const add = (a: number, b: number): number => a + b\n// ubq: not measured: no caller yet\nexport const never = (): number => 0\n',
   )
-  assert.deepEqual(lines(), [0, ['pass: 0 failed, 2 passed']])
+  assert.deepEqual(lines(), [0, ['pass: 2 tests']])
   // The value must be "full".
   p.configure({ coverage: true })
   assert.equal(p.ubq().err, 'ubq: "ubq.coverage" in package.json must be "full"\n')
