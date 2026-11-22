@@ -164,7 +164,10 @@ with the `ubq show` command.
 
 ## Rules that fail a test
 
-- A test with zero assertions fails. There is no opt-out.
+- A test with zero assertions fails. There is no opt-out. A call
+  of a function of `node:assert` (`assert.strictEqual`) counts,
+  for a library that checks with it. A call of the module itself
+  (`assert(value)`) does not.
 - `assert.rejects` or `assert.eventually` with no `await` fails.
 - An assertion, a timer callback, or a promise of a test that runs
   after the test ended fails that test.

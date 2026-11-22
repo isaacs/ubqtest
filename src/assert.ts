@@ -315,6 +315,34 @@ export interface Assert {
 }
 
 /**
+ * A call of a function of `node:assert` while a test runs counts as
+ * an assertion of the test (D139): a library such as `RuleTester`
+ * checks with it. A call of the module itself, `assert(value)`, does
+ * not count: the module is that function, and it cannot change.
+ */
+const countNodeAssert = (): void => {
+  const { syncBuiltinESMExports } = process.getBuiltinModule('node:module')
+  const real = process.getBuiltinModule('node:assert') as unknown as Record<string, unknown>
+  for (const owner of [real, real.strict as Record<string, unknown>])
+    for (const key of Object.keys(owner)) {
+      const fn = owner[key]
+      // A class, such as AssertionError, and the strict module.
+      if (typeof fn !== 'function' || !/^[a-z]/.test(key) || key === 'strict') continue
+      owner[key] = function (this: unknown, ...args: unknown[]): unknown {
+        const state = current.getStore()
+        if (state && !state.ended) state.asserts++
+        return Reflect.apply(fn, this, args)
+      }
+    }
+  try {
+    syncBuiltinESMExports()
+  } catch {
+    // workerd does not have it: a named import keeps the function.
+  }
+}
+countNodeAssert()
+
+/**
  * Counts one assertion for the current test. Returns undefined if the
  * test already ended: the caller must then do nothing more.
  *

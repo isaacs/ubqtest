@@ -1151,21 +1151,16 @@ The forms:
 - **A library that needs `describe`, `it`, and `afterAll`.** The
   `RuleTester` of ESLint makes its tests with these functions.
   Give it the functions of ubq. It checks each case with
-  `node:assert`, which ubq does not count, so `it` adds one
-  assertion after the check:
+  `node:assert`, and ubq counts each call of a function of
+  `node:assert` as an assertion:
 
   ```ts
   import { RuleTester } from 'eslint'
-  import { assert, cleanup, describe, test } from 'ubqtest'
+  import { cleanup, describe, test } from 'ubqtest'
 
-  const it = (name: string, check: () => void) =>
-    test(name, () => {
-      check()
-      assert(true, 'RuleTester checked the case')
-    })
   RuleTester.describe = describe
-  RuleTester.it = it
-  RuleTester.itOnly = it
+  RuleTester.it = test
+  RuleTester.itOnly = test
   RuleTester.afterAll = cleanup
   ```
 

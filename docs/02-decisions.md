@@ -3817,3 +3817,24 @@ models". The hermetic report also asked for an index.
   where a section names another: they name the topic command now.
 - The site shows the whole guide.
 
+## D139. A call of node:assert counts as an assertion (user, 2026-11-22)
+
+The report of 0.0.29: the RuleTester recipe added `assert(true)`
+after each case, because ubq did not count the checks of
+`node:assert`. That teaches the form that the zero-assertion rule
+exists to stop.
+
+- While a test runs, each call of a function of `node:assert` or
+  `node:assert/strict` counts as one assertion of the test. ubq
+  replaces each function of the two module objects, and calls
+  `syncBuiltinESMExports` for the named imports.
+- The user chose to count each call, also a call in the code under
+  test. The other choices were to count only calls that do not
+  come from project source, or only calls from `node_modules`.
+- A call of the module itself, `assert(value)`, does not count:
+  the module is that function, and it cannot change.
+- On Bun, Deno, and workerd, a named import of a function does not
+  count: `syncBuiltinESMExports` does not change it there (workerd
+  does not have it). A call through the module object counts.
+- `ubq review` lists a new `assert` of a constant as `cannot fail`.
+
