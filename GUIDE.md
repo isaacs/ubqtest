@@ -275,6 +275,16 @@ and now, and the store. It lists, with the most serious first:
   `ubq-snapshots/`.
 - `not measured`: a new `// ubq: not measured:` comment.
 
+A test file that had the tests of a different tool at the base
+commit (vitest, jest, node:test, bun:test, mocha) is compared by
+test ID: a test that went away is `removed`, a new skip is
+`skipped`, and a test with fewer assertion calls than the old
+`expect()`, `expectTypeOf()`, and `assert` calls is `fewer
+assertions`. The forms of the assertions differ, so review compares
+only their count. Tests with names that are not plain text, such as
+those of `it.each` and of a loop, are not compared. Review cannot
+read the tests of tap, tape, and ava: a note says so.
+
 An item about assertions says if the test runs code that changed:
 `The test runs code that changed: src/math.ts:12`. An expected
 value that changed with the code it checks is correct only if the

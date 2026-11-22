@@ -1191,9 +1191,11 @@ Do not skip it.
 ## When you are done
 
 Run `ubq check`. It fails if a test failed in its last run, or if
-code changed after its tests ran. `ubq review` compares only
-tests of ubq, so it does not compare the tests of the old tool with
-the converted tests. Use it for the changes after the conversion.
+code changed after its tests ran. Commit the old tests first, then
+`ubq review` compares the converted tests with them: each test that
+went away, is skipped now, or has fewer assertion calls. It cannot
+read the tests of tap, tape, and ava, or a test with a name that is
+not plain text (`it.each`, a loop): count those by hand.
 
 Report to the user:
 

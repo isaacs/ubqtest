@@ -456,6 +456,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - `ubq review` compares a converted file with the tests of the
+    old tool (D136).
   - `ubq skill` adds the stop hook only with `--hook` (D135).
     With no hook, it prints a note that tells the agent to ask
     the user.

@@ -59,7 +59,27 @@ const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
  * with such names: the ID of a name with `${}` is not known before
  * the file runs.
  */
-const parsed = (file: string, source: string): { tests: Map<string, Defined>; comments: string[] } => {
+/**
+ * The roles of the names of a test file of a different tool (vitest,
+ * jest, node:test, bun:test, mocha), imported or global.
+ */
+const OLD_ROLES: Record<string, string> = {
+  test: 'test',
+  it: 'test',
+  describe: 'describe',
+  suite: 'describe',
+  expect: 'expect',
+  expectTypeOf: 'expect',
+  assertType: 'expect',
+  assert: 'assert',
+}
+
+/**
+ * The tests of the file. With `old`, the tests and assertions of a
+ * test file of a different tool: each `expect(value)` call is one
+ * assertion.
+ */
+const parsed = (file: string, source: string, old = false): { tests: Map<string, Defined>; comments: string[] } => {
   const out = new Map<string, Defined>()
   const comments: string[] = []
   const { parse, children } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
@@ -74,11 +94,17 @@ const parsed = (file: string, source: string): { tests: Map<string, Defined>; co
   // The local names of the imports from 'ubqtest'.
   const roles = new Map<string, string>()
   for (const node of children(tree))
-    if (node.type === 'ImportDeclaration' && (node.source as Node & { value: string }).value === 'ubqtest')
+    if (node.type === 'ImportDeclaration' && (old || (node.source as Node & { value: string }).value === 'ubqtest'))
       for (const spec of node.specifiers as (Node & { imported?: { name: string }; local: { name: string } })[])
-        if (spec.imported) roles.set(spec.local.name, spec.imported.name)
+        if (spec.imported) roles.set(spec.local.name, old ? OLD_ROLES[spec.imported.name]! : spec.imported.name)
   const role = (node: Node): string | undefined =>
-    node.type === 'Identifier' ? roles.get(node.name as string) : undefined
+    node.type !== 'Identifier'
+      ? undefined
+      : roles.has(node.name as string)
+        ? roles.get(node.name as string)
+        : old
+          ? OLD_ROLES[node.name as string]
+          : undefined
   const nameOf = (node: Node | undefined): string | undefined => {
     if (node?.type === 'Literal' && typeof node.value === 'string') return node.value
     const quasis = node?.quasis as (Node & { value: { cooked: string } })[] | undefined
@@ -99,20 +125,24 @@ const parsed = (file: string, source: string): { tests: Map<string, Defined>; co
     if (node.type === 'CallExpression') {
       const callee = node.callee as Node
       const target = callee.type === 'MemberExpression' ? (callee.object as Node) : callee
-      if (role(target) === 'assert') found.push(oneLine(text(node)))
+      if (role(target) === 'assert' || role(callee) === 'expect') found.push(oneLine(text(node)))
     }
     for (const child of children(node)) assertsIn(child, found)
     return found
   }
   const visit = (node: Node, prefix: string, skip: string | undefined): void => {
     if (node.type === 'CallExpression') {
-      const kind = role(node.callee as Node)
+      const callee = node.callee as Node
+      // `it.skip`, `test.only`, `describe.concurrent` of a different tool.
+      const modifier =
+        old && callee.type === 'MemberExpression' && !callee.computed ? (callee.property as Node).name : undefined
+      const kind = role(modifier ? (callee.object as Node) : callee)
       if (kind === 'test' || kind === 'describe') {
         const args = node.arguments as Node[]
         const name = nameOf(args[0])
         const fn = args.at(-1)
         if (name === undefined || !fn || args.length < 2) return
-        const own = skipOf(args.length > 2 ? args[1] : undefined) ?? skip
+        const own = (modifier === 'skip' ? 'skip' : undefined) ?? skipOf(args.length > 2 ? args[1] : undefined) ?? skip
         const id = `${prefix} > ${name}`
         if (kind === 'describe') return visit(fn, id, own)
         out.set(id, {
@@ -302,8 +332,27 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
       for (const reason of minus(reasons(is?.comments ?? []), reasons(then?.comments ?? [])))
         items.push([`not measured: ${name}: ${reason || '(no reason)'}`])
     // A file that had no ubq tests and has them now: a test file
-    // of a different tool before. Its tests were not compared.
-    if (then && !then.tests.size && is?.tests.size) converted++
+    // of a different tool before. Its tests are compared by ID, and
+    // its assertions by count: the forms differ.
+    if (then && !then.tests.size && is?.tests.size) {
+      const tool = parsed(before!, textBefore!, true).tests
+      if (!tool.size) converted++
+      for (const [oldId, t] of tool) {
+        const id = after + oldId.slice(before!.length)
+        const n = is.tests.get(id)
+        if (!n) {
+          items.push([`removed: ${id} (${before}:${t.line} in ${base.slice(0, 7)}, before the conversion)`])
+          continue
+        }
+        const at = `${after}:${n.line}`
+        if (n.skip && !t.skip) items.push([`skipped: ${id} (${at}), skip: ${n.skip}`])
+        if (n.asserts.length < t.asserts.length)
+          items.push([
+            `fewer assertions: ${id} (${at}), ${t.asserts.length} before the conversion, ${n.asserts.length} now`,
+          ])
+      }
+      continue
+    }
     if (!then?.tests.size) continue
     // The IDs of the tests at the base, with the name of the file now.
     const was = new Map([...then.tests].map(([id, t]) => [after ? after + id.slice(before!.length) : id, t]))
@@ -338,7 +387,7 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
 
   if (converted)
     notes.push(
-      counted`note: ${converted} file|files had no ubq tests at ${from}, and has|have them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.`,
+      counted`note: ${converted} file|files had no ubq tests at ${from}, and has|have them now. ubq review found no test of a different tool with a name that is plain text in these files, so it did not compare their tests. Compare the count of tests that pass with the count of the old tool.`,
     )
   if (old.length)
     notes.push(

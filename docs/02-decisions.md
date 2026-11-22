@@ -3749,3 +3749,27 @@ command.
 - `--hook` is a flag of the command, not a config key: it is an
   action, not a policy.
 
+## D136. `ubq review` compares a converted file with the tests of the old tool (user, 2026-11-22)
+
+From the hermetic report: after a conversion, `ubq review` said that
+it could not compare, and to count by hand. That is the time when
+a person most needs the review.
+
+- A file that had no ubq tests at the base commit and has them now
+  is read again at the base, with the names of other tools: `test`,
+  `it`, `describe`, `suite`, imported or global, and `it.skip`,
+  `test.only`, and other modifiers. `it.skip` is a skip. Each call
+  of `expect`, `expectTypeOf`, `assertType`, and `assert` is one
+  assertion.
+- Review compares those tests with the ubq tests by ID. It lists a
+  test that went away (`removed`), a new skip (`skipped`), and
+  fewer assertion calls than before (`fewer assertions`, with the
+  two counts). It does not compare the text of assertions: the
+  forms differ.
+- `it.each` rows and tests in a loop have no name that is plain
+  text, before and after: review leaves them out. Review cannot
+  read tap, tape, and ava (`t.test`, `t.is`). If it finds no test
+  in such a file, the note of before says so, and to count by hand.
+- The five type checks that the agent of the report removed are
+  `fewer assertions` items now.
+

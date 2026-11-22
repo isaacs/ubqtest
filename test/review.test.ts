@@ -359,25 +359,57 @@ test('ubq review: with a store of merged coverage, as in CI', () => {
   )
 })
 
-test('ubq review: a file that had the tests of a different tool is not compared, and the note says so', () => {
+test('ubq review: a converted file is compared with the tests of the old tool', () => {
   const p = setup()
   writeFileSync(
     p.file('test/old.test.ts'),
-    "import assert from 'node:assert'\nimport { test } from 'node:test'\ntest('old', () => assert.equal(1, 1))\n",
+    `import { describe, expect, expectTypeOf, it } from 'vitest'
+describe('g', () => {
+  it('same', () => expect(1).toBe(1))
+  it('gone', () => expect(1).toBe(1))
+  it('weaker', () => {
+    expect([1]).toEqual([1])
+    expectTypeOf(1).toBeNumber()
+  })
+  it('now skipped', () => expect(1).toBe(1))
+  it.skip('skipped before', () => expect(1).toBe(1))
+  it.each([1, 2])('row %s', n => expect(n).toBe(n))
+})
+`,
   )
-  p.configure({ exclude: ['test/old.test.ts'] })
+  // A test file of tap: review cannot read its tests.
+  writeFileSync(p.file('test/loop.test.ts'), "import t from 'tap'\nt.test('a', t => {\n  t.ok(1)\n  t.end()\n})\n")
+  p.configure({ exclude: ['test/old.test.ts', 'test/loop.test.ts'] })
   p.git('add', '.')
-  p.git('commit', '-q', '-m', 'a test of node:test')
+  p.git('commit', '-q', '-m', 'tests of vitest')
   writeFileSync(
     p.file('test/old.test.ts'),
-    "import { assert, test } from 'ubqtest'\ntest('old', () => assert.equal(1, 1))\n",
+    `import { assert, describe, test } from 'ubqtest'
+describe('g', () => {
+  test('same', () => assert.equal(1, 1))
+  test('weaker', () => {
+    assert.deepEqual([1], [1])
+  })
+  test('now skipped', { skip: 'later' }, () => assert.equal(1, 1))
+  test('skipped before', { skip: 'todo' }, () => assert.equal(1, 1))
+  for (const n of [1, 2]) test(\`row \${n}\`, () => assert.equal(n, n))
+})
+`,
   )
+  writeFileSync(p.file('test/loop.test.ts'), "import { assert, test } from 'ubqtest'\ntest('a', () => assert(1))\n")
   const r = p.review()
   assert.deepEqual(
-    [r.code, r.out],
+    [r.code, r.out.split('\n')],
     [
-      0,
-      'note: 1 file had no ubq tests at the last commit, and has them now. ubq review compares the ubq tests of two commits, so it did not compare the tests of these files. After a conversion, compare the count of tests that pass with the count of the old tool.\n',
+      1,
+      [
+        'removed: test/old.test.ts > g > gone (test/old.test.ts:4 in HASH, before the conversion)',
+        'skipped: test/old.test.ts > g > now skipped (test/old.test.ts:7), skip: later',
+        'fewer assertions: test/old.test.ts > g > weaker (test/old.test.ts:4), 2 before the conversion, 1 now',
+        'note: 1 file had no ubq tests at the last commit, and has them now. ubq review found no test of a different tool with a name that is plain text in these files, so it did not compare their tests. Compare the count of tests that pass with the count of the old tool.',
+        'review: 3 changes to review, since the last commit',
+        '',
+      ],
     ],
   )
 })
