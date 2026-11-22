@@ -291,7 +291,7 @@ describe('group', () => {
     '',
     "describe('group', () => {",
     ...todo(
-      'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+      'ubq has no hooks. Make a function that does the work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()). The work then runs before the first test of the group, as with beforeAll. Code in the function of the describe runs when the file loads, before each test of the file: put sync work there only if no test before the group needs the state from before the work.',
       '  ',
     ),
     '  beforeAll(async () => { await row() })',
@@ -3874,6 +3874,20 @@ avaTest('a', macro, 1)
     "import { assert, test } from 'ubqtest'",
     "import anyTest, { type TestFn } from 'ava'",
     'const avaTest = anyTest as TestFn<{ n: number }>',
+  ])
+})
+
+test('afterAll in a group gets a TODO for cleanup', () => {
+  const r = convert(`import { afterAll, describe, expect, it } from 'vitest'
+describe('g', () => {
+  afterAll(() => remove())
+  it('a', () => { expect(1).toBe(1) })
+})
+`)
+  assert.deepEqual(r?.code.slice(2, 5), [
+    '  // TODO(ubq): ubq has no hooks. In the function of the describe,',
+    '  // cleanup(fn) runs fn when the file ends, not when the group ends.',
+    '  afterAll(() => remove())',
   ])
 })
 

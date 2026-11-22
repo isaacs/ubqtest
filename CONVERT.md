@@ -1138,6 +1138,9 @@ The forms:
 
   Tests that need the result of an earlier group in a shared
   database are fragile. A test that makes its own rows is better.
+- **Work after a group (`afterAll` in a `describe`).** In the
+  function of the `describe`, `cleanup(fn)` runs `fn` when the
+  file ends, not when the group ends.
 - **Setup one time for all files.** ubq has none. Each test file
   is its own process. Put the setup in a module, and import it in
   each test file that needs it.

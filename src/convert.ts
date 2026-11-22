@@ -266,10 +266,12 @@ const TODO = {
   hookFile:
     'ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
   hookFileEnd: 'ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.',
+  hookGroupEnd:
+    'ubq has no hooks. In the function of the describe, cleanup(fn) runs fn when the file ends, not when the group ends.',
   hookValue:
     'ubq has no hooks, and this gives a hook as a value. For a library that takes afterAll, such as RuleTester, give it cleanup: at the top level of a file, cleanup(fn) runs fn when the file ends.',
   hookGroup:
-    'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
+    'ubq has no hooks. Make a function that does the work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()). The work then runs before the first test of the group, as with beforeAll. Code in the function of the describe runs when the file loads, before each test of the file: put sync work there only if no test before the group needs the state from before the work.',
   matcher:
     'ubq has no expect. In a pattern, a partial object does the work of objectContaining, a RegExp does the work of stringContaining and stringMatching, and the object any of ubqtest does the work of the other matchers: any.number, any.instanceOf(URL), any.defined, any.arrayWith(a, b). A pattern is the second argument of assert.match, and of assert.matchOnly, which permits no key that the pattern does not have. assert.deepEqual compares a function as a value: change it to assert.matchOnly. An array in a pattern must have the length of the value: for some elements, any.arrayWith. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
   assertions:
@@ -2148,7 +2150,9 @@ export const convertSource = (
           : !once
             ? TODO.hook
             : inner
-              ? TODO.hookGroup
+              ? once[1] === 'before'
+                ? TODO.hookGroup
+                : TODO.hookGroupEnd
               : once[1] === 'before'
                 ? TODO.hookFile
                 : TODO.hookFileEnd) + more,
