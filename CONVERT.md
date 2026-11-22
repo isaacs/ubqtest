@@ -574,7 +574,7 @@ gets a TODO too.
 | `toBeCalled`, `toBeCalledTimes`, `toBeCalledWith`, `lastCalledWith`, `nthCalledWith` | as `toHaveBeenCalled` and the others |
 | `toBeTypeOf('string')` | `assert.equal(typeof a, 'string')` |
 | `toMatchSnapshot()` | `assert.snapshot(a)` |
-| `expectTypeOf(a).toEqualTypeOf<T>()` | `assert.type<typeof a, T>()` (other matchers of `expectTypeOf` get a TODO) |
+| `expectTypeOf(a).toEqualTypeOf<T>()` | `assert.type<typeof a, T>()` (other matchers of `expectTypeOf` get a TODO, and so does an expression that is not a name: put it in a `const` first) |
 | `vi.fn(impl)`, `jest.fn(impl)` | `spy(impl)` |
 | `vi.spyOn(object, key)` | `spyOn(object, key)` |
 | `it.skip(name, fn)` | `test(name, { skip: 'the reason' }, fn)` |

@@ -396,7 +396,7 @@ const TICK =
 /** The TODO text for a function that a file imports from the old test tool. */
 const LEFT: Record<string, string> = {
   expectTypeOf:
-    'Use assert.type<Actual, Expected>(): the type check fails if the type Actual is not exactly Expected. For the type of a value: assert.type<typeof value, Expected>().',
+    'Use assert.type<Actual, Expected>(): the type check fails if the type Actual is not exactly Expected. For the type of a value: assert.type<typeof value, Expected>(). For the type of an expression that is not a name, put it in a const first: const value = make().',
   setDefaultTimeout:
     'ubq has no time limit for one file. Remove this call. Give the limit to a group or to a test: describe(name, { timeout: ms }, fn), test(name, { timeout: ms }, fn). For each test of the project: "timeout" in "ubq" in package.json.',
   setSystemTime:
