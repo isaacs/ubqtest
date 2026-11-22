@@ -627,6 +627,10 @@ Each idea waits for a real project that needs it (D60).
   run.
 - A seeded random source, with the seed in the failure report.
 - A check of globals, for each test or for each test file.
+- Workspaces in parallel. At a monorepo root, `ubq` runs each
+  workspace one after the other. hermetic (two packages): 9.0 s,
+  and 7.7 s for vitest (report of 0.0.29). The user wants to
+  discuss it.
 
 ## Not done, and known limits
 
