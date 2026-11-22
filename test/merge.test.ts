@@ -46,7 +46,7 @@ test('names the runtime', () => {
 const BUN = 'lib/where.ts:3:35  { (+2 lines)'
 // The range is on a line with `typeof Bun`. The command says where the way to run it is.
 const NOTE =
-  'note: 1 of these ranges is on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide'
+  'note: 1 of these ranges is on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see: ubq guide runtimes'
 
 test('runs on two runtimes in one project fold together', { skip: !bun && 'bun is not installed' }, () => {
   const p = make()

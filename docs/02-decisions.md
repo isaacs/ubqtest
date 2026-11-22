@@ -3792,3 +3792,28 @@ loaded the default export of the package.
   a test process, not in the process of the runner, which started
   without it.
 
+## D138. The guide is a core and topics (user, 2026-11-22)
+
+The user: the guide "has gotten really long", and "it's a lot for
+an agent to read all at once, especially lower-context-size
+models". The hermetic report also asked for an index.
+
+- `GUIDE.md` has a core first: a test file, a run and its output,
+  the rules, the API, the names that do not exist, the steps after
+  a change, and the checks before the work is done. The core ends
+  with a table of topics: the command, the section, and what to
+  read it for.
+- `ubq guide` prints the core (about 500 of 1,230 lines). `ubq
+  guide <topic>` prints one section, and `ubq guide all` prints
+  the whole guide. The table is the only list of topics: the
+  command reads it.
+- New sections take the details that were in the core: "Type
+  checks" (the tsconfig files, `references`, the selection),
+  "CI" (annotations, the cache, the summary of a step, the review
+  comment of a pull request), and "Agents" (the skill and the
+  stop hook). Console output moved from the stored runs to the
+  output of a run.
+- The text of the sections did not change, other than the places
+  where a section names another: they name the topic command now.
+- The site shows the whole guide.
+

@@ -164,10 +164,24 @@ test('doctor states the fix for each problem of the setup', () => {
   )
 })
 
-test('guide prints the guide of the package', () => {
+test('guide prints the core of the guide, one topic, or all of it', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
-  assert.equal(p.ubq('guide').out, readFileSync(new URL('../GUIDE.md', import.meta.url), 'utf8'))
+  const text = readFileSync(new URL('../GUIDE.md', import.meta.url), 'utf8')
+  assert.equal(p.ubq('guide', 'all').out, text)
+  // The core ends with the table of topics.
+  const core = p.ubq('guide').out
+  assert(text.startsWith(core), core.slice(-200))
+  assert.match(core, /\n## Topics\n[^]*\| `ubq guide requirements` \| Requirements \| [^\n]+\|\n$/)
+  // Each topic is one section of the guide, after the core.
+  const topics = [...core.matchAll(/^\| `ubq guide (\S+)` \| ([^|]+?) \|/gm)]
+  assert.equal(topics.length, 12)
+  for (const [, topic, heading] of topics) {
+    const part = p.ubq('guide', topic!).out
+    assert(part.startsWith(`## ${heading}\n`), `${topic}: ${part.slice(0, 80)}`)
+    assert(!part.slice(3).includes('\n## '), `${topic} has one section`)
+    assert(text.indexOf(part.trimEnd()) > core.length, topic)
+  }
 })
 
 test('skill writes to the skill folders of the project and to the folder of the agent', () => {

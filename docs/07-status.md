@@ -456,6 +456,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - The guide is a core and topics (D138): `ubq guide` prints the
+    core, about 500 lines, and the list of topics. `ubq guide
+    <topic>` prints one, and `ubq guide all` prints all.
   - The export conditions of `NODE_OPTIONS` of the `env` key work
     on Bun and Deno (D137).
   - `ubq review` compares a converted file with the tests of the

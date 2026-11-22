@@ -158,7 +158,7 @@ test('adds', () => {
       'lib/add.ts:2:22  (): number => 0',
       "lib/add.ts:3:63  ? '?'",
       '2 uncovered ranges in 1 of the 1 file that tests ran (1 test helper and 1 build file are not in this list: test/scenario.ts, scripts/tool.ts)',
-      'note: 1 of these ranges is on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide',
+      'note: 1 of these ranges is on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see: ubq guide runtimes',
     ],
   ])
   // A file that the command names is in the list.

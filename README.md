@@ -39,7 +39,8 @@ that loop.
   a local SQLite file. An agent asks a question with a command and
   does not run the tests again to see the output.
 - **The guide is in the package.** `ubq guide` prints the API and
-  the rules for the installed version.
+  the rules for the installed version, and a list of topics: `ubq
+  guide <topic>` prints one.
 
 ## Start
 
@@ -124,7 +125,7 @@ A test file is also a plain program: `node test/parse.test.ts`,
 | `ubq convert --transform=<name>` | Sets up a compiler (`typescript` or `swc`) for source that Node cannot run with only its types removed. |
 | `ubq browser install` | Downloads the browser for tests that use `'ubqtest/browser'`. |
 | `ubq doctor` | Checks the setup of the project. |
-| `ubq guide`, `ubq guide convert` | The guides, for the installed version. |
+| `ubq guide`, `ubq guide <topic>`, `ubq guide convert` | The guides, for the installed version: the core and its list of topics, one topic (`all` for the whole guide), and the steps to move a project to ubq. |
 | `ubq server` | Optional. Keeps test processes ready, which makes runs faster. |
 
 `ubq --help` lists all commands. `ubq <command> --help` prints

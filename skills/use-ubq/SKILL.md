@@ -14,7 +14,8 @@ command. Do not work from memory of a different test tool: ubq has
 no `it`, no `expect`, no hooks, and no `.only`.
 
 ```
-npx ubq guide            the API, the rules, and the commands
+npx ubq guide            the API, the rules, the commands, and the list of topics
+npx ubq guide <topic>    one topic, such as types, browser, workers, config
 npx ubq guide convert    how to move a project from a different test tool
 npx ubq doctor           checks the setup, and prints one FIX line for each problem
 ```

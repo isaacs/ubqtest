@@ -2,7 +2,10 @@
 
 How to write and run tests with `ubqtest`. This text comes from
 the installed package, so it is correct for the installed version.
-`ubq guide` prints it. `ubq guide convert` tells how to move a
+`ubq guide` prints its core: what each test and each run needs.
+The list of topics at the end of the core names the other
+sections: `ubq guide <topic>` prints one, and `ubq guide all`
+prints the whole guide. `ubq guide convert` tells how to move a
 project from a different test tool. `ubq doctor` checks the setup
 of a project: it prints one `FIX` line for each problem, and its
 exit code is 1 if there is a problem.
@@ -73,37 +76,9 @@ of that file.
 
 Each run also runs the type checker, if the project has
 `tsconfig.json` and the `typescript` package. Each type error is a
-`TYPE` block, and the run fails. The tests run in any case.
-`"skipTypecheck": true` in the `ubq` key turns the check off: the
-project then runs its type checker as a separate step.
-
-- A folder with its own `tsconfig.json` is checked too, if a test
-  file of the run is in it.
-- If a folder has `tsconfig.ubq.json`, the check reads that file,
-  and not the `tsconfig.json` of the folder.
-- A `tsconfig.json` with only `references` (each project of an
-  Nx monorepo has one) gives the checker no file. For such a
-  folder, ubq writes `tsconfig.ubq.json` one time, and prints a
-  note. The file extends the referenced config that has the test
-  files (`tsconfig.spec.json`), with `composite` off. The checker
-  then reads the source of the other projects, and they need no
-  build. The file is yours: change it as the project needs, and
-  commit it.
-- A `tsconfig.json` with `references` and its own files reads
-  each referenced project from its build output. If that output
-  is not there, the checker reports TS6305: build the referenced
-  projects (`tsc -b`) before the tests, in CI too. If the build
-  puts test files in `dist`, ubq does not run them: with no
-  `include` key, it does not look in the `dist` folder of the
-  root.
-- A run of all tests (`ubq`) reports each type error. A run of a
-  selection (`ubq <file>`, `ubq --changed`) reports the type
-  errors of the files that it used: its test files, and the
-  files that their tests ran. It does not fail for the others.
-  The summary has their count: `12 type errors in other files`.
-  `ubq failures` prints them.
-- If the type checker stops with no result, the run fails with a
-  `TYPE` block that says so. Run again.
+`TYPE` block, and the run fails. The tests run in any case. A run
+of a selection reports only the type errors of the files that it
+used. `ubq guide types` has the rest.
 
 Use `npx ubq` if `ubq` is not on the path. On Bun: `bun
 node_modules/ubqtest/cli.js`.
@@ -120,7 +95,7 @@ the tests of files that did not run.
 A run does not list code that no test ran. `ubq uncovered` lists
 it, and `ubq check` names the changed lines that no test ran. To
 fail a run of all tests for such code, set `"coverage": "full"`
-(see "Configuration"). The run then lists the code if it has
+(`ubq guide config`). The run then lists the code if it has
 fewer than 5 ranges. `ubq uncovered` also exits with 1 if it
 lists code.
 
@@ -165,38 +140,27 @@ At a terminal, `FAIL`, `ERROR`, `TYPE`, `SURVIVED`, and `fail` are
 red, and `pass` is cyan. There is no color in a pipe or a file, in
 CI, with `NO_COLOR` set, or with `FORCE_COLOR=0`.
 
-In GitHub Actions (`GITHUB_ACTIONS` is `true`), each `FAIL`,
-`ERROR`, and `TYPE` block also prints a line in the form of an
-annotation of GitHub: the failure shows at its line in the view of
-the changes of a pull request. `ubq uncovered` and `ubq uncovered
---diff` do the same for each range that no test ran, as a warning.
-A step that runs `ubq uncovered --diff` puts the changed code with
-no test next to the change. The path is from the root of the
-repository (`GITHUB_WORKSPACE`), so a project in a folder of the
-repository works too. GitHub shows 10 annotations of each kind for
-each step.
+Console output of a test is captured. A failed test shows all of
+it in its failure block. The `console` of a test file shows also
+when the test passes, in a `LOG` block: a `console.log` in a test
+is a choice of the person who wrote it.
 
-A job in CI starts with no `.ubq` folder, so each run makes the
-cache of the source with counters again. Keep the folder
-`.ubq/counters` between jobs, and a run is as fast as on your
-machine (for 20 test files on 2 CPUs: 0.8 s, not 1.0 s, and a
-quarter less CPU time). The name of each entry comes from the
-text of its file, so an old entry is never wrong. With GitHub
-Actions:
-
-```yaml
-- uses: actions/cache@v4
-  with:
-    path: .ubq/counters
-    key: ubq-counters-${{ github.sha }}
-    restore-keys: ubq-counters-
+```
+LOG test/parse.test.ts > reads the header
+  | { len: 12 }
 ```
 
-If `GITHUB_STEP_SUMMARY` is set, as it is in GitHub Actions, a run
-also adds a section to the summary of the step: the result line, a
-table of the failures, errors, and type errors (20 rows at most),
-with the place and the command that runs each again, and the notes
-of the run. The summary is on the page of the run, above the logs.
+The output of the code under test shows only for a failure, and
+in `ubq show`. If a passing run has such output, one line says so,
+with the `ubq show` command.
+
+- `globalThis.console.log` in a test file is hidden, as the output
+  of the code under test is.
+- `spyOn(console, 'error')` in a test file is a spy on the global
+  console: it sees the calls of the code under test.
+- In workerd, and in a CommonJS test file, the `console` of the
+  test file is the global console: its output shows only for a
+  failure.
 
 ## Rules that fail a test
 
@@ -218,124 +182,6 @@ of the run. The summary is on the page of the run, above the logs.
 
 Do not weaken a test to get a pass. Each of these rules catches a
 test that would pass for the wrong reason.
-
-## Before you say that the work is done
-
-```
-ubq check                 is the last result of the tests the result of the code as it is now?
-ubq check --diff=<commit> the same, with the lines that differ from that commit (default: the last commit)
-```
-
-`ubq check` runs no test. It reads the store, and fails (exit code
-1) if:
-
-- a test failed in its last run, or a test file did not load
-  (`ubq --failed`);
-- code changed after the last run of the tests that ran it, or a
-  test file never ran (`ubq --changed`);
-- the last run had type errors;
-- code in the lines that differ from the last git commit ran in no
-  test, or a changed file with code is loaded by no test. ubq
-  checks the lines only when the other checks pass, and only in a
-  git repository.
-
-Each problem is a line that names the command to run. The last
-line is the result: `fail: 2 failed tests, 1 test file to run
-again`, or `pass: 17 tests pass on the code as it is now, and each
-change ran in a test.` A result of `ubq` that is older than your
-last change is not a result of your change. Run `ubq check` before
-you tell the user that the tests pass.
-
-On a pass, `ubq check` also lists the changes to the tests that a
-person must look at (the items of `ubq review`, in a git
-repository). This output is the end of the work: put it at the end
-of your last message, or in the description of a pull request.
-
-```
-ubq review                 the changes to the tests that a person must look at
-ubq review --diff=main     the same, from where the branch left main
-```
-
-`ubq review` reads the git diff, the test files at the base commit
-and now, and the store. It lists, with the most serious first:
-
-- `configuration`: the `ubq` key of `package.json` changed. It can
-  leave tests out.
-- `removed`: a test that the base commit has, and the code does
-  not. A test with a new name, and the same body or each of the
-  old assertions, is not removed: review compares it as `<new ID>
-  (was <old name>)`.
-- `skipped`: a test with a new `skip`.
-- `fewer assertions`: a test with fewer assertion calls than
-  before, with the calls that went away (`-`) and the new ones
-  (`+`).
-- `assertions changed`: a test with the same count of assertions,
-  and different ones.
-- `snapshot removed`, `snapshot changed`: entries of
-  `ubq-snapshots/`.
-- `not measured`: a new `// ubq: not measured:` comment.
-
-A test file that had the tests of a different tool at the base
-commit (vitest, jest, node:test, bun:test, mocha) is compared by
-test ID: a test that went away is `removed`, a new skip is
-`skipped`, and a test with fewer assertion calls than the old
-`expect()`, `expectTypeOf()`, and `assert` calls is `fewer
-assertions`. The forms of the assertions differ, so review compares
-only their count. Tests with names that are not plain text, such as
-those of `it.each` and of a loop, are not compared. Review cannot
-read the tests of tap, tape, and ava: a note says so.
-
-An item about assertions says if the test runs code that changed:
-`The test runs code that changed: src/math.ts:12`. An expected
-value that changed with the code it checks is correct only if the
-old value was wrong. Say why in your report. The exit code is 1 if
-the list has an item. The list is not a list of errors: a person
-decides. Only tests with names of plain text are compared: a name
-with `${}` is not known before its file runs.
-
-In GitHub Actions, the list can be a comment on each pull request.
-The job needs the base commit, and a run of the tests first: then
-an item says if the test runs code that changed.
-
-```yaml
-  review:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions: { contents: read, pull-requests: write }
-    steps:
-      - uses: actions/checkout@v7
-        with: { fetch-depth: 0 }
-      - uses: actions/setup-node@v7
-      - run: npm ci
-      - run: npx ubq || true
-      - env: { GH_TOKEN: '${{ github.token }}' }
-        run: |
-          npx ubq review --diff=origin/${{ github.base_ref }} > review.txt || [ $? = 1 ]
-          { echo '```text'; cat review.txt; echo '```'; } > review.md
-          gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file review.md
-```
-
-The pull request gets one comment, and each push changes it.
-`--edit-last` changes the last comment of the user of the token:
-if the workflow writes other comments, find the comment by a
-marker instead. The workflow of ubq (`.github/workflows/ci.yml`)
-does that, uses the coverage of all its CI jobs (`ubq merge`),
-writes a comment only once the list has an item, and writes the
-list to the job summary for a pull request from a fork, whose
-token cannot write a comment.
-
-`ubq skill` does not change the settings of the agent. For Claude
-Code, it prints a note: ask the user about a stop hook. If the
-user wants it, `ubq skill --hook` adds `ubq check --hook` to
-`.claude/settings.json` as a stop hook of Claude Code, and says
-so. A hook of an older ubq gets the new command with no
-`--hook`. The hook does nothing in
-a project that does not have `ubqtest`, such as one that removed
-it: remove the entry in `hooks.Stop` of that file too. While `ubq check` finds a problem,
-Claude Code cannot end its turn: it gets the report and works on.
-When it stops again with the same report, the hook lets it stop,
-so that it can tell the user what it could not do. A different
-report blocks again.
 
 ## API
 
@@ -532,6 +378,173 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 | `assert.doesNotThrow` | call the function, then assert on its result |
 | a subtest in a test, `t.plan`, `t.end` | `describe`. A test ends when its function ends. |
 
+## After a change
+
+Coverage is always on, for each test. Before a change to a line,
+`ubq covers <file>:<line>` names the tests that protect it.
+
+After a change to the source, do these in order:
+
+```
+ubq --changed           runs only the tests that ran the code that changed, and the tests that failed in their last run
+ubq uncovered --diff    lists the code that you changed and that no test runs: write a test for it
+ubq mutate --diff       a mutation check of the lines that you changed (below)
+```
+
+`--diff` is the difference from the last git commit, with files
+that git does not have yet. `--diff=main` is the difference from
+a different commit.
+
+A mutation check tells if the tests of a file are strong:
+
+```
+ubq mutate src/cart.ts       makes small changes to the file, one at a time, and runs the tests of the changed code
+ubq mutate src/cart.ts:20    only the changes on that line
+ubq mutate --diff            only the lines that you changed
+```
+
+It changes an operator, a number, or a boolean (`-` to `+`, `<` to
+`<=`, `0` to `1`), in the test processes only. The file does not
+change. Each `SURVIVED` block is a change that no test failed for:
+add a test for that case. The block names the tests that ran the
+changed code, the closest first: a test of a test file with the
+name of the source file (`test/cart.test.ts` for `src/cart.ts`),
+then the tests that run the least other code. The first is usually
+the best place for an assertion that the change breaks. Some
+changes cannot make a test fail,
+because the changed code does the same thing. Do not change
+correct code for them. Run the tests before the check (`ubq`).
+
+## Before you say that the work is done
+
+```
+ubq check                 is the last result of the tests the result of the code as it is now?
+ubq check --diff=<commit> the same, with the lines that differ from that commit (default: the last commit)
+```
+
+`ubq check` runs no test. It reads the store, and fails (exit code
+1) if:
+
+- a test failed in its last run, or a test file did not load
+  (`ubq --failed`);
+- code changed after the last run of the tests that ran it, or a
+  test file never ran (`ubq --changed`);
+- the last run had type errors;
+- code in the lines that differ from the last git commit ran in no
+  test, or a changed file with code is loaded by no test. ubq
+  checks the lines only when the other checks pass, and only in a
+  git repository.
+
+Each problem is a line that names the command to run. The last
+line is the result: `fail: 2 failed tests, 1 test file to run
+again`, or `pass: 17 tests pass on the code as it is now, and each
+change ran in a test.` A result of `ubq` that is older than your
+last change is not a result of your change. Run `ubq check` before
+you tell the user that the tests pass.
+
+On a pass, `ubq check` also lists the changes to the tests that a
+person must look at (the items of `ubq review`, in a git
+repository). This output is the end of the work: put it at the end
+of your last message, or in the description of a pull request.
+
+```
+ubq review                 the changes to the tests that a person must look at
+ubq review --diff=main     the same, from where the branch left main
+```
+
+`ubq review` reads the git diff, the test files at the base commit
+and now, and the store. It lists, with the most serious first:
+
+- `configuration`: the `ubq` key of `package.json` changed. It can
+  leave tests out.
+- `removed`: a test that the base commit has, and the code does
+  not. A test with a new name, and the same body or each of the
+  old assertions, is not removed: review compares it as `<new ID>
+  (was <old name>)`.
+- `skipped`: a test with a new `skip`.
+- `fewer assertions`: a test with fewer assertion calls than
+  before, with the calls that went away (`-`) and the new ones
+  (`+`).
+- `assertions changed`: a test with the same count of assertions,
+  and different ones.
+- `snapshot removed`, `snapshot changed`: entries of
+  `ubq-snapshots/`.
+- `not measured`: a new `// ubq: not measured:` comment.
+
+A test file that had the tests of a different tool at the base
+commit (vitest, jest, node:test, bun:test, mocha) is compared by
+test ID: a test that went away is `removed`, a new skip is
+`skipped`, and a test with fewer assertion calls than the old
+`expect()`, `expectTypeOf()`, and `assert` calls is `fewer
+assertions`. The forms of the assertions differ, so review compares
+only their count. Tests with names that are not plain text, such as
+those of `it.each` and of a loop, are not compared. Review cannot
+read the tests of tap, tape, and ava: a note says so.
+
+An item about assertions says if the test runs code that changed:
+`The test runs code that changed: src/math.ts:12`. An expected
+value that changed with the code it checks is correct only if the
+old value was wrong. Say why in your report. The exit code is 1 if
+the list has an item. The list is not a list of errors: a person
+decides. Only tests with names of plain text are compared: a name
+with `${}` is not known before its file runs.
+
+## Topics
+
+`ubq guide <topic>` prints one section. `ubq guide all` prints the
+whole guide.
+
+| Topic | Section | Read it for |
+| --- | --- | --- |
+| `ubq guide types` | Type checks | a `TYPE` block, a tsconfig with `references`, a monorepo |
+| `ubq guide stored` | Questions about stored runs | an earlier run, a flaky or slow test, coverage, SQL, a run that does not end |
+| `ubq guide ci` | CI | GitHub Actions: annotations, the cache, the summary, a review comment |
+| `ubq guide agents` | Agents | the skill, and the stop hook of Claude Code |
+| `ubq guide browser` | Tests in a browser | code that runs in a browser |
+| `ubq guide runtimes` | Code for more than one runtime or system | code that runs only on Bun, Deno, or one system |
+| `ubq guide processes` | Tests that start a process | a test that starts a command or a server |
+| `ubq guide workers` | Tests of a Cloudflare Worker | a project with a wrangler config |
+| `ubq guide server` | Faster runs | many short runs |
+| `ubq guide editors` | Editors | Neovim, VS Code, a language server |
+| `ubq guide config` | Configuration | the `ubq` key, aliases, export conditions, `not measured` comments |
+| `ubq guide requirements` | Requirements | versions, tsconfig options, `enum` and decorators |
+
+## Type checks
+
+Each run also runs the type checker, if the project has
+`tsconfig.json` and the `typescript` package. Each type error is a
+`TYPE` block, and the run fails. The tests run in any case.
+`"skipTypecheck": true` in the `ubq` key turns the check off: the
+project then runs its type checker as a separate step.
+
+- A folder with its own `tsconfig.json` is checked too, if a test
+  file of the run is in it.
+- If a folder has `tsconfig.ubq.json`, the check reads that file,
+  and not the `tsconfig.json` of the folder.
+- A `tsconfig.json` with only `references` (each project of an
+  Nx monorepo has one) gives the checker no file. For such a
+  folder, ubq writes `tsconfig.ubq.json` one time, and prints a
+  note. The file extends the referenced config that has the test
+  files (`tsconfig.spec.json`), with `composite` off. The checker
+  then reads the source of the other projects, and they need no
+  build. The file is yours: change it as the project needs, and
+  commit it.
+- A `tsconfig.json` with `references` and its own files reads
+  each referenced project from its build output. If that output
+  is not there, the checker reports TS6305: build the referenced
+  projects (`tsc -b`) before the tests, in CI too. If the build
+  puts test files in `dist`, ubq does not run them: with no
+  `include` key, it does not look in the `dist` folder of the
+  root.
+- A run of all tests (`ubq`) reports each type error. A run of a
+  selection (`ubq <file>`, `ubq --changed`) reports the type
+  errors of the files that it used: its test files, and the
+  files that their tests ran. It does not fail for the others.
+  The summary has their count: `12 type errors in other files`.
+  `ubq failures` prints them.
+- If the type checker stops with no result, the run fails with a
+  `TYPE` block that says so. Run again.
+
 ## Questions about stored runs
 
 Each run is stored in `.ubq/runs.db` (git ignores `.ubq/`). These
@@ -558,41 +571,6 @@ a result: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`,
 `UBQ_COVERAGE`, `UBQ_COVERAGE_CHECK`, and `UBQ_BROWSER`, and the
 version of ubq. If they differ from the run before, `ubq failures` and `ubq show` print a line that names them:
 `environment: TZ=UTC. In run 7: TZ not set`.
-
-Coverage is always on, for each test. Before a change to a line,
-`ubq covers <file>:<line>` names the tests that protect it.
-
-After a change to the source, do these in order:
-
-```
-ubq --changed           runs only the tests that ran the code that changed, and the tests that failed in their last run
-ubq uncovered --diff    lists the code that you changed and that no test runs: write a test for it
-ubq mutate --diff       a mutation check of the lines that you changed (see below)
-```
-
-`--diff` is the difference from the last git commit, with files
-that git does not have yet. `--diff=main` is the difference from
-a different commit.
-
-A mutation check tells if the tests of a file are strong:
-
-```
-ubq mutate src/cart.ts       makes small changes to the file, one at a time, and runs the tests of the changed code
-ubq mutate src/cart.ts:20    only the changes on that line
-ubq mutate --diff            only the lines that you changed
-```
-
-It changes an operator, a number, or a boolean (`-` to `+`, `<` to
-`<=`, `0` to `1`), in the test processes only. The file does not
-change. Each `SURVIVED` block is a change that no test failed for:
-add a test for that case. The block names the tests that ran the
-changed code, the closest first: a test of a test file with the
-name of the source file (`test/cart.test.ts` for `src/cart.ts`),
-then the tests that run the least other code. The first is usually
-the best place for an assertion that the change breaks. Some
-changes cannot make a test fail,
-because the changed code does the same thing. Do not change
-correct code for them. Run the tests before the check (`ubq`).
 
 More run commands:
 
@@ -623,27 +601,91 @@ run 12: ubq test/ (pid 4242, 31.0 s)
 test/cart.test.ts, 30.2 s: test/cart.test.ts > checkout sends the order, 29.8 s
 ```
 
-Console output of a test is captured. A failed test shows all of
-it in its failure block. The `console` of a test file shows also
-when the test passes, in a `LOG` block: a `console.log` in a test
-is a choice of the person who wrote it.
+## CI
 
+In GitHub Actions (`GITHUB_ACTIONS` is `true`), each `FAIL`,
+`ERROR`, and `TYPE` block also prints a line in the form of an
+annotation of GitHub: the failure shows at its line in the view of
+the changes of a pull request. `ubq uncovered` and `ubq uncovered
+--diff` do the same for each range that no test ran, as a warning.
+A step that runs `ubq uncovered --diff` puts the changed code with
+no test next to the change. The path is from the root of the
+repository (`GITHUB_WORKSPACE`), so a project in a folder of the
+repository works too. GitHub shows 10 annotations of each kind for
+each step.
+
+A job in CI starts with no `.ubq` folder, so each run makes the
+cache of the source with counters again. Keep the folder
+`.ubq/counters` between jobs, and a run is as fast as on your
+machine (for 20 test files on 2 CPUs: 0.8 s, not 1.0 s, and a
+quarter less CPU time). The name of each entry comes from the
+text of its file, so an old entry is never wrong. With GitHub
+Actions:
+
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: .ubq/counters
+    key: ubq-counters-${{ github.sha }}
+    restore-keys: ubq-counters-
 ```
-LOG test/parse.test.ts > reads the header
-  | { len: 12 }
+
+If `GITHUB_STEP_SUMMARY` is set, as it is in GitHub Actions, a run
+also adds a section to the summary of the step: the result line, a
+table of the failures, errors, and type errors (20 rows at most),
+with the place and the command that runs each again, and the notes
+of the run. The summary is on the page of the run, above the logs.
+
+In GitHub Actions, the list can be a comment on each pull request.
+The job needs the base commit, and a run of the tests first: then
+an item says if the test runs code that changed.
+
+```yaml
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+      - run: npm ci
+      - run: npx ubq || true
+      - env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          npx ubq review --diff=origin/${{ github.base_ref }} > review.txt || [ $? = 1 ]
+          { echo '```text'; cat review.txt; echo '```'; } > review.md
+          gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file review.md
 ```
 
-The output of the code under test shows only for a failure, and
-in `ubq show`. If a passing run has such output, one line says so,
-with the `ubq show` command.
+The pull request gets one comment, and each push changes it.
+`--edit-last` changes the last comment of the user of the token:
+if the workflow writes other comments, find the comment by a
+marker instead. The workflow of ubq (`.github/workflows/ci.yml`)
+does that, uses the coverage of all its CI jobs (`ubq merge`),
+writes a comment only once the list has an item, and writes the
+list to the job summary for a pull request from a fork, whose
+token cannot write a comment.
 
-- `globalThis.console.log` in a test file is hidden, as the output
-  of the code under test is.
-- `spyOn(console, 'error')` in a test file is a spy on the global
-  console: it sees the calls of the code under test.
-- In workerd, and in a CommonJS test file, the `console` of the
-  test file is the global console: its output shows only for a
-  failure.
+## Agents
+
+`ubq skill` writes the `use-ubq` skill to the skill folders of the
+project and of the agent that runs the command. To select the
+place, name the agent or a folder: `ubq skill cursor`, `ubq skill
+.myagent/skills`.
+
+`ubq skill` does not change the settings of the agent. For Claude
+Code, it prints a note: ask the user about a stop hook. If the
+user wants it, `ubq skill --hook` adds `ubq check --hook` to
+`.claude/settings.json` as a stop hook of Claude Code, and says
+so. A hook of an older ubq gets the new command with no
+`--hook`. The hook does nothing in
+a project that does not have `ubqtest`, such as one that removed
+it: remove the entry in `hooks.Stop` of that file too. While `ubq check` finds a problem,
+Claude Code cannot end its turn: it gets the report and works on.
+When it stops again with the same report, the hook lets it stop,
+so that it can tell the user what it could not do. A different
+report blocks again.
 
 ## Tests in a browser
 
@@ -974,8 +1016,8 @@ Most projects need none. The `ubq` key of `package.json` can have
 of a test that timed out), and `bunInspectorCoverage` (`true`
 records coverage for a plain `bun <test file>`, with places that
 can be wrong. `ubq <test file>` on Bun does not need it), and
-`browser` (see "Tests in a browser"), `workers` (see "Tests
-of a Cloudflare Worker"), and `define` (global values that the
+`browser` (`ubq guide browser`), `workers` (`ubq guide
+workers`), and `define` (global values that the
 source reads, as the `define` of vite gives them: `"define": {
 "__DEBUG__": true }`). `env` has values of the environment
 for each test process (`"env": { "MODE": "dev" }`): a value of
@@ -1183,4 +1225,4 @@ Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
 does not run them.
 
 Tests of a Cloudflare Worker run in workerd, and the project must
-have `wrangler`: see "Tests of a Cloudflare Worker".
+have `wrangler`: `ubq guide workers`.

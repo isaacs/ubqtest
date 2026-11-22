@@ -34,7 +34,10 @@ test('help, and the error of each command with a wrong or absent argument', () =
   )
   // A command that reads the store, with no store.
   assert.deepEqual(error('failures'), [4, 'ubq: no run. Run: ubq'])
-  assert.deepEqual(error('guide', 'nope'), [4, 'ubq: the guides are: ubq guide, ubq guide convert'])
+  assert.deepEqual(error('guide', 'nope'), [
+    4,
+    'ubq: no topic "nope" in the guide. The topics are: types, stored, ci, agents, browser, runtimes, processes, workers, server, editors, config, requirements, all, convert',
+  ])
   assert.deepEqual(error('browser'), [4, 'ubq: the command is: ubq browser install'])
   assert.deepEqual(error('browser', 'install'), [
     4,

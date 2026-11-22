@@ -159,7 +159,7 @@ names, do one of these:
   run it. Stop, and ask the user to choose one of the three in
   the `FIX` line: `ubq convert --transform=typescript`, `ubq
   convert --transform=swc`, or Bun. "Source that Node cannot run"
-  in `ubq guide` has what each one costs. Do not choose for the
+  in `ubq guide requirements` has what each one costs. Do not choose for the
   user: a compiler in the test run or a change of runtime is a
   surprise to a maintainer. Do this before step 3: with the
   `transform` key, `ubq convert` does not write a TODO for an
@@ -921,13 +921,13 @@ Things to check by hand:
   read the property of the element, and assert on it. An element
   that a `queryBy` function did not find is `null`. For a test of real
   browser behavior (layout, focus, navigation), tell the user
-  about browser tests: "Tests in a browser" in `ubq guide`.
+  about browser tests: `ubq guide browser`.
 - **A custom environment, a transform.** ubq has none. Tell the
   user about each test file that needs one.
 - **A Cloudflare Worker (`cloudflare:test`,
   `@cloudflare/vitest-pool-workers`).** These tests run in the
-  Workers runtime with ubq too. Read "Tests of a Cloudflare
-  Worker" in `ubq guide`. The command reads `vitest.config.*` of
+  Workers runtime with ubq too. Read `ubq guide
+  workers`. The command reads `vitest.config.*` of
   the project and writes the `workers` key to `package.json`: one
   entry for each project of the config, with its wrangler config,
   its test files, and the plain values of `miniflare.bindings` as
@@ -981,7 +981,7 @@ to `test(name, { timeout: ms }, fn)`.
 
 For tests that import from `@playwright/test`. ubq has the page
 of Playwright, with Chromium: `browser()` from
-`'ubqtest/browser'`. Read "Tests in a browser" in `ubq guide`
+`'ubqtest/browser'`. Read `ubq guide browser`
 first. The project needs `playwright-core`, and `npx ubq browser
 install`. After the conversion, remove `@playwright/test`.
 

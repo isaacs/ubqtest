@@ -92,7 +92,7 @@ const USAGE = `usage:
   ubq sql <query>            a read-only SQL query on .ubq/runs.db, as JSON lines
   ubq server                 starts a background server that makes runs faster: it keeps test processes ready. ubq server stop stops it
   ubq --version              the version of ubq
-  ubq guide                  how to write and run tests, for the installed version
+  ubq guide [topic|all]      how to write and run tests, for the installed version: the core, and the list of topics. A topic prints one section
   ubq guide convert          how to move a project from a different test tool to ubq
   ubq convert <files or folders>  changes the test files of tap, tape, ava, node:test, vitest, jest, bun:test, mocha, or Playwright Test to ubq, and writes a TODO(ubq) comment for each change that it cannot make
   ubq browser install        downloads the browser for tests that use 'ubqtest/browser', if it is not there. Needs the playwright-core package
@@ -158,6 +158,26 @@ const stopHook = (path: string, add: boolean): void => {
   )
 }
 
+/**
+ * The part of the guide for `ubq guide [topic]` (D138): with no
+ * topic, the core, which ends with the table of topics. `all` is
+ * the whole guide. The table names the section of each topic.
+ */
+const guidePart = (text: string, topic: string | undefined): string => {
+  const end = text.indexOf('\n## ', text.indexOf('\n## Topics\n') + 1)
+  if (!topic) return text.slice(0, end).trimEnd()
+  if (topic === 'all') return text.trimEnd()
+  const topics = new Map([...text.matchAll(/^\| `ubq guide (\S+)` \| ([^|]+?) \|/gm)].map(m => [m[1]!, m[2]!]))
+  const heading = topics.get(topic)
+  if (!heading)
+    throw new UsageError(
+      `no topic "${topic}" in the guide. The topics are: ${[...topics.keys(), 'all', 'convert'].join(', ')}`,
+    )
+  const start = text.indexOf(`\n## ${heading}\n`) + 1
+  const next = text.indexOf('\n## ', start)
+  return text.slice(start, next < 0 ? undefined : next).trimEnd()
+}
+
 const QUERIES = ['failures', 'show', 'history', 'diff', 'slow', 'uncovered', 'covers', 'sql', 'mutate']
 /** The first words that are a command, not a path (D62). */
 const COMMANDS = [
@@ -198,10 +218,10 @@ const main = async (args: string[]): Promise<number> => {
   }
   if (command === 'guide') {
     // The guides are at the package root. The bundle is there too.
-    if (rest[0] && rest[0] !== 'convert') throw new UsageError('the guides are: ubq guide, ubq guide convert')
-    const name = rest[0] ? 'CONVERT.md' : 'GUIDE.md'
-    const path = import.meta.url.endsWith('.ts') ? `../${name}` : `./${name}`
-    out(readFileSync(new URL(path, import.meta.url), 'utf8').trimEnd())
+    const read = (name: string): string =>
+      readFileSync(new URL(import.meta.url.endsWith('.ts') ? `../${name}` : `./${name}`, import.meta.url), 'utf8')
+    if (rest[0] === 'convert') out(read('CONVERT.md').trimEnd())
+    else out(guidePart(read('GUIDE.md'), rest[0]))
     return 0
   }
   if (command === 'doctor') return doctor(out) ? 1 : 0
@@ -588,7 +608,7 @@ const main = async (args: string[]): Promise<number> => {
       // One run cannot run such code. The reader must know the way.
       if (elsewhere)
         out(
-          counted`note: ${elsewhere} of these ranges is|are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see "Code for more than one runtime or system" in: ubq guide`,
+          counted`note: ${elsewhere} of these ranges is|are on a line that names a runtime or a system (process.platform, Bun, Deno). A run on one runtime and one system cannot run each of them. Run the tests in each environment, and merge the stores: see: ubq guide runtimes`,
         )
       if (weak.length) {
         const names = weak.map(w => `${w.tfile} (${w.coverage})`).join(', ')
