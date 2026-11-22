@@ -32,6 +32,8 @@ export interface Converted {
   changes: number
   /** The `TODO(ubq)` comments, with their line in `code`. */
   todos: { line: number; text: string }[]
+  /** The count of `toEqual` calls that became `assert.deepEqual`. */
+  toEqual: number
 }
 
 type Parse = (source: string, file: string) => Node
@@ -510,6 +512,7 @@ export const convertSource = (
   /** The start of a statement, and the TODO texts for it. */
   const todos = new Map<number, Set<string>>()
   let changes = 0
+  let toEqual = 0
   let framework: string | undefined
   let commonJs = false
   /** Statements of the old test tool to remove: imports and `require` calls. */
@@ -2778,6 +2781,7 @@ export const convertSource = (
     // `expect(a?.b).toHaveLength(2)` took a value that is undefined.
     // `a?.b.length` is a type error if `b` can be undefined too.
     if (!not && !promise && subject.type === 'ChainExpression') rule = rule.replace('<$0>.', '<$0>?.')
+    if (method === 'toEqual' && !not) toEqual++
     return rewrite(node, rule, all)
   }
 
@@ -3469,7 +3473,7 @@ export const convertSource = (
     // The report has the full text of each TODO.
     found.push({ line: i + 1, text: full.get(message) ?? message })
   })
-  return { code, framework, changes: changes + removed.length, todos: found }
+  return { code, framework, changes: changes + removed.length, todos: found, toEqual }
 }
 
 /** A file that can have code. Not a declaration file. */
@@ -3664,6 +3668,8 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   const drop = restorePlan(sources, parse, children)
   let changed = 0
   let todos = 0
+  /** The count of `toEqual` calls that became `assert.deepEqual`. */
+  let toEqual = 0
   /** Files that use no test tool that this command knows. */
   const unknown: string[] = []
   /** The text of each hint of the report, in the order of its first place. */
@@ -3689,6 +3695,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
         framework: 'tap',
         changes: 0,
         todos: [{ line: 1, text: TODO.before }],
+        toEqual: 0,
       }
     } else
       try {
@@ -3706,6 +3713,7 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     if (result.framework === 'playwright') playwright = true
     changed++
     todos += result.todos.length
+    toEqual += result.toEqual
     written.push(file)
     if (!dry) writeFileSync(path, result.code)
     // A file with no tests is a helper. Its name is not a problem.
@@ -3880,10 +3888,15 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   // The changes keep the code correct, not its format.
   const formatted = written.length && !dry ? formatFiles(root, written) : undefined
   if (formatted) out(`note: ${formatted}`)
+  // The one change that is not correct in each case (Q71).
+  if (toEqual)
+    out(
+      counted`note: ${toEqual} toEqual call|calls became assert.deepEqual. assert.deepEqual fails for a key with the value undefined that the expected value does not have, and toEqual passes. The failure has a hint.`,
+    )
   // A TODO can look easy. The reader must know why it is there.
   if (todos)
     out(
-      'note: this command makes only the changes that are correct in each case. A TODO can be easy to do by hand: the command leaves it if the change is not safe for each program that has that form.',
+      `note: ${toEqual ? 'other than toEqual, this' : 'this'} command makes only the changes that are correct in each case. A TODO can be easy to do by hand: the command leaves it if the change is not safe for each program that has that form.`,
     )
   if (changed) out('next: read `ubq guide convert`, do each TODO(ubq), then run: ubq')
   return 0

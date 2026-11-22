@@ -35,8 +35,9 @@ has the API and the rules of ubq.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. If a file has the same
    text more than one time, only the first TODO has the full
-   text, and the others have its first sentence. It makes only the changes
-   that are correct in each case, so a TODO can be easy to do by
+   text, and the others have its first sentence. Other than
+   `toEqual` (see "`toEqual` is loose" below), it makes only the
+   changes that are correct in each case, so a TODO can be easy to do by
    hand: you can see what the code around it does, and the command
    cannot. `grep -rn 'TODO(ubq)'
    test` lists them. The sections below tell how to do each kind.
@@ -589,7 +590,8 @@ Things to check by hand:
   `undefined` and ignores the class. `assert.deepEqual` is
   strict. Use the exact value, or `assert.match` for some keys.
   If each difference is a key with the value `undefined`, the
-  failure has a hint that says so.
+  failure has a hint that says so. The report of the command
+  gives the count of `toEqual` calls that it changed.
 - **`toHaveBeenCalledWith`.** jest passes if any call had the
   arguments, and the converted line does the same:
   `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))`.

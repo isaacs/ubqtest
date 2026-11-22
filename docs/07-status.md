@@ -463,7 +463,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     TODO of `expectTypeOf(expression)` says to put the expression
     in a `const` first. For a workspace with no vite or vitest
     config, `ubq convert` reads the config of the workspace root:
-    its setup files, `define`, `env`, and aliases.
+    its setup files, `define`, `env`, and aliases. The report of
+    `ubq convert` counts the `toEqual` calls that became
+    `assert.deepEqual`, which can fail where `toEqual` passed.
   - The guide is a core and topics (D138): `ubq guide` prints the
     core, about 500 lines, and the list of topics. `ubq guide
     <topic>` prints one, and `ubq guide all` prints all.

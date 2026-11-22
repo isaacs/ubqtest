@@ -1472,6 +1472,34 @@ beforeEach(() => again())
   ])
 })
 
+test('the report counts the toEqual calls that became deepEqual', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  mkdirSync(join(p.dir, 'old'))
+  writeFileSync(
+    join(p.dir, 'old/a.test.ts'),
+    `import { expect, it } from 'vitest'
+it('a', () => {
+  expect(a).toEqual(b)
+  expect(a).toEqual(c)
+  expect(a).not.toEqual(d)
+  expect(a).toStrictEqual(e)
+})
+it.skip('b', () => {})
+`,
+  )
+  assert.deepEqual(
+    p
+      .ubq('convert', '--dry', 'old')
+      .out.split('\n')
+      .filter(line => line.startsWith('note:')),
+    [
+      'note: 2 toEqual calls became assert.deepEqual. assert.deepEqual fails for a key with the value undefined that the expected value does not have, and toEqual passes. The failure has a hint.',
+      'note: other than toEqual, this command makes only the changes that are correct in each case. A TODO can be easy to do by hand: the command leaves it if the change is not safe for each program that has that form.',
+    ],
+  )
+})
+
 test('the report names the files that still name the old tool, and the command of the formatter', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
