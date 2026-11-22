@@ -19,7 +19,7 @@ the order of the alphabet.
 - [`ubqtest`](#ubqtest)
   - [`any`](#any)
   - [`assert`](#assert)
-    - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.matchOnly`](#assert-matchonly), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [Names that `assert` does not have](#names-that-assert-does-not-have)
+    - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.matchOnly`](#assert-matchonly), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [`assert.type`](#assert-type), [Names that `assert` does not have](#names-that-assert-does-not-have)
   - [`cleanup`](#cleanup)
   - [`describe`](#describe)
   - [`env`](#env)
@@ -51,6 +51,7 @@ the order of the alphabet.
   - [`Files`](#files)
   - [`MockOf`](#mockof)
   - [`Pattern`](#pattern)
+  - [`SameType`](#sametype)
   - [`Spy`](#spy-2)
   - [`SpyCall`](#spycall)
   - [`SpyFunction`](#spyfunction)
@@ -66,6 +67,7 @@ the order of the alphabet.
   - [`CheckedError`](#checkederror)
   - [`CleanupFn`](#cleanupfn)
   - [`Describe`](#describe-1)
+  - [`Equal`](#equal)
   - [`ErrorMatch`](#errormatch)
   - [`Hint`](#hint)
   - [`Keyed`](#keyed)
@@ -371,6 +373,22 @@ assert.throws(() => open(path), { code: 'ENOENT' })
 
 ```ts
 assert.throws<const P extends ErrorMatch>(fn: () => unknown, expected: P & CheckedError<P>, message?: string): Error;
+```
+
+#### `assert.type`
+
+The type check of the run fails if the type `Actual` is not
+exactly `Expected`. When it runs, it is one assertion, and it
+does nothing. A project with `skipTypecheck` checks it in its own
+type check step.
+
+```ts
+const shape = parse('c')
+assert.type<typeof shape, Shape | undefined>()
+```
+
+```ts
+assert.type<Actual extends SameType<Actual, Expected>, Expected extends SameType<Actual, Expected>>(): void;
 ```
 
 #### Names that `assert` does not have
@@ -838,6 +856,20 @@ and a function is a predicate for the value at its place.
 type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | Predicate;
 ```
 
+### `SameType`
+
+The constraint of `assert.type`: no constraint if the types are
+the same. If not, a type that names both, for the type error.
+
+```ts
+type SameType<Actual, Expected> = Equal<Actual, Expected> extends true ? unknown : {
+    'the types differ': {
+        actual: Actual;
+        expected: Expected;
+    };
+};
+```
+
 ### `Spy`
 
 A function that records each call in `calls`. It has the type of the
@@ -997,6 +1029,14 @@ type CleanupFn = (() => void | Promise<void>) & {
 ### `Describe`
 
 The type of [`describe`](#describe). Its members are in that part.
+
+### `Equal`
+
+True if `A` and `B` are the same type.
+
+```ts
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => (T extends B ? 1 : 2) ? true : false;
+```
 
 ### `ErrorMatch`
 

@@ -456,6 +456,10 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - The answers to Q70 and Q71 (D133): `assert.type<Actual,
+    Expected>()`, which `ubq convert` writes for
+    `toEqualTypeOf`, and a hint for a failure that is only keys
+    with the value `undefined`.
   - From the hermetic report (D132): the text of a function has
     no counters, `NODE_OPTIONS` of the `env` key goes after the
     one of the shell, `pass: 12 tests`, and `ubq convert` gives

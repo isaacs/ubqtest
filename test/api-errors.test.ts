@@ -542,3 +542,28 @@ test('a "ubq" key that is not an object, and snapshots of many lines', () => {
   assert.equal(p.ubq('--update', 'snaps.test.ts').code, 0)
   assert.equal(existsSync(join(p.dir, 'ubq-snapshots/snaps.test.ts.snap')), false)
 })
+
+test('a failure that is only keys with the value undefined has a hint', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+  writeFileSync(
+    join(p.dir, 'keys.test.ts'),
+    `import { any, assert, test } from 'ubqtest'
+const value: Record<string, unknown> = { id: 1, needs: undefined }
+test('deep', () => assert.deepEqual(value, { id: 1 }))
+test('only', () => assert.matchOnly(value, { id: any.number }))
+// Other differences, and an element of an array: no hint.
+test('other', () => assert.deepEqual(value, { id: 2 }))
+test('array', () => assert.deepEqual([undefined], []))
+`,
+  )
+  const hint =
+    'hint: each difference is a key with the value undefined that the expected value does not have. toEqual of vitest and jest passes for such a key, and ubq does not. Remove the key from the value, or add it to the expected value with the value undefined.'
+  const blocks = p.ubq('keys.test.ts').out.split('\n\n')
+  const of = (name: string): string => blocks.find(b => b.startsWith(`FAIL keys.test.ts > ${name}\n`)) ?? ''
+  assert.contains(of('deep'), `  expected values to be deeply equal\n  ${hint}\n`)
+  assert.contains(of('only'), `  expected value to match the pattern, with no other keys\n  ${hint}\n`)
+  assert.notContains(of('other'), 'hint:')
+  assert.notContains(of('array'), 'hint:')
+  assert.contains(of('array'), 'expected values to be deeply equal')
+})

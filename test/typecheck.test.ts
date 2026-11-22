@@ -534,3 +534,40 @@ test('a type error in a folder that is a different project is not an error of th
   rmSync(join(p.dir, 'other/package.json'))
   assert.equal(p.ubq().last, 'fail: 0 failed, 1 passed, 1 type error')
 })
+
+test('assert.type is one assertion at run time, and a type error if the types differ', () => {
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  writeFileSync(
+    join(p.dir, 'types.test.ts'),
+    `import { assert, test } from 'ubqtest'
+const shape = { kind: 'circle', radius: 1 }
+test('same', () => assert.type<typeof shape, { kind: string; radius: number }>())
+test('differs', () => assert.type<typeof shape, { kind: 'circle'; radius: number }>())
+`,
+  )
+  // No tsconfig.json: no type check, and each test has its assertion.
+  assert.equal(p.ubq().last, 'pass: 2 tests')
+  writeFileSync(
+    join(p.dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        target: 'esnext',
+        strict: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+        types: ['node'],
+      },
+    }),
+  )
+  for (const name of ['typescript', '@types'])
+    symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+  const r = p.ubq()
+  assert.equal(r.last, 'fail: 0 failed, 2 passed, 1 type error')
+  // The error names both types.
+  assert.match(
+    r.out,
+    /TYPE types\.test\.ts\n {2}TS\d+: .*'the types differ': \{ actual: \{ kind: string; radius: number; \}; expected: \{ kind: "circle"; radius: number; \}; \}.*\n {2}at types\.test\.ts:4:/,
+  )
+})

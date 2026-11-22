@@ -3669,3 +3669,30 @@ user on it.
   the functions of ubq.
 - Open: a type assertion in place of `expectTypeOf` (Q70), and
   `toEqual`, which ignores a key with the value `undefined` (Q71).
+
+## D133. `assert.type`, and a hint for keys with the value `undefined` (user, 2026-11-21)
+
+The answers to Q70 and Q71.
+
+- `assert.type<Actual, Expected>()`: the type check of the run
+  fails if `Actual` is not exactly `Expected`. The error names the
+  two types. `any` is not the same as another type. At run time it
+  counts as one assertion and does nothing. The user chose two
+  explicit types over `assert.type<Expected>(value)`: TypeScript
+  cannot infer the type of `value` when the call gives `Expected`,
+  so that form can check only that the value fits the type. For
+  the type of a value: `assert.type<typeof value, Expected>()`.
+- `ubq convert` writes `assert.type<typeof x, T>()` for
+  `expectTypeOf(x).toEqualTypeOf<T>()`, when `x` is a name or a
+  chain of names. It also takes `expectTypeOf<X>()`, and a name as
+  the argument of `toEqualTypeOf`. The other forms and matchers
+  keep the TODO, which now names `assert.type`. The type of a
+  `const` with a literal value is the literal: vitest infers
+  `number` for `expectTypeOf(n)`, and `typeof n` is `1`. The type
+  check shows such a case.
+- `assert.deepEqual` and `assert.matchOnly` stay strict (D2). If
+  each difference of a failure is a key that has the value
+  `undefined` in the actual value and is not in the expected
+  value, the failure has a hint: `toEqual` passes for such a key,
+  and the fix is to remove the key or add it with `undefined`. An
+  element of an array is not a key, and gets no hint.

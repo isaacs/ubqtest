@@ -3623,7 +3623,9 @@ test("a", async () => {
     '  // "timeout" in "ubq" in package.json.',
     '  assert.equal(typeof setDefaultTimeout, "function");',
     '  const one = spy(() => 1);',
-    '  // TODO(ubq): ubq has no expectTypeOf.',
+    '  // TODO(ubq): Use assert.type<Actual, Expected>(): the type check fails',
+    '  // if the type Actual is not exactly Expected. For the type of a value:',
+    '  // assert.type<typeof value, Expected>().',
     '  expectTypeOf(one).toBeFunction();',
     '});',
   ])
@@ -3841,7 +3843,9 @@ it('t', () => {
       "import { expectTypeOf, it } from 'vitest'",
       "it.each(rows)('row %s', row => assert(row))",
       "test('t', () => {",
-      '  // TODO(ubq): ubq has no expectTypeOf.',
+      '  // TODO(ubq): Use assert.type<Actual, Expected>(): the type check fails',
+      '  // if the type Actual is not exactly Expected. For the type of a value:',
+      '  // assert.type<typeof value, Expected>().',
       '  expectTypeOf(1).toBeNumber()',
       '})',
     ],
@@ -3871,4 +3875,49 @@ avaTest('a', macro, 1)
     "import anyTest, { type TestFn } from 'ava'",
     'const avaTest = anyTest as TestFn<{ n: number }>',
   ])
+})
+
+test('toEqualTypeOf of expectTypeOf becomes assert.type', () => {
+  const r = convert(`import { assertType, expectTypeOf, it } from 'vitest'
+it('types', () => {
+  expectTypeOf(shape).toEqualTypeOf<Shape>()
+  expectTypeOf(a.b).toEqualTypeOf(c)
+  expectTypeOf<Row[]>().toEqualTypeOf<Row[]>()
+  // Other forms keep the TODO.
+  expectTypeOf(make()).toEqualTypeOf<Shape>()
+  expectTypeOf(shape).not.toEqualTypeOf<Row>()
+  assertType<Shape>(shape)
+})
+`)
+  assert.deepEqual(
+    r?.code.filter(line => !line.startsWith('//')),
+    [
+      "import { assert, test } from 'ubqtest'",
+      "import { assertType, expectTypeOf } from 'vitest'",
+      "test('types', () => {",
+      '  assert.type<typeof shape, Shape>()',
+      '  assert.type<typeof a.b, typeof c>()',
+      '  assert.type<Row[], Row[]>()',
+      '  // Other forms keep the TODO.',
+      '  // TODO(ubq): Use assert.type<Actual, Expected>(): the type check fails',
+      '  // if the type Actual is not exactly Expected. For the type of a value:',
+      '  // assert.type<typeof value, Expected>().',
+      '  expectTypeOf(make()).toEqualTypeOf<Shape>()',
+      '  // TODO(ubq): Use assert.type<Actual, Expected>(): the type check fails',
+      '  // if the type Actual is not exactly Expected. For the type of a value:',
+      '  // assert.type<typeof value, Expected>().',
+      '  expectTypeOf(shape).not.toEqualTypeOf<Row>()',
+      '  // TODO(ubq): ubq has no assertType.',
+      '  assertType<Shape>(shape)',
+      '})',
+    ],
+  )
+  // With no other use, the import of the old tool goes away.
+  const all = convert(`import { expectTypeOf, it } from 'vitest'
+it('types', () => expectTypeOf(shape).toEqualTypeOf<Shape>())
+`)
+  assert.deepEqual(
+    all?.code.filter(line => !line.startsWith('//')),
+    ["import { assert, test } from 'ubqtest'", "test('types', () => assert.type<typeof shape, Shape>())"],
+  )
 })

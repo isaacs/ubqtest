@@ -146,6 +146,7 @@ await assert.rejects(promise, expected, message?)  // resolves to the Error
 await assert.eventually(fn, pattern, message?) // as match; calls fn until it matches, 2000 ms at most
 assert.snapshot(value, message?)               // compares with saved text
 assert.fail(message)                           // returns never
+assert.type<Actual, Expected>()                // a type error if the types differ
 ```
 
 | Function | Passes when |

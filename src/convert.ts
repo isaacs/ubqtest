@@ -391,6 +391,8 @@ const TICK =
 
 /** The TODO text for a function that a file imports from the old test tool. */
 const LEFT: Record<string, string> = {
+  expectTypeOf:
+    'Use assert.type<Actual, Expected>(): the type check fails if the type Actual is not exactly Expected. For the type of a value: assert.type<typeof value, Expected>().',
   setDefaultTimeout:
     'ubq has no time limit for one file. Remove this call. Give the limit to a group or to a test: describe(name, { timeout: ms }, fn), test(name, { timeout: ms }, fn). For each test of the project: "timeout" in "ubq" in package.json.',
   setSystemTime:
@@ -1893,6 +1895,36 @@ export const convertSource = (
     )
   }
 
+  /**
+   * The text of a type: `<T>` gives T, and a name or a chain of names
+   * gives `typeof name`. Undefined for other forms.
+   */
+  const typeText = (call: Node): string | undefined => {
+    const types = (call.typeArguments as { params: Node[] } | undefined)?.params ?? []
+    const args = call.arguments as Node[]
+    if (types.length === 1 && !args.length) return text(types[0]!)
+    const entity = (n: Node): boolean =>
+      n.type === 'Identifier' || (n.type === 'MemberExpression' && !n.computed && entity(n.object as Node))
+    if (!types.length && args.length === 1 && entity(args[0]!)) return `typeof ${text(args[0]!)}`
+  }
+
+  /**
+   * `assert.type<A, E>()` for `expectTypeOf(a).toEqualTypeOf<E>()`.
+   * Undefined for other forms: they keep the TODO.
+   */
+  const typeAssertion = (node: Node): string | undefined => {
+    if (node.type !== 'CallExpression') return undefined
+    const callee = node.callee as Node
+    if (callee.type !== 'MemberExpression' || callee.computed || nameOf(callee.property as Node) !== 'toEqualTypeOf')
+      return undefined
+    const inner = callee.object as Node
+    if (inner.type !== 'CallExpression' || leftNames.get(nameOf(inner.callee as Node)!) !== 'expectTypeOf')
+      return undefined
+    const actual = typeText(inner)
+    const expected = typeText(node)
+    return actual && expected && `assert.type<${actual}, ${expected}>()`
+  }
+
   const walk = (node: Node, path: Node[]): void => {
     if (drop.has(node.start)) {
       if (node.type === 'Property') return removeProperty(node)
@@ -1931,6 +1963,13 @@ export const convertSource = (
         if (nameOf(node) !== role) changes++
         if (top !== node) todo(path, TODO.testValue)
       }
+    }
+    const typeCheck = typeAssertion(node)
+    if (typeCheck) {
+      replace(node.start, node.end, typeCheck)
+      used.add('assert')
+      changes++
+      return
     }
     if (reference && leftNames.has(nameOf(node)!) && !path.some(n => removed.includes(n))) {
       const name = leftNames.get(nameOf(node)!)!

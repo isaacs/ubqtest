@@ -110,12 +110,11 @@ test('a function in a pattern is a predicate for the value at its place', () => 
     diffDeep(a, e, partial).diffs.map(d => `${d.path}: ${d.actual} / ${d.expected} (${d.note})`)
   const isNumber = (v: unknown) => typeof v === 'number'
   const falsy = 'the function in the pattern returned false'
-  // The text of the function is the text that the runtime has. It
-  // has no coverage counter.
-  const text = String(isNumber)
-    .replace(/__ubqc\[\d+\]\+\+,\s*/, '')
-    .replace(/\s+/g, ' ')
-  assert.match(text, /^\(v ?\) => \(?typeof v === ['"]number['"]\)?$/)
+  // The text of the function is the text that the runtime has, with
+  // no coverage counter. Bun prints the code again: a bracket and a
+  // space can stay.
+  const text = String(isNumber).replace(/\s+/g, ' ')
+  assert.match(text, /^\(v ?\) => (\( ?)?typeof v === ['"]number['"]\)?$/)
   assert.deepEqual(diffs({ id: 7, list: ['a', 2] }, { id: isNumber, list: ['a', isNumber] }), [])
   assert.deepEqual(diffs(7, isNumber), [])
   assert.deepEqual(diffs({ at: { id: 'x' }, list: [1, 'b'] }, { at: { id: isNumber }, list: [1, isNumber] }), [
@@ -146,7 +145,7 @@ test('a function in a pattern is a predicate for the value at its place', () => 
   const long = (v: unknown) =>
     v === 'a text that is long enough to make the source of this function more than two hundred characters' ||
     v === 'a second text that is long enough to make the source of this function more than two hundred characters'
-  assert.match(diffs(1, long)[0]!, /^: 1 \/ \(v ?\) => \(?v === ['"]a text[^\n]{170,180}\.\.\. \(/)
+  assert.match(diffs(1, long)[0]!, /^: 1 \/ \(v ?\) => (\( ?)?v === ['"]a text[^\n]{165,185}\.\.\. \(/)
   // Only in a pattern: deepEqual compares two functions as values.
   assert.equal(diffs({ id: 7 }, { id: isNumber }, false).length, 1)
   // A value that is not true or false does not match.

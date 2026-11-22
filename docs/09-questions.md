@@ -5,46 +5,6 @@ stopped. Each entry states what is blocked, the options, and what
 the agent would do. Remove an entry when its decision is in
 `02-decisions.md`.
 
-## Q70. A type assertion in place of `expectTypeOf`
-
-From `25-hermetic-feedback-0.0.23.md`. ubq has no assertion of a
-type, so `ubq convert` leaves `expectTypeOf` with a TODO, and the
-agent of the report removed five checks. Each run of ubq checks
-the types, so a type assertion can be a function whose type fails
-the check, and does nothing when it runs.
-
-- (a) `assert.type<Expected>(value)`: a compile error if the type
-  of `value` is not exactly `Expected`. At run time, it counts as
-  an assertion and does nothing. `convert` writes it for
-  `expectTypeOf(x).toEqualTypeOf<T>()`.
-- (b) A separate export, `assertType<Expected>(value)`, outside
-  `assert`.
-- (c) None: the guide says to keep type checks in a `.ts` file
-  that the type checker reads.
-
-The agent would do (a): it is one more name on `assert`, and an
-exact type is what `toEqualTypeOf` checks.
-
-## Q71. `toEqual` and a key with the value `undefined`
-
-From the same report. `toEqual` of vitest ignores a key with the
-value `undefined`. `ubq convert` writes `assert.deepEqual`, or
-`assert.matchOnly` for a value with a matcher, and both count such
-a key (D2). 7 tests of the report failed for this reason.
-`assert.match` passes, but permits each other extra key too.
-
-- (a) No change of the assertions. When a failure of `deepEqual`
-  or `matchOnly` has only differences of the form `actual:
-  undefined, expected: (missing)`, it gets a hint: remove the key
-  from the value, or add it to the expected value with
-  `undefined`.
-- (b) `matchOnly` ignores a key of the value whose value is
-  `undefined`, if the pattern does not have the key.
-- (c) `convert` writes a TODO at each `toEqual` with an object.
-
-The agent would do (a): the rule of D2 stays, and the failure
-tells the fix.
-
 ## Closed Questions
 
 The answers to Q1 to Q6 are D25 (step 3) and D26 to D31. The
@@ -67,7 +27,7 @@ are D114. The answer to Q48 is D115. The answers to Q49 and Q50
 are D117. The answers to Q51 and Q52 are D121. The answers to Q53
 to Q58 are D124. The answer to Q59 is D125. The answers to Q60 to
 Q63 are D127. The answer to Q64 is D128. The answers to Q65 to
-Q69 are D130.
+Q69 are D130. The answers to Q70 and Q71 are D133.
 
 Q14 to Q20 come from the wants in `01-agent-ideation.md` that the
 code does not have yet. The section of that file is in brackets.

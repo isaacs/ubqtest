@@ -352,6 +352,7 @@ await assert.rejects(promise, expected)   // resolves to the error
 await assert.eventually(fn, pattern)      // as match. Calls fn again until it matches, 2000 ms at most.
 assert.snapshot(value)             // compares with saved text
 assert.fail(message)
+assert.type<typeof value, Expected>()   // the type check fails if the two types differ. At run time, one assertion that does nothing.
 // Each assertion takes a message as its last argument: assert.equal(a, b, `case ${name}`). A failure shows it first.
 any.number  any.string  any.boolean  any.bigint  any.symbol  any.function  any.object  any.array   // functions for a pattern: a value of that type
 any.defined                        // each value but null and undefined
@@ -513,6 +514,7 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 | `vi.fn`, `jest.fn` | `spy` |
 | `vi.useFakeTimers` | `fakeClock` |
 | `toMatchSnapshot` | `assert.snapshot(value)` |
+| `expectTypeOf(x).toEqualTypeOf<T>()` | `assert.type<typeof x, T>()` |
 | `assert.doesNotThrow` | call the function, then assert on its result |
 | a subtest in a test, `t.plan`, `t.end` | `describe`. A test ends when its function ends. |
 

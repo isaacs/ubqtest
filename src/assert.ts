@@ -2,7 +2,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import { emit } from './emit.ts'
 import type { Failure } from './events.ts'
-import { type Diff, diffDeep, diffEqual, show, showDiffs } from './format.ts'
+import { type Diff, diffDeep, diffEqual, MISSING, show, showDiffs } from './format.ts'
 import { type Hint, hint } from './hint.ts'
 import { now, setTimeout } from './real.ts'
 import { checkSnapshot } from './snapshot.ts'
@@ -109,6 +109,15 @@ type Keyed<O> = [O] extends [never] ? never : { [K in Keys<O>]?: Pattern<Val<O, 
  * and a function is a predicate for the value at its place.
  */
 export type Pattern<T> = Prim<Exclude<T, object>> | Obj<Extract<T, object>> | Predicate
+
+/** True if `A` and `B` are the same type. */
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
+/**
+ * The constraint of `assert.type`: no constraint if the types are
+ * the same. If not, a type that names both, for the type error.
+ */
+export type SameType<Actual, Expected> =
+  Equal<Actual, Expected> extends true ? unknown : { 'the types differ': { actual: Actual; expected: Expected } }
 
 /** The type of `assert`. */
 export interface Assert {
@@ -286,6 +295,18 @@ export interface Assert {
    * ```
    */
   fail(message: string): never
+  /**
+   * The type check of the run fails if the type `Actual` is not
+   * exactly `Expected`. When it runs, it is one assertion, and it
+   * does nothing. A project with `skipTypecheck` checks it in its own
+   * type check step.
+   *
+   * ```ts
+   * const shape = parse('c')
+   * assert.type<typeof shape, Shape | undefined>()
+   * ```
+   */
+  type<Actual extends SameType<Actual, Expected>, Expected extends SameType<Actual, Expected>>(): void
   toMatchSnapshot: Hint<'Use assert.snapshot(value)'>
   matchSnapshot: Hint<'Use assert.snapshot(value)'>
   ok: Hint<'Use assert(value)'>
@@ -550,6 +571,17 @@ const assertFn = (value: unknown, message?: string): void => {
   fail(state, 'assert', `expected a truthy value, got ${show(value)}`, message, diff)
 }
 
+/**
+ * A hint if each difference is a key of the actual value with the
+ * value `undefined`, which the expected value does not have:
+ * `toEqual` of vitest and jest passes for such a key.
+ */
+const undefinedKeys = (diff: { diffs: Diff[]; more: number }): string =>
+  // An element of an array is not a key: `[undefined]` is not `[]`.
+  !diff.more && diff.diffs.every(d => d.actual === 'undefined' && d.expected === MISSING && !/\[\d+\]$/.test(d.path))
+    ? '\nhint: each difference is a key with the value undefined that the expected value does not have. toEqual of vitest and jest passes for such a key, and ubq does not. Remove the key from the value, or add it to the expected value with the value undefined.'
+    : ''
+
 const methods = {
   equal(actual: unknown, expected: unknown, message?: string): void {
     const state = begin()
@@ -573,7 +605,7 @@ const methods = {
     if (state && !isDeepStrictEqual(actual, expected)) {
       let diff = diffDeep(actual, expected)
       if (!diff.diffs.length) diff = { diffs: [diffEqual(actual, expected)], more: 0 }
-      fail(state, 'deepEqual', 'expected values to be deeply equal', message, diff, {
+      fail(state, 'deepEqual', 'expected values to be deeply equal' + undefinedKeys(diff), message, diff, {
         actual,
         expected,
       })
@@ -615,10 +647,17 @@ const methods = {
     const state = begin()
     const diff = state && diffDeep(actual, pattern, 'only')
     if (diff?.diffs.length)
-      fail(state!, 'matchOnly', 'expected value to match the pattern, with no other keys', message, diff, {
-        actual,
-        expected: pattern,
-      })
+      fail(
+        state!,
+        'matchOnly',
+        'expected value to match the pattern, with no other keys' + undefinedKeys(diff),
+        message,
+        diff,
+        {
+          actual,
+          expected: pattern,
+        },
+      )
   },
   contains(actual: unknown, expected: unknown, message?: string): void {
     const state = begin()
@@ -718,6 +757,10 @@ const methods = {
     const state = begin()
     if (state) fail(state, 'fail', message, undefined)
     throw new Error(message)
+  },
+  type(): void {
+    // The type checker does the check.
+    begin()
   },
   toMatchSnapshot: hint('Use assert.snapshot(value)'),
   matchSnapshot: hint('Use assert.snapshot(value)'),

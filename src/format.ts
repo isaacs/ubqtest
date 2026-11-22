@@ -89,7 +89,8 @@ export const diffEqual = (actual: unknown, expected: unknown): Diff => {
 
 const key = (k: string): string => (/^[A-Za-z_$][\w$]*$/.test(k) ? `.${k}` : `[${JSON.stringify(k)}]`)
 
-const MISSING = '(missing)'
+/** The text of a key or an element that a value does not have. */
+export const MISSING = '(missing)'
 const COUNTER = new RegExp(`${COUNTER_NAME}\\[\\d+\\]\\+\\+[;,]?\\s*`, 'g')
 
 /**

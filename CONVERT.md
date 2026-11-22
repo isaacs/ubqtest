@@ -574,6 +574,7 @@ gets a TODO too.
 | `toBeCalled`, `toBeCalledTimes`, `toBeCalledWith`, `lastCalledWith`, `nthCalledWith` | as `toHaveBeenCalled` and the others |
 | `toBeTypeOf('string')` | `assert.equal(typeof a, 'string')` |
 | `toMatchSnapshot()` | `assert.snapshot(a)` |
+| `expectTypeOf(a).toEqualTypeOf<T>()` | `assert.type<typeof a, T>()` (other matchers of `expectTypeOf` get a TODO) |
 | `vi.fn(impl)`, `jest.fn(impl)` | `spy(impl)` |
 | `vi.spyOn(object, key)` | `spyOn(object, key)` |
 | `it.skip(name, fn)` | `test(name, { skip: 'the reason' }, fn)` |
@@ -585,6 +586,8 @@ Things to check by hand:
 - **`toEqual` is loose.** It ignores keys with the value
   `undefined` and ignores the class. `assert.deepEqual` is
   strict. Use the exact value, or `assert.match` for some keys.
+  If each difference is a key with the value `undefined`, the
+  failure has a hint that says so.
 - **`toHaveBeenCalledWith`.** jest passes if any call had the
   arguments, and the converted line does the same:
   `assert(s.calls.some(call => isDeepEqual(call.args, [...args])))`.

@@ -9,7 +9,7 @@ import { setUpdate } from './snapshot.ts'
 import { currentFile, setCollector } from './test.ts'
 
 export { any } from './any.ts'
-export { assert, type Assert, isDeepEqual, isMatch, isMatchOnly, type Pattern } from './assert.ts'
+export { assert, type Assert, isDeepEqual, isMatch, isMatchOnly, type Pattern, type SameType } from './assert.ts'
 export { fakeClock, type FakeClock, type FakeClockOptions } from './clock.ts'
 export { cleanup, env, stub, type Files } from './fixtures.ts'
 export { mockImport, type MockOf } from './mock.ts'
