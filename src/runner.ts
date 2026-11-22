@@ -774,8 +774,6 @@ export const workspaces = (): string[] => {
  */
 const runWorkspaces = async (folders: string[], args: string[]): Promise<number> => {
   const slots = await serveSlots(availableParallelism() + 1)
-  const failed: string[] = []
-  let ran = 0
   /** The output of each workspace that does not print yet. */
   const waiting = folders.map(() => [] as [NodeJS.WriteStream, Buffer][])
   const codes: (number | null | undefined)[] = folders.map(() => undefined)
@@ -810,9 +808,6 @@ const runWorkspaces = async (folders: string[], args: string[]): Promise<number>
           child.stderr.on('data', (data: Buffer) => show(at, process.stderr, data))
           child.on('close', code => {
             codes[at] = code
-            // Exit code 2: the workspace has no tests.
-            if (code !== 2) ran++
-            if (code !== 0 && code !== 2) failed.push(folder)
             if (at === shown) {
               shown++
               next()
@@ -823,7 +818,9 @@ const runWorkspaces = async (folders: string[], args: string[]): Promise<number>
     ),
   )
   slots.close()
-  failed.sort((a, b) => folders.indexOf(a) - folders.indexOf(b))
+  // Exit code 2: the workspace has no tests.
+  const ran = codes.filter(code => code !== 2).length
+  const failed = folders.filter((_, at) => codes[at] !== 0 && codes[at] !== 2)
   process.stdout.write(
     failed.length
       ? `workspaces: ${failed.length} of ${ran} failed: ${failed.join(', ')}. Run ubq in the folder of a workspace for its tests.\n`

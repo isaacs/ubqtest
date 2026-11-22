@@ -1,10 +1,11 @@
 // Selection of tests: by ID, and by the result of the last run.
+import { spawnSync } from 'node:child_process'
 import { appendFileSync, cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
-import { project } from './setup.ts'
+import { cli, project } from './setup.ts'
 
 test('a test ID selects one test, and a group ID selects its tests', () => {
   const p = project()
@@ -185,8 +186,8 @@ test('the workspaces run at the same time, and share the slots of one run', () =
   const slots = availableParallelism() + 1
   const log = join(p.dir, 'log.txt')
   // With no shared slots, each workspace would run this many files
-  // at the same time. The files end at different times: a slot that
-  // a gives back goes to b while other files of a still run.
+  // at the same time. The first file of each is long: a slot that a
+  // gives back goes to b while that file of a still runs.
   for (const name of ['a', 'b']) {
     mkdirSync(join(p.dir, 'packages', name), { recursive: true })
     writeFileSync(join(p.dir, 'packages', name, 'package.json'), JSON.stringify({ name, type: 'module' }))
@@ -197,7 +198,7 @@ test('the workspaces run at the same time, and share the slots of one run', () =
 import { assert, test } from 'ubqtest'
 test('t', async () => {
   appendFileSync(${JSON.stringify(log)}, '+ ${name} ' + Date.now() + '\\n')
-  await new Promise(resolve => setTimeout(resolve, ${300 + i * 100}))
+  await new Promise(resolve => setTimeout(resolve, ${i ? 100 : 3000}))
   appendFileSync(${JSON.stringify(log)}, '- ${name} ' + Date.now() + '\\n')
   assert(true)
 })
@@ -268,6 +269,14 @@ test('at the root of a monorepo with no tests, ubq runs each workspace', () => {
       'workspaces: 1 of 2 failed: packages/b. Run ubq in the folder of a workspace for its tests.',
     ],
   )
+  // A root with colors gives them to the run of each workspace,
+  // through its pipe.
+  const colored = spawnSync('node', [cli], {
+    cwd: p.dir,
+    encoding: 'utf8',
+    env: { ...process.env, CI: '', UBQ_COLOR: '1' },
+  })
+  assert.match(colored.stdout, /^\x1b\[40;31mFAIL\x1b\[m one\.test\.ts > one$/m)
   // A command for all workspaces.
   assert.equal(
     p
