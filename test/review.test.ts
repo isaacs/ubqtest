@@ -293,9 +293,11 @@ test('timeout only', { timeout: 100 }, () => assert(1))
       'assertions changed: test/forms.test.ts > plain template (test/forms.test.ts:3)',
       '  - assert(1)',
       '  + assert(2)',
+      // The three that were there before are not new.
+      'cannot fail: assert(2) (test/forms.test.ts:3)',
       'not measured: lib/staged.ts: (no reason)',
       'not measured: lib/new.ts: only on a Mac',
-      'review: 5 changes to review, since the last commit',
+      'review: 6 changes to review, since the last commit',
       '',
     ].join('\n'),
   )
@@ -406,8 +408,9 @@ describe('g', () => {
         'removed: test/old.test.ts > g > gone (test/old.test.ts:4 in HASH, before the conversion)',
         'skipped: test/old.test.ts > g > now skipped (test/old.test.ts:7), skip: later',
         'fewer assertions: test/old.test.ts > g > weaker (test/old.test.ts:4), 2 before the conversion, 1 now',
+        'cannot fail: assert(1) (test/loop.test.ts:2)',
         'note: 1 file had no ubq tests at the last commit, and has them now. ubq review found no test of a different tool with a name that is plain text in these files, so it did not compare their tests. Compare the count of tests that pass with the count of the old tool.',
-        'review: 3 changes to review, since the last commit',
+        'review: 4 changes to review, since the last commit',
         '',
       ],
     ],

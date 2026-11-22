@@ -467,6 +467,9 @@ and now, and the store. It lists, with the most serious first:
   (`+`).
 - `assertions changed`: a test with the same count of assertions,
   and different ones.
+- `cannot fail`: a new `assert` of a constant, such as
+  `assert(true)`, in each file. It counts as an assertion and
+  checks nothing.
 - `snapshot removed`, `snapshot changed`: entries of
   `ubq-snapshots/`.
 - `not measured`: a new `// ubq: not measured:` comment.

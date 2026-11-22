@@ -79,15 +79,21 @@ const OLD_ROLES: Record<string, string> = {
  * test file of a different tool: each `expect(value)` call is one
  * assertion.
  */
-const parsed = (file: string, source: string, old = false): { tests: Map<string, Defined>; comments: string[] } => {
+const parsed = (
+  file: string,
+  source: string,
+  old = false,
+): { tests: Map<string, Defined>; comments: string[]; constant: { line: number; text: string }[] } => {
   const out = new Map<string, Defined>()
   const comments: string[] = []
+  /** Each `assert` of ubq with a constant truthy value: it cannot fail. */
+  const constant: { line: number; text: string }[] = []
   const { parse, children } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
   let tree: Node
   try {
     tree = parse(source, file, comments)
   } catch {
-    return { tests: out, comments: [] }
+    return { tests: out, comments: [], constant }
   }
   const text = (node: Node): string => source.slice(node.start, node.end)
   const lineOf = (offset: number): number => source.slice(0, offset).split('\n').length
@@ -130,6 +136,18 @@ const parsed = (file: string, source: string, old = false): { tests: Map<string,
     for (const child of children(node)) assertsIn(child, found)
     return found
   }
+  const constants = (node: Node): void => {
+    const first = (node.arguments as Node[] | undefined)?.[0]
+    if (
+      !old &&
+      node.type === 'CallExpression' &&
+      role(node.callee as Node) === 'assert' &&
+      first?.type === 'Literal' &&
+      first.value
+    )
+      constant.push({ line: lineOf(node.start), text: oneLine(text(node)) })
+    for (const child of children(node)) constants(child)
+  }
   const visit = (node: Node, prefix: string, skip: string | undefined): void => {
     if (node.type === 'CallExpression') {
       const callee = node.callee as Node
@@ -157,7 +175,8 @@ const parsed = (file: string, source: string, old = false): { tests: Map<string,
     for (const child of children(node)) visit(child, prefix, skip)
   }
   visit(tree, file, undefined)
-  return { tests: out, comments }
+  constants(tree)
+  return { tests: out, comments, constant }
 }
 
 /** The items of `a` that `b` does not have, with each copy counted. */
@@ -185,6 +204,7 @@ const KINDS = [
   'skipped',
   'fewer assertions',
   'assertions changed',
+  'cannot fail',
   'snapshot removed',
   'snapshot changed',
   'not measured',
@@ -326,6 +346,13 @@ export const reviewItems = (given: string | undefined): { items: string[][]; not
     if (!CODE.test(name)) continue
     const then = before === undefined ? undefined : parsed(before, textBefore!)
     const is = after === undefined ? undefined : parsed(after, textNow!)
+    // `assert(true)`: it counts as an assertion, and checks nothing.
+    const constants = (then?.constant ?? []).map(c => c.text)
+    for (const c of is?.constant ?? []) {
+      const at = constants.indexOf(c.text)
+      if (at < 0) items.push([`cannot fail: ${c.text} (${after}:${c.line})`])
+      else constants.splice(at, 1)
+    }
     // A comment that marks program code as not measured (D56). Not
     // in test code: no list of uncovered code has it.
     if (!then?.tests.size && !is?.tests.size && !isHelper(name) && !isBuild(name))
