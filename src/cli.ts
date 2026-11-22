@@ -102,7 +102,7 @@ const USAGE = `usage:
   ubq status                 the runs in progress: the files that run, the test that runs in each, and for how long
   ubq lsp                    a language server for editors, over stdio: shows the code that no test ran and the failures of the last run, and names the tests of a line on hover
   ubq nvim                   writes the Neovim plugin for ubq lsp to the configuration of Neovim (0.12 or later)
-  ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (${SKILL_DIRS.flatMap(([names]) => names).join(', ')})
+  ubq skill [agent|folder]   writes the use-ubq skill to the skill folders of the project and of the agent that runs the command, or to the folder of the named agent (${SKILL_DIRS.flatMap(([names]) => names).join(', ')}). --hook: also adds ubq check --hook to .claude/settings.json, as the stop hook of Claude Code. Ask the user first
 `
 
 const out = (text: string): void => void process.stdout.write(text + '\n')
@@ -123,14 +123,21 @@ const HOOK =
   `process.exit(require('child_process').spawnSync(process.execPath,[p.join(m,'..','cli'+p.extname(m)),'check','--hook'],{stdio:'inherit'}).status??1)"`
 const stopEntry = { hooks: [{ type: 'command', command: HOOK, timeout: 120 }] }
 
-/** Adds the stop hook to the settings of Claude Code, if they do not have it. */
-const stopHook = (path: string): void => {
+/**
+ * Adds the stop hook to the settings of Claude Code, if `add` and
+ * they do not have it. A hook of an older ubq gets the new command.
+ * With no hook and no `add`: a note that tells the agent to ask the
+ * user (D135).
+ */
+const stopHook = (path: string, add: boolean): void => {
   type Hooks = { hooks?: { command?: string }[] }[]
   let settings: { hooks?: { Stop?: Hooks } } = {}
+  const note = `note: ubq can add a stop hook to ${rel(path)}. While ubq check finds a problem, the agent cannot end its turn. Ask the user if they want it. If they do: npx ubq skill --hook`
   try {
     settings = JSON.parse(readFileSync(path, 'utf8'))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      if (!add) return out(note)
       out(`${rel(path)} is not JSON, so it has no stop hook. Add "Stop": ${JSON.stringify(stopEntry)} to its "hooks"`)
       return
     }
@@ -141,8 +148,10 @@ const stopHook = (path: string): void => {
   const old = hooks.find(h => h.command === OLD_HOOK)
   // A hook with a different command that runs the check is of the user.
   if (!old && hooks.some(h => h.command?.includes('ubq check'))) return
+  if (!old && !add) return out(note)
   if (old) old.command = HOOK
   else stop.push(stopEntry)
+  mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n')
   out(
     `wrote ${rel(path)}: a stop hook of Claude Code. While ubq check finds a problem, the agent cannot end its turn. The hook does nothing in a project that does not have ubqtest. To remove it, delete its entry in "hooks.Stop" of that file`,
@@ -206,7 +215,9 @@ const main = async (args: string[]): Promise<number> => {
     const root = projectRoot()
     const dirs = new Set<string>()
     // `ubq skill cursor`, `ubq skill .myagent/skills`
-    for (const arg of rest) {
+    const hook = rest.includes('--hook')
+    const names = rest.filter(arg => arg !== '--hook')
+    for (const arg of names) {
       const known = SKILL_DIRS.find(([names]) => names.includes(arg))
       if (!known && !/[\\/]/.test(arg))
         throw new UsageError(
@@ -214,7 +225,7 @@ const main = async (args: string[]): Promise<number> => {
         )
       dirs.add(known?.[2] ?? rel(resolve(arg)))
     }
-    if (!rest.length) {
+    if (!names.length) {
       // The skill folders that the project has: `.claude/skills`,
       // `.cursor/skills`, `.agents/skills`.
       for (const name of readdirSync(root))
@@ -235,7 +246,7 @@ const main = async (args: string[]): Promise<number> => {
       writeFileSync(join(to, 'SKILL.md'), readFileSync(from))
       out(`wrote ${rel(join(to, 'SKILL.md'))}`)
     }
-    if (dirs.has('.claude/skills')) stopHook(join(root, '.claude', 'settings.json'))
+    if (hook || dirs.has('.claude/skills')) stopHook(join(root, '.claude', 'settings.json'), hook)
     return 0
   }
   if (command === 'nvim') {

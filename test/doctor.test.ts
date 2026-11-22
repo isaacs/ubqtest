@@ -198,20 +198,27 @@ test('skill writes to the skill folders of the project and to the folder of the 
   // The command has no `$`, and only `"` and `'` as quotes.
   const command = `node -e "const p=require('path');let m;try{m=require.resolve('ubqtest')}catch{process.exit(0)}process.exit(require('child_process').spawnSync(process.execPath,[p.join(m,'..','cli'+p.extname(m)),'check','--hook'],{stdio:'inherit'}).status??1)"`
   const settings = join(p.dir, '.claude/settings.json')
-  // The settings of Claude Code get the stop hook, one time, next to their other settings.
+  const note =
+    'note: ubq can add a stop hook to .claude/settings.json. While ubq check finds a problem, the agent cannot end its turn. Ask the user if they want it. If they do: npx ubq skill --hook'
+  // With no --hook, the settings stay as they are, and the agent
+  // asks the user.
   mkdirSync(join(p.dir, '.claude'))
-  writeFileSync(
-    settings,
-    JSON.stringify({ model: 'x', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }] } }),
-  )
-  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
+  const before = { model: 'x', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }] } }
+  writeFileSync(settings, JSON.stringify(before))
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', note])
+  assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), before)
+  // With --hook, the settings of Claude Code get the stop hook, one
+  // time, next to their other settings.
+  assert.deepEqual(skill({}, '--hook'), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
   const hook = { hooks: [{ type: 'command', command, timeout: 120 }] }
   assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), {
     model: 'x',
     hooks: { Stop: [{ hooks: [{ type: 'command', command: 'a' }] }, hook] },
   })
+  assert.deepEqual(skill({}, '--hook'), ['wrote .claude/skills/use-ubq/SKILL.md'])
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md'])
-  // The hook of an older ubq gets the command of this one.
+  // The hook of an older ubq gets the command of this one, also with
+  // no --hook.
   const old = { hooks: [{ type: 'command', command: 'npx --no ubq check --hook', timeout: 120 }] }
   writeFileSync(settings, JSON.stringify({ hooks: { Stop: [old] } }))
   assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
@@ -232,11 +239,18 @@ test('skill writes to the skill folders of the project and to the folder of the 
   const none = run(outside)
   assert.deepEqual([none.status, none.stdout, none.stderr], [0, '', ''])
   rmSync(settings)
-  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', hookLine])
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', note])
+  assert(!existsSync(settings))
+  // With --hook for a different agent, the folder of Claude Code gets
+  // the settings.
+  rmSync(join(p.dir, '.claude'), { recursive: true })
+  assert.deepEqual(skill({}, 'cursor', '--hook'), ['wrote .cursor/skills/use-ubq/SKILL.md', hookLine])
   assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { hooks: { Stop: [hook] } })
+  rmSync(join(p.dir, '.cursor'), { recursive: true })
   // A file that is not JSON stays as it is.
   writeFileSync(settings, '{ // a comment\n}')
-  assert.deepEqual(skill(), [
+  assert.deepEqual(skill(), ['wrote .claude/skills/use-ubq/SKILL.md', note])
+  assert.deepEqual(skill({}, '--hook'), [
     'wrote .claude/skills/use-ubq/SKILL.md',
     `.claude/settings.json is not JSON, so it has no stop hook. Add "Stop": ${JSON.stringify(hook)} to its "hooks"`,
   ])

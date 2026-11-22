@@ -176,7 +176,8 @@ place, name the agent or a folder: `npx ubq skill cursor`, `npx
 ubq skill .myagent/skills`. The skill tells the
 agent to read the guides of the installed package.
 
-For Claude Code, `npx ubq skill` also adds a stop hook to
+For Claude Code, `npx ubq skill` tells the agent to ask you about
+a stop hook. If you want it, `npx ubq skill --hook` adds it to
 `.claude/settings.json`: `ubq check --hook`, which does nothing
 in a project that does not have `ubqtest`. While the last test
 results are failures, or are older than the code, or changed lines

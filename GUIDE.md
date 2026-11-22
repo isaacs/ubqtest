@@ -314,8 +314,12 @@ writes a comment only once the list has an item, and writes the
 list to the job summary for a pull request from a fork, whose
 token cannot write a comment.
 
-`ubq skill` adds `ubq check --hook` to `.claude/settings.json` as
-a stop hook of Claude Code, and says so. The hook does nothing in
+`ubq skill` does not change the settings of the agent. For Claude
+Code, it prints a note: ask the user about a stop hook. If the
+user wants it, `ubq skill --hook` adds `ubq check --hook` to
+`.claude/settings.json` as a stop hook of Claude Code, and says
+so. A hook of an older ubq gets the new command with no
+`--hook`. The hook does nothing in
 a project that does not have `ubqtest`, such as one that removed
 it: remove the entry in `hooks.Stop` of that file too. While `ubq check` finds a problem,
 Claude Code cannot end its turn: it gets the report and works on.

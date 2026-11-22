@@ -3729,3 +3729,23 @@ output comes from the code under test, and stays hidden.
   order, so the line is the same in each run.
 - No stack trace for each call, and no config key.
 
+## D135. `ubq skill` adds the stop hook only with `--hook` (user, 2026-11-21)
+
+From the hermetic report: `ubq skill` put a stop hook in
+`.claude/settings.json`, and the agent of the report did not run
+it for that reason. A change to how the agent stops is a choice of
+the user, and the site tells users to let their agent run the
+command.
+
+- `ubq skill` writes the skill, and changes no setting. If
+  `.claude/settings.json` has no hook that runs `ubq check`, it
+  prints: `note: ubq can add a stop hook to .claude/settings.json.
+  While ubq check finds a problem, the agent cannot end its turn.
+  Ask the user if they want it. If they do: npx ubq skill --hook`.
+- `ubq skill --hook` also adds the hook (D67), and makes the
+  folder `.claude` if it is not there.
+- A hook of an older ubq (`npx --no ubq check --hook`) gets the new
+  command with no `--hook`: the user has the hook already.
+- `--hook` is a flag of the command, not a config key: it is an
+  action, not a policy.
+
