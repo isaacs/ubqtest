@@ -3877,6 +3877,25 @@ avaTest('a', macro, 1)
   ])
 })
 
+test('a hook given as a value gets a TODO', () => {
+  const r = convert(`import { RuleTester } from 'eslint'
+import { afterAll, describe, it } from 'vitest'
+RuleTester.afterAll = afterAll
+RuleTester.describe = describe
+RuleTester.it = it
+`)
+  assert.deepEqual(r?.code, [
+    "import { RuleTester } from 'eslint'",
+    "import { describe, test } from 'ubqtest'",
+    '// TODO(ubq): ubq has no hooks, and this gives a hook as a value. For a',
+    '// library that takes afterAll, such as RuleTester, give it cleanup: at the',
+    '// top level of a file, cleanup(fn) runs fn when the file ends.',
+    'RuleTester.afterAll = afterAll',
+    'RuleTester.describe = describe',
+    'RuleTester.it = test',
+  ])
+})
+
 test('toEqualTypeOf of expectTypeOf becomes assert.type', () => {
   const r = convert(`import { assertType, expectTypeOf, it } from 'vitest'
 it('types', () => {

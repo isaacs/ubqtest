@@ -266,6 +266,8 @@ const TODO = {
   hookFile:
     'ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
   hookFileEnd: 'ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.',
+  hookValue:
+    'ubq has no hooks, and this gives a hook as a value. For a library that takes afterAll, such as RuleTester, give it cleanup: at the top level of a file, cleanup(fn) runs fn when the file ends.',
   hookGroup:
     'ubq has no hooks. If the work is not async, put it in the function of the describe, as a const: it runs one time, when the file loads. If it is async, make a function that does it one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()).',
   matcher:
@@ -1939,6 +1941,15 @@ export const convertSource = (
       !(parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) &&
       !(parent?.type === 'Property' && parent.key === node && !parent.computed && !parent.shorthand)
     if (esm && reference && nameOf(node) === 'require' && !declares('require')) todo(path, TODO.require)
+    // `RuleTester.afterAll = afterAll`: ubq has no such function.
+    if (
+      reference &&
+      importedRoles.has(nameOf(node)!) &&
+      roleOf(node) === 'hook' &&
+      !(parent?.type === 'CallExpression' && parent.callee === node) &&
+      !path.some(n => n.type === 'ImportDeclaration' || removed.includes(n))
+    )
+      todo(path, TODO.hookValue)
     // `return it`, `const run = cond ? it : it.skip`: the test
     // function as a value, in a helper file.
     if (reference && importedRoles.has(nameOf(node)!) && /^(test|describe)$/.test(roleOf(node)!)) {

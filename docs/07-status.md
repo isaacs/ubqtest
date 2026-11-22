@@ -456,6 +456,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     `ubq --changed` also runs each test that failed in its last
     run. `ubq doctor` asks for `allowImportingTsExtensions` only
     in a project with an import of a `.ts` path.
+  - `ubq convert` gives a TODO for a hook given as a value, such
+    as `RuleTester.afterAll = afterAll` (report of 0.0.29).
   - The guide is a core and topics (D138): `ubq guide` prints the
     core, about 500 lines, and the list of topics. `ubq guide
     <topic>` prints one, and `ubq guide all` prints all.
