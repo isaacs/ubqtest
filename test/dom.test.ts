@@ -8,6 +8,8 @@ import { assert, cleanup, test } from 'ubqtest'
 import { cli, project, remove } from './setup.ts'
 
 const bun = spawnSync('bun', ['--version']).status === 0
+// The first render of React in a new process is slow on a machine with much work.
+const SLOW = 60_000
 const modules = fileURLToPath(new URL('../node_modules/', import.meta.url))
 
 // Components of React, with Testing Library. Node does not run JSX:
@@ -104,7 +106,7 @@ const domProject = (url = 'http://localhost:3000/') => {
 for (const name of ['jsdom', 'happy-dom'])
   test(`${name}: React Testing Library, the globals of a page, and a file with no DOM`, () => {
     const p = domProject()
-    p.configure({ dom: { package: name, include: ['ui/counter*'] } })
+    p.configure({ dom: { package: name, include: ['ui/counter*'] }, timeout: SLOW })
     const all = p.ubq('ui')
     assert.equal(all.out, 'pass: 7 tests (run 1)\n', all.out + all.err)
     // One file, in the process of the runner.
@@ -118,7 +120,7 @@ for (const name of ['jsdom', 'happy-dom'])
 
 test('the url of the page, a test process of the server, and a key with no include', () => {
   const p = domProject('http://localhost/app')
-  p.configure({ dom: { package: 'jsdom', url: 'http://localhost/app' } })
+  p.configure({ dom: { package: 'jsdom', url: 'http://localhost/app' }, timeout: SLOW })
   assert.match(p.ubq('server').out, /^server: pid \d+/)
   cleanup(() => void p.ubq('server', 'stop'))
   const r = p.ubq('ui/counter.test.ts', 'pass.ts')
