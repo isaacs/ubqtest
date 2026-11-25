@@ -204,6 +204,8 @@ test('t', { timeout: 120_000 }, async () => {
   appendFileSync(${JSON.stringify(log)}, '+ ${name} ' + Date.now() + '\\n')
   await sleep()
   for (let n = 0; ${i ? 'false' : 'n < 600'} && !readFileSync(${JSON.stringify(log)}, 'utf8').includes('${other}'); n++) await sleep()
+  // The clock of Windows has steps of 15 ms: the end must have a later time than that start.
+  await sleep()
   appendFileSync(${JSON.stringify(log)}, '- ${name} ' + Date.now() + '\\n')
   assert(true)
 })
