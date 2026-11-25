@@ -328,6 +328,9 @@ test('"coverage": "full" fails a run of all tests with code that no test ran', (
   assert.deepEqual(lines(), [0, ['pass: 2 tests']])
   env({ UBQ_COVERAGE_CHECK: '1' })
   assert.equal(lines()[0], 1)
+  // An empty value is the same as no value.
+  env({ UBQ_COVERAGE_CHECK: '' })
+  assert.equal(lines()[0], 1)
   env({ UBQ_COVERAGE_CHECK: 'off' })
   assert.equal(p.ubq().err, 'ubq: UBQ_COVERAGE_CHECK must be 0 or 1, not "off"\n')
   env({ UBQ_COVERAGE_CHECK: undefined })

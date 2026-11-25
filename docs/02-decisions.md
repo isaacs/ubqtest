@@ -3592,8 +3592,8 @@ the first three items.
   chose an environment variable. A config key per system would
   need more shape, and a CLI flag is not the place for a policy.
   `UBQ_COVERAGE` already selects the collector (`v8`), so the
-  name is a different one. The value is `0` or `1` (`1` keeps the
-  config), and any other value is an error. Not `off`: YAML reads
+  name is a different one. The value is `0` or `1` (`1` or empty keeps
+  the config), and any other value is an error. Not `off`: YAML reads
   an unquoted `off` as `false`.
 - No hint for a range that an earlier run covered (glob item 9).
   The cause in glob was the order of its walks.

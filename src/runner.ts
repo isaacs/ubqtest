@@ -886,9 +886,10 @@ export const run = async (args: string[]): Promise<number> => {
   for (const flag of flags)
     if (flag !== '--failed' && flag !== '--changed') throw new UsageError(`unknown option: ${flag}`)
   // UBQ_COVERAGE_CHECK=0 turns off "coverage": "full" for one run,
-  // such as on a system where many tests skip. 1 keeps the config.
+  // such as on a system where many tests skip. 1 or empty keeps the
+  // config.
   const check = process.env.UBQ_COVERAGE_CHECK
-  if (check !== undefined && check !== '0' && check !== '1')
+  if (check && check !== '0' && check !== '1')
     throw new UsageError(`UBQ_COVERAGE_CHECK must be 0 or 1, not ${JSON.stringify(check)}`)
   // A run of a selection does not run all code. The one-file path
   // has the same check (UBQ_FULL).
