@@ -454,6 +454,9 @@ export const loadFailure = (text: string): Failure | undefined => {
       // Node removes types and makes no other change.
       (/strip-only mode/.test(error[1]!)
         ? '. Node runs only TypeScript syntax that can be erased. Change this syntax, or run `ubq doctor`: it has the three other choices for the person who owns the project.'
+        : '') +
+      (/Unknown file extension "\.[jt]sx"/.test(error[1]!)
+        ? '. Node does not run JSX. Run `ubq doctor`: it has the three choices for the person who owns the project.'
         : ''),
     ...(inProject && { at: { file: at[1]!, line: +at[2]!, column: +(at[3] ?? 1) } }),
   }

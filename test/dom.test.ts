@@ -118,6 +118,33 @@ for (const name of ['jsdom', 'happy-dom'])
     }
   })
 
+test('a .tsx test file on Node, with the transform key', () => {
+  const p = domProject()
+  symlinkSync(join(modules, 'typescript5'), join(p.dir, 'node_modules/typescript'), 'junction')
+  p.configure({ dom: { package: 'jsdom', include: ['ui/*.test.tsx'] }, transform: 'typescript', timeout: SLOW })
+  // The type check reads only this one file: the project has no types of React.
+  writeFileSync(join(p.dir, 'only.d.ts'), 'export {}\n')
+  writeFileSync(join(p.dir, 'tsconfig.json'), '{ "compilerOptions": { "jsx": "react-jsx" }, "include": ["only.d.ts"] }')
+  writeFileSync(
+    join(p.dir, 'ui/Hello.tsx'),
+    'export const Hello = ({ name }: { name: string }) => <p role="note">hello {name}</p>\n',
+  )
+  writeFileSync(
+    join(p.dir, 'ui/hello.test.tsx'),
+    `import { render, screen } from '@testing-library/react'
+import { assert, test } from 'ubqtest'
+import { Hello } from './Hello'
+
+test('a component of a .tsx file renders', () => {
+  render(<Hello name="a" />)
+  assert.equal(screen.getByRole('note').textContent, 'hello a')
+})
+`,
+  )
+  const r = p.ubq('ui/hello.test.tsx')
+  assert.equal(r.out, 'pass: 1 test (run 1)\n', r.out + r.err)
+})
+
 test('the url of the page, a test process of the server, and a key with no include', () => {
   const p = domProject('http://localhost/app')
   p.configure({ dom: { package: 'jsdom', url: 'http://localhost/app' }, timeout: SLOW })

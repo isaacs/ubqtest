@@ -110,7 +110,7 @@ test('doctor states the fix for each problem of the setup', () => {
         ),
       ),
     [
-      'FIX  1 file has TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): src/hard.ts. Node runs only syntax that it can erase. Do not choose for the person who owns the project.',
+      'FIX  1 file has syntax that Node cannot run (enum, namespace, a parameter property, a decorator, or the JSX of a .tsx or .jsx file): src/hard.ts. Node runs only TypeScript syntax that it can erase. Do not choose for the person who owns the project.',
       'ok   tsconfig.json',
       'doctor: 1 problem',
     ],
@@ -124,14 +124,14 @@ test('doctor states the fix for each problem of the setup', () => {
   p.configure({ include: ['*.ts'] })
   assert.match(
     doctor().lines[2]!,
-    /^FIX  6 files have TypeScript syntax that Node cannot run \(enum, namespace, a parameter property, or a decorator\): src\/h2\.ts, src\/h3\.ts, src\/h4\.ts, src\/h5\.ts, src\/h6\.ts, and 1 more\. /,
+    /^FIX  6 files have syntax that Node cannot run \(enum, namespace, a parameter property, a decorator, or the JSX of a \.tsx or \.jsx file\): src\/h2\.ts, src\/h3\.ts, src\/h4\.ts, src\/h5\.ts, src\/h6\.ts, and 1 more\. /,
   )
   // The files with such syntax that a test imports, also through a
   // file with no such syntax.
   writeFileSync(join(p.dir, 'src/mid.ts'), "export * from './h2.js'\nexport * from './h3'\n")
   writeFileSync(join(p.dir, 'uses.test.ts'), "import './src/mid.ts'\n")
   assert.match(
-    doctor().lines.find(line => line.includes('files have TypeScript syntax'))!,
+    doctor().lines.find(line => line.includes('files have syntax'))!,
     /and 1 more\. The tests import 2 of them: src\/h2\.ts, src\/h3\.ts\. No test imports the others now\. Node runs only/,
   )
   rmSync(join(p.dir, 'uses.test.ts'))
@@ -590,7 +590,7 @@ test('doctor on Node: a project with code for Bun must run on Bun', () => {
   // With no such code, the question about the syntax.
   rmSync(join(p.dir, 'src/sql.ts'))
   writeFileSync(join(p.dir, 'src/serve.ts'), 'export class A {\n  constructor(public n: number) {}\n}\n')
-  assert.match(lines()[0]!, /^FIX  1 file has TypeScript syntax that Node cannot run .*: src\/serve\.ts\./)
+  assert.match(lines()[0]!, /^FIX  1 file has syntax that Node cannot run .*: src\/serve\.ts\./)
 })
 
 test('doctor names the test files that set process.env above an import', () => {

@@ -1,6 +1,7 @@
-// The transform of TypeScript source that Node cannot run with
-// only its types removed: a decorator, an `enum`, a parameter
-// property (D111). A project asks for it with the `transform` key.
+// The transform of source that Node cannot run with only its types
+// removed: a decorator, an `enum`, a parameter property (D111), and
+// the JSX of a `.tsx` or `.jsx` file (D145). A project asks for it
+// with the `transform` key.
 // The compiler is a package of the project. Only a process that
 // must compile a file, or find one in the cache, loads this file.
 import { existsSync, readFileSync } from 'node:fs'
@@ -41,7 +42,33 @@ interface Options {
   interop: boolean
   /** True if the output of the project is CommonJS for a `.ts` file. */
   commonjs: boolean
+  /**
+   * What an element of JSX becomes: a call of `jsxFactory`
+   * (`"jsx": "react"`), or a call of a function that the file
+   * imports from `jsxImportSource`. `react-jsxdev` is the form with
+   * the places of the source.
+   */
+  jsx: 'react' | 'react-jsx' | 'react-jsxdev'
+  jsxImportSource: string
+  jsxFactory: string
+  jsxFragmentFactory: string
 }
+
+/** The options of a project with no tsconfig. */
+const DEFAULTS: Options = {
+  legacy: false,
+  metadata: false,
+  define: true,
+  verbatim: false,
+  interop: true,
+  commonjs: false,
+  jsx: 'react-jsx',
+  jsxImportSource: 'react',
+  jsxFactory: 'React.createElement',
+  jsxFragmentFactory: 'React.Fragment',
+}
+/** A file with JSX. */
+const JSX = /\.[jt]sx$/
 
 // The part of each compiler that this file uses.
 interface TypeScript {
@@ -102,6 +129,9 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
       }
       const target = /^es(\d+|next)$/i.exec(String(json.target))?.[1]
       const module = String(json.module).toLowerCase()
+      const jsx = String(json.jsx).toLowerCase()
+      const text = (key: keyof Options): string =>
+        typeof json[key] === 'string' ? json[key] : (DEFAULTS[key] as string)
       found = {
         legacy: json.experimentalDecorators === true,
         metadata: json.emitDecoratorMetadata === true,
@@ -112,9 +142,13 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
         verbatim: json.verbatimModuleSyntax === true,
         interop: json.esModuleInterop !== false,
         commonjs: module === 'commonjs' || (/^node(\d+|next)$/.test(module) && !esmPackage(folder)),
+        // `preserve` keeps the JSX, which Node cannot run.
+        jsx: jsx === 'react' || jsx === 'react-jsxdev' ? jsx : 'react-jsx',
+        jsxImportSource: text('jsxImportSource'),
+        jsxFactory: text('jsxFactory'),
+        jsxFragmentFactory: text('jsxFragmentFactory'),
       }
-    } else if (folder === root || dirname(folder) === folder)
-      found = { legacy: false, metadata: false, define: true, verbatim: false, interop: true, commonjs: false }
+    } else if (folder === root || dirname(folder) === folder) found = DEFAULTS
     else found = options(dirname(folder))
     byFolder.set(folder, found)
     return found
@@ -155,7 +189,9 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
           sourceMaps: 'inline',
           inlineSourcesContent: false,
           jsc: {
-            parser: { syntax: 'typescript', decorators: true },
+            parser: path.endsWith('.jsx')
+              ? { syntax: 'ecmascript', jsx: true, decorators: true }
+              : { syntax: 'typescript', tsx: path.endsWith('.tsx'), decorators: true },
             target: 'es2022',
             keepClassNames: true,
             transform: {
@@ -164,6 +200,15 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
               ...(!o.legacy && { decoratorVersion: '2022-03' }),
               useDefineForClassFields: o.define,
               verbatimModuleSyntax: o.verbatim,
+              ...(JSX.test(path) && {
+                react: {
+                  runtime: o.jsx === 'react' ? 'classic' : 'automatic',
+                  development: o.jsx === 'react-jsxdev',
+                  importSource: o.jsxImportSource,
+                  pragma: o.jsxFactory,
+                  pragmaFrag: o.jsxFragmentFactory,
+                },
+              }),
             },
           },
           // `import()` stays as it is: it loads a module of each kind.
@@ -183,6 +228,13 @@ export const transformer = (root: string, compiler: 'typescript' | 'swc'): Trans
           verbatimModuleSyntax: o.verbatim,
           esModuleInterop: o.interop,
           inlineSourceMap: true,
+          ...(JSX.test(path) && {
+            jsx: o.jsx,
+            // TypeScript refuses the factory options with an import source.
+            ...(o.jsx === 'react'
+              ? { jsxFactory: o.jsxFactory, jsxFragmentFactory: o.jsxFragmentFactory }
+              : { jsxImportSource: o.jsxImportSource }),
+          }),
         },
         root,
       )

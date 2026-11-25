@@ -862,10 +862,9 @@ test('a click adds one', () => {
   `assert(screen.queryByRole('alert'))`,
   `assert.equal(element.textContent, 'saved')`,
   `assert.equal(input.value, 'x')`.
-- Node does not run JSX, and the `transform` key does not compile
-  it. Run `.tsx` and `.jsx` test files on Bun: `bun
-  node_modules/ubqtest/cli.js`. On Node, a file with no JSX can
-  use `createElement`.
+- Node does not run JSX. For `.tsx` and `.jsx` files on Node, the
+  project needs the `transform` key: `ubq doctor` has the choices
+  ("Source that Node cannot run"). Bun runs such files with no key.
 - Run a test file with a DOM with `ubq`. As a plain program (`node
   file`), the DOM exists only after `ubqtest` loads: a library
   that the file imports above `ubqtest` then finds no `document`.
@@ -1352,8 +1351,8 @@ such syntax: the type checker then reports them in each run.
 ### Source that Node cannot run
 
 If the source of a project has syntax that cannot be erased
-(`enum`, `namespace`, a parameter property, a decorator), `ubq
-doctor` names the files. The person who owns the project chooses
+(`enum`, `namespace`, a parameter property, a decorator), or a
+test loads a `.tsx` or `.jsx` file, `ubq doctor` names the files. The person who owns the project chooses
 one of three. Do not choose for them: a compiler in the test run,
 or a change of runtime, is a surprise to a maintainer.
 
@@ -1388,7 +1387,16 @@ With the `transform` key, on Node:
   folder above it: `experimentalDecorators`,
   `emitDecoratorMetadata`, `useDefineForClassFields` (and
   `target`, for its default), `verbatimModuleSyntax`,
-  `esModuleInterop`, and `module`.
+  `esModuleInterop`, and `module`. For a `.tsx` or `.jsx` file,
+  also `jsx`, `jsxImportSource`, `jsxFactory`, and
+  `jsxFragmentFactory`.
+- The compiler also makes the JavaScript of each `.tsx` and
+  `.jsx` file of the project. With `"jsx": "react"`, an element is
+  a call of `jsxFactory`. With each other value, and with none,
+  the file imports the functions for its elements from
+  `jsxImportSource` (the default is `react`), as with `"jsx":
+  "react-jsx"`. A `.js` file with JSX is not compiled: give it the
+  name `.jsx`.
 - The JavaScript is CommonJS if `module` is `commonjs`, or if it
   is `node16` or `nodenext` and the package does not have
   `"type": "module"`. If not, it is an ES module. A CommonJS test
@@ -1409,10 +1417,9 @@ With the `transform` key, on Node:
   new instance.
 - Bun and Deno compile TypeScript themselves, and do not read
   the key.
-- `.tsx` files are not compiled. Node does not run them.
 
-Bun and Deno also run `.tsx` and `.jsx` files, with coverage. Node
-does not run them.
+Bun and Deno run `.tsx` and `.jsx` files with no key, with
+coverage. Node runs them only with the `transform` key.
 
 Tests of a Cloudflare Worker run in workerd, and the project must
 have `wrangler`: `ubq guide workers`.

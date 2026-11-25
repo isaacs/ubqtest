@@ -80,6 +80,8 @@ export const transformer = (): Transformer | undefined => {
 
 /** A TypeScript file that Node can run with its types removed. Not `.tsx`. */
 const TS = /\.[cm]?ts$/
+/** A file that the compiler of the `transform` key makes JavaScript from. */
+const COMPILED = /\.[cm]?ts$|\.[jt]sx$/
 /** True if the runtime cannot load the parser. */
 let noParser = false
 /** The file of the parser. In the repository of ubq it is a project file. */
@@ -232,7 +234,8 @@ export const cached = (
     // Not in the cache.
   }
   // Bun has no function that removes types and keeps each position.
-  const needsJs = strip && /\.[cm]?ts$/.test(file) && !!nodeModule.stripTypeScriptTypes
+  // ubq: not measured: this module loads before the counters start
+  const needsJs = strip && (compiler ? COMPILED : TS).test(file) && !!nodeModule.stripTypeScriptTypes
   if (result && (result.js !== undefined || !needsJs)) return result
   // The parser file itself, before the parser is complete: the hook
   // or the program loads it now.
@@ -452,7 +455,7 @@ export const startCounters = (): Counters | undefined => {
       }
       // The source of a mutation check is not in the cache.
       // ubq: not measured: this module loads before the counters start
-      if (compiler && result.js === undefined && TS.test(path))
+      if (compiler && result.js === undefined && COMPILED.test(path))
         // ubq: not measured: this module loads before the counters start
         Object.assign(result, compiler.compile(result.code, path))
       use(file, result)
@@ -475,7 +478,7 @@ export const startCounters = (): Counters | undefined => {
       compiler &&
       function (this: Counters, path) {
         // ubq: not measured: this module loads before the counters start
-        if (!TS.test(path) || !this.wants(path)) return undefined
+        if (!COMPILED.test(path) || !this.wants(path)) return undefined
         // ubq: not measured: this module loads before the counters start
         const source = readFileSync(path, 'utf8')
         const changed = this.change(path, source)

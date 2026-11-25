@@ -215,7 +215,8 @@ comment with the instruction.
   properties, or decorators does not load on Node. Bun runs it,
   and with the `transform` key a compiler of the project
   (`typescript` or `@swc/core`) makes the JavaScript for Node.
-- `.tsx` and `.jsx` files run on Bun and Deno, with coverage.
+- `.tsx` and `.jsx` files run on Bun and Deno, and on Node with
+  the `transform` key, with coverage.
 - Tests of one file run one at a time.
 - A test that starts a command or a server as a child process
   gets the coverage of that process, on Node, Bun, or Deno. For a
@@ -225,7 +226,7 @@ comment with the instruction.
   project installs `playwright-core`.
 - Component tests run with the DOM of jsdom or of happy-dom: the
   `dom` key, on Node and Bun. The project installs the package.
-  Node does not run JSX: a `.tsx` test file needs Bun.
+  On Node, a `.tsx` test file needs the `transform` key.
 - Tests of a Cloudflare Worker run in workerd, with the bindings
   of the wrangler config: the `workers` key, and
   `'ubqtest/workers'`. `exports.default.fetch()` of

@@ -34,6 +34,44 @@ const transformProject = (compiler: Compiler, options: Record<string, unknown>, 
   return { ...p, write, config }
 }
 
+const COUNTER = `import { useState } from 'react'
+import { title } from './title'
+export const Counter = ({ start }: { start: number }) => {
+  const [n] = useState(start)
+  if (n > 100) return <b>big</b>
+  return <button title={title}>{n}</button>
+}
+`
+const JSX_SPEC = `import { renderToStaticMarkup } from 'react-dom/server'
+import { assert, mockImport, test } from 'ubqtest'
+import { Counter } from '../src/Counter'
+import { Plain } from '../src/Plain.jsx'
+
+test('a component renders', () => {
+  assert.equal(renderToStaticMarkup(<Counter start={1} />), '<button title="count">1</button>')
+  assert.equal(renderToStaticMarkup(<Plain />), '<i>plain</i>')
+})
+test('a failure has the place of the source', () => {
+  assert.equal((<b />).type, 'i')
+})
+test('a mock for a component', async () => {
+  const mocked = await mockImport(() => import('../src/Counter'), [[() => import('../src/title'), { title: 'mock' }]])
+  assert.equal(renderToStaticMarkup(<mocked.Counter start={2} />), '<button title="mock">2</button>')
+})
+`
+/** The elements of a file with \`"jsx": "react"\`, and factory functions of the file. */
+const CLASSIC = `import { assert, test } from 'ubqtest'
+const h = (type: string, props: object | null, ...children: unknown[]) => ({ type, props, children })
+const Fragment = 'fragment'
+test('an element is a call of the factory of the tsconfig', () => {
+  assert.deepEqual(<><a href="/" /></>, {
+    type: 'fragment',
+    props: null,
+    children: [{ type: 'a', props: { href: '/' }, children: [] }],
+  })
+})
+`
+
 const NEST = { module: 'commonjs', target: 'es2021', experimentalDecorators: true, emitDecoratorMetadata: true }
 
 const SERVICE = `import { Dep, Shape } from './dep'
@@ -212,6 +250,49 @@ test('the modules of an instance', async () => {
     assert.match(p.ubq().out, /FAIL spec\/a\.spec\.ts > the code runs\n {2}expected values to be deeply equal/)
   })
 
+  for (const module of ['esnext', 'commonjs'])
+    test(`${compiler}: .tsx and .jsx files, as ${module}`, () => {
+      const p = transformProject(compiler, { module, target: 'es2022', jsx: 'react-jsx' }, 'module')
+      for (const name of ['react', 'react-dom'])
+        symlinkSync(join(modules, name), join(p.dir, 'node_modules', name), 'junction')
+      p.configure({ transform: compiler, include: ['spec/**/*.spec.tsx'] })
+      p.write('src/Counter.tsx', COUNTER)
+      p.write('src/Plain.jsx', 'export const Plain = () => <><i>plain</i></>\n')
+      p.write('src/title.ts', "export const title = 'count'\n")
+      p.write('spec/a.spec.tsx', JSX_SPEC)
+      // With two files, each one has a test process.
+      p.write(
+        'spec/b.spec.tsx',
+        "import { assert, test } from 'ubqtest'\ntest('b', () => assert.equal((<i />).type, 'i'))\n",
+      )
+      const all = p.ubq()
+      assert.deepEqual(
+        [all.err, all.out.split('\n').slice(0, 4), all.last],
+        [
+          '',
+          [
+            'FAIL spec/a.spec.tsx > a failure has the place of the source',
+            '  expected values to be equal',
+            '  at spec/a.spec.tsx:11:10',
+            "  > assert.equal((<b />).type, 'i')",
+          ],
+          'fail: 1 failed, 3 passed',
+        ],
+      )
+      // One file runs in the process of the runner.
+      assert.equal(p.ubq('spec/b.spec.tsx').out, 'pass: 1 test (run 2)\n')
+      // Coverage has the places of the source.
+      assert.deepEqual(p.ubq('uncovered').out.split('\n').slice(0, 2), [
+        'src/Counter.tsx:5:16  return <b>big</b>',
+        '1 uncovered range in 1 of the 3 files that tests ran',
+      ])
+      // The options for JSX of the tsconfig change the JavaScript.
+      p.config({ jsx: 'react', jsxFactory: 'h', jsxFragmentFactory: 'Fragment' })
+      p.write('spec/a.spec.tsx', CLASSIC)
+      const classic = p.ubq('spec/a.spec.tsx')
+      assert.equal(classic.out, 'pass: 1 test (run 3)\n', classic.out + classic.err)
+    })
+
   test(`${compiler}: a project of ES modules, with an enum and a decorator of JavaScript`, () => {
     const p = transformProject(compiler, { module: 'nodenext', target: 'es2022' }, 'module')
     p.write(
@@ -372,7 +453,7 @@ test('ubq convert --transform sets the key, and installs swc with the package ma
   // With no key, `ubq doctor` has the question for the user.
   assert.match(
     p.ubq('doctor').out,
-    /^FIX  1 file has TypeScript syntax that Node cannot run .*: src\/kind\.ts\. .* Ask them to choose one of three\. \(1\) .* ubq convert --transform=typescript\. .* \(2\) .* ubq convert --transform=swc, .* \(3\) Run the tests on Bun /m,
+    /^FIX  1 file has syntax that Node cannot run .*: src\/kind\.ts\. .* Ask them to choose one of three\. \(1\) .* ubq convert --transform=typescript\. .* \(2\) .* ubq convert --transform=swc, .* \(3\) Run the tests on Bun /m,
   )
   const set = p.ubq('convert', '--transform=typescript')
   assert.deepEqual(
@@ -457,6 +538,25 @@ test(
   },
 )
 
+test('with no key, a file with JSX does not load on Node, and doctor has the choices', () => {
+  const p = transformProject('typescript', { jsx: 'react-jsx' }, 'module')
+  p.configure({ include: ['spec/**/*.spec.tsx'] })
+  p.write('src/Counter.tsx', COUNTER)
+  p.write('src/title.ts', "export const title = 'count'\n")
+  p.write('src/Plain.jsx', 'export const Plain = () => <i>plain</i>\n')
+  // No test loads this file.
+  p.write('site/page.jsx', 'export const Page = () => <p>page</p>\n')
+  p.write('spec/a.spec.tsx', JSX_SPEC)
+  assert.deepEqual(p.ubq().out.split('\n').slice(0, 2), [
+    'ERROR spec/a.spec.tsx',
+    '  the test file did not load: Unknown file extension ".tsx" for spec/a.spec.tsx. Node does not run JSX. Run `ubq doctor`: it has the three choices for the person who owns the project.',
+  ])
+  assert.match(
+    p.ubq('doctor').out,
+    /^FIX  3 files have syntax that Node cannot run \(.* or the JSX of a \.tsx or \.jsx file\): spec\/a\.spec\.tsx, src\/Counter\.tsx, src\/Plain\.jsx\. Node runs only TypeScript syntax that it can erase\. Do not choose /m,
+  )
+})
+
 test('the options of a file are those of the tsconfig of its folder, or of the nearest folder above it', () => {
   const p = transformProject('typescript', {})
   const options = (file: string): unknown => {
@@ -465,7 +565,18 @@ test('the options of a file are those of the tsconfig of its folder, or of the n
     assert.match(stamp, /^typescript@5\.\d+\.\d+ \{/)
     return JSON.parse(stamp.slice(stamp.indexOf('{')))
   }
-  const NONE = { legacy: false, metadata: false, define: false, verbatim: false, interop: true, commonjs: false }
+  const NONE = {
+    legacy: false,
+    metadata: false,
+    define: false,
+    verbatim: false,
+    interop: true,
+    commonjs: false,
+    jsx: 'react-jsx',
+    jsxImportSource: 'react',
+    jsxFactory: 'React.createElement',
+    jsxFragmentFactory: 'React.Fragment',
+  }
   // No target: the class fields of TypeScript 5.
   assert.deepEqual(options('src/a.ts'), NONE)
   p.write('tsconfig.json', '{ not JSON')
@@ -498,6 +609,24 @@ test('the options of a file are those of the tsconfig of its folder, or of the n
   rmSync(join(p.dir, 'src/package.json'))
   rmSync(join(p.dir, 'package.json'))
   assert.deepEqual(options('src/deep/a.ts'), { ...NONE, commonjs: true })
+  // The options for JSX. `preserve` keeps the JSX: Node cannot run that.
+  const jsx = (compilerOptions: object): unknown => {
+    p.write('src/tsconfig.ubq.json', JSON.stringify({ compilerOptions }))
+    const { jsx, jsxImportSource, jsxFactory, jsxFragmentFactory } = options('src/deep/a.tsx') as typeof NONE
+    return [jsx, jsxImportSource, jsxFactory, jsxFragmentFactory]
+  }
+  assert.deepEqual(
+    [
+      jsx({ jsx: 'preserve', jsxImportSource: 'preact' }),
+      jsx({ jsx: 'react-jsxdev' }),
+      jsx({ jsx: 'React', jsxFactory: 'h', jsxFragmentFactory: 'Fragment' }),
+    ],
+    [
+      ['react-jsx', 'preact', 'React.createElement', 'React.Fragment'],
+      ['react-jsxdev', 'react', 'React.createElement', 'React.Fragment'],
+      ['react', 'react', 'h', 'Fragment'],
+    ],
+  )
   assert.equal(
     p.ubq('convert', '--transform=swc').err,
     'ubq: ubq convert --transform needs a package.json: it sets the "transform" key there\n',

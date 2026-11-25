@@ -635,7 +635,8 @@ All entries are from 2026-11-11 to 2026-11-14.
   - The `dom` key: a test file gets the DOM of jsdom or of
     happy-dom before it loads, and Testing Library works with no
     setup. `ubq convert` writes the key (D144). Not on Deno.
-    `.tsx` files still need Bun.
+  - With the `transform` key, the compiler also makes the
+    JavaScript of each `.tsx` and `.jsx` file on Node (D145).
   - The guide says what the store is: where it is, that each
     branch and each process of the folder shares it, what it
     keeps, and that it is safe to remove (`ubq guide stored`).

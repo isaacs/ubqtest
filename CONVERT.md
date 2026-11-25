@@ -879,8 +879,9 @@ Things to check by hand:
   each file gets the DOM too: use `include` if that file must
   have none. Testing Library removes what a test rendered when
   the test ends, as in jest and vitest: a call of its `cleanup` in
-  an `afterEach` hook can go. A `.tsx` test file needs Bun: Node
-  does not run JSX. If jsdom is in
+  an `afterEach` hook can go. On Node, a `.tsx` or `.jsx` file
+  needs the `transform` key: `ubq doctor` has the choices for the
+  person who owns the project. If jsdom is in
   the project only because jest brought it, add it: `npm install
   --save-dev jsdom`.
 - **jest-dom (`toBeInTheDocument` and the others).** The command

@@ -2694,9 +2694,10 @@ sourcemaps."
 Limits, with the reason:
 
 - No `.tsx` on Node: Node has no loader for that file name. Not
-  asked.
+  asked. (D145 replaces this limit.)
 - `tsconfig` options that are not in the list above do not
-  change the JavaScript (`paths`, `baseUrl`, `jsx`). A project
+  change the JavaScript (`paths`, `baseUrl`, `jsx`; D145 adds the
+  options for JSX). A project
   that imports by `paths` at run time needs its own resolver, as
   before.
 - A circular import of two classes with metadata in an ES
@@ -4068,7 +4069,8 @@ This replaces D93 ("a DOM is a function in the test file").
     fails with a message that says so.
   - Node does not run JSX, and the `transform` key does not compile
     `.tsx` (D111). A `.tsx` test file runs on Bun. This is the
-    largest gap for a React project on Node.
+    largest gap for a React project on Node. (D145 replaces this
+    limit.)
   - A test file that runs as a plain program gets the DOM when
     `ubqtest` loads, which can be too late for a library that the
     file imports first.
@@ -4076,3 +4078,33 @@ This replaces D93 ("a DOM is a function in the test file").
   console with one that has no `timeStamp`. React 19 calls it. The
   new console keeps each method of the console of the runtime.
 
+## D145. The `transform` key compiles `.tsx` and `.jsx` files on Node (user, 2026-11-25)
+
+It replaces one limit of D111 ("No `.tsx` on Node") and one limit
+of D144. The user: "let's transpile tsx/jsx on node".
+
+- **With the `transform` key**, the compiler of the project makes
+  the JavaScript of each `.tsx` and `.jsx` file, as it does for
+  each TypeScript file. The load hook of D111 gives Node the
+  JavaScript: Node has no loader for these file names. No new
+  key, and no cost for a project with no key.
+- **Counters go into the source**, before the compiler. The
+  parser of ubq reads JSX (D40). Coverage, a failure block, and a
+  stack trace have the places of the source.
+- **Options** from the tsconfig of the folder (D110): `jsx`,
+  `jsxImportSource`, `jsxFactory`, `jsxFragmentFactory`. `"jsx":
+  "react"` makes calls of the factory. `react-jsxdev` makes the
+  form with the places of the source. Each other value, and no
+  value, is `react-jsx`: `preserve` and `react-native` keep the
+  JSX, which Node cannot run, and `react-jsx` is the default of
+  Bun.
+- **The module system** of a `.tsx` or `.jsx` file is that of a
+  `.ts` file of the same folder.
+- **With no key**, the load error of Node gets a hint that names
+  `ubq doctor`. Doctor lists the JSX files that the tests load
+  with the files that have an `enum` or a decorator, and gives the
+  same three choices. A JSX file that no test loads is not in the
+  list: a project can have such files for a web site.
+- **Not done.** A `.js` file with JSX is not compiled: the
+  compiler would have to read each JavaScript file of the
+  project.

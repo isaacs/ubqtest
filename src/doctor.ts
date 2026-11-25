@@ -256,14 +256,21 @@ export const doctor = (out: (text: string) => void): number => {
   // With the `transform` key, a compiler makes the JavaScript.
   const strip = transform ? undefined : nodeModule.stripTypeScriptTypes
   const hard: string[] = []
+  // Node has no loader for a file with JSX. A project can have
+  // such files for a web site, with no test of them.
+  const jsx: string[] = []
   if (strip) {
     // Node prints a warning the first time that a program removes types.
     const emitWarning = process.emitWarning
     process.emitWarning = () => {}
     for (const file of code) {
-      if (!/(?<!\.d)\.[cm]?ts$/.test(file)) continue
+      if (!/(?<!\.d)\.[cm]?ts$|\.[jt]sx$/.test(file)) continue
       try {
         if (isBuild(file)) continue
+        if (file.endsWith('sx')) {
+          jsx.push(file)
+          continue
+        }
         const source = readFileSync(join(root, file), 'utf8')
         strip(source)
         // A decorator is JavaScript syntax that Node does not have
@@ -280,7 +287,7 @@ export const doctor = (out: (text: string) => void): number => {
   // with a relative path. A question about a file that no test
   // loads is not necessary.
   const loaded = new Set(tests)
-  if (hard.length)
+  if (hard.length || jsx.length)
     for (const file of loaded) {
       let text = ''
       try {
@@ -300,6 +307,7 @@ export const doctor = (out: (text: string) => void): number => {
         if (found) loaded.add(found)
       }
     }
+  hard.push(...jsx.filter(file => loaded.has(file)).sort())
   const reached = hard.filter(file => loaded.has(file))
   const some = (files: string[]): string =>
     `${files.slice(0, 5).join(', ')}${files.length > 5 ? `, and ${files.length - 5} more` : ''}`
@@ -327,7 +335,7 @@ export const doctor = (out: (text: string) => void): number => {
   // On Bun, each syntax runs.
   else if (hard.length)
     fix(
-      counted`${hard.length} file|files has|have TypeScript syntax that Node cannot run (enum, namespace, a parameter property, or a decorator): ${some(hard)}.${which} Node runs only syntax that it can erase. ${HARD_CHOICE}`,
+      counted`${hard.length} file|files has|have syntax that Node cannot run (enum, namespace, a parameter property, a decorator, or the JSX of a .tsx or .jsx file): ${some(hard)}.${which} Node runs only TypeScript syntax that it can erase. ${HARD_CHOICE}`,
     )
 
   /** The first file of the project that imports a relative path with a `.ts` extension. */
