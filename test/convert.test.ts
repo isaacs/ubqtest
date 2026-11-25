@@ -2270,7 +2270,7 @@ test('more', t => {
     [r?.framework, r?.todos.length, r?.code.join('\n')],
     [
       'ava',
-      15,
+      16,
       `import { assert, cleanup, isDeepEqual, test } from 'ubqtest'
 import { parse } from '../src/parse.ts'
 
@@ -2361,6 +2361,9 @@ test('more', async () => {
   // code: 'E' }). assert.throws and assert.rejects return the error:
   // assert(error instanceof X).
   t.throws(() => parse('?'), { ...shape })
+  // TODO(ubq): This statement uses t of ava, and the command has no rule
+  // for this form. Write it with the functions of ubqtest: ubq guide
+  // convert has the forms.
   assert.equal(t.title, 'more')
 })`,
     ],
@@ -3900,10 +3903,12 @@ const avaTest = anyTest as TestFn<{ n: number }>
 const macro = avaTest.macro((t, n: number) => t.is(n, 1))
 avaTest('a', macro, 1)
 `)
-  assert.deepEqual(ava?.code.slice(0, 3), [
+  assert.deepEqual(ava?.code.slice(0, 5), [
     "import { assert, test } from 'ubqtest'",
     "import anyTest, { type TestFn } from 'ava'",
-    'const avaTest = anyTest as TestFn<{ n: number }>',
+    '// TODO(ubq): This statement uses TestFn, anyTest of ava, and the command',
+    '// has no rule for this form. Write it with the functions of ubqtest: ubq',
+    '// guide convert has the forms.',
   ])
 })
 
@@ -3985,4 +3990,31 @@ it('types', () => expectTypeOf(shape).toEqualTypeOf<Shape>())
     all?.code.filter(line => !line.startsWith('//')),
     ["import { assert, test } from 'ubqtest'", "test('types', () => assert.type<typeof shape, Shape>())"],
   )
+})
+
+test('a name of the old tool that no rule changed gets a TODO', () => {
+  const r = convert(`describe('g', () => {
+  let m: jest.Mocked<Foo>
+  xit('b', () => { expect(1).toBe(1) })
+  it('c', () => {
+    const run = () => { pending() }
+    expect(run).toBeDefined()
+  })
+})
+`)
+  assert.deepEqual(
+    r?.todos.map(t => [t.line, t.text.split('.')[0]]),
+    [
+      // The rule for a type of jest wrote this one: the statement gets no second TODO.
+      [3, 'ubq has no types of jest or vitest'],
+      [9, 'This statement uses xit of jest, and the command has no rule for this form'],
+      [14, 'This statement uses pending of jest, and the command has no rule for this form'],
+    ],
+  )
+  assert.equal(r?.code[16], '    const run = () => { pending() }')
+  // A name that the file declares is not a name of the old tool.
+  const own = convert(`const pending = () => 1
+it('a', () => { expect(pending()).toBe(1) })
+`)
+  assert.equal(own?.todos.length, 0)
 })

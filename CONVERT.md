@@ -35,7 +35,10 @@ has the API and the rules of ubq.
 4. **Do each TODO.** The command writes `// TODO(ubq): ...` above
    each statement that it cannot change. If a file has the same
    text more than one time, only the first TODO has the full
-   text, and the others have its first sentence. Other than
+   text, and the others have its first sentence. A statement
+   that still uses a name of the old tool, and that no rule of
+   the command changed, gets a TODO too: `This statement uses xit
+   of jest, and the command has no rule for this form`. Other than
    `toEqual` (see "`toEqual` is loose" below), it makes only the
    changes that are correct in each case, so a TODO can be easy to do by
    hand: you can see what the code around it does, and the command

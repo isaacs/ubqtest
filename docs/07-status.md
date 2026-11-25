@@ -623,6 +623,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   older version with a CR and LF in a value fails one time: run
   `ubq --update`.
 
+- **Themes of the 19 conversion reports** (2026-11-25).
+  - `ubq convert` writes a TODO at each statement that still uses
+    a name of the old tool and has no TODO (D141).
+
 ## Open, waiting for a decision
 
 - Bun 1.4.4 (CI) gives inspector coverage of a plain program with

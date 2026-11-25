@@ -484,6 +484,31 @@ const RENAME: Record<string, string> = {
   describe: 'describeFn',
 }
 const LOOP = /^(For|ForIn|ForOf|While|DoWhile)Statement$/
+/** The test tools that give their functions as globals. */
+const GLOBAL_TOOLS = new Set<string | undefined>(['jest', 'mocha', 'vitest', 'bun:test'])
+/** The names of those globals. */
+const GLOBALS = [
+  'it',
+  'xit',
+  'fit',
+  'xtest',
+  'xdescribe',
+  'fdescribe',
+  'expect',
+  'jest',
+  'vi',
+  'fail',
+  'pending',
+  'before',
+  'after',
+  'beforeEach',
+  'afterEach',
+  'beforeAll',
+  'afterAll',
+  'context',
+  'specify',
+  'suite',
+]
 
 /**
  * Converts the text of one test file. Returns undefined if the file
@@ -3447,8 +3472,9 @@ export const convertSource = (
     changes++
   }
   // The new text must be code.
+  let after: Node
   try {
-    parse(code, file)
+    after = parse(code, file)
   } catch (error) {
     // ubq: not measured: no known input makes text that is not code
     const { message } = error as Error
@@ -3457,6 +3483,87 @@ export const convertSource = (
     throw new Error(
       `the command made text that is not code (${message.replace(/ \(\d+:\d+\)$/, '')}) from the statement that became: ${line?.trim()}. The file did not change. Convert this file by hand.`,
     )
+  }
+  // --- Names of the old tool that the new text still uses ---
+  // The rules above know many forms of the old tool, and not each
+  // one. A statement that still uses a name of the old tool, and
+  // has no TODO, gets one here: with no TODO, only a run finds it.
+  {
+    declare(after, after, [])
+    const top = scopes.get(after)
+    const startOfLine = (at: number): number => code.lastIndexOf('\n', at - 1) + 1
+    /** True if the lines above the statement are a comment with a TODO. */
+    const hasTodo = (statement: Node): boolean => {
+      for (let at = startOfLine(statement.start); at > 0;) {
+        const from = startOfLine(at - 1)
+        const line = code.slice(from, at)
+        if (!/^\s*\/\//.test(line)) return false
+        if (line.includes('TODO(ubq)')) return true
+        at = from
+      }
+      return false
+    }
+    /** The statements of the new text that load the old tool. */
+    const oldStarts = new Set(
+      (after.body as Node[])
+        .filter(node => {
+          // A TODO at the statement is about each of its names.
+          if (hasTodo(node)) return false
+          const init = (node.declarations as Node[] | undefined)?.[0]?.init as Node | undefined
+          const module =
+            node.type === 'ImportDeclaration'
+              ? (node.source as { value: string }).value
+              : init?.type === 'CallExpression' && nameOf(init.callee as Node) === 'require'
+                ? String(((init.arguments as Node[])[0] as { value?: unknown } | undefined)?.value)
+                : ''
+          return module in FRAMEWORKS || module === 'cloudflare:test'
+        })
+        .map(node => node.start),
+    )
+    const watched = new Set([
+      ...roles.keys(),
+      ...leftNames.keys(),
+      ...toolTypes,
+      ...(GLOBAL_TOOLS.has(framework) ? GLOBALS : []),
+    ])
+    /** The start of a statement, then the names of the old tool in it. */
+    const leftover = new Map<number, Set<string>>()
+    const visit = (node: Node, chain: Node[], path: Node[]): void => {
+      if (oldStarts.has(node.start) && path.length === 1) return
+      path = [...path, node]
+      if (scopes.has(node)) chain = [...chain, node]
+      const name = nameOf(node)
+      const parent = path.at(-2)
+      if (
+        name !== undefined &&
+        parent &&
+        !(parent.type === 'MemberExpression' && parent.property === node && !parent.computed) &&
+        !(parent.key === node && !parent.computed && !parent.shorthand) &&
+        !/^(Im|Ex)portSpecifier$/.test(parent.type) &&
+        parent.type !== 'LabeledStatement'
+      ) {
+        const scope = chain.findLast(s => scopes.get(s)!.has(name))
+        const old = scope ? scope === after && oldStarts.has(top!.get(name)!.at) : watched.has(name)
+        const statements = path.filter((n, i) => /^(Program|BlockStatement|SwitchCase)$/.test(path[i - 1]?.type ?? ''))
+        if (old && statements.length && !statements.some(hasTodo)) {
+          const at = statements.at(-1)!.start
+          leftover.set(at, (leftover.get(at) ?? new Set()).add(name))
+        }
+      }
+      for (const child of children(node)) visit(child, chain, path)
+    }
+    visit(after, [], [])
+    for (const [at, names] of [...leftover].sort((a, b) => b[0] - a[0])) {
+      const from = startOfLine(at)
+      const list = [...names].sort().join(', ')
+      code =
+        code.slice(0, from) +
+        todoComment(
+          /^[ \t]*/.exec(code.slice(from))![0],
+          `This statement uses ${list} of ${framework}, and the command has no rule for this form. Write it with the functions of ubqtest: ubq guide convert has the forms.`,
+        ) +
+        code.slice(from)
+    }
   }
   const found: Converted['todos'] = []
   const all = code.split('\n')

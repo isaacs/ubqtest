@@ -3877,3 +3877,23 @@ sentry-javascript: an Nx monorepo with many packages.
 - Measured on a fixture of two workspaces (60 and 12 files): 1.96 s
   before, 1.84 s now.
 
+## D141. `ubq convert` writes a TODO at each name of the old tool that is left (user, 2026-11-25)
+
+Each report from 0.0.4 to 0.0.29 has a list of code that the
+command left broken with no TODO: a hook given as a value, a
+global of jest with no rule, a call of the test object of tap.
+Each case got a rule, and the next project found a new one. A
+missed form with no TODO costs a full run to find.
+
+- After the command made the new text of a file, it reads that
+  text again. It finds each use of a name of the old tool: a name
+  that the old import gave and that nothing declares now, a name
+  of an import of the old tool that stays, and a global of jest,
+  mocha, vitest, or bun:test.
+- If the statement of that use, and each statement around it, has
+  no TODO, the statement gets one: `This statement uses <names> of
+  <tool>, and the command has no rule for this form.`
+- A TODO at the import of the old tool is about each name of that
+  import. Its uses get no second TODO.
+- A name that the file declares is not a name of the old tool.
+
