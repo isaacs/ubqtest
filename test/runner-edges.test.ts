@@ -367,7 +367,18 @@ test(
   { skip: process.platform === 'win32' && 'Windows has no process groups' },
   async () => {
     const p = project()
-    cleanup(() => rmSync(p.dir, { recursive: true, force: true }))
+    // The guard kills the other test process too, and it can write in
+    // the folder while the remove runs. So try again a few times.
+    cleanup(async () => {
+      for (let i = 0; ; i++)
+        try {
+          return rmSync(p.dir, { recursive: true, force: true })
+        } catch (er) {
+          // ubq: not measured: only when a write races the remove
+          if (i === 20) throw er
+          await new Promise(done => setTimeout(done, 50))
+        }
+    })
     writeFileSync(
       join(p.dir, 'spin.test.ts'),
       "import { writeFileSync } from 'node:fs'\nimport { test } from 'ubqtest'\ntest('spins', { timeout: 60_000 }, () => {\n  writeFileSync('pid', String(process.pid))\n  while (true) {}\n})\n",
