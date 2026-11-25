@@ -79,7 +79,10 @@ has the API and the rules of ubq.
    Node 22.18 or later, or Bun 1.4 or later: if the CI matrix or a machine that runs the
    tests has an older version,
    tell the user, and do not remove it with no answer. The folder `.ubq/` has the run store, and git ignores it
-   with no setup. Commit `ubq-snapshots/`.
+   with no setup. The store is the same on each branch, each
+   process in the folder uses it, and `rm -rf .ubq` is safe: `ubq
+   guide stored` says what to expect from it. Commit
+   `ubq-snapshots/`.
 
 Do not change the source of the project to make a test pass,
 unless the test found a defect. Do not make an assertion weaker.

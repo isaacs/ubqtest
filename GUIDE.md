@@ -643,6 +643,35 @@ ubq sql '<query>'         a read-only SQL query, as JSON lines
 [The tables of the store](https://ubq.dev/store/), with their
 columns and example queries for `ubq sql`.
 
+What the store is, and what to expect from it:
+
+- **Where.** `.ubq/` is in the project folder, next to
+  `package.json`. Each package of a monorepo has its own. A git
+  worktree is a different folder, with its own store.
+- **Not in git.** ubq writes `.ubq/.gitignore`. So the store is the
+  same on each branch, and a new branch or a new session does not
+  start at run 1: the run numbers go on.
+- **What it has.** The results of the last 50 runs, the coverage of
+  the last run of each test, a cache of the source with counters
+  (`counters/`), and the folders of `testdir`. Older runs go away.
+- **Safe to remove.** It has no data that a run cannot make again,
+  but the history. `rm -rf .ubq` is correct if a stored result is
+  no longer true and you cannot run its file again. The next run of
+  all tests makes the store again.
+- **One store for each process in the folder.** If two agents, or
+  an agent and a person, run tests in one checkout, the newest run
+  can be the run of the other one. Use the run number of your own
+  summary line: `ubq failures 12`.
+- **A result stays until its file runs again.** `ubq check`, `ubq
+  --failed`, and `ubq --changed` read the last result of each test
+  file. The result of a file that is gone, or that `exclude` names
+  now, does not count. A file that you ran by its path (`ubq
+  scripts/try.ts`) has a result too, also if it is no test file by
+  the configuration: if it failed, `ubq check` names it until it
+  passes, or the file is gone.
+- **A new version of ubq** can need a different form of the store.
+  It then removes the old one, and the history starts again.
+
 A run record has the variables of the environment that can change
 a result: `NODE_OPTIONS`, `NODE_ENV`, `TZ`, `LANG`, `LC_ALL`,
 `UBQ_COVERAGE`, `UBQ_COVERAGE_CHECK`, and `UBQ_BROWSER`, and the

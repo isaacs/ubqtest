@@ -222,10 +222,10 @@ comment with the instruction.
   Deno child, the test process must be Node.
 - Tests of front-end code run in a real browser, with Playwright
   and Chromium: `import { browser } from 'ubqtest/browser'`. The
-  project installs `playwright-core`. There is no DOM in the test
-  process. For tests with jsdom and Testing Library that a
-  project has before the change to ubq, the convert guide has a
-  helper file.
+  project installs `playwright-core`.
+- Component tests run with the DOM of jsdom or of happy-dom: the
+  `dom` key, on Node and Bun. The project installs the package.
+  Node does not run JSX: a `.tsx` test file needs Bun.
 - Tests of a Cloudflare Worker run in workerd, with the bindings
   of the wrangler config: the `workers` key, and
   `'ubqtest/workers'`. `exports.default.fetch()` of

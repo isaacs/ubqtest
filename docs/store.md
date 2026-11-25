@@ -4,7 +4,9 @@ Each run writes its results to `.ubq/runs.db`, a SQLite file in
 the project root. The commands `ubq failures`, `ubq show`, `ubq
 history`, `ubq diff`, `ubq slow`, `ubq uncovered`, and `ubq
 covers` read it. For a question that these commands do not
-answer, `ubq sql` runs a SQL query on the store:
+answer, `ubq sql` runs a SQL query on the store. The guide says
+what the store keeps, who shares it, and when to remove it (`ubq
+guide stored`). A query:
 
 ```
 ubq sql "select id, ms from test \
