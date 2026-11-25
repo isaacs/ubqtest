@@ -102,7 +102,7 @@ const domProject = (url = 'http://localhost:3000/') => {
 }
 
 for (const name of ['jsdom', 'happy-dom'])
-  test(`${name}: React Testing Library, the globals of a page, and a file with no DOM`, { timeout: 60_000 }, () => {
+  test(`${name}: React Testing Library, the globals of a page, and a file with no DOM`, () => {
     const p = domProject()
     p.configure({ dom: { package: name, include: ['ui/counter*'] } })
     const all = p.ubq('ui')
@@ -116,7 +116,7 @@ for (const name of ['jsdom', 'happy-dom'])
     }
   })
 
-test('the url of the page, a test process of the server, and a key with no include', { timeout: 60_000 }, () => {
+test('the url of the page, a test process of the server, and a key with no include', () => {
   const p = domProject('http://localhost/app')
   p.configure({ dom: { package: 'jsdom', url: 'http://localhost/app' } })
   assert.match(p.ubq('server').out, /^server: pid \d+/)
