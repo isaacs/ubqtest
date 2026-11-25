@@ -1,7 +1,7 @@
 // The state of the test that is running.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Coverage, Failure, TestId } from './events.ts'
-import type { TestOptions } from './test.ts'
+import type { TestContext, TestOptions } from './test.ts'
 
 export interface TestState {
   id: TestId
@@ -37,27 +37,73 @@ export interface TestState {
   fail: (failure: Failure) => void
 }
 
+type Cleanups = ((() => void | Promise<void>) & { limit?: number })[]
+
+/** A `describe` group, or the file: `root`. */
+export interface Group {
+  /** The names of the group and of the groups around it, outermost first. */
+  path: string[]
+  options: TestOptions
+  beforeAll: (() => unknown)[]
+  afterAll: (() => unknown)[]
+  beforeEach: ((ctx: TestContext) => unknown)[]
+  afterEach: ((ctx: TestContext) => unknown)[]
+  /** Functions from fixtures of a `beforeAll`. They run when the group ends. */
+  cleanups: Cleanups
+  /** True after the `beforeAll` hooks ran: a test of the group ran. */
+  started: boolean
+  /** True after the `afterAll` hooks ran. */
+  ended: boolean
+  /** The failure of a `beforeAll` hook. Each test of the group has it. */
+  failure?: Failure
+}
+
 interface Shared {
   current: AsyncLocalStorage<TestState>
-  fileCleanups: ((() => void | Promise<void>) & { limit?: number })[]
+  fileCleanups: Cleanups
   coverage: Coverage['files']
-  groups: { name: string; options: TestOptions }[]
+  groups: Group[]
+  root: Group
+  hook: { group?: Group }
 }
 // `ubqtest/browser` is a separate file of the built package, with
 // its own copy of this module. The two copies must have the same
 // state.
 const KEY = Symbol.for('ubqtest.state')
-const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= {
-  current: new AsyncLocalStorage<TestState>(),
-  fileCleanups: [],
-  coverage: [],
-  groups: [],
+/** A new group with no hooks. */
+export const makeGroup = (path: string[], options: TestOptions, cleanups: Cleanups = []): Group => ({
+  path,
+  options,
+  beforeAll: [],
+  afterAll: [],
+  beforeEach: [],
+  afterEach: [],
+  cleanups,
+  started: false,
+  ended: false,
 })
+const makeShared = (): Shared => {
+  const fileCleanups: Cleanups = []
+  return {
+    current: new AsyncLocalStorage<TestState>(),
+    fileCleanups,
+    coverage: [],
+    groups: [],
+    // A fixture of a `beforeAll` of the file lasts until the file ends.
+    root: makeGroup([], {}, fileCleanups),
+    hook: {},
+  }
+}
+const shared = ((globalThis as { [KEY]?: Shared })[KEY] ??= makeShared())
 
 /** The test that owns the code that runs now, through all its async work. */
 export const current = shared.current
 /** The `describe` groups whose function runs now, outermost first. */
 export const groups = shared.groups
+/** The file as a group: the hooks at the top level of the file. */
+export const root = shared.root
+/** `group` is set while a `beforeAll` or an `afterAll` hook of that group runs. */
+export const hook = shared.hook
 /** Cleanup functions from fixture calls outside a test. They run when the file ends. */
 export const fileCleanups = shared.fileCleanups
 /**

@@ -26,10 +26,10 @@ that loop.
   test with no assertion fails. A promise that nothing waits for
   fails. Work that goes on after the test ended fails. A test
   that leaves `process.env` changed fails.
-- **A simple API.** `test`, `describe`, `assert`, and a few
-  helpers. One pattern form for "looks like this", with
+- **A simple API.** `test`, `describe`, `assert`, the four hooks
+  of jest and vitest, and a few helpers. One pattern form for "looks like this", with
   `any.number`, `any.arrayWith(...)`, and the other functions of
-  `any` for the parts that change. No globals, no hooks, no `.only`. A form from a
+  `any` for the parts that change. No globals and no `.only`. A form from a
   different tool, such as `assert.ok` or `test.only`, is a type
   error whose message gives the form to use.
 - **Coverage for each test, always on.** ubq knows which tests
@@ -199,7 +199,7 @@ npx ubq convert test    # the certain changes, and a TODO for each of the others
 `ubq convert` knows tap, tape, ava, `node:test` with `node:assert`, vitest,
 jest, `bun:test`, mocha with `node:assert`, and Playwright Test. It changes imports, test
 definitions, and assertions. Where a person or an agent must
-decide (hooks, subtests, module mocks), it writes a `TODO(ubq)`
+decide (subtests, module mocks), it writes a `TODO(ubq)`
 comment with the instruction.
 
 ## Requirements and limits

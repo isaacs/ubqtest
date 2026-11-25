@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { projectRoot, rel, stateDir } from './project.ts'
-import { current, fileCleanups, groups, type TestState } from './state.ts'
+import { current, fileCleanups, groups, hook, type TestState } from './state.ts'
 import { notInWorkerd } from './workerd.ts'
 
 /**
@@ -34,11 +34,13 @@ const owner = (name: string): TestState | undefined => {
 
 const add = (name: string, fn: CleanupFn): void => {
   const state = owner(name)
-  ;(state ? state.cleanups : fileCleanups).push(fn)
+  // In a beforeAll hook, the fixture lasts until its group ends.
+  ;(state ? state.cleanups : (hook.group?.cleanups ?? fileCleanups)).push(fn)
 }
 
 /**
  * Runs `fn` when the test ends. Outside a test: when the file ends.
+ * In a `beforeAll` hook: when the group of the hook ends.
  * The functions run in reverse order. An error in one fails the test.
  *
  * ```ts
@@ -124,20 +126,18 @@ const made = new Map<string, number>()
 /**
  * The folder of the first `testdir` call of a test. `file` is the
  * test file, `id` the test ID. With no test: the folder of the file,
- * or of the `describe` groups whose function runs now.
+ * or of the `describe` group whose function or hook runs now.
  */
-export const testdirPath = (file: string, id: string | undefined): string =>
-  join(
+export const testdirPath = (file: string, id: string | undefined): string => {
+  const names = (hook.group ?? groups.at(-1))?.path ?? []
+  return join(
     projectRoot(),
     '.ubq',
     'testdir',
     ...file.split('/').map(safe),
-    id !== undefined
-      ? safe(id.slice(file.length + 3))
-      : groups.length
-        ? `_group-${safe(groups.map(g => g.name).join(' > '))}`
-        : '_file',
+    id !== undefined ? safe(id.slice(file.length + 3)) : names.length ? `_group-${safe(names.join(' > '))}` : '_file',
   )
+}
 
 /**
  * Makes a new folder with `files` in it and returns its path. The

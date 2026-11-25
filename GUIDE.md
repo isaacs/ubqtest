@@ -196,6 +196,8 @@ test(name, { skip?: string | false, timeout?: number }, fn)
 // fn gets { signal, skip }. skip('reason') ends the test as skipped, for a condition that the test knows only while it runs.
 describe(name, fn)                 // a name prefix for its tests. fn is sync: an async fn throws a TypeError.
 describe(name, { skip?, timeout? }, fn)
+beforeEach(fn)   afterEach(fn)     // before and after each test of the file, or of the describe that calls it. fn gets { signal, skip }
+beforeAll(fn)    afterAll(fn)      // one time: before the first test and after the last test of the file, or of the describe
 
 assert(value, message?)            // truthy. Narrows the type.
 assert.equal(actual, expected)     // Object.is. Does not narrow the type.
@@ -306,8 +308,41 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   Test files run in parallel, each in its own process, in a random
   order. A run with a failure prints the seed. `ubq --seed <n>`
   repeats the order.
-- For shared setup, write a function and call it in each test.
-  `testdir`, `env`, `cleanup`, and `spyOn` at the top level of a
+- The hooks have the rules of jest and vitest. A hook is for the
+  `describe` whose function calls it, and for the groups in it. At
+  the top level of a file, it is for each test of the file.
+  - `beforeEach`: the hooks of an outer group run first.
+    `afterEach`: the hooks of an inner group run first, and they
+    run also if the test failed.
+  - `beforeEach` and `afterEach` are part of the test. They have
+    its time limit. A fixture in them (`cleanup`, `env`,
+    `testdir`, `spyOn`) lasts until the test ends. A failure in
+    them fails the test.
+  - `beforeAll` runs before the first test of its group that runs,
+    and `afterAll` after the last one. They do not run if each
+    test of the group is skipped or not selected. A fixture in
+    `beforeAll` lasts until the group ends. If `beforeAll` fails,
+    each test of the group fails. Their time limit is the
+    `timeout` option of the group, or of the config.
+  - A hook takes one argument, the function. A function that a
+    hook returns does not run: use `cleanup(fn)`.
+  - An assertion in a hook does not count for the rule that a test
+    must run an assertion.
+
+  ```ts
+  describe('the store', () => {
+    let db: Db
+    beforeEach(async () => {
+      db = await open(':memory:')
+      cleanup(() => db.close())
+    })
+    test('adds a row', () => {
+      db.add(1)
+      assert.equal(db.count(), 1)
+    })
+  })
+  ```
+- `testdir`, `env`, `cleanup`, and `spyOn` at the top level of a
   file (before the first `test`) last until the file ends.
   `mockImport` at the top level gives one instance that all tests
   of the file share.
@@ -368,7 +403,7 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
 | `it` | `test` |
 | `expect(x).toBe(y)`, `toEqual` | `assert.equal(x, y)`, `assert.deepEqual(x, y)` |
 | `assert.ok`, `strictEqual`, `deepStrictEqual` | `assert(value)`, `assert.equal`, `assert.deepEqual` |
-| `beforeEach`, `afterEach`, `beforeAll`, `afterAll` | a setup function, `cleanup`, top-level code |
+| `before`, `after` of `node:test` and mocha | `beforeAll`, `afterAll` |
 | `test.only`, `describe.only` | `ubq <file>:<line>` or `ubq '<test id>'` |
 | `test.skip`, `test.todo`, `skipIf` | `test(name, { skip: 'reason' }, fn)` |
 | `test.each` | a `for` loop around `test()` |

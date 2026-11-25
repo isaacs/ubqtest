@@ -11,7 +11,7 @@ agents. The package is `ubqtest`. The command is `ubq`.
 The package has its own guides, and they are correct for the
 installed version. Read them before you write a test or run a
 command. Do not work from memory of a different test tool: ubq has
-no `it`, no `expect`, no hooks, and no `.only`.
+no `it`, no `expect`, no globals, and no `.only`.
 
 ```
 npx ubq guide            the API, the rules, the commands, and the list of topics

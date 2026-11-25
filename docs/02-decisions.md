@@ -3897,3 +3897,51 @@ missed form with no TODO costs a full run to find.
   import. Its uses get no second TODO.
 - A name that the file declares is not a name of the old tool.
 
+## D142. Hooks: `beforeEach`, `afterEach`, `beforeAll`, `afterAll` (user, 2026-11-25)
+
+Each of the 19 conversion reports lists "no hooks" as a cost. The
+agents made their own forms in place of hooks: `setup`, `setup2`
+to `setup11` in one file, a `ready ??=` function for the work of
+a group, `process.on('exit')` for the end of a file. The user:
+"one way to do each thing" is a means to make agents get more
+right at the first try with less work. If they must make
+`beforeEach` again, that goal is not met. Agents know how hooks
+work.
+
+This replaces rule 5 of `05-api.md` ("no hooks"), D84 (the TODO
+for hooks), and D90 (the setup function of `ubq convert`).
+
+- `ubqtest` exports `beforeEach`, `afterEach`, `beforeAll`, and
+  `afterAll`, with the names and the order of jest and vitest.
+  `05-api.md`, section 4, has the rules.
+- Two `afterEach` hooks of one group run last first, as in vitest
+  and as the `cleanup` functions do. jest runs them first to last.
+- A hook for each test is part of the test: its time limit, its
+  fixtures, its failure. So a fixture needs no new rule.
+- A fixture in a `beforeAll` hook lasts until its group ends. So
+  `afterAll` is not necessary for most groups, but it exists: an
+  agent writes it at the first try.
+- An assertion in a hook does not count for the zero-assertion
+  rule (D17). One check in an `afterEach` would turn the rule off
+  for each test of the file.
+- A hook takes only the function. The second argument of jest and
+  vitest is a time limit: a `beforeAll` hook has the `timeout` of
+  its group. A second argument is a type error and a `TypeError`.
+- The function that a hook of vitest returns is its teardown.
+  ubq does not run it: `cleanup(fn)` does that work, and one form
+  is enough.
+- The hooks are not globals. A hook with no import is a
+  `ReferenceError` with the import in its text.
+- The code of a `beforeAll` or an `afterAll` hook is in the
+  coverage of the file, not of one test: a change to it selects
+  each test of the file.
+- `ubq convert` changes each hook to the hook of ubq. `before`
+  and `after` of `node:test`, mocha, tap, and ava become
+  `beforeAll` and `afterAll`. It makes no setup function and no
+  block from a hook. A TODO stays for a second argument, a
+  function with a parameter, a function of vitest that returns a
+  function, and a hook of tap in a test with no subtests.
+- Not done: a time limit of a file, and a key for setup files.
+  A setup file is an import in each test file, and its hooks are
+  then hooks of that file.
+

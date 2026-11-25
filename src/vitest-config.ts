@@ -344,7 +344,7 @@ export const viteDefine = (
       )
     if (setup.length)
       notes.push(
-        `${file} has setup files (${setup.join(', ')}). ubq has no setup files. Export the work of each file as a function, and call that function at the top level of each test file, or in each test that needs it.`,
+        `${file} has setup files (${setup.join(', ')}). ubq has no setup files. Import each file in each test file that needs it: a hook at the top level of the file is then a hook of that test file.`,
       )
     if (spread && !found)
       notes.push(

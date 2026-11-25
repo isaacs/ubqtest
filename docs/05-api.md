@@ -68,8 +68,9 @@ test('writes a report', { timeout: 500 }, async ({ signal }) => {
 4. **Types carry the rules.** `assert(value)` narrows the type of
    its argument. A mock must match the module that it replaces. A
    comparison of a `string` with a `number` does not compile.
-5. **A test contains all that it needs.** No hooks, and no state
-   that a reader must look for in a different part of the file.
+5. **The forms that agents know.** The hooks have the names and
+   the rules of jest and vitest (D142): an agent writes them
+   correctly at the first try.
 6. **Plain code.** `test` and `describe` are function calls. A loop
    makes many tests. An `if` makes a test conditional.
 
@@ -114,14 +115,61 @@ describe(name: string, fn: () => void): void
 describe(name: string, options: { skip?: string | false; timeout?: number }, fn): void
 ```
 
-A group gives its tests a name prefix and can give them options.
-It does nothing else.
+A group gives its tests a name prefix, can give them options, and
+can have hooks.
 
 - `fn` runs at once, and it must be synchronous. A promise from
   `fn` is an error: `describe` throws a `TypeError`.
 - Groups can nest.
-- There are no hooks. For shared setup, write a function and call
-  it in each test (section 7).
+
+### Hooks
+
+```ts
+beforeEach(fn: (ctx: { signal: AbortSignal; skip(reason: string): never }) => unknown): void
+afterEach(fn: (ctx) => unknown): void
+beforeAll(fn: () => unknown): void
+afterAll(fn: () => unknown): void
+```
+
+The names and the rules are those of jest and vitest (D142).
+
+- A hook is for the `describe` whose function calls it, and for
+  the groups in it. At the top level of a file, it is for the
+  file. A hook is also for a test that the group has above the
+  call.
+- `beforeEach`: the hooks of an outer group run first, and the
+  hooks of one group run first to last. `afterEach`: the hooks of
+  an inner group run first, and the hooks of one group run last
+  first. They run also if the test failed, and before the
+  `cleanup` functions of the test.
+- `beforeEach` and `afterEach` are part of the test. They get the
+  argument of the test function, and they have its time limit. A
+  fixture in them lasts until the test ends. A failure in them is
+  a failure of the test. If a `beforeEach` hook fails, the test
+  function does not run, and the `afterEach` hooks run.
+- `skip(reason)` in a `beforeEach` hook skips the test.
+- An assertion in a hook does not count for the rule that a test
+  must run an assertion (D17): one check in an `afterEach` would
+  turn the rule off for the file.
+- `beforeAll` runs before the first test of its group that runs.
+  `afterAll` runs after the last one. They do not run if each
+  test of the group is skipped or not selected.
+- A fixture in a `beforeAll` hook lasts until the group ends: its
+  cleanup runs after the `afterAll` hooks. A `testdir` there has
+  the folder `_group-<group names>`.
+- If a `beforeAll` hook fails, each test of the group fails with
+  that failure, and does not run. A failure in an `afterAll` hook
+  is an error of the file.
+- The time limit of a `beforeAll` or an `afterAll` hook is the
+  `timeout` option of its group or of a group around it, or the
+  `timeout` of the configuration, or 5000 ms.
+- The code that a `beforeAll` or an `afterAll` hook runs is in
+  the coverage of the file, as the code that runs while the file
+  loads: a change to it selects each test of the file.
+- A hook takes one argument. A second argument is a `TypeError`.
+  The result of the function is not used, but a promise is
+  awaited. A call of a hook in a running test or hook is an
+  error.
 
 ## 5. `assert`
 
@@ -519,7 +567,8 @@ clock.restore()           // the real clock comes back
   real clock.
 - `queueMicrotask` and `process.nextTick` are not replaced.
 
-To share setup between tests, write a function:
+To share setup between tests, use a `beforeEach` hook (section
+4), or write a function and call it in each test:
 
 ```ts
 const setup = () => {
@@ -534,15 +583,13 @@ test('starts', () => {
 })
 ```
 
-Each test gets new values. Nothing is shared by accident.
-
 ## 8. What is absent, and what to use
 
 | Absent | Use |
 | --- | --- |
 | `expect(x).toBe(y)` chains | `assert.equal(x, y)`. Chains cannot narrow types, cost more tokens, and have many near-equal matchers. |
 | `it` | `test` |
-| `beforeEach`, `afterEach`, `beforeAll`, `afterAll` | a setup function, fixtures, top-level code, `cleanup` |
+| `before`, `after` of `node:test` and mocha | `beforeAll`, `afterAll` |
 | `test.only`, `describe.only` | `ubq <file>:<line>` or `ubq '<test id>'` |
 | `test.skip`, `test.todo`, `skipIf`, `runIf` | `{ skip: 'reason' }`, with a condition if necessary |
 | `test.each` | a `for` loop |
@@ -578,15 +625,18 @@ test.skip('x', () => {})
 | `assert.deepStrictEqual` | `Use assert.deepEqual (it is always strict)` |
 | `assert.toMatchSnapshot`, `assert.matchSnapshot` | `Use assert.snapshot(value)` |
 
-`it`, `expect`, and the hook names are not exports. An import of
-one fails with the normal "no exported member" error. The agent
+`it` and `expect` are not exports. An import of
+one fails with the normal "no exported member" error. A hook that
+the file did not import is a `ReferenceError` whose text has the
+import. The agent
 guide in the package lists the replacement for each.
 
 ## 10. Where each part comes from
 
 | Part | Source | Change |
 | --- | --- | --- |
-| `test(name, options, fn)`, `describe` | Vitest, `node:test` | no hooks, no modifiers |
+| `test(name, options, fn)`, `describe` | Vitest, `node:test` | no modifiers |
+| `beforeEach`, `afterEach`, `beforeAll`, `afterAll` | Vitest, Jest | one argument, and a fixture in a hook belongs to the test or to the group |
 | `assert.equal`, `deepEqual`, `throws`, `rejects`, `match`, `fail` | `node:assert/strict` | `expected` is required for `throws` and `rejects`, and both return the error |
 | `match` with object patterns, `matchOnly` | tap `t.match`, `t.matchOnly` | no constructor patterns |
 | `testdir(files)` | tap `t.testdir` | a free function |

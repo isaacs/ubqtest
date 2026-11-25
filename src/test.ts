@@ -15,7 +15,7 @@ import { type Hint, hint } from './hint.ts'
 import { rel } from './project.ts'
 import { saveSnapshots } from './snapshot.ts'
 import { callSite, userFrames } from './stack.ts'
-import { current, groups, moreCoverage, type TestState } from './state.ts'
+import { current, type Group, groups, hook, makeGroup, moreCoverage, root, type TestState } from './state.ts'
 import { workerd } from './workerd.ts'
 import type { WatchData, WatchMessage } from './watchdog.ts'
 
@@ -84,6 +84,8 @@ const SEPARATOR = ' > '
 interface Entry {
   id: string
   fn: TestFn
+  /** The file and the groups of the test, outermost first. */
+  scopes: Group[]
   skip: string | false
   timeout: number
   at: Location | undefined
@@ -146,7 +148,7 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   const at = callSite()
   // ubq: not measured: a call of test() from a file has a call site
   file ??= FILE || at?.file || rel(process.argv[1] ?? '')
-  const id = [file, ...groups.map(g => g.name), name].join(SEPARATOR)
+  const id = [file, ...(groups.at(-1)?.path ?? []), name].join(SEPARATOR)
   if (ids.has(id)) {
     // The file does not stop here: one run shows each duplicate.
     failedOutside = true
@@ -159,6 +161,7 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
   queue.push({
     id,
     fn,
+    scopes: [root, ...groups],
     skip: all.find(o => o.skip)?.skip ?? false,
     timeout: Math.min(
       LIMIT,
@@ -190,9 +193,8 @@ const testFn = (name: string, a: TestOptions | TestFn, b?: TestFn): void => {
  * })
  * ```
  *
- * ubq has no hooks, no `test.only`, and no `test.each`. Call a
- * setup function in the test, select a test on the command line
- * (`ubq <file>:<line>`), and call `test` in a loop.
+ * ubq has no `test.only` and no `test.each`. Select a test on the
+ * command line (`ubq <file>:<line>`), and call `test` in a loop.
  */
 export const test: Test = Object.assign(testFn, {
   skip: hint('Use test(name, { skip: "reason" }, fn)'),
@@ -221,7 +223,7 @@ export const describe: Describe = (name: string, a: TestOptions | (() => void), 
   checkName('describe', name)
   if (typeof fn !== 'function') throw new TypeError(`describe ${JSON.stringify(name)} has no function`)
   checkOptions('describe', name, options)
-  groups.push({ name, options })
+  groups.push(makeGroup([...(groups.at(-1)?.path ?? []), name], options))
   try {
     const result: unknown = fn()
     if (result instanceof Promise)
@@ -232,6 +234,98 @@ export const describe: Describe = (name: string, a: TestOptions | (() => void), 
     groups.pop()
   }
 }
+
+type HookKind = 'beforeAll' | 'afterAll' | 'beforeEach' | 'afterEach'
+
+/** Adds a hook to the group whose function runs now, or to the file. */
+const addHook = <K extends HookKind>(kind: K, fn: Group[K][number], more: unknown[]): void => {
+  if (current.getStore() || hook.group)
+    throw new Error(
+      `${kind}() was called inside a running test or hook. Call it at the top level of the file, or in the function of describe().`,
+    )
+  if (fileState.ran)
+    throw new Error(
+      `${kind}() was called after the last test of the file ran. Call it with no await between the first test() call and the last one.`,
+    )
+  if (typeof fn !== 'function') throw new TypeError(`${kind}() needs a function`)
+  if (more.length)
+    throw new TypeError(
+      `${kind}() takes one argument, the function. A hook for each test has the time limit of the test. A hook for a group has the timeout option of the group.`,
+    )
+  ;((groups.at(-1) ?? root)[kind] as Group[K][number][]).push(fn)
+}
+
+/**
+ * Runs `fn` before each test of the group that calls it, and of the
+ * groups in it. At the top level of a file: before each test of the
+ * file. The hooks of an outer group run first. `fn` is part of the
+ * test: it gets the argument of the test function, it has the time
+ * limit of the test, a fixture in it lasts until the test ends, and
+ * a failure in it fails the test. A promise that it returns is
+ * awaited. Any other result is not used.
+ *
+ * ```ts
+ * let db: Db
+ * beforeEach(async () => {
+ *   db = await open(':memory:')
+ *   cleanup(() => db.close())
+ * })
+ * test('adds a row', () => {
+ *   db.add(1)
+ *   assert.equal(db.count(), 1)
+ * })
+ * ```
+ */
+export const beforeEach = (fn: (ctx: TestContext) => unknown, ...more: never[]): void => addHook('beforeEach', fn, more)
+
+/**
+ * Runs `fn` after each test of the group that calls it, and of the
+ * groups in it, also if the test failed. The hooks of an inner group
+ * run first, and the hooks of one group run last first. They run
+ * before the `cleanup` functions of the test. An assertion in `fn`
+ * does not count for the rule that a test must run an assertion.
+ *
+ * ```ts
+ * afterEach(() => {
+ *   assert.deepEqual(errors, [])
+ * })
+ * ```
+ */
+export const afterEach = (fn: (ctx: TestContext) => unknown, ...more: never[]): void => addHook('afterEach', fn, more)
+
+/**
+ * Runs `fn` one time, before the first test of the group that
+ * calls it. At the top level of a file: before the first test of
+ * the file. It does not run if no test of the group runs. A
+ * fixture in `fn` (`cleanup`, `env`, `testdir`, `spyOn`) lasts until
+ * the group ends. If `fn` fails, each test of the group fails.
+ *
+ * ```ts
+ * describe('the server', () => {
+ *   let server: Server
+ *   beforeAll(async () => {
+ *     server = await listen(0)
+ *     cleanup(() => server.close())
+ *   })
+ *   test('answers', async () => {
+ *     assert.equal((await fetch(server.url)).status, 200)
+ *   })
+ * })
+ * ```
+ */
+export const beforeAll = (fn: () => unknown, ...more: never[]): void => addHook('beforeAll', fn, more)
+
+/**
+ * Runs `fn` one time, after the last test of the group that calls
+ * it. At the top level of a file: after the last test of the file.
+ * It runs only if a test of the group ran. A failure in `fn` is an
+ * error of the file.
+ *
+ * ```ts
+ * afterAll(() => pool.end())
+ * ```
+ */
+export const afterAll = (fn: () => unknown, ...more: never[]): void => addHook('afterAll', fn, more)
 
 // The source is `.ts`, and the bundle is `.js`.
 const WATCHDOG = new URL(import.meta.url.endsWith('.ts') ? './watchdog.ts' : './watchdog.js', import.meta.url)
@@ -274,8 +368,14 @@ const start = (): void => {
 /** What `skip()` of a test throws, to end the test function. */
 const SKIP = Symbol('skip')
 
-/** A hook of an other test tool, such as one that `ubq convert` left with a TODO. */
+/** A hook that the file did not import, or a hook of an other test tool. */
 const HOOK = /^(before|after)(Each|All)? is not defined$/
+/** The text after such an error: the hook to import. */
+const hookHint = (text: string): string => {
+  const name = text.split(' ')[0]!
+  const ours = /(Each|All)$/.test(name) ? name : `${name}All`
+  return `. Import the hook: import { ${ours} } from 'ubqtest'.${ours === name ? '' : ` ${name} of node:test and mocha is ${ours} in ubq.`}`
+}
 
 const errorFailure = (error: unknown): Failure => {
   if (error instanceof AssertionFailure) return error.failure
@@ -288,7 +388,7 @@ const errorFailure = (error: unknown): Failure => {
     message: isError
       ? `${error.name}: ${text}` +
         (error.name === 'ReferenceError' && HOOK.test(text)
-          ? '. ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test. ubq convert leaves a TODO(ubq) at each hook.'
+          ? hookHint(text)
           : text.includes(`${COUNTER_NAME} is not defined`)
             ? `\nhint: the text of a function has the coverage counters of ubq, and it ran in a place that has no counters. String(fn) and fn.toString() give the text with no counters. The toString of a different realm (node:vm, an iframe) does not: get the text in the realm of the test.`
             : '')
@@ -329,14 +429,16 @@ const stillOpen = (before = openAtStart): string[] =>
  * Runs cleanup functions, last first. Each one has `timeout`
  * milliseconds. Returns the first failure.
  */
-const runCleanups = async (
-  fns: CleanupFn[],
+const runCleanups = async <F extends CleanupFn | ((ctx: TestContext) => unknown)>(
+  fns: F[],
   timeout: number,
-  call: (fn: CleanupFn) => void | Promise<void>,
+  call: (fn: F) => unknown,
+  what = 'a cleanup function',
 ): Promise<Failure | undefined> => {
   let failure: Failure | undefined
   for (let fn = fns.pop(); fn; fn = fns.pop()) {
     let timer: ReturnType<typeof setTimeout> | undefined
+    const limit = (fn as CleanupFn).limit ?? timeout
     try {
       const result = call(fn)
       if (result instanceof Promise)
@@ -345,7 +447,7 @@ const runCleanups = async (
           // This timer keeps the process alive. With no timer, a
           // promise that never settles lets the process end, with no
           // report of the cleanup function.
-          new Promise((_, reject) => (timer = setTimeout(reject, fn.limit ?? timeout, TIMEOUT))),
+          new Promise((_, reject) => (timer = setTimeout(reject, limit, TIMEOUT))),
         ])
     } catch (error) {
       const cause = error === TIMEOUT ? undefined : errorFailure(error)
@@ -353,9 +455,7 @@ const runCleanups = async (
         // An assertion in a cleanup function: its values and its diff.
         ...cause,
         kind: 'cleanup',
-        message: cause
-          ? `a cleanup function failed: ${cause.message}`
-          : `a cleanup function did not end in ${fn.limit ?? timeout} ms`,
+        message: cause ? `${what} failed: ${cause.message}` : `${what} did not end in ${limit} ms`,
         ...(cause?.at && { at: cause.at, stack: cause.stack }),
       }
     }
@@ -391,7 +491,67 @@ const restore = (envBefore: NodeJS.ProcessEnv, cwdBefore: string): string | unde
   return undefined
 }
 
+/** The time limit of the hooks of a group: its `timeout` option, or that of a group around it. */
+const groupLimit = (group: Group, scopes: Group[]): number =>
+  Math.min(
+    LIMIT,
+    scopes.slice(0, scopes.indexOf(group) + 1).findLast(g => g.options.timeout !== undefined)?.options.timeout ??
+      config().timeout ??
+      DEFAULT_TIMEOUT,
+  )
+
+/** `the file`, or `the group a > b`. */
+const groupName = (group: Group): string => (group === root ? 'the file' : `the group ${group.path.join(SEPARATOR)}`)
+
+/** Runs the `beforeAll` hooks of each group of a test that did not start. */
+const startGroups = async (scopes: Group[]): Promise<void> => {
+  for (const group of scopes) {
+    if (group.started) continue
+    group.started = true
+    if (!group.beforeAll.length) continue
+    hook.group = group
+    // The hooks run first to last. `runCleanups` runs the last one first.
+    const fns = [...group.beforeAll].reverse()
+    const failure = await runCleanups(fns, groupLimit(group, scopes), fn => fn(), `beforeAll of ${groupName(group)}`)
+    hook.group = undefined
+    if (failure) group.failure = { ...failure, kind: 'error' }
+    // The code of the hooks is code of each test of the group.
+    await cover()
+    // A group in a group that did not start has no state to use.
+    if (failure) return
+  }
+}
+
+/**
+ * Runs the `afterAll` hooks and the cleanup functions of each group
+ * of `scopes` that has no more tests to run. Not for the file: it
+ * can get more tests.
+ */
+const endGroups = async (scopes: Group[]): Promise<void> => {
+  for (const group of [...scopes].reverse()) {
+    if (group === root || !group.started || group.ended) continue
+    if (queue.some(entry => !entry.skip && entry.scopes.includes(group) && selected(entry))) continue
+    await endGroup(group, scopes)
+  }
+}
+
+const endGroup = async (group: Group, scopes: Group[]): Promise<void> => {
+  group.ended = true
+  if (!group.afterAll.length && !group.cleanups.length) return
+  const limit = groupLimit(group, scopes)
+  hook.group = group
+  // Not if no test of the group ran: its beforeAll hooks did not run.
+  const hooks = group.started ? [...group.afterAll] : []
+  const failed = await runCleanups(hooks, limit, fn => fn(), `afterAll of ${groupName(group)}`)
+  // The fixtures of the group go away also if a hook failed.
+  const failure = [failed, await runCleanups(group.cleanups, limit, fn => fn())].find(Boolean)
+  hook.group = undefined
+  if (failure) emit({ type: 'file-error', file: file!, failure })
+  await cover()
+}
+
 const runOne = async (entry: Entry): Promise<void> => {
+  if (!entry.skip) await startGroups(entry.scopes)
   emit({
     type: 'test-start',
     id: entry.id,
@@ -414,6 +574,24 @@ const runOne = async (entry: Entry): Promise<void> => {
     return
   }
   ran.add(entry.id)
+  const broken = entry.scopes.find(group => group.failure)?.failure
+  if (broken) {
+    watch({ end: 'fail' })
+    emit({ type: 'test-end', id: entry.id, status: 'fail', ms: 0, asserts: 0, failure: broken })
+    return endGroups(entry.scopes)
+  }
+  const before = entry.scopes.flatMap(group => group.beforeEach)
+  /** The count of assertions when the test function started. */
+  let inHooks = 0
+  // A test with no hook runs as before: a function that does not
+  // await runs with no turn of the event loop.
+  const body: TestFn = before.length
+    ? async ctx => {
+        for (const fn of before) await fn(ctx)
+        inHooks = state.asserts
+        await entry.fn(ctx)
+      }
+    : entry.fn
   let stop!: (reason: unknown) => void
   const stopped = new Promise<never>((_, reject) => (stop = reject))
   stopped.catch(() => {})
@@ -447,11 +625,11 @@ const runOne = async (entry: Entry): Promise<void> => {
   }
   active = state
   watch({ start: entry.id, timeout: entry.timeout, ...(entry.at && { at: entry.at }) })
-  const before = openNow()
+  const openBefore = openNow()
   const t0 = now()
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const result = current.run(state, entry.fn, ctx)
+    const result = current.run(state, body, ctx)
     if (result instanceof Promise) {
       // Not a reason to stay alive: if nothing else is pending,
       // `beforeExit` reports that the promise can never settle.
@@ -460,7 +638,7 @@ const runOne = async (entry: Entry): Promise<void> => {
     }
   } catch (error) {
     if (error === TIMEOUT) {
-      const pending = stillOpen(before)
+      const pending = stillOpen(openBefore)
       opened?.(pending)
       state.failure ??= {
         kind: 'timeout',
@@ -487,12 +665,19 @@ const runOne = async (entry: Entry): Promise<void> => {
       message: 'assert.rejects was not awaited. Write: await assert.rejects(...)',
       ...(entry.at && { at: entry.at }),
     }
-  if (!state.failure && state.asserts === 0 && skipped === undefined)
+  if (!state.failure && state.asserts === inHooks && skipped === undefined)
     state.failure = {
       kind: 'no-assertions',
       message: 'the test ran no assertions',
       ...(entry.at && { at: entry.at }),
     }
+  // The afterEach hooks: those of the inner group first, and the
+  // last one of a group first.
+  const after = entry.scopes.flatMap(group => group.afterEach)
+  if (after.length) {
+    const failure = await runCleanups(after, entry.timeout, fn => current.run(state, fn, ctx), 'afterEach')
+    if (failure) state.failure ??= { ...failure, ...(!failure.at && entry.at && { at: entry.at }) }
+  }
   // The fixtures of the test. A `testdir` folder stays if the test
   // has a failure at this point.
   const failure = await runCleanups(state.cleanups, entry.timeout, fn => current.run(state, fn))
@@ -520,6 +705,7 @@ const runOne = async (entry: Entry): Promise<void> => {
     ...(state.kept.length && { kept: state.kept }),
   })
   await cover(entry.id)
+  await endGroups(entry.scopes)
 }
 
 // Lines from `ubq <file>:<line>`. A line selects the test that
@@ -561,10 +747,10 @@ const drain = async (): Promise<void> => {
   // The fixtures of the file. All tests of a file are in the queue
   // before the first one runs, if the file calls `test` with no
   // `await` between the calls.
-  if (fileCleanups.length) {
+  // The afterAll hooks of the file run first, if a test ran.
+  if (fileCleanups.length || (root.started && root.afterAll.length)) {
     fileState.ran = true
-    const failure = await runCleanups(fileCleanups, config().timeout ?? DEFAULT_TIMEOUT, fn => fn())
-    if (failure) emit({ type: 'file-error', file: file!, failure })
+    await endGroup(root, [root])
   }
   // What a child process wrote after the last test ended.
   await cover()

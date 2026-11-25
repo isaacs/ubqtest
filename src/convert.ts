@@ -264,16 +264,14 @@ const ASSERT: Record<string, Rule> = {
 }
 
 const TODO = {
-  hook: 'ubq has no hooks. Make a setup function and call it in each test. Use cleanup() for the work after a test.',
-  hookFile:
-    'ubq has no hooks. Put this code at the top level of the file, with await. It runs at this place, not later: put it after the declarations that it uses.',
-  hookFileEnd: 'ubq has no hooks. At the top level of the file, cleanup(fn) runs fn when the file ends.',
-  hookGroupEnd:
-    'ubq has no hooks. In the function of the describe, cleanup(fn) runs fn when the file ends, not when the group ends.',
-  hookValue:
-    'ubq has no hooks, and this gives a hook as a value. For a library that takes afterAll, such as RuleTester, give it cleanup: at the top level of a file, cleanup(fn) runs fn when the file ends.',
-  hookGroup:
-    'ubq has no hooks. Make a function that does the work one time, and await it at the start of each test of the group: let ready; const setup = () => (ready ??= work()). The work then runs before the first test of the group, as with beforeAll. Code in the function of the describe runs when the file loads, before each test of the file: put sync work there only if no test before the group needs the state from before the work.',
+  hookArgs:
+    'A hook of ubq takes one argument, the function. A beforeEach or an afterEach hook has the time limit of its test. A beforeAll or an afterAll hook has the timeout option of its group, describe(name, { timeout: ms }, fn), or the timeout key of the config. Delete the other argument.',
+  hookParam:
+    'The function of a beforeEach or an afterEach hook of ubq gets the argument of the test function, { signal, skip }, and the function of a beforeAll or an afterAll hook gets none. ubq has no done callback, no context, and no test object: return a promise, and share a value through a variable of the file or of the group.',
+  hookReturn:
+    'vitest runs a function that a hook returns, after the test or the group. ubq does not. Call cleanup(fn) in the hook: in a beforeEach hook it runs fn when the test ends, and in a beforeAll hook when the group ends.',
+  hookInTest:
+    'This hook is in a test with no subtests, so it has no test to run for. Delete it, or put its work in the test: cleanup(fn) runs fn when the test ends.',
   matcher:
     'ubq has no expect. In a pattern, a partial object does the work of objectContaining, a RegExp does the work of stringContaining and stringMatching, and the object any of ubqtest does the work of the other matchers: any.number, any.instanceOf(URL), any.defined, any.arrayWith(a, b). A pattern is the second argument of assert.match, and of assert.matchOnly, which permits no key that the pattern does not have. assert.deepEqual compares a function as a value: change it to assert.matchOnly. An array in a pattern must have the length of the value: for some elements, any.arrayWith. For a call of a spy with arguments of a shape: assert(s.calls.some(call => isMatch(call.args, [pattern]))).',
   assertions:
@@ -293,7 +291,7 @@ const TODO = {
   avaThrows:
     "The second argument is an Error class, a RegExp for the message, or a partial object: assert.throws(fn, { message: 'text', code: 'E' }). assert.throws and assert.rejects return the error: assert(error instanceof X).",
   avaContext:
-    'ubq has no t.context. Make the values in a setup function, and call it in each test: const { value } = setup().',
+    'ubq has no t.context. Keep the values in a variable of the file, and assign it in a beforeEach hook: let db: Db; beforeEach(() => { db = open() }).',
   macro: 'ubq has no macros. Give test() a function that calls the macro function, with assert of ubqtest in it.',
   testTimeout: 'Use the option of test(): test(name, { timeout: ms }, fn).',
   mockType:
@@ -307,7 +305,7 @@ const TODO = {
   fixture:
     "ubq has no fixtures. The page is: const page = await browser(), from 'ubqtest/browser'. The context is page.context(). For request, use fetch. For a fixture of the project, call a function in the test.",
   pageHook:
-    "ubq has no hooks. Make a function that opens the page, and call it in each test: const open = async () => { const page = await browser(); await page.goto('/'); return page }. Use cleanup() for the work after a test.",
+    "A hook of ubq gets no page. Make a function that opens the page, and call it in each test: const open = async () => { const page = await browser(); await page.goto('/'); return page }. The page closes when its test ends.",
   step: 'ubq has no steps. Put the code of the step in the test, with the name of the step in a comment.',
   use: 'ubq has no test.use. browser(options) takes the options of a context, such as viewport and locale: const page = await browser({ locale: \'fr-FR\' }). The address of the pages is "browser": { "url": ... } in the ubq configuration.',
   skipIn:
@@ -1261,14 +1259,6 @@ export const convertSource = (
       (block.body as unknown as Node[]).at(-1) === statement
     )
   }
-  /**
-   * `beforeAll(async () => { ... })` at the top level of a file
-   * becomes the block `{ ... }` at the same place: code at the top
-   * level runs one time, before the tests. Returns the block, or
-   * undefined if the change is not certain: the code can use a name
-   * that the file declares below it, and that name has no value yet
-   * at this place.
-   */
   // A file with an import is an ES module, on each runtime. With
   // the `transform` key, the compiler of the project can make
   // CommonJS from it, which has `require` and `__dirname`.
@@ -1280,222 +1270,33 @@ export const convertSource = (
   /** True if the file makes its own value with this name. */
   const declares = (name: string): boolean =>
     new RegExp(`\\b(const|let|var|function)\\s+${name}\\b|\\b${name}\\s*=[^=]`).test(source)
-  const topLevelBlock = (node: Node, path: Node[]): Node | undefined => {
-    const statement = path.at(-2)
-    const args = node.arguments as Node[]
-    const fn = args[0]
-    if (statement?.type !== 'ExpressionStatement' || path.at(-3)?.type !== 'Program' || args.length !== 1)
-      return undefined
-    if (!fn || !FUNCTION.has(fn.type) || (fn.params as Node[]).length) return undefined
-    const body = fn.body as Node
-    if (body.type !== 'BlockStatement') return undefined
-    // A `return` of the function has no meaning in a block.
-    const returns = (n: Node): boolean =>
-      n.type === 'ReturnStatement' ||
-      (!FUNCTION.has(n.type) && n.type !== 'FunctionDeclaration' && children(n).some(returns))
-    if (children(body).some(returns)) return undefined
-    for (const later of program.body as Node[]) {
-      if (later.start < statement.end) continue
-      const declared = later.type.startsWith('Export') ? ((later.declaration as Node | undefined) ?? later) : later
-      if (declared.type !== 'VariableDeclaration' && declared.type !== 'ClassDeclaration') continue
-      const head =
-        declared.type === 'ClassDeclaration'
-          ? text(declared.id as Node)
-          : (declared.declarations as Node[]).map(d => text(d.id as Node)).join(' ')
-      for (const name of head.match(/[A-Za-z_$][\w$]*/g) ?? []) if (mentions(body, name)) return undefined
-    }
-    replace(node.start, body.start, '')
-    replace(body.end, statement.end, '')
-    changes++
-    return body
-  }
-  /** The calls of the hooks that planSetups changed. */
-  const setups = new Set<Node>()
-  /** More text for the TODO of a hook that planSetups did not change. */
-  const hookNotes = new Map<Node, string[]>()
+  /** The hook of ubq for a hook of an other tool: `before` of node:test and mocha is `beforeAll`. */
+  const hookName = (name: string): string => (/(Each|All)$/.test(name) ? name : `${name}All`)
   /**
-   * Makes a setup function from the `beforeEach` and `afterEach`
-   * hooks of a scope, and calls it in each test of the scope (D90).
-   * A scope is the file, or the function of a `describe`. Only if
-   * the change is certain:
-   * - The scope has one hook of each kind at most, before its tests.
-   * - A hook is a function with a block and no parameters. It
-   *   assigns no variable from outside, and has no `return` and no
-   *   `this`.
-   * - Each statement of the scope that is a call is a test, a
-   *   `describe`, a hook, or a call of `vi`: no other function can
-   *   make tests there.
-   * Not for tap: a hook of tap runs for each subtest too.
+   * A call of a hook becomes a call of the hook of ubq with that
+   * work. `callee` is the text to replace. A TODO for each form that
+   * ubq does not have: a second argument, a function with a
+   * parameter, and a function that returns its teardown.
    */
-  const planSetups = (): void => {
-    if ([...roles.values()].includes('tap')) return
-    interface Scope {
-      hooks: { call: Node; statement: Node }[]
-      tests: { call: Node; fn: Node }[]
-      inner: Scope[]
-      certain: boolean
-    }
-    const base = (n: Node): Node =>
-      n.type === 'MemberExpression' ? base(n.object as Node) : n.type === 'CallExpression' ? base(n.callee as Node) : n
-    const read = (statements: Node[], scope: Scope): void => {
-      for (const s of statements) {
-        if (/^(For|ForOf|ForIn|While|DoWhile|Labeled)Statement$/.test(s.type)) read([s.body as Node], scope)
-        else if (s.type === 'BlockStatement') read(s.body as Node[], scope)
-        else if (s.type === 'IfStatement') read([s.consequent, s.alternate].filter(Boolean) as Node[], scope)
-        else if (s.type === 'TryStatement' || s.type === 'SwitchStatement') scope.certain = false
-        if (s.type !== 'ExpressionStatement') continue
-        let e = s.expression as Node
-        if (e.type === 'AwaitExpression') e = e.argument as Node
-        if (e.type !== 'CallExpression') continue
-        const role = roleOf(base(e.callee as Node))
-        const fn = (e.arguments as Node[]).find(a => FUNCTION.has(a.type))
-        const block = fn && (fn.body as Node).type === 'BlockStatement'
-        if (role === 'hook') {
-          if (nameOf(e.callee as Node)?.endsWith('Each') && !restoresOnly((e.arguments as Node[])[0]))
-            scope.hooks.push({ call: e, statement: s })
-        } else if (role === 'test') {
-          if (fn && !block) scope.certain = false
-          else if (fn) scope.tests.push({ call: e, fn })
-        } else if (role === 'describe' && block) {
-          const child: Scope = { hooks: [], tests: [], inner: [], certain: true }
-          read((fn.body as Node).body as Node[], child)
-          scope.inner.push(child)
-        } else if (role !== 'vi' && role !== 'mock') scope.certain = false
-      }
-    }
-    const all = (scope: Scope): Scope['tests'] => [...scope.tests, ...scope.inner.flatMap(all)]
-    const certain = (scope: Scope): boolean => scope.certain && scope.inner.every(certain)
-    /** True if the function of a hook can move into a setup function. */
-    const plain = (call: Node): boolean => {
-      const args = call.arguments as Node[]
-      const fn = args[0]
-      if (args.length !== 1 || !fn || !FUNCTION.has(fn.type) || (fn.params as Node[]).length) return false
-      if ((fn.body as Node).type !== 'BlockStatement' || restoreCall(fn)) return false
-      const declared = new Set<string>()
-      const names = (n: Node): void => {
-        if (n.type === 'VariableDeclarator')
-          for (const m of text(n.id as Node).matchAll(/[A-Za-z_$][\w$]*/g)) declared.add(m[0])
-        children(n).forEach(names)
-      }
-      names(fn.body as Node)
-      const fine = (n: Node, top: boolean): boolean => {
-        if (n.type === 'ThisExpression' || (top && n.type === 'ReturnStatement')) return false
-        if (n.type === 'AssignmentExpression' || n.type === 'UpdateExpression') {
-          const to = (n.left ?? n.argument) as Node
-          if (to.type !== 'MemberExpression' && !declared.has(nameOf(to) ?? '')) return false
-        }
-        const inner = top && !FUNCTION.has(n.type) && n.type !== 'FunctionDeclaration'
-        return children(n).every(child => fine(child, inner))
-      }
-      return children(fn.body as Node).every(child => fine(child, true))
-    }
-    const taken = new Set<string>()
-    const fresh = (name: string): string => {
-      for (let i = 1; ; i++) {
-        const next = i === 1 ? name : `${name}${i}`
-        if (taken.has(next) || mentions(program, next)) continue
-        taken.add(next)
-        return next
-      }
-    }
-    const inside = (body: Node, around: Node): string =>
-      (body.body as Node[]).length ? indentAt((body.body as Node[])[0]!.start) : `${indentAt(around.start)}  `
-    /** `;` if the statements of the file end with one. */
-    const semi = /;[ \t]*$/m.test(source) ? ';' : ''
-    /**
-     * The end of a new statement that the code at `at` comes after.
-     * With no `;`, code that starts with `(` or `[` joins the
-     * statement before it: `setup()` then `(a as B).c = 1` is a call
-     * of the result of `setup()`.
-     */
-    const endBefore = (at: number): string =>
-      semi || (/^(?:\s|\/\/[^\n]*|\/\*[^]*?\*\/)*[([`+\-/]/.test(source.slice(at)) ? ';' : '')
-    const note = (hook: Node, text: string): void => {
-      hookNotes.set(hook, [...(hookNotes.get(hook) ?? []), text])
-    }
-    /** `waits`: the hooks of the scopes around this one that are not in a setup function. */
-    const plan = (scope: Scope, parent: { name: string; async: boolean } | undefined, waits: Node[]): void => {
-      const kind = (k: string): Scope['hooks'] => scope.hooks.filter(h => nameOf(h.call.callee as Node) === k)
-      const [before, more] = kind('beforeEach')
-      const [after, more2] = kind('afterEach')
-      const tests = all(scope)
-      const isAsync = !!(before && ((before.call.arguments as Node[])[0] as Node).async) || !!parent?.async
-      let mine = parent
-      if (
-        scope.hooks.length &&
-        !more &&
-        !more2 &&
-        tests.length &&
-        certain(scope) &&
-        scope.hooks.every(h => plain(h.call) && h.statement.start < Math.min(...tests.map(t => t.call.start))) &&
-        // The loop of `each` changes the start of its function.
-        (!isAsync || tests.every(t => t.fn.async || (t.call.callee as Node).type !== 'CallExpression'))
-      ) {
-        mine = { name: fresh('setup'), async: isAsync }
-        for (const hook of waits)
-          note(
-            hook,
-            `The function ${mine.name} of a group in this scope does not do the work of this hook. Call the new function at the start of ${mine.name}.`,
-          )
-        waits = []
-        const lines = parent ? [`${parent.async ? 'await ' : ''}${parent.name}()`] : []
-        const head = `const ${mine.name} = ${isAsync ? 'async ' : ''}() => {`
-        const change = (hook: Scope['hooks'][0], start: (indent: string, end: string) => string, end: string): void => {
-          const body = (hook.call.arguments as Node[])[0]!.body as Node
-          replace(hook.call.start, body.start + 1, start(inside(body, hook.call), endBefore(body.start + 1)))
-          replace(body.end, hook.statement.end, end + endBefore(hook.statement.end))
-          setups.add(hook.call)
-          changes++
-        }
-        /** The new lines of a setup function. The last one has `end`. */
-        const added = (indent: string, end: string): string =>
-          lines.map((line, i) => `\n${indent}${line}${i < lines.length - 1 ? semi : end}`).join('')
-        const fnAsync = (hook: Scope['hooks'][0]): string =>
-          ((hook.call.arguments as Node[])[0] as Node).async ? 'async ' : ''
-        if (after) used.add('cleanup')
-        if (before && after) {
-          const down = fresh('teardown')
-          lines.push(`cleanup(${down})`)
-          change(after, () => `const ${down} = ${fnAsync(after)}() => {`, '')
-        }
-        if (before) change(before, (indent, end) => head + added(indent, end), '')
-        else {
-          const indent = `${indentAt(after!.call.start)}  `
-          change(
-            after!,
-            () => `${head}${added(indent, semi)}\n${indent}cleanup(${fnAsync(after!)}() => {`,
-            `)${semi}\n${indentAt(after!.call.start)}}`,
-          )
-        }
-      }
-      if (mine)
-        for (const { call, fn } of scope.tests) {
-          const body = fn.body as Node
-          const text = `${mine.async ? 'await ' : ''}${mine.name}()${endBefore(body.start + 1)}`
-          const empty = !(body.body as Node[]).length
-          edits.push({
-            start: body.start + 1,
-            end: body.start + 1,
-            text: empty ? ` ${text} ` : `\n${inside(body, call)}${text}`,
-          })
-          if (mine.async && !fn.async && !madeAsync.has(fn)) {
-            edits.push({ start: fn.start, end: fn.start, text: 'async ' })
-            madeAsync.add(fn)
-          }
-        }
-      // The hooks of this scope that stay as they are.
-      const left = scope.hooks.map(h => h.call).filter(hook => !setups.has(hook))
-      if (mine)
-        for (const hook of left)
-          note(
-            hook,
-            `Each test of this group calls ${mine.name}() at its start, and that work ran before this hook. Call the new function after ${mine.name}().`,
-          )
-      for (const child of scope.inner) plan(child, mine, [...waits, ...left])
-    }
-    const top: Scope = { hooks: [], tests: [], inner: [], certain: true }
-    read(program.body as Node[], top)
-    plan(top, undefined, [])
+  const hookCall = (path: Node[], callee: Node, args: Node[], name = nameOf(callee)!): void => {
+    const to = hookName(name)
+    replace(callee.start, callee.end, to)
+    used.add(to)
+    changes++
+    const fn = args[0]
+    if (args.length > 1) todo(path, TODO.hookArgs)
+    if (!fn || !FUNCTION.has(fn.type)) return
+    if ((fn.params as Node[]).length) todo(path, TODO.hookParam)
+    // `return () => close()`, and `() => () => close()`.
+    const body = fn.body as Node
+    const returned = (n: Node): Node[] =>
+      n.type === 'ReturnStatement'
+        ? [n.argument as Node]
+        : FUNCTION.has(n.type) || n.type === 'FunctionDeclaration'
+          ? []
+          : children(n).flatMap(returned)
+    const results = body.type === 'BlockStatement' ? children(body).flatMap(returned) : [body]
+    if (framework === 'vitest' && results.some(r => r && FUNCTION.has(r.type))) todo(path, TODO.hookReturn)
   }
   const inHook = (path: Node[]): boolean =>
     path.some(n => n.type === 'CallExpression' && roleOf(n.callee as Node) === 'hook')
@@ -1971,15 +1772,18 @@ export const convertSource = (
       !(parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) &&
       !(parent?.type === 'Property' && parent.key === node && !parent.computed && !parent.shorthand)
     if (esm && reference && nameOf(node) === 'require' && !declares('require')) todo(path, TODO.require)
-    // `RuleTester.afterAll = afterAll`: ubq has no such function.
+    // `RuleTester.afterAll = afterAll`: the hook of ubq.
     if (
       reference &&
       importedRoles.has(nameOf(node)!) &&
       roleOf(node) === 'hook' &&
       !(parent?.type === 'CallExpression' && parent.callee === node) &&
       !path.some(n => n.type === 'ImportDeclaration' || removed.includes(n))
-    )
-      todo(path, TODO.hookValue)
+    ) {
+      replace(node.start, node.end, hookName(nameOf(node)!))
+      used.add(hookName(nameOf(node)!))
+      changes++
+    }
     // `return it`, `const run = cond ? it : it.skip`: the test
     // function as a value, in a helper file.
     if (reference && importedRoles.has(nameOf(node)!) && /^(test|describe)$/.test(roleOf(node)!)) {
@@ -2156,35 +1960,14 @@ export const convertSource = (
       return undefined
     }
     if (role === 'hook') {
-      if (setups.has(node)) return [args[0]!.body as Node]
       if (restoresOnly(args[0]) && removeStatement(path)) return []
-      // roleOf gives a role only to a name.
-      const once = /^(before|after)(All)?$/.exec(nameOf(callee)!)
-      const inner = path.some(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration')
-      if (once?.[1] === 'before' && !inner) {
-        const body = topLevelBlock(node, path)
-        if (body) return [body]
-      }
       const restore = restoreCall(args[0])
-      const more =
-        hookNotes
-          .get(node)
-          ?.map(text => ` ${text}`)
-          .join('') ?? ''
-      todo(
-        path,
-        (restore
-          ? `If this only puts spies back, delete it, each assignment to ${restore}, and each call of ${restore}() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first. If it does other work: ${TODO.hook}`
-          : !once
-            ? TODO.hook
-            : inner
-              ? once[1] === 'before'
-                ? TODO.hookGroup
-                : TODO.hookGroupEnd
-              : once[1] === 'before'
-                ? TODO.hookFile
-                : TODO.hookFileEnd) + more,
-      )
+      if (restore)
+        todo(
+          path,
+          `If this only puts spies back, delete it, each assignment to ${restore}, and each call of ${restore}() or of the function that was assigned. Then remove that function from the helper that gives it. A spyOn spy goes back when its test ends, and a second spyOn on a key replaces the first.`,
+        )
+      hookCall(path, callee, args)
       return undefined
     }
     if (role === 'assert') {
@@ -2242,7 +2025,7 @@ export const convertSource = (
     const ofTap = roleOf(first) === 'test' && tapTests.has(nameOf(first)!)
     const middle = first === object ? undefined : nameOf(object.property as Node)
     if (ofTap && (HOOKS.has(method) || (middle && HOOKS.has(middle)))) {
-      todo(path, TODO.hook)
+      hookCall(path, callee, args, HOOKS.has(method) ? method : middle!)
       return undefined
     }
     if (ofTap && !middle && method === 'serial') {
@@ -2961,7 +2744,11 @@ export const convertSource = (
       return args
     }
     if (/^(beforeEach|afterEach|before)$/.test(method)) {
-      todo(path, TODO.hook)
+      // At the top level, or in a test with subtests: that test is
+      // a describe now. tap runs the hook for each subtest.
+      const fn = path.findLast(n => FUNCTION.has(n.type) || n.type === 'FunctionDeclaration')
+      if (fn && !groupFunctions.has(fn)) todo(path, TODO.hookInTest)
+      else hookCall(path, callee, args, method)
       return undefined
     }
     if (method === 'mockImport' || method === 'mockRequire' || method === 'mock') {
@@ -3102,7 +2889,6 @@ export const convertSource = (
     return rewrite(node, use, args)
   }
 
-  planSetups()
   const first = (program.body as Node[])[0]
   // `@jest-environment node` is the environment of ubq.
   const docblock =
@@ -3313,15 +3099,13 @@ export const convertSource = (
     return source.slice(node.end, end < 0 ? source.length : end).trim() ? ';' : ''
   }
   // A name of the old tool that the new text still uses, under a
-  // TODO: its import stays. Not a hook: ubq has a message for a
-  // hook that is not defined.
+  // TODO: its import stays.
   /** The statements of the old tool that go away. */
   const gone = new Set(removed)
   const stays = (local: Node): boolean => {
     const name = nameOf(local)!
     return (
       !used.has(name) &&
-      roles.get(name) !== 'hook' &&
       // The command imports it from `playwright-core`.
       !libraryTypes.includes(name) &&
       !libraryValues.includes(name) &&

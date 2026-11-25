@@ -626,6 +626,9 @@ All entries are from 2026-11-11 to 2026-11-14.
 - **Themes of the 19 conversion reports** (2026-11-25).
   - `ubq convert` writes a TODO at each statement that still uses
     a name of the old tool and has no TODO (D141).
+  - Hooks: `beforeEach`, `afterEach`, `beforeAll`, `afterAll`,
+    with the rules of jest and vitest. `ubq convert` changes each
+    hook to the hook of ubq, and makes no setup function (D142).
 
 ## Open, waiting for a decision
 

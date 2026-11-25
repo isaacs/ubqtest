@@ -14,7 +14,17 @@ export { fakeClock, type FakeClock, type FakeClockOptions } from './clock.ts'
 export { cleanup, env, stub, type Files } from './fixtures.ts'
 export { mockImport, type MockOf } from './mock.ts'
 export { spy, spyOn, type Spy, type SpyCall, type SpyFunction } from './spy.ts'
-export { describe, test, type TestContext, type TestFn, type TestOptions } from './test.ts'
+export {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  test,
+  type TestContext,
+  type TestFn,
+  type TestOptions,
+} from './test.ts'
 
 /**
  * Makes a new folder with `files` in it and returns its path:

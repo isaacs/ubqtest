@@ -197,9 +197,9 @@ names, do one of these:
   command writes the key from the values that are plain text,
   and prints a note for the others.
 - A setup file of a vitest config (`test.setupFiles`) gets a
-  note: ubq has no setup files. Export the work of the file as a
-  function, and call it at the top level of each test file, or
-  in each test that needs it.
+  note: ubq has no setup files. Import the file in each test file
+  that needs it. A hook at its top level is then a hook of that
+  test file.
 - An alias for imports (`resolve.alias`, `test.alias`) has no key
   in ubq, and the command prints a note. ubq does not change the
   name of an import: use the `imports` key of `package.json`
@@ -299,13 +299,12 @@ Things to check by hand:
   a subtest ran one time, before the subtests. In a `describe`,
   that code runs when the file loads. Setup that makes values is
   fine there. Move each assertion into a `test`. Move setup that
-  must be new for each test into a function, and call it in each
-  test. The function of a `describe` must not be async. If the
-  outer test has an `await` that is not in a subtest, the command
-  writes a TODO that names the first `await`. Await that code at
-  the top level of the file, before the `describe`. Or put it in a
-  setup function, and await the function in each test. The plan of
-  the outer test goes away.
+  must be new for each test into a `beforeEach` hook of the
+  `describe`. The function of a `describe` must not be async. If
+  the outer test has an `await` that is not in a subtest, the
+  command writes a TODO that names the first `await`. Put that
+  code in a `beforeAll` hook of the `describe`. The plan of the
+  outer test goes away.
 - **Assertions at the top level of the file.** In a file with no
   tests, the command puts the code after the imports in one test,
   with the name of the file, and writes a TODO: give it a better
@@ -369,7 +368,10 @@ Things to check by hand:
   runs after the tests before it. In `describe()`, it runs when
   the file loads. The command writes a TODO if such a body has a
   statement that does work. See "When a test runs".
-- **`t.beforeEach`, `t.afterEach`, `t.before`.** See "Hooks".
+- **`t.beforeEach`, `t.afterEach`, `t.before`.** At the top
+  level, or in a test with subtests, the command makes them
+  `beforeEach`, `afterEach`, and `beforeAll`. In a test with no
+  subtests, the hook gets a TODO. See "Hooks".
 - **`t.capture`, `t.intercept`, `t.captureFn`.** Use
   `spyOn(object, key, impl?)`, then read `spy.calls`.
 - **`t.mockImport` with keys or values that are not literals,
@@ -377,8 +379,8 @@ Things to check by hand:
   mock must have the types of the real exports. `mockRequire` of a
   CommonJS module: import the module with `mockImport` in the
   same way.
-- **`t.context`.** Make the values in a setup function and return
-  them.
+- **`t.context`.** Keep the values in a variable of the file, and
+  assign it in a `beforeEach` hook.
 - **Snapshots.** tap keeps them in `tap-snapshots/`. ubq keeps
   them in `ubq-snapshots/`, in a different form. When the tests
   pass with the old tool, run `npx ubq --update`, read the new
@@ -475,10 +477,12 @@ Things to check by hand:
 - **Tests run one after the other.** ava runs the tests of a
   file at the same time. ubq runs them in the order of the file,
   as `test.serial` does.
-- **`t.context` and hooks.** ubq has no hooks and no context.
-  Make a setup function that returns the values, and call it in
-  each test: see "Hooks" below. `test.after.always(fn)` is
-  `cleanup(fn)` at the top level of the file.
+- **`t.context` and hooks.** `test.before`, `test.after`,
+  `test.beforeEach`, and `test.afterEach` become `beforeAll`,
+  `afterAll`, `beforeEach`, and `afterEach`, with or with no
+  `.always`: the hooks of ubq run also after a failure. ubq has no
+  context. Keep the values in a variable of the file, and assign
+  it in a `beforeEach` hook: see "Hooks" below.
 - **`t.throws` with a class and other keys.** `assert.throws`
   takes a class or a partial object, not the two. It returns the
   error: `const error = assert.throws(fn, { message: 'text' })`,
@@ -522,7 +526,8 @@ Things to check by hand:
   is `cleanup(fn)`. `t.test(...)` is a subtest: use `describe`.
   `t.diagnostic(text)` is `console.log(text)`. `t.skip()` in a
   test: use `{ skip: condition && 'the reason' }`.
-- **`before`, `after`, `beforeEach`, `afterEach`.** See "Hooks".
+- **`before`, `after`, `beforeEach`, `afterEach`.** `before` is
+  `beforeAll`, and `after` is `afterAll`. See "Hooks".
 - **`mock.timers`.** Use `fakeClock`.
 
 ## vitest, jest, and bun:test
@@ -808,8 +813,7 @@ Things to check by hand:
   the function from the helper if no other code of the run reads
   it. Else a TODO stays at the hook or at the function.
 - **Fake timers.** Make the clock in the test that uses it, or
-  in a setup function that each test calls. The clock goes back
-  when the test ends.
+  in a `beforeEach` hook. The clock goes back when the test ends.
 
   | vitest | ubq |
   | --- | --- |
@@ -839,7 +843,7 @@ Things to check by hand:
 - **`vi.clearAllMocks()`, `vi.resetAllMocks()`, `mockClear()`.**
   A spy that a test makes is new in each test: delete the call. A
   spy at the top level of the file keeps its calls from test to
-  test: make it in the test or in a setup function. To forget the
+  test: make it in the test or in a `beforeEach` hook. To forget the
   calls of a spy in a test: `s.calls.length = 0`.
 - **`vi.stubGlobal(name, value)`.** `ubq convert` makes it
   `stub(globalThis, name, value)`, and `vi.stubEnv(name, value)`
@@ -1068,86 +1072,59 @@ closes the page when the test ends.
 
 ## Hooks
 
-ubq has no `beforeEach`, `afterEach`, `beforeAll`, or `afterAll`.
+ubq has `beforeEach`, `afterEach`, `beforeAll`, and `afterAll`,
+with the rules of jest and vitest: `ubq guide` has them.
+`ubq convert` changes each hook to the hook of ubq, and adds the
+import. `before` and `after` of `node:test` and mocha become
+`beforeAll` and `afterAll`.
 
-`ubq convert` makes the setup function for a `beforeEach` and an
-`afterEach` that assign no variable from outside: `const setup =
-() => {...}`, with `cleanup(teardown)` for the `afterEach`. It
-puts `setup()` at the start of each test of the file or of the
-`describe`, and the setup of a `describe` calls the setup of the
-group around it. It makes this change only where it knows each
-test of the group. Each other hook gets a TODO: a hook that
-assigns a variable (`client = makeClient()`), two hooks of one
-kind in a group, a hook after a test, or a group that calls a
-function that can make tests. Do those by hand.
+A hook gets a TODO for a form that ubq does not have:
 
-In jest and vitest, the hooks of an outer group run before the
-hooks of a group in it. Keep that order. If one of the two hooks
-is a setup function now and the other one has a TODO, the TODO
-says which function to call, and where.
-
-In a file with no test, such as a shared helper, the command
-changes `it` and `describe` as values to `test` and `describe` of
-ubqtest. `it.skip` as a value gets a TODO: ubq has no such
-function.
-
-The forms:
-
-- **Setup for each test.** Make a function that does the setup
-  and returns what the test needs. Call it in each test.
+- **A second argument** (`beforeAll(fn, 30000)`). A hook of ubq
+  takes only the function. A `beforeEach` or an `afterEach` hook
+  has the time limit of its test. A `beforeAll` or an `afterAll`
+  hook has the `timeout` option of its group, or of the config.
+  Delete the argument, and give the group the limit if the hook
+  needs more time: `describe(name, { timeout: 30000 }, fn)`.
+- **A function with a parameter.** The function of a `beforeEach`
+  or an `afterEach` hook of ubq gets the argument of the test
+  function: `{ signal, skip }`. A `beforeAll` or an `afterAll`
+  hook gets none. ubq has no `done` callback, no context of
+  vitest, and no test object of tap or ava. Return a promise in
+  place of `done`. Keep a shared value in a variable of the file
+  or of the group:
 
   ```ts
-  // before
   let db: Db
-  beforeEach(async () => { db = await open(':memory:') })
-  afterEach(() => db.close())
-  it('adds', () => { db.add(1); expect(db.count()).toBe(1) })
-
-  // after
-  const setup = async () => {
-    const db = await open(':memory:')
+  beforeEach(async () => {
+    db = await open(':memory:')
     cleanup(() => db.close())
-    return db
-  }
-  test('adds', async () => {
-    const db = await setup()
+  })
+  test('adds', () => {
     db.add(1)
     assert.equal(db.count(), 1)
   })
   ```
 
-- **Work after each test.** `cleanup(fn)` in the test or in its
-  setup function. It runs when the test ends, also if the test
-  fails.
-- **Setup one time for the file.** Code at the top level of the
-  file, before the first `test`. `cleanup`, `testdir`, `env`, and
-  `spyOn` at the top level last until the file ends. Top-level
-  `await` works.
-  A `beforeAll` callback runs after the whole file loaded. Code at
-  the top level runs at its place, so put it after the
-  declarations that it uses. The command changes a `beforeAll` at
-  the top level to a block (`{ ... }`) at the same place, if the
-  callback uses no name that the file declares below it. A block
-  keeps the local names of the callback out of the file. In a
-  Workers test file, the block must come after `await
-  migrate(...)`.
-- **Setup one time for a group.** A `describe` function cannot
-  `await`. Make a function that does the work one time, and await
-  it at the start of each test of the group:
+- **A function that returns a function** (vitest). vitest runs the
+  returned function after the test or the group. ubq does not.
+  Call `cleanup(fn)` in the hook: in a `beforeEach` hook it runs
+  `fn` when the test ends, and in a `beforeAll` hook when the
+  group ends.
 
-  ```ts
-  let ready: Promise<void> | undefined
-  const setup = () => (ready ??= prepare())
-  test('first', async () => {
-    await setup()
-  })
-  ```
+Things to check by hand:
 
-  Tests that need the result of an earlier group in a shared
-  database are fragile. A test that makes its own rows is better.
-- **Work after a group (`afterAll` in a `describe`).** In the
-  function of the `describe`, `cleanup(fn)` runs `fn` when the
-  file ends, not when the group ends.
+- **The order of two `afterEach` hooks in one group.** ubq runs
+  the last one first, as vitest does. jest, mocha, and `node:test`
+  run them first to last. If the second one needs the state that
+  the first one removes, change their order.
+- **An assertion in a hook.** It does not count for the rule that
+  a test must run an assertion. A test with assertions only in its
+  hooks fails with "the test ran no assertions".
+- **A setup file** (`setupFiles` of vitest, `setupFilesAfterEach`
+  of jest). ubq has no key for it. Import the file in each test
+  file that needs it: `import './setup.ts'`. A hook at the top
+  level of that file is then a hook of the test file.
 - **Setup one time for all files.** ubq has none. Each test file
   is its own process. Put the setup in a module, and import it in
   each test file that needs it.
@@ -1159,12 +1136,12 @@ The forms:
 
   ```ts
   import { RuleTester } from 'eslint'
-  import { cleanup, describe, test } from 'ubqtest'
+  import { afterAll, describe, test } from 'ubqtest'
 
   RuleTester.describe = describe
   RuleTester.it = test
   RuleTester.itOnly = test
-  RuleTester.afterAll = cleanup
+  RuleTester.afterAll = afterAll
   ```
 
   The `RuleTester` of typescript-eslint has the same properties.

@@ -267,7 +267,7 @@ test('a note for the setup files of a vitest config', () => {
     "export default defineConfig({ test: { setupFiles: ['./test/setup.ts', 'workers/setup.ts'] } })",
   )
   const note = (files: string) =>
-    `vitest.config.ts has setup files (${files}). ubq has no setup files. Export the work of each file as a function, and call that function at the top level of each test file, or in each test that needs it.`
+    `vitest.config.ts has setup files (${files}). ubq has no setup files. Import each file in each test file that needs it: a hook at the top level of the file is then a hook of that test file.`
   // The setup file of a Workers project has a note of its own.
   assert.deepEqual(viteDefine(dir, parse, children, ['workers/setup.ts'])?.notes, [note('test/setup.ts')])
   writeFileSync(join(dir, 'vitest.config.ts'), "export default { test: { setupFiles: 'setup.ts' } }")
@@ -295,7 +295,7 @@ test('the config of the workspace root, for a workspace with none', () => {
   rmSync(join(dir, 'pnpm-workspace.yaml'))
   writeFileSync(join(dir, 'package.json'), '{ "workspaces": ["packages/*"] }')
   assert.deepEqual(viteDefine(p, parse, children)?.notes, [
-    '../../vitest.config.ts has setup files (../../test/setup.ts). ubq has no setup files. Export the work of each file as a function, and call that function at the top level of each test file, or in each test that needs it.',
+    '../../vitest.config.ts has setup files (../../test/setup.ts). ubq has no setup files. Import each file in each test file that needs it: a hook at the top level of the file is then a hook of that test file.',
   ])
   // A config of the workspace is before the config of the root.
   writeFileSync(join(p, 'vite.config.ts'), 'export default {}')

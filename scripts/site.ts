@@ -556,7 +556,7 @@ write(
 
 Each page of this site is also a markdown file: \`<page>.md\`. In a project that has the package, \`npx ubq guide\` prints the core of the guide for the installed version, with a list of topics, and \`npx ubq guide <topic>\` prints one topic. That text is correct for that version.
 
-ubq has no \`it\`, no \`expect\`, no hooks, and no \`.only\`. The guide has the API and its rules.
+ubq has no \`it\`, no \`expect\`, no globals, and no \`.only\`. The guide has the API and its rules.
 
 ## Documentation
 

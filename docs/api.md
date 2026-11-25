@@ -17,9 +17,13 @@ the order of the alphabet.
 ## Contents
 
 - [`ubqtest`](#ubqtest)
+  - [`afterAll`](#afterall)
+  - [`afterEach`](#aftereach)
   - [`any`](#any)
   - [`assert`](#assert)
     - [`assert()`](#assert-1), [`assert.close`](#assert-close), [`assert.contains`](#assert-contains), [`assert.deepEqual`](#assert-deepequal), [`assert.equal`](#assert-equal), [`assert.eventually`](#assert-eventually), [`assert.fail`](#assert-fail), [`assert.greaterThan`](#assert-greaterthan), [`assert.greaterThanOrEqual`](#assert-greaterthanorequal), [`assert.lessThan`](#assert-lessthan), [`assert.lessThanOrEqual`](#assert-lessthanorequal), [`assert.match`](#assert-match), [`assert.matchOnly`](#assert-matchonly), [`assert.notContains`](#assert-notcontains), [`assert.notEqual`](#assert-notequal), [`assert.rejects`](#assert-rejects), [`assert.snapshot`](#assert-snapshot), [`assert.throws`](#assert-throws), [`assert.type`](#assert-type), [Names that `assert` does not have](#names-that-assert-does-not-have)
+  - [`beforeAll`](#beforeall)
+  - [`beforeEach`](#beforeeach)
   - [`cleanup`](#cleanup)
   - [`describe`](#describe)
   - [`env`](#env)
@@ -85,6 +89,39 @@ the order of the alphabet.
 ## `ubqtest`
 
 Import from `'ubqtest'`.
+
+### `afterAll`
+
+Runs `fn` one time, after the last test of the group that calls
+it. At the top level of a file: after the last test of the file.
+It runs only if a test of the group ran. A failure in `fn` is an
+error of the file.
+
+```ts
+afterAll(() => pool.end())
+```
+
+```ts
+const afterAll: (fn: () => unknown, ...more: never[]) => void;
+```
+
+### `afterEach`
+
+Runs `fn` after each test of the group that calls it, and of the
+groups in it, also if the test failed. The hooks of an inner group
+run first, and the hooks of one group run last first. They run
+before the `cleanup` functions of the test. An assertion in `fn`
+does not count for the rule that a test must run an assertion.
+
+```ts
+afterEach(() => {
+  assert.deepEqual(errors, [])
+})
+```
+
+```ts
+const afterEach: (fn: (ctx: TestContext) => unknown, ...more: never[]) => void;
+```
 
 ### `any`
 
@@ -403,9 +440,61 @@ Each of these names is a compile error, with the name to use in its place.
 | `assert.strictEqual` | Use assert.equal (it is always strict) |
 | `assert.toMatchSnapshot` | Use assert.snapshot(value) |
 
+### `beforeAll`
+
+Runs `fn` one time, before the first test of the group that
+calls it. At the top level of a file: before the first test of
+the file. It does not run if no test of the group runs. A
+fixture in `fn` (`cleanup`, `env`, `testdir`, `spyOn`) lasts until
+the group ends. If `fn` fails, each test of the group fails.
+
+```ts
+describe('the server', () => {
+  let server: Server
+  beforeAll(async () => {
+    server = await listen(0)
+    cleanup(() => server.close())
+  })
+  test('answers', async () => {
+    assert.equal((await fetch(server.url)).status, 200)
+  })
+})
+```
+
+```ts
+const beforeAll: (fn: () => unknown, ...more: never[]) => void;
+```
+
+### `beforeEach`
+
+Runs `fn` before each test of the group that calls it, and of the
+groups in it. At the top level of a file: before each test of the
+file. The hooks of an outer group run first. `fn` is part of the
+test: it gets the argument of the test function, it has the time
+limit of the test, a fixture in it lasts until the test ends, and
+a failure in it fails the test. A promise that it returns is
+awaited. Any other result is not used.
+
+```ts
+let db: Db
+beforeEach(async () => {
+  db = await open(':memory:')
+  cleanup(() => db.close())
+})
+test('adds a row', () => {
+  db.add(1)
+  assert.equal(db.count(), 1)
+})
+```
+
+```ts
+const beforeEach: (fn: (ctx: TestContext) => unknown, ...more: never[]) => void;
+```
+
 ### `cleanup`
 
 Runs `fn` when the test ends. Outside a test: when the file ends.
+In a `beforeAll` hook: when the group of the hook ends.
 The functions run in reverse order. An error in one fails the test.
 
 ```ts
@@ -620,9 +709,8 @@ test('reads the log', { skip: !hasGit && 'git is not installed' }, () => {
 })
 ```
 
-ubq has no hooks, no `test.only`, and no `test.each`. Call a
-setup function in the test, select a test on the command line
-(`ubq <file>:<line>`), and call `test` in a loop.
+ubq has no `test.only` and no `test.each`. Select a test on the
+command line (`ubq <file>:<line>`), and call `test` in a loop.
 
 ```ts
 test(name: string, fn: TestFn): void;
