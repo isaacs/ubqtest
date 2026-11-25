@@ -27,6 +27,7 @@ test('a test ID selects one test, and a group ID selects its tests', () => {
 
 test('--failed runs the tests that failed in their last run', () => {
   const p = project()
+  p.configure({ include: ['flip.ts', 'pass.ts'] })
   p.set('fail')
   assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'fail: 1 failed, 7 passed, 1 skipped')
   // Only the failed test runs. It fails again.
@@ -42,6 +43,7 @@ test('--failed runs the tests that failed in their last run', () => {
 
 test('--changed runs the test files that loaded a changed file', () => {
   const p = project()
+  p.configure({ include: ['flip.ts', 'pass.ts', '**/*.test.ts'] })
   p.set('pass')
   assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'pass: 8 tests, 1 skipped')
   const none = p.ubq('--changed')

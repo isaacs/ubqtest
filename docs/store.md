@@ -73,6 +73,18 @@ One row for each test in each run.
 | `code` | text | A digest of the content of each file that the test ran. Two runs with the same digest ran the same code. Null with no coverage. |
 | `repeats`, `fails` | integer | With `--repeat`: how many times the test ran, and how many times it failed. Else null. |
 
+### `selection`
+
+One row for each test file that had a run of a part of its tests:
+the tests that the file had in the last such run. A test with an
+older result that is not in the list is gone from the file.
+
+| Column | Type | Value |
+| --- | --- | --- |
+| `file` | text | The path of the test file from the project root. |
+| `run` | integer | The `id` of the run. |
+| `ids` | text | JSON: the ID of each test of the file. |
+
 ### `file_error`
 
 One row for each error of a test file that is not a failure of a

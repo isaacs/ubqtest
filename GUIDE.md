@@ -662,13 +662,18 @@ What the store is, and what to expect from it:
   an agent and a person, run tests in one checkout, the newest run
   can be the run of the other one. Use the run number of your own
   summary line: `ubq failures 12`.
-- **A result stays until its file runs again.** `ubq check`, `ubq
+- **Only the test files of the project count.** `ubq check`, `ubq
   --failed`, and `ubq --changed` read the last result of each test
-  file. The result of a file that is gone, or that `exclude` names
-  now, does not count. A file that you ran by its path (`ubq
-  scripts/try.ts`) has a result too, also if it is no test file by
-  the configuration: if it failed, `ubq check` names it until it
-  passes, or the file is gone.
+  file that `ubq` with no arguments runs. A file that you ran by
+  its path (`ubq scripts/try.ts`), and that is no test file by the
+  configuration, was a trial: its result is in the history, and
+  these commands do not read it. The result of a file that is
+  gone does not count.
+- **A test that is gone does not count.** If a failed test is no
+  longer in its file, its result does not count after the next
+  run of the file, also a run of a different test of that file.
+- **After `ubq` passes, with no change to a file, `ubq check`
+  names no failed test.** If it does, that is a fault of ubq.
 - **A new version of ubq** can need a different form of the store.
   It then removes the old one, and the history starts again.
 

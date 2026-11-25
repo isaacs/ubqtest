@@ -82,9 +82,9 @@ test('ubq check: failed tests, file errors, and new test files', () => {
     r.out,
     /^11 failed tests: test\/bad\.test\.ts > wrong 00, .*, test\/bad\.test\.ts > wrong 09, and 1 more\. To see them: ubq failures$/m,
   )
-  assert.match(r.out, /^1 file errors: test\/broken\.test\.ts$/m)
+  assert.match(r.out, /^1 file error: test\/broken\.test\.ts$/m)
   assert.match(r.out, /^After a fix, run: ubq --failed$/m)
-  assert.equal(r.last, 'fail: 11 failed tests, 1 file errors')
+  assert.equal(r.last, 'fail: 11 failed tests, 1 file error')
 
   // A file that the configuration now leaves out has no result to
   // correct: not for the check, and not for --failed.
@@ -105,6 +105,32 @@ test('ubq check: failed tests, file errors, and new test files', () => {
   assert.equal(p.ubq('check').code, 0)
 })
 
+test('ubq check: a failed test that is gone from its file does not count after a run of a different test', () => {
+  const p = setup()
+  const two = "import { assert, test } from 'ubqtest'\ntest('a', () => assert.equal(1, 1))\n"
+  writeFileSync(p.file('test/two.test.ts'), two + "test('tmp', () => assert.equal(1, 2))\n")
+  assert.equal(p.ubq().code, 1)
+  // The test is gone, and the run of all tests of the file did not come yet.
+  writeFileSync(p.file('test/two.test.ts'), two + "test('b', () => assert.equal(1, 1))\n")
+  assert.equal(p.ubq('test/two.test.ts:2').code, 0)
+  assert.equal(p.ubq('--failed').err, 'ubq: no failed tests\n')
+  // Its coverage is gone too: no command selects it.
+  assert.equal(p.ubq('--changed').err, 'ubq: no changes, no new tests, no failed tests\n')
+  assert.equal(p.ubq('check').code, 0)
+})
+
+test('ubq check: a file that is not a test file of the project, and that a person ran by its path, does not count', () => {
+  const p = setup()
+  assert.equal(p.ubq().code, 0)
+  writeFileSync(p.file('try.ts'), "import { assert, test } from 'ubqtest'\ntest('t', () => assert.equal(1, 2))\n")
+  assert.equal(p.ubq('try.ts').code, 1)
+  assert.equal(p.ubq('--failed').err, 'ubq: no failed tests\n')
+  writeFileSync(p.file('try.ts'), "import { assert, test } from 'ubqtest'\ntest('t', () => assert.equal(1, 1))\n")
+  assert.equal(p.ubq('--changed').err, 'ubq: no changes, no new tests, no failed tests\n')
+  // The file has code in the lines of the diff, as each new file has.
+  assert.match(p.ubq('check').last!, /^pass: \d+ tests? pass/)
+})
+
 test('ubq check: a failure stays after a run of a different test of its file', () => {
   const p = setup()
   writeFileSync(
@@ -114,7 +140,7 @@ test('ubq check: a failure stays after a run of a different test of its file', (
   assert.equal(p.ubq().code, 1)
   assert.equal(p.ubq('test/two.test.ts:3').code, 0)
   let r = p.ubq('check')
-  assert.equal(r.last, 'fail: 1 failed tests')
+  assert.equal(r.last, 'fail: 1 failed test')
   // ubq --failed runs the failed test, and not the others.
   assert.match(p.ubq('--failed').out, /^fail: 1 failed, 0 passed, 1 not selected \(run 3: ubq failures 3\)$/m)
   // A test that a run of all of its file did not have is gone.

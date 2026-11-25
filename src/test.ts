@@ -783,7 +783,7 @@ const fileEnd = (): void => {
   } catch (error) {
     emit({ type: 'file-error', file: file!, failure: errorFailure(error) })
   }
-  emit({ type: 'file-end', file: file!, unselected, ...(updated && { updated }) })
+  emit({ type: 'file-end', file: file!, unselected, ...(unselected && { ids: [...ids] }), ...(updated && { updated }) })
 }
 
 const IDLE_MS = 1000

@@ -10,7 +10,7 @@ import { changedLines, diffOption, headCommit } from './git.ts'
 import { projectRoot } from './project.ts'
 import { hasCoverage, lastRun, stale, testFiles, typeErrors, uncovered, unloadedChanges } from './query.ts'
 import { reviewItems } from './review.ts'
-import { LAST_RESULTS, selectChanged, selectFailed, UsageError } from './runner.ts'
+import { LAST_RESULTS, selectChanged, selectFailed, testSet, UsageError } from './runner.ts'
 import { runsInProgress } from './status.ts'
 import { fileHash, openStore, stateDir } from './store.ts'
 import { counted } from './counted.ts'
@@ -49,12 +49,13 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     const failed = selectFailed(store)
     const tests = failed.flatMap(f => f.ids)
     const errors = failed.filter(f => !f.ids.length).map(f => f.file)
-    if (tests.length) report.push(`${tests.length} failed tests: ${list(tests)}. To see them: ubq failures`)
-    if (errors.length) report.push(`${errors.length} file errors: ${list(errors)}`)
+    if (tests.length)
+      report.push(counted`${tests.length} failed test|tests: ${list(tests)}. To see it|them: ubq failures`)
+    if (errors.length) report.push(counted`${errors.length} file error|errors: ${list(errors)}`)
     if (failed.length) {
       report.push('After a fix, run: ubq --failed')
-      if (tests.length) summary.push(`${tests.length} failed tests`)
-      if (errors.length) summary.push(`${errors.length} file errors`)
+      if (tests.length) summary.push(counted`${tests.length} failed test|tests`)
+      if (errors.length) summary.push(counted`${errors.length} file error|errors`)
     }
 
     // Code that changed after its tests ran. A test file with no
@@ -120,7 +121,8 @@ const problems = (commit: string | undefined): { report: string[]; summary: stri
     const counts = db
       .prepare(`select file, count(*) n from (${LAST_RESULTS}) where status = 'pass' group by file`)
       .all() as { file: string; n: number }[]
-    const passed = counts.filter(c => existsSync(join(projectRoot(), c.file))).reduce((sum, c) => sum + c.n, 0)
+    const set = testSet()
+    const passed = counts.filter(c => set.has(c.file)).reduce((sum, c) => sum + c.n, 0)
     return { report, summary, passed }
   } finally {
     store.close()

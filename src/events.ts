@@ -207,6 +207,8 @@ export interface FileEnd {
   file: string
   /** Tests that the selection left out. */
   unselected: number
+  /** In a run with tests left out: the ID of each test of the file. */
+  ids?: string[]
   /** With `ubq --update`: the count of snapshots that are new or changed. */
   updated?: number
 }

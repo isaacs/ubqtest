@@ -16,7 +16,7 @@ import {
 } from 'node:fs'
 import * as nodeModule from 'node:module'
 import { availableParallelism } from 'node:os'
-import { join, matchesGlob, resolve, sep } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -118,6 +118,9 @@ const testFiles = (): string[] => {
   return [...files].filter(f => !include || statSync(join(root, f)).isFile()).sort()
 }
 
+/** The test files of the project, as a Set. */
+export const testSet = (): Set<string> => new Set(testFiles())
+
 /** The test files of the project that are in a folder. */
 const under = (dir: string): string[] => {
   const root = projectRoot()
@@ -162,14 +165,17 @@ export const select = (args: string[]): Selected[] => {
  * The last result of each test. A run of some tests of a file stores
  * only those tests, so each test has the result of its own last run.
  * A test that is not in the last run of all of its file (a run with
- * no tests not selected) is gone from the file.
+ * no tests not selected) is gone from the file. So is a test that a
+ * later run of a part of the file did not find in the file.
  */
 export const LAST_RESULTS = `with whole as (
     select t.file, max(t.run) run from test t join run r on r.id = t.run
     where r.unselected = 0 group by t.file),
   last as (select id, max(run) run from test group by id)
   select t.id, t.file, t.status from test t join last using (id, run)
-  left join whole using (file) where t.run >= coalesce(whole.run, 0)`
+  left join whole using (file) left join selection s on s.file = t.file
+  where t.run >= coalesce(whole.run, 0)
+    and (s.run is null or t.run >= s.run or t.id in (select value from json_each(s.ids)))`
 
 /**
  * The tests whose last result is a fail, and the files that had an
@@ -194,12 +200,11 @@ export const selectFailed = (store: Store): Selected[] => {
     .all() as { file: string }[]
   // A file error can stop tests before they run: run the full file.
   for (const { file } of errors) byFile.set(file, { file, lines: [], ids: [] })
-  // A file that is gone, or that the configuration now leaves out,
-  // has no result to correct.
-  const { exclude = [] } = config()
-  return [...byFile.values()].filter(
-    s => existsSync(join(projectRoot(), s.file)) && !exclude.some(pattern => matchesGlob(s.file, pattern)),
-  )
+  // Only the test files of the project count. A file that is gone
+  // has no result to correct. A file that a person ran by its path,
+  // and that a run of all tests does not run, was a trial.
+  const set = testSet()
+  return [...byFile.values()].filter(s => set.has(s.file))
 }
 
 const runtime = (): RunStart['runtime'] => {
@@ -320,11 +325,16 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
   const whole = new Set<string>()
   const ids = new Map<string, Set<string>>()
   const changed = new Set<string>()
-  const known = db.prepare('select tfile, coverage, hash from test_file').all() as {
-    tfile: string
-    coverage: string
-    hash: string
-  }[]
+  // A file that a person ran by its path is not in this list, if a
+  // run of all tests does not run it.
+  const set = testSet()
+  const known = (
+    db.prepare('select tfile, coverage, hash from test_file').all() as {
+      tfile: string
+      coverage: string
+      hash: string
+    }[]
+  ).filter(k => set.has(k.tfile))
   /** Test files whose coverage has all the code that they ran. */
   const full = new Set<string>()
   for (const { tfile, coverage, hash } of known) {
@@ -341,6 +351,11 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
   db.exec('begin')
   for (const { file, hash } of pairs) {
     if (hashNow(file) === hash) continue
+    const rows = (rowsOf.all(file, hash) as { tfile: string; test: string; ranges: string }[]).filter(row =>
+      set.has(row.tfile),
+    )
+    // Only a file that a person ran by its path loaded this file.
+    if (!rows.length) continue
     changed.add(file)
     const old = storedSource(hash)
     let text: string | undefined
@@ -350,7 +365,7 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
       // The file went away.
     }
     const change = old === undefined || text === undefined ? undefined : changeOf(old, text)
-    for (const row of rowsOf.all(file, hash) as { tfile: string; test: string; ranges: string }[]) {
+    for (const row of rows) {
       // Coverage that is not complete cannot show that a test did
       // not run the change.
       if (!full.has(row.tfile)) whole.add(row.tfile)
@@ -376,7 +391,7 @@ export const selectChanged = (store: Store): { files: Selected[]; changed: strin
   for (const file of fresh) whole.add(file)
   return {
     files: [...new Set([...whole, ...ids.keys()])]
-      .filter(file => existsSync(join(projectRoot(), file)))
+      .filter(file => set.has(file))
       .sort()
       .map(file => ({ file, lines: [], ids: whole.has(file) ? [] : [...ids.get(file)!].sort() })),
     changed: [...changed].sort(),

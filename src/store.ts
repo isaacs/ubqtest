@@ -14,7 +14,7 @@ const hash = (algorithm: 'sha1', data: string | Buffer): string =>
 
 export { stateDir }
 
-const SCHEMA_VERSION = 9
+const SCHEMA_VERSION = 10
 const KEEP_RUNS = 50
 const COMMIT_MS = 50
 
@@ -111,6 +111,11 @@ create table test (
   repeats integer,
   fails integer,
   primary key (run, id)
+) without rowid;
+create table selection (
+  file text primary key,
+  run integer not null,
+  ids text not null
 ) without rowid;
 create table file_error (
   run integer not null,
@@ -296,6 +301,7 @@ export const openStore = (): Store => {
       const failTest = db.prepare("update test set status = 'fail', failure = ? where run = ? and id = ?")
       const getFailure = db.prepare('select failure from test where run = ? and id = ?')
       const addError = db.prepare('insert into file_error (run, file, failure) values (?, ?, ?)')
+      const setSelection = db.prepare('insert or replace into selection (file, run, ids) values (?, ?, ?)')
       const setCode = db.prepare('update test set code = ? where run = ? and id = ?')
       // The run row exists from the start of the run.
       const env = (db.prepare(`select ${ENV} as env from run r where r.id = ?`).get(run) as { env: string }).env
@@ -318,6 +324,10 @@ export const openStore = (): Store => {
         },
       }
       const dropGone = db.prepare('delete from coverage where tfile = ? and run < ?')
+      // The coverage of the tests that a file does not have now.
+      const NOT_IN = "c.test != '' and c.test not in (select value from json_each(?))"
+      const keepMissing = db.prepare(`${keepSql} and ${NOT_IN}`)
+      const dropMissing = db.prepare(`delete from coverage as c where c.tfile = ? and ${NOT_IN}`)
       const dropGoneCov = {
         run(tfile: string, before: number): void {
           keepGone.run(env, tfile, before)
@@ -474,6 +484,13 @@ export const openStore = (): Store => {
             // belongs to tests that no longer exist. The load row
             // is new in each run.
             if (!event.unselected) dropGoneCov.run(event.file, run)
+            // A run of a part of a file: the tests that the file has now.
+            if (event.ids) {
+              const ids = JSON.stringify(event.ids)
+              setSelection.run(event.file, run, ids)
+              keepMissing.run(env, event.file, ids)
+              dropMissing.run(event.file, ids)
+            }
             break
           case 'run-end': {
             // The coverage of a test file that is gone is not coverage.

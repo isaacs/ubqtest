@@ -9,6 +9,7 @@ import { project } from './setup.ts'
 const setup = () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.configure({ include: ['pass.ts'] })
   const path = join(p.dir, 'src/shape.ts')
   const edit = (from: string, to: string) => {
     const text = readFileSync(path, 'utf8')
@@ -28,6 +29,7 @@ const setup = () => {
 test('--changed also runs each test that failed in its last run', () => {
   const p = project()
   cleanup(() => rmSync(p.dir, { recursive: true }))
+  p.configure({ include: ['flip.ts', 'pass.ts', '*.test.ts'] })
   p.set('fail')
   assert.equal(p.ubq('flip.ts', 'pass.ts').last, 'fail: 1 failed, 7 passed, 1 skipped')
   // No file of the project changed: the test reads a file that is

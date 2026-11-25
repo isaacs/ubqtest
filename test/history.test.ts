@@ -180,6 +180,7 @@ test('--repeat runs the tests many times and counts the failures of each test', 
     [one.code, lines(one.out.replace(/ \(run \d+[^)]*\)\n$/, ''))],
     [0, ['repeat 3: 0 failed some times, 0 failed each time, 1 passed each time', 'pass: 1 test, 2 not selected']],
   )
+  p.configure({ include: ['pass.ts', 'flip.ts', 'sometimes.ts'] })
   assert.match(
     p.ubq('--failed', '--repeat', '2').out,
     /\nrepeat 2: \d failed some times, 1 failed each time, 0 passed each time\n/,

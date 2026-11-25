@@ -637,6 +637,9 @@ All entries are from 2026-11-11 to 2026-11-14.
     setup. `ubq convert` writes the key (D144). Not on Deno.
   - With the `transform` key, the compiler also makes the
     JavaScript of each `.tsx` and `.jsx` file on Node (D145).
+  - `ubq check`, `ubq --failed`, and `ubq --changed` read only the
+    test files of the project, and not a test that is gone from
+    its file (D146).
   - The guide says what the store is: where it is, that each
     branch and each process of the folder shares it, what it
     keeps, and that it is safe to remove (`ubq guide stored`).

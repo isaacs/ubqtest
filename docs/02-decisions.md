@@ -4108,3 +4108,28 @@ of D144. The user: "let's transpile tsx/jsx on node".
 - **Not done.** A `.js` file with JSX is not compiled: the
   compiler would have to read each JavaScript file of the
   project.
+
+## D146. An old result that a run of all tests cannot correct does not count (user, 2026-11-25)
+
+The user: "what can we do to harden against that ever being an
+issue that might cause an agent to spin unproductively?" and "We
+don't want ubq nagging them later about something expected."
+
+The rule: after `ubq` with no arguments passes, and no file
+changes, `ubq check` names no failed test. Two cases broke it.
+
+- **Only the test files of the project count.** `ubq check`, `ubq
+  --failed`, and `ubq --changed` read results only of the files
+  that `ubq` with no arguments runs. A file that a person ran by
+  its path was a trial. Before, a failed result of such a file
+  stayed: a run of all tests passed, and the check failed. If the
+  file fails by design (a fixture), no command corrected it.
+- **A test that is gone from its file.** A run of a part of a
+  file now records the ID of each test of the file (the
+  `selection` table, version 10 of the store). A result of a test
+  that is not in that list does not count, and its coverage is
+  removed. Before, `ubq --failed` selected the ID that was gone,
+  and the file then had the error "no test of this file has an ID
+  in the selection".
+- The report of `ubq check` has "1 failed test", not "1 failed
+  tests".
