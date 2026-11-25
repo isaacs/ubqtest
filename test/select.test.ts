@@ -186,19 +186,24 @@ test('the workspaces run at the same time, and share the slots of one run', () =
   const slots = availableParallelism() + 1
   const log = join(p.dir, 'log.txt')
   // With no shared slots, each workspace would run this many files
-  // at the same time. The first file of each is long: a slot that a
-  // gives back goes to b while that file of a still runs.
+  // at the same time. The first file of each is long: it ends when
+  // a file of the other workspace started, or after 60 s. So a slot
+  // that a gives back goes to b while that file of a still runs,
+  // also on a slow machine.
   for (const name of ['a', 'b']) {
+    const other = name === 'a' ? '+ b ' : '+ a '
     mkdirSync(join(p.dir, 'packages', name), { recursive: true })
     writeFileSync(join(p.dir, 'packages', name, 'package.json'), JSON.stringify({ name, type: 'module' }))
     for (let i = 0; i < slots; i++)
       writeFileSync(
         join(p.dir, 'packages', name, `t${i}.test.ts`),
-        `import { appendFileSync } from 'node:fs'
+        `import { appendFileSync, readFileSync } from 'node:fs'
 import { assert, test } from 'ubqtest'
-test('t', async () => {
+const sleep = () => new Promise(resolve => setTimeout(resolve, 100))
+test('t', { timeout: 120_000 }, async () => {
   appendFileSync(${JSON.stringify(log)}, '+ ${name} ' + Date.now() + '\\n')
-  await new Promise(resolve => setTimeout(resolve, ${i ? 100 : 3000}))
+  await sleep()
+  for (let n = 0; ${i ? 'false' : 'n < 600'} && !readFileSync(${JSON.stringify(log)}, 'utf8').includes('${other}'); n++) await sleep()
   appendFileSync(${JSON.stringify(log)}, '- ${name} ' + Date.now() + '\\n')
   assert(true)
 })
