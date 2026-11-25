@@ -163,10 +163,10 @@ describe('bun', () => {
     const p = project()
     cleanup(() => rmSync(p.dir, { recursive: true }))
     assert.deepEqual(sh('bun', [cli, 'mock.ts'], p.dir), [
-      'FAIL mock.ts > a mock that lacks an export',
-      '  Error: the mock of src/db.ts has no export "fetchUser", and the code under test imports it. Add "fetchUser" to the mock.',
+      'FAIL mock.ts > a name that the mock and the real module do not have',
+      '  Error: the code under test imports "gone" from src/db.ts. The mock does not have it, and the real module does not have it.',
       '  at mock.ts:29:9',
-      "  > await mockImport(() => import('./src/greet.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])",
+      "  > await mockImport(() => import('./src/lost.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])",
       '  rerun: ubq mock.ts:28',
       '',
       'FAIL mock.ts > a loader that is not an import',

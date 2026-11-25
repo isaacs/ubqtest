@@ -3945,3 +3945,70 @@ for hooks), and D90 (the setup function of `ubq convert`).
   A setup file is an import in each test file, and its hooks are
   then hooks of that file.
 
+## D143. `mockImport`: a mock is partial, a module is new only if it imports a mock, and a mock object can change in a test (user, 2026-11-25)
+
+The reports on large projects name `mockImport` as the largest
+hand work of a conversion (sentry core: 62 calls, and about 424
+files to come). A one-line `vi.spyOn(module, name)` became 20 to
+30 lines. Three causes:
+
+1. A mock needed each export that the code imports (D88), so
+   each mock spread the real module. That module was the copy of
+   the test file, not of the instance.
+2. Each call made a new copy of each project module. A class, a
+   React context, or a store was then not the same in the test
+   and in the code under test, and a "was not called" check could
+   pass for the wrong reason. The fix was to give each such
+   module back as a mock, with all its exports.
+3. A mock for a whole file had no way to change in one test, so
+   each test made its own instance, or each file wrote a helper
+   around a spy.
+
+The user: bring the overhead down. The goal is tests that are
+tight, not custom helper code.
+
+This replaces D88 ("`mockImport` has no partial form").
+
+- **A mock is partial.** It gives the exports to replace. Each
+  other export is the real one, from a new instance of the
+  dependency.
+- **The real dependency loads only if it is needed.** For each
+  file that imports a mocked dependency, the library reads the
+  names of that import from the text of the file. If the mock has
+  each name, the mock module for that file does not import the
+  real one. So a mock with each export that the code uses still
+  keeps a module that cannot load out of the instance. A file
+  that imports the whole module loads the real one.
+- **A module is new only if it must be.** When the call starts,
+  the library reads the imports of the module under test and of
+  the project modules that it imports, by their text. A module is
+  new if it is the module under test, a mocked module, or a
+  module from which the imports go to a mock. Each other module
+  is the one of the test file.
+  - A call with no mocks gives a new module under test, and no
+    other new module. Before, each project module that it imports
+    was new. An empty mock (`{}`) makes a module new.
+  - An import of only types is not an import. Text in a comment
+    that looks like an import is one: the module is then new with
+    no need, which is safe.
+  - An `import()` with a name from a variable is not found. The
+    check for a mock that replaced no import (D119) reports the
+    common result of that.
+- **A mock object can change in a test.** Each export of a mock
+  module is a `let`. `spyOn` and `stub` tell the mock modules of
+  their object, and the export gets the new value, and the old
+  one when the test ends. So a `mockImport` call at the top level
+  of a file is the mock of `vi.mock` for the file, and
+  `spyOn(mock, key, impl)` is the `mockReturnValue` of one test.
+  A plain assignment to the object is not seen. D87 stays: a spy
+  does not change after it is made.
+- Not chosen: a spy on an export of a real module, as
+  `vi.spyOn(namespace, name)` does. It needs a change of the
+  source of each module (D92).
+- The error for a mock that lacks an export is gone. If the mock
+  and the real module do not have a name, the call fails with an
+  error that names the export and the module.
+- On Bun, Deno, and Node the rules are the same. A CommonJS
+  module of an instance gets a mock that reads a missing export
+  from the real module at the first read.
+

@@ -597,14 +597,30 @@ const isMatchOnly: <T, const P extends Pattern<T> = Pattern<T>>(actual: T, patte
 
 ### `mockImport`
 
-Loads a new instance of a module. In that instance, and in the
-project modules that it imports, each dependency in `mocks` is
-replaced by the given exports.
+Loads a new instance of a module, with the dependencies in
+`mocks` replaced. A mock gives only the exports to replace: each
+other export is the real one. A project module that imports a
+mock, directly or through other project modules, is new in the
+instance too. Each other module is the one that the test file
+has, with the same state.
 
 ```ts
 const { greet } = await mockImport(() => import('../src/greet.ts'), [
   [() => import('../src/db.ts'), { fetchUser }],
 ])
+```
+
+At the top level of a file, the instance is for each test of
+the file. To change a mock for one test, use `spyOn` or `stub`
+on the mock object: the old value comes back when the test ends.
+
+```ts
+const db = { fetchUser: spy(async (id: number) => ada) }
+const { greet } = await mockImport(() => import('../src/greet.ts'), [[() => import('../src/db.ts'), db]])
+test('no user', async () => {
+  spyOn(db, 'fetchUser', async () => undefined)
+  assert.equal(await greet(7), 'hello, stranger')
+})
 ```
 
 ```ts

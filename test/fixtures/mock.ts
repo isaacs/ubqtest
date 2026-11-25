@@ -25,8 +25,8 @@ test('a mock reaches the modules that the module imports, and builtins', async (
   assert.equal(mocked.config(), '{}')
 })
 
-test('a mock that lacks an export', async () => {
-  await mockImport(() => import('./src/greet.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])
+test('a name that the mock and the real module do not have', async () => {
+  await mockImport(() => import('./src/lost.ts'), [[() => import('./src/db.ts'), { table: 'x' }]])
   assert.fail('not reached')
 })
 

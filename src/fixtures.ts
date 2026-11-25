@@ -32,6 +32,23 @@ const owner = (name: string): TestState | undefined => {
   return state
 }
 
+/** An object, then the functions to call when `spyOn` or `stub` changes a key of it. */
+const watchers = new WeakMap<object, ((key: PropertyKey) => void)[]>()
+
+/**
+ * Calls `fn` with the key when `spyOn` or `stub` changes a key of
+ * `object`, or puts it back. A mock module of `mockImport` watches
+ * its mock object: the change is then in the instance too.
+ */
+export const watch = (object: object, fn: (key: PropertyKey) => void): void => {
+  watchers.set(object, [...(watchers.get(object) ?? []), fn])
+}
+
+/** Tells the watchers of `object` that `key` has a new value. */
+export const changed = (object: object, key: PropertyKey): void => {
+  for (const fn of watchers.get(object) ?? []) fn(key)
+}
+
 const add = (name: string, fn: CleanupFn): void => {
   const state = owner(name)
   // In a beforeAll hook, the fixture lasts until its group ends.
@@ -95,10 +112,12 @@ export const stub = <T extends object, K extends PropertyKey>(
   add('stub', () => {
     if (own) Object.defineProperty(object, key, own)
     else delete target[key]
+    changed(object, key)
   })
   if (own && !own.configurable)
     throw new TypeError(`stub: ${String(key)} cannot be changed: the property of the object is not configurable`)
   Object.defineProperty(object, key, { value, configurable: true, writable: true, enumerable: own?.enumerable ?? true })
+  changed(object, key)
 }
 
 /** File names with their content. A nested object is a folder. */

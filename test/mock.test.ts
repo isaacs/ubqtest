@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { assert, cleanup, mockImport, test } from 'ubqtest'
+import { scanImports } from '../src/mock.ts'
 import { cli, project, remove } from './setup.ts'
 
 const bun = spawnSync('bun', ['--version']).status === 0
@@ -172,5 +173,118 @@ test('an instance of the package with the mock, as the mock of the package', asy
   if (bun) {
     const r = spawnSync('bun', [cli, 'unused.ts'], { cwd: p.dir, encoding: 'utf8' })
     assert.match(r.stdout, /the mock of pass\.ts, fix\.ts replaced no import/)
+  }
+})
+
+test('scanImports gives the names that a file uses from each module', () => {
+  const found = scanImports(`import a, { b, c as d, type T, type as e } from './one.ts'
+import * as all from './two.ts'
+import type { U } from './types.ts'
+import { type V } from './inline.ts'
+import './effect.ts'
+export { f as g } from './three.ts'
+export * from './four.ts'
+export const later = () => import('./five.ts')
+const old = require('./six.cjs')
+const x = 1; export const y = x
+`)
+  assert.deepEqual(
+    found.map(i => [i.specifier, i.names === '*' ? '*' : [...i.names].sort().join(',')]),
+    [
+      ['./one.ts', 'b,c,default,type'],
+      ['./two.ts', '*'],
+      // The import stays with no names: it loads the module.
+      ['./inline.ts', ''],
+      ['./three.ts', 'f'],
+      ['./four.ts', '*'],
+      ['./effect.ts', ''],
+      ['./five.ts', '*'],
+      ['./six.cjs', '*'],
+    ],
+  )
+})
+
+/** Source for the tests of a partial mock, of the modules that stay, and of a mock that changes. */
+const PARTIAL: Record<string, string> = {
+  'src/state.ts': 'export let n = 0\nexport const bump = (): number => ++n\nexport class Thing {}\n',
+  'src/bad.ts': "throw new Error('the real module loaded')\nexport const value = 0\n",
+  'src/dep.ts':
+    "export const a = (): string => 'real a'\nexport const b = (): string => 'real b'\nexport default { a, b }\n",
+  'src/mid.ts': "import { a } from './dep.ts'\nexport const viaMid = (): string => a()\n",
+  'src/subject.ts': `import { bump, Thing } from './state.ts'
+import { a, b } from './dep.ts'
+import { viaMid } from './mid.ts'
+import { value } from './bad.ts'
+export const run = (): unknown[] => [a(), b(), viaMid(), value, bump()]
+export const make = (): Thing => new Thing()
+`,
+  'src/whole.ts': `import d from './dep.ts'
+import * as all from './dep.ts'
+export const run = (): string[] => [d.a(), d.b(), all.a(), all.b()]
+`,
+  'src/counts.ts': "import { bump } from './state.ts'\nexport const next = (): number => bump()\n",
+  'src/object.ts': "import s from './state.ts'\nexport const next = (): number => s.bump()\n",
+  'partial.test.ts': `import { assert, mockImport, spy, spyOn, stub, test } from 'ubqtest'
+import * as state from './src/state.ts'
+
+// One instance for the file. The mock of dep.ts has one of its two
+// exports. The mock of bad.ts has each export that the code uses,
+// so the real module, which throws, does not load.
+const dep = { a: spy(() => 'mock a') }
+const bad = { value: 1 }
+const subject = await mockImport(() => import('./src/subject.ts'), [
+  [() => import('./src/dep.ts'), dep],
+  [() => import('./src/bad.ts'), bad],
+])
+
+test('an export that the mock does not have is the real one, also in a module between', () => {
+  assert.deepEqual(subject.run(), ['mock a', 'real b', 'mock a', 1, 1])
+})
+
+test('a module that imports no mock is the module of the test file', () => {
+  assert.equal(state.n, 1)
+  assert(subject.make() instanceof state.Thing)
+})
+
+test('spyOn and stub on the mock object change the instance for one test', () => {
+  const other = spyOn(dep, 'a', () => 'other a')
+  stub(bad, 'value', 2)
+  assert.deepEqual(subject.run().slice(0, 4), ['other a', 'real b', 'other a', 2])
+  assert.equal(other.calls.length, 2)
+})
+
+test('the old values are back in the next test', () => {
+  assert.deepEqual(subject.run().slice(0, 4), ['mock a', 'real b', 'mock a', 1])
+})
+
+test('a default import and a namespace import of a partial mock', async () => {
+  const whole = await mockImport(() => import('./src/whole.ts'), [[() => import('./src/dep.ts'), dep]])
+  assert.deepEqual(whole.run(), ['mock a', 'real b', 'mock a', 'real b'])
+  // The real module has no default export: the mock object is the default.
+  const object = await mockImport(() => import('./src/object.ts'), [[() => import('./src/state.ts'), { bump: () => 7 }]])
+  assert.equal(object.next(), 7)
+})
+
+test('an empty mock gives a new instance of a module', async () => {
+  const before = state.n
+  const counts = await mockImport(() => import('./src/counts.ts'), [[() => import('./src/state.ts'), {}]])
+  assert.equal(counts.next(), 1)
+  assert.equal(state.n, before)
+  // With no mock, the module under test is new, and state.ts is not.
+  const shared = await mockImport(() => import('./src/counts.ts'), [])
+  assert.equal(shared.next(), before + 1)
+})
+`,
+}
+
+test('a partial mock, modules that stay, and a mock that changes in a test, on Node and on Bun', () => {
+  const p = project()
+  cleanup(() => remove(p.dir))
+  for (const [file, source] of Object.entries(PARTIAL)) writeFileSync(join(p.dir, file), source)
+  const r = p.ubq('partial.test.ts')
+  assert.equal(r.out, 'pass: 6 tests (run 1)\n', r.out)
+  if (bun) {
+    const onBun = spawnSync('bun', [cli, 'partial.test.ts'], { cwd: p.dir, encoding: 'utf8' })
+    assert.equal(onBun.stdout, 'pass: 6 tests (run 2)\n', onBun.stdout + onBun.stderr)
   }
 })

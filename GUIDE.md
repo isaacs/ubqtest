@@ -231,7 +231,7 @@ spy(impl?)                         // records calls in spy.calls: { args, result
 spyOn(object, key, impl?)          // replaces a method until the test ends. A second spyOn on the key replaces the first.
 await mockImport(() => import('../src/a.ts'), [
   [() => import('../src/dep.ts'), { fn: replacement }],
-])                                 // a new instance of a.ts with a mocked dep.ts
+])                                 // a new instance of a.ts. In it, fn of dep.ts is the replacement, and each other export of dep.ts is the real one
 
 testdir({ 'a.txt': 'hi', sub: { 'b.json': '{}' } })  // a new folder, returns its path
 env({ NAME: 'value', OTHER: undefined })             // set or delete, until the test ends
@@ -348,17 +348,7 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   of the file share.
 - A failed test keeps its `testdir` folder, and the failure block
   prints the path.
-- The mock of `mockImport` must have the types of the real
-  exports. For a function with overloads, such as
-  `fs.readdirSync`, a mock that fits one form can fail the type
-  check: write `fakeReaddir as typeof fs.readdirSync`. A function
-  with properties, such as `realpathSync` with `.native`, needs
-  `as unknown as typeof fs.realpathSync`. The mock exists only in the returned module instance. Each
-  call loads a new copy of the module, and of the project modules
-  that it imports: their state is not the state of the copies
-  that the test file imported. To share a module, such as a React
-  context, give the copy of the test file as its mock:
-  `[() => import('../src/context.ts'), await import('../src/context.ts')]`.
+- `mockImport` gives a new instance of the module under test.
   The two loaders must have the form `() => import('...')`. A mock
   with a spy:
 
@@ -372,6 +362,51 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
     assert.deepEqual(charge.calls[0]?.args, ['card-1', 700])
   })
   ```
+
+  - **A mock gives only the exports to replace.** Each other
+    export of the dependency is the real one. Do not spread the
+    real module into the mock. The real dependency loads only if
+    the code uses an export that the mock does not have: a mock
+    with each export that the code uses keeps a module that
+    cannot load in a test out of the instance. Code in the
+    dependency that calls its own export calls the real one.
+  - **Which modules are new.** The module under test, each mocked
+    project module, and each project module that imports a mock,
+    directly or through other project modules. Each other module
+    is the one that the test file has: its state, its classes
+    (`instanceof`), and its objects, such as a React context, are
+    the same in the test and in the code under test. For a new
+    instance of a module with no change to it, give an empty mock:
+    `[() => import('../src/config.ts'), {}]`.
+  - **A mock for each test of a file.** Call `mockImport` one
+    time, at the top level of the file, with the mock object in a
+    `const`. To change the mock for one test, use `spyOn` or
+    `stub` on that object. The change is in the instance too, and
+    the old value comes back when the test ends. A plain
+    assignment to the object does not change the instance.
+
+    ```ts
+    const payment = { charge: spy(async (card: string, cents: number) => ({ id: 'r1', cents })) }
+    const { checkout } = await mockImport(() => import('../src/cart.ts'), [
+      [() => import('../src/payment.ts'), payment],
+    ])
+    test('a card that the bank refuses', async () => {
+      spyOn(payment, 'charge', async () => {
+        throw new Error('refused')
+      })
+      await assert.rejects(checkout(items, 'card-1'), /refused/)
+    })
+    ```
+
+  - **Types.** Each export of the mock must have the type of the
+    real export. For a function with overloads, such as
+    `fs.readdirSync`, a mock that fits one form can fail the type
+    check: write `fakeReaddir as typeof fs.readdirSync`. A
+    function with properties, such as `realpathSync` with
+    `.native`, needs `as unknown as typeof fs.realpathSync`.
+  - A module is new if its imports name a mock in the text of its
+    file. An `import()` with a name from a variable is not found:
+    give that module an empty mock.
 - **A dependency of a dependency.** A mock replaces a module in
   the project modules of the new instance. It does not go into a
   package of `node_modules`. If a package imports the module that

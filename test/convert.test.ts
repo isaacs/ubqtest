@@ -1056,7 +1056,7 @@ it('a', () => {
   const namespace = (key: string): string[] =>
     todoComment(
       '  ',
-      `spyOn cannot replace an export of a module: time is the module '../src/time', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('../src/time'), { ...time, ${key}: spy(impl) }]]). Then call the code of subject, not of the import at the top of the file, and assert on the spy.`,
+      `spyOn cannot replace an export of a module: time is the module '../src/time', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('../src/time'), { ${key}: spy(impl) }]]). The other exports of the module are the real ones. Then call the code of subject, not of the import at the top of the file, and assert on the spy.`,
     )
       .trimEnd()
       .split('\n')
@@ -3381,12 +3381,10 @@ test("a", async () => {
     '  assert.throws(() => f(), { message: (v: unknown) => String(v).includes(`crash ${x}`) });',
     '  assert(JSON.parse(text).some((item: unknown) => isDeepEqual(item, { a: 1 })));',
     '  assert.match(x, { a: any.string });',
-    '  // TODO(ubq): spyOn cannot replace an export of a module: ns is the',
-    "  // module '../src/ns', and the code under test has its own import of it.",
-    "  // Use mockImport: const subject = await mockImport(() => import('<the",
-    "  // module under test>'), [[() => import('../src/ns'), { ...ns, read:",
-    '  // spy(impl) }]]). Then call the code of subject, not of the import at',
-    '  // the top of the file, and assert on the spy.',
+    ...todo(
+      "spyOn cannot replace an export of a module: ns is the module '../src/ns', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('../src/ns'), { read: spy(impl) }]]). The other exports of the module are the real ones. Then call the code of subject, not of the import at the top of the file, and assert on the spy.",
+      '  ',
+    ),
     '  const all = spyOn(ns, "read").mockReturnValue(1);',
     '  spyOn(ws, "write", () => 2);',
     '  // TODO(ubq): ubq has no time limit for one file. Remove this call. Give',

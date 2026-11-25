@@ -5,7 +5,7 @@ import * as nodeModule from 'node:module'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SOURCE } from './counters.ts'
-import { cleanup } from './fixtures.ts'
+import { cleanup, watch } from './fixtures.ts'
 import { current } from './state.ts'
 import { projectRoot, rel } from './project.ts'
 import { callSite } from './stack.ts'
@@ -68,13 +68,177 @@ const LIBRARY = new URL('.', import.meta.url).href
 const ownCode = (url: string): boolean =>
   url.startsWith('file:') && !/[\\/]node_modules[\\/]/.test(url) && !url.startsWith(LIBRARY)
 
-/** The source of the module that replaces dependency `dep` in mock `id`. */
-const mockSource = (id: string, dep: string): string => {
+/** One import of a file: the name of the module, and the exports that the file uses. `'*'` is each export. */
+interface Import {
+  specifier: string
+  names: Set<string> | '*'
+}
+
+// `import a, { b as c } from 'x'`, `export { a } from 'x'`, `export * from 'x'`
+const STATIC = /\b(?:import|export)\s+(type\s+)?([\w$\s{},*]+?)\s*from\s*(['"])([^'"\n]+)\3/g
+// `import 'x'`
+const EFFECT = /\bimport\s*(['"])([^'"\n]+)\1/g
+// `import('x')`, `require('x')`
+const DYNAMIC = /\b(?:import|require)\s*\(\s*(['"])([^'"\n]+)\1\s*[,)]/g
+
+/**
+ * The imports of a source text, found by their text. An import of
+ * only types is not in the list: it loads no module. Text in a
+ * comment or in a string that looks like an import is in the list.
+ * That is safe: the reader of the list then makes a new instance
+ * of a module, or loads a real module, that it did not need.
+ */
+export const scanImports = (source: string): Import[] => {
+  const found: Import[] = []
+  for (const [, type, clause, , specifier] of source.matchAll(STATIC)) {
+    if (type) continue
+    const names = new Set<string>()
+    const [head, list] = clause!.split('{')
+    if (head!.includes('*')) {
+      found.push({ specifier: specifier!, names: '*' })
+      continue
+    }
+    // `import a from`: not the `export` of `export { a } from`.
+    if (/[\w$]/.test(head!)) names.add('default')
+    for (const part of (list ?? '').replace('}', '').split(',')) {
+      const [name, ...more] = part.trim().split(/\s+/)
+      // `type A` is no export of the module. `type as b` is the export `type`.
+      if (name && (name !== 'type' || !more.length || more[0] === 'as')) names.add(name)
+    }
+    found.push({ specifier: specifier!, names })
+  }
+  for (const [, , specifier] of source.matchAll(EFFECT)) found.push({ specifier: specifier!, names: new Set() })
+  for (const [, , specifier] of source.matchAll(DYNAMIC)) found.push({ specifier: specifier!, names: '*' })
+  return found
+}
+
+/** The imports of each file that a plan read, by URL (Node, Deno) or by path (Bun). */
+const scanned = new Map<string, Import[]>()
+const importsOf = (key: string): Import[] => {
+  let found = scanned.get(key)
+  if (!found) {
+    try {
+      found = scanImports(readFileSync(key.startsWith('file:') ? fileURLToPath(key) : key, 'utf8'))
+    } catch {
+      // ubq: not measured: each module of a plan is a file that the runtime found
+      found = []
+    }
+    scanned.set(key, found)
+  }
+  return found
+}
+
+/** Mock number, then the project modules that get a new instance. */
+const fresh = new Map<string, Set<string>>()
+
+/**
+ * Finds the modules that get a new instance in mock `id`: the
+ * module under test, each mocked project module, and each project
+ * module that imports a mock, directly or through other project
+ * modules. Each other module is the one that the test file has: its
+ * state, its classes, and its objects are the same in the test and
+ * in the code under test. `resolve` gives the module of an import,
+ * and `own` is true for a project module.
+ */
+const plan = (
+  id: string,
+  subject: string,
+  resolve: (specifier: string, parent: string) => string | undefined,
+  own: (key: string) => boolean,
+): void => {
+  const mocks = table.get(id)!
+  /** A module, then the modules that import it. */
+  const importers = new Map<string, string[]>()
+  const seen = new Set([subject])
+  const nodes = [subject]
+  for (const key of nodes)
+    for (const { specifier } of importsOf(key)) {
+      const dep = resolve(specifier, key)
+      if (dep === undefined) continue
+      importers.set(dep, [...(importers.get(dep) ?? []), key])
+      if (!seen.has(dep) && own(dep)) {
+        seen.add(dep)
+        nodes.push(dep)
+      }
+    }
+  const set = new Set<string>()
+  const queue = [...mocks.keys()]
+  for (const key of queue)
+    for (const importer of importers.get(key) ?? [])
+      if (!set.has(importer)) {
+        set.add(importer)
+        queue.push(importer)
+      }
+  set.add(subject)
+  // The real exports of a mocked module are those of a new instance.
+  for (const key of mocks.keys()) set.add(key)
+  fresh.set(id, set)
+}
+
+/**
+ * The exports of dependency `dep` that the file `parent` uses and
+ * the mock does not have, as the part of the URL of the mock
+ * module: `'*'` for each export, or names with `,` between them.
+ * With no name, the real dependency does not load.
+ */
+const needOf = (id: string, dep: string, parent: string, specifier: string): string => {
+  const mock = table.get(id)!.get(dep)!
+  const names = new Set<string>()
+  const imports = importsOf(parent).filter(i => i.specifier === specifier)
+  // An import that the scan did not find, such as one with a name from a variable.
+  if (!imports.length || imports.some(i => i.names === '*')) return '*'
+  for (const i of imports) for (const name of i.names as Set<string>) if (!(name in mock)) names.add(name)
+  return [...names].sort().join(',')
+}
+
+const NAME = /^[A-Za-z_$][\w$]*$/
+
+/**
+ * The source of the module that replaces dependency `dep` in mock
+ * `id`, for a file that needs the exports `need` from the real
+ * dependency. `real` is the name of the module with those exports.
+ * Each export of the mock is a `let`: `spyOn` and `stub` on the mock
+ * object change it in the instance too.
+ */
+const mockSource = (id: string, dep: string, need: string, real: string): string => {
   const keys = Object.keys(table.get(id)!.get(dep)!)
+  const named = keys.filter(k => k !== 'default' && NAME.test(k))
+  const missing = need === '*' ? [] : need.split(',').filter(k => k && k !== 'default' && NAME.test(k))
+  const realDefault = !keys.includes('default') && (need === '*' || need.split(',').includes('default'))
+  const mocks = `globalThis[Symbol.for('ubq.mocks')]`
   return [
-    `const m = globalThis[Symbol.for('ubq.mocks')].get(${JSON.stringify(id)}).get(${JSON.stringify(dep)})`,
+    `const __ubq_m = ${mocks}.get(${JSON.stringify(id)}).get(${JSON.stringify(dep)})`,
+    ...(realDefault ? [`import * as __ubq_real from ${JSON.stringify(real)}`] : []),
+    ...(need === '*' ? [`export * from ${JSON.stringify(real)}`] : []),
+    ...named.map(k => `export let ${k} = __ubq_m.${k}`),
+    ...(missing.length ? [`export { ${missing.join(', ')} } from ${JSON.stringify(real)}`] : []),
+    // `import fs from 'node:fs'` reads the names from the default
+    // export: the real ones, with those of the mock on top.
+    keys.includes('default')
+      ? 'let __ubq_d = __ubq_m.default'
+      : `let __ubq_d = ${realDefault ? `${mocks}.merge(__ubq_real.default, __ubq_m)` : '__ubq_m'}`,
+    'export { __ubq_d as default }',
+    `${mocks}.watch(__ubq_m, k => {`,
+    ...named.map(k => `  if (k === ${JSON.stringify(k)}) ${k} = __ubq_m.${k}`),
+    keys.includes('default')
+      ? "  if (k === 'default') __ubq_d = __ubq_m.default"
+      : '  if (__ubq_d !== __ubq_m) __ubq_d[k] = __ubq_m[k]',
+    '})',
+  ].join('\n')
+}
+
+/** The default export of a partial mock: the real one, with the exports of the mock on top. */
+const merge = (real: unknown, mock: object): unknown =>
+  real !== null && typeof real === 'object'
+    ? Object.assign(Object.create(Object.getPrototypeOf(real) as object | null), real, mock)
+    : (real ?? mock)
+
+/** The source of an ES module with the exports of a CommonJS module of an instance. */
+const facadeSource = (id: string, url: string): string => {
+  const keys = Object.keys(table.get(id)!.get(url)!)
+  return [
+    `const m = globalThis[Symbol.for('ubq.mocks')].get(${JSON.stringify(id)}).get(${JSON.stringify(url)})`,
     ...keys.map(k => (k === 'default' ? 'export default m.default' : `export const ${k} = m[${JSON.stringify(k)}]`)),
-    // `import fs from 'node:fs'` reads the names from the default export.
     ...(keys.includes('default') ? [] : ['export default m']),
   ].join('\n')
 }
@@ -133,10 +297,23 @@ const mockRequire = (id: string, real: Require): Require => {
     // A module of the runtime has a name, and not a path.
     const url = isAbsolute(file) ? pathToFileURL(file).href : file.startsWith('node:') ? file : `node:${file}`
     const mock = mocks.get(url)
-    if (mock) used.get(id)?.add(url)
-    // `import x from` reads `default` only from a module with this mark.
-    if (mock) return 'default' in mock ? { __esModule: true, ...mock } : mock
-    return isAbsolute(file) && CODE.test(file) && ownCode(url) ? instance(file) : real(name)
+    const project = isAbsolute(file) && CODE.test(file) && ownCode(url)
+    if (!mock) return project && fresh.get(id)!.has(url) ? instance(file) : real(name)
+    used.get(id)?.add(url)
+    // An export that the mock does not have is the real one. The
+    // real module loads only if the code reads such an export.
+    let rest: Record<PropertyKey, unknown> | undefined
+    const other = (): Record<PropertyKey, unknown> =>
+      (rest ??= Object((project ? instance(file) : real(name)) as object) as Record<PropertyKey, unknown>)
+    return new Proxy(mock, {
+      get: (target, key, receiver) =>
+        key in target
+          ? Reflect.get(target, key, receiver)
+          : // `import x from` reads `default` only from a module with this mark.
+            key === '__esModule' && 'default' in target
+            ? true
+            : other()[key],
+    })
   }
   return Object.assign(required, real) as Require
 }
@@ -144,6 +321,22 @@ const mockRequire = (id: string, real: Require): Require => {
 // `from '...'`, `import '...'`, `import('...')`
 const IMPORT = /(\bfrom\s*|\bimport\s*\(?\s*)(['"])([^'"\n]+)\2/g
 const CODE = /\.[cm]?([jt]sx?)$/
+
+/** On Bun, a module is a path. A project module is a code file that is not in a package. */
+const ownPath = (path: string): boolean => CODE.test(path) && !/[\\/]node_modules[\\/]/.test(path)
+const resolveBun = (specifier: string, parent: string): string | undefined => {
+  try {
+    return Bun.resolveSync(specifier, dirname(parent))
+    // ubq: not measured: Bun resolves each import of the tests
+  } catch {
+    return undefined
+  }
+}
+/** The mock number, the needed exports, and the dependency, from the name of a mock module. */
+const mockParts = (name: string): [id: string, need: string, dep: string] => {
+  const [id, need] = name.split(':', 2) as [string, string]
+  return [id, need, name.slice(id.length + need.length + 2)]
+}
 
 // Bun gives the importer of a module with no query, so the resolve
 // hook cannot know that the importer is a mocked instance. The load
@@ -162,15 +355,18 @@ const registerBun = (): void => {
         // `resolveSync` calls this hook again.
         capture = pending = undefined
         const file = Bun.resolveSync(path, dirname(importer))
-        if (!c) return { path: `${file}?mock=${id}` }
+        if (!c) {
+          plan(id!, file, resolveBun, ownPath)
+          return { path: `${file}?mock=${id}` }
+        }
         // A mock loader names its dependency, and must not load it.
         c.url = file
         return { path: 'stub', namespace: 'ubqstub' }
       })
       build.onLoad({ filter: /.*/, namespace: 'ubqstub' }, () => ({ contents: '', loader: 'js' }))
       build.onLoad({ filter: /.*/, namespace: 'ubqmock' }, ({ path }) => {
-        const id = path.slice(0, path.indexOf(':'))
-        return { contents: mockSource(id, path.slice(id.length + 1)), loader: 'js' }
+        const [id, need, dep] = mockParts(path)
+        return { contents: mockSource(id, dep, need, ownPath(dep) ? `${dep}?mock=${id}` : dep), loader: 'js' }
       })
       build.onLoad({ filter: /\?mock=\d+$/ }, ({ path }) => {
         const at = path.lastIndexOf('?')
@@ -189,12 +385,12 @@ const registerBun = (): void => {
             // A path of Windows has `\\`, which starts an escape in a string.
             if (table.get(id)?.has(dep)) {
               used.get(id)?.add(dep)
-              return `${head}${quote}ubqmock:${id}:${dep.replaceAll('\\', '\\\\')}${quote}`
+              const need = needOf(id, dep, file, specifier)
+              return `${head}${quote}ubqmock:${id}:${need}:${dep.replaceAll('\\', '\\\\')}${quote}`
             }
-            // Project code gets a new instance. Packages and builtins do not.
-            return CODE.test(dep) && !/[\\/]node_modules[\\/]/.test(dep)
-              ? `${head}${quote}${specifier}?mock=${id}${quote}`
-              : all
+            // A project module that imports a mock gets a new
+            // instance. Packages and builtins do not.
+            return ownPath(dep) && fresh.get(id)!.has(dep) ? `${head}${quote}${specifier}?mock=${id}${quote}` : all
           },
         )
         // ubq: not measured: each mocked file has a code extension
@@ -221,7 +417,7 @@ const register = (): void => {
     // ubq: not measured: each runtime of the tests has registerHooks
     throw new Error('mockImport does not work on this runtime yet. It needs module.registerHooks.')
   registered = true
-  ;(globalThis as Record<symbol, unknown>)[KEY] = table
+  ;(globalThis as Record<symbol, unknown>)[KEY] = Object.assign(table, { merge, watch })
   ;(globalThis as Record<symbol, unknown>)[REQUIRE] = mockRequire
   if (bun) return registerBun()
   nodeModule.registerHooks({
@@ -235,6 +431,15 @@ const register = (): void => {
       if (pending) {
         const id = pending
         pending = undefined
+        const find = (name: string, parentURL: string): string | undefined => {
+          try {
+            return next(name, { ...context, parentURL }).url
+          } catch {
+            // An import that names no file fails when its module loads.
+            return undefined
+          }
+        }
+        plan(id, result.url, find, ownCode)
         return { ...result, url: `${result.url}?mock=${id}` }
       }
       const parent = context.parentURL
@@ -242,9 +447,13 @@ const register = (): void => {
       if (!id) return result
       if (table.get(id)?.has(result.url)) {
         used.get(id)?.add(result.url)
-        return { url: `${MOCK}${id}:${result.url}`, shortCircuit: true }
+        const need = needOf(id, result.url, parent!.slice(0, parent!.lastIndexOf('?')), specifier)
+        return { url: `${MOCK}${id}:${need}:${result.url}`, shortCircuit: true }
       }
-      return ownCode(result.url) ? { ...result, url: `${result.url}?mock=${id}` } : result
+      // A project module that imports a mock gets a new instance.
+      return ownCode(result.url) && fresh.get(id)!.has(result.url)
+        ? { ...result, url: `${result.url}?mock=${id}` }
+        : result
     },
     load(url, context, next) {
       if (url.startsWith(STUB)) return { format: 'module', source: '', shortCircuit: true }
@@ -259,16 +468,16 @@ const register = (): void => {
           const file = fileURLToPath(url.slice(0, url.lastIndexOf('?')))
           const exports = mockRequire(subject, nodeModule.createRequire(file))(file)
           table.get(subject)!.set(url, (Object(exports) === exports ? exports : { default: exports }) as never)
-          return { format: 'module', source: mockSource(subject, url), shortCircuit: true }
+          return { format: 'module', source: facadeSource(subject, url), shortCircuit: true }
         }
         if (!loading || typeof result.source !== 'string') return result
         // After the directive, if the code has one: it must stay first.
         const own = `require = globalThis[Symbol.for('ubq.mockRequire')](${JSON.stringify(loading)}, require);`
         return { ...result, source: result.source.replace(/^\s*(?:(['"])use strict\1;?)?/, start => start + own) }
       }
-      const rest = url.slice(MOCK.length)
-      const id = rest.slice(0, rest.indexOf(':'))
-      return { format: 'module', source: mockSource(id, rest.slice(id.length + 1)), shortCircuit: true }
+      const [id, need, dep] = mockParts(url.slice(MOCK.length))
+      const real = ownCode(dep) ? `${dep}?mock=${id}` : dep
+      return { format: 'module', source: mockSource(id, dep, need, real), shortCircuit: true }
     },
   })
 }
@@ -301,14 +510,30 @@ const nameOfMock = (url: string): string =>
 const SHAPE = "must be an arrow function of the form () => import('...')"
 
 /**
- * Loads a new instance of a module. In that instance, and in the
- * project modules that it imports, each dependency in `mocks` is
- * replaced by the given exports.
+ * Loads a new instance of a module, with the dependencies in
+ * `mocks` replaced. A mock gives only the exports to replace: each
+ * other export is the real one. A project module that imports a
+ * mock, directly or through other project modules, is new in the
+ * instance too. Each other module is the one that the test file
+ * has, with the same state.
  *
  * ```ts
  * const { greet } = await mockImport(() => import('../src/greet.ts'), [
  *   [() => import('../src/db.ts'), { fetchUser }],
  * ])
+ * ```
+ *
+ * At the top level of a file, the instance is for each test of
+ * the file. To change a mock for one test, use `spyOn` or `stub`
+ * on the mock object: the old value comes back when the test ends.
+ *
+ * ```ts
+ * const db = { fetchUser: spy(async (id: number) => ada) }
+ * const { greet } = await mockImport(() => import('../src/greet.ts'), [[() => import('../src/db.ts'), db]])
+ * test('no user', async () => {
+ *   spyOn(db, 'fetchUser', async () => undefined)
+ *   assert.equal(await greet(7), 'hello, stranger')
+ * })
  * ```
  */
 export const mockImport = async <M, const D extends readonly unknown[]>(
@@ -370,6 +595,7 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
     if (!path) throw new TypeError(`the first argument of mockImport ${SHAPE}`)
     // ubq: not measured: no test mocks a package on Bun
     await loaded
+    plan(id, path, resolveBun, ownPath)
     loaded = import(`${path}?mock=${id}`) as Promise<M>
   }
   try {
@@ -381,14 +607,15 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
       String((error as { message?: unknown } | null)?.message),
     )
     if (lost) throw notFound(lost[1]!, lost[2]!)
-    // The module under test imports a name that the mock does not have.
+    // The code under test imports a name that the mock does not
+    // have, and the real module does not have it.
     const message = error instanceof SyntaxError ? error.message : ''
-    const node = /module '([^']+)' does not provide an export named '([^']+)'/.exec(message)
-    const onBun = /Export named '([^']+)' not found in module 'ubqmock:\d+:([^']+)'/.exec(message)
-    const [from, name] = node ? [node[1]!, node[2]!] : onBun ? [rel(onBun[2]!), onBun[1]!] : []
-    if (!name || ![...deps.values()].some(exports => !(name in exports))) throw error
+    const node = /module '([^']+?)(?:\?mock=\d+)?' does not provide an export named '([^']+)'/.exec(message)
+    const onBun = /export '([^']+)' not found in '([^']+?)(?:\?mock=\d+)?'/.exec(message)
+    const [from, name] = node ? [node[1]!, node[2]!] : onBun ? [onBun[2]!, onBun[1]!] : []
+    if (!name || !from || !deps.has(from)) throw error
     throw new Error(
-      `the mock of ${from} has no export "${name}", and the code under test imports it. Add "${name}" to the mock.`,
+      `the code under test imports "${name}" from ${nameOfMock(from)}. The mock does not have it, and the real module does not have it.`,
     )
   }
 }

@@ -1,6 +1,6 @@
 // `spy` and `spyOn`. See docs/05-api.md, section 6.
 import { TEST_CONSOLE } from './capture.ts'
-import { cleanup } from './fixtures.ts'
+import { changed, cleanup } from './fixtures.ts'
 import { counted } from './counted.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,6 +129,7 @@ export const spyOn = <T extends object, K extends MethodKeys<T>>(object: T, key:
   cleanup(() => {
     if (own) Object.defineProperty(owner, key, own)
     else delete owner[key]
+    changed(owner, key)
   })
   // The original can be on the prototype, or have no setter.
   Object.defineProperty(owner, key, {
@@ -137,5 +138,6 @@ export const spyOn = <T extends object, K extends MethodKeys<T>>(object: T, key:
     writable: true,
     enumerable: own?.enumerable ?? false,
   })
+  changed(owner, key)
   return replacement
 }

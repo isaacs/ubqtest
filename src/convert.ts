@@ -345,7 +345,7 @@ const TODO = {
   skip: "Give the reason: { skip: 'the reason' }.",
   context: 'ubq has no test object. Use the functions of ubqtest in place of the parameter of this test function.',
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
-  mock: "Use mockImport in each test that needs the mock: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { ...(await import('<the dependency>')), fn: spy(impl) }]]). The paths are from this test file. The mock replaces the dependency in each project module of the new instance, not in a package of node_modules: if only a package imports the dependency, see \"A dependency of a dependency\" in ubq guide. Each call gives a new instance.",
+  mock: "Use mockImport: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { fn: spy(impl) }]]). The mock gives only the exports to replace: each other export is the real one. For a mock that each test needs, call it one time at the top level of the file, with the mock object in a const: spyOn(mock, 'fn', impl) then changes it for one test. The paths are from this test file. The mock replaces the dependency in each project module of the new instance, not in a package of node_modules: if only a package imports the dependency, see \"A dependency of a dependency\" in ubq guide.",
   spyImpl:
     'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). For a result that changes, the implementation reads a variable: let result = 1; const s = spy(() => result). For a different result in each call: spy.results(a, b), or for an async function spy.results(Promise.resolve(a), Promise.reject(error)). A call after the last result throws. A call is spy.calls[i]: { args, result, error }.',
   spyClear:
@@ -432,9 +432,9 @@ const VI: Record<string, string> = {
   hoisted:
     'ubq has no hoisting. Make these values at the top level of the file, before the code that uses them, or in the test.',
   resetModules:
-    "Use mockImport(() => import('<the module>'), []) in the test. It gives a new instance of the module, and of the project modules that it imports.",
+    "Use mockImport(() => import('<the module>'), []) in the test. It gives a new instance of the module. A project module that it imports is new only if it is in the list: [() => import('<the dependency>'), {}].",
   importActual:
-    "Use await import('<the module>'). In a mock of mockImport, spread it: { ...(await import('<the module>')), fn }.",
+    "A mock of mockImport gives only the exports to replace, and each other export is the real one: delete this call and its spread. For the real module in other code: await import('<the module>').",
 }
 
 /** The width of a line of a TODO comment, unless the indent is deep. */
@@ -1329,7 +1329,7 @@ export const convertSource = (
     const module = namespaces.get(name!)
     if (!module) return undefined
     const k = key?.type === 'Literal' && typeof key.value === 'string' ? key.value : 'name'
-    return `spyOn cannot replace an export of a module: ${name} is the module '${module}', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('${module}'), { ...${name}, ${k}: spy(impl) }]]). Then call the code of subject, not of the import at the top of the file, and assert on the spy.`
+    return `spyOn cannot replace an export of a module: ${name} is the module '${module}', and the code under test has its own import of it. Use mockImport: const subject = await mockImport(() => import('<the module under test>'), [[() => import('${module}'), { ${k}: spy(impl) }]]). The other exports of the module are the real ones. Then call the code of subject, not of the import at the top of the file, and assert on the spy.`
   }
   /**
    * The TODO text for a spy assertion on a name that is an import

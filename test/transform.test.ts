@@ -135,9 +135,11 @@ test('a mock in a new instance, at each depth', async () => {
     p.write('src/five.ts', 'const five = 5\nexport = five\n')
     p.write('src/lost.ts', "import './nope'\n")
     p.write('src/late.ts', 'export const late = 1\n')
+    p.write('src/sep.ts', "import { join, sep } from 'path'\nexport const both = (): string => sep + join('a', 'b')\n")
     p.write(
       'spec/mock.spec.ts',
       `import { EOL } from 'node:os'
+import { join } from 'node:path'
 import { assert, mockImport, test } from 'ubqtest'
 import { first } from '../src/first'
 
@@ -149,6 +151,12 @@ test('the modules of an instance', async () => {
     [() => import('../src/name'), { default: () => 'mock' }],
   ])
   assert.equal(mocked.first(), 'a1A1numbermock!true')
+  // An empty mock: the real exports, from a new instance of the module.
+  const again = await mockImport(() => import('../src/first'), [[() => import('../src/dep'), {}]])
+  assert.equal(again.first(), first())
+  // An export that the mock of a module of Node does not have is the real one.
+  const { both } = await mockImport(() => import('../src/sep'), [[() => import('path'), { sep: '!' }]])
+  assert.equal(both(), '!' + join('a', 'b'))
   assert.equal((await mockImport(() => import('../src/five'), [])).default, 5)
   await assert.rejects(mockImport(() => import('../src/lost'), []), /Cannot find module '\\.\\/nope'/)
   // A module that loads after a mock, and is in no instance.
@@ -194,7 +202,7 @@ test('the modules of an instance', async () => {
     )
     assert.deepEqual(
       [entries.length, entries.every(e => e.format === 'commonjs' && e.js.includes('exports'))],
-      [13, true],
+      [14, true],
     )
     // One file runs in the process of the runner.
     const one = p.ubq('spec/a.spec.ts')

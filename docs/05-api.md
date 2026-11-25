@@ -428,6 +428,29 @@ const subject = await mockImport(
 - The first argument loads the module under test. The result is a
   new instance of that module, with its own state.
 - Each pair names a dependency and the exports that replace it.
+  A mock gives only the exports to replace (D143): each other
+  export is the real one, from a new instance of the dependency.
+  The real dependency loads only for a file that uses an export
+  that the mock does not have. The library reads the names from
+  the text of the imports of that file. A file that imports the
+  whole module (`import * as`, `import()`, `require()`) loads the
+  real one.
+- A default import of a dependency whose mock has no `default`
+  gets the real default export with the exports of the mock on
+  top. If the real module has no default export, it gets the mock
+  object.
+- A project module is new in the instance only if it is the
+  module under test, a mocked module, or a module that imports a
+  mock, directly or through other project modules (D143). Each
+  other module is the one that the test file has. The library
+  finds the imports by their text when the call starts. An empty
+  mock (`{}`) makes a module new with no change to it.
+- `spyOn(mock, key, impl)` and `stub(mock, key, value)` on a mock
+  object change the export in each instance that has the mock,
+  until the test ends (D143). So one `mockImport` call at the top
+  level of a file is a mock for each test, and a test can change
+  it. A plain assignment to the mock object does not change the
+  instance.
 - All types come from the `import()` expressions. A mock with a
   wrong signature, or a key that the real module does not export,
   is a compile error.
@@ -447,21 +470,21 @@ the real dependency.
   `readdirSync: fakeReaddir as typeof fs.readdirSync`. A function
   with properties, such as `realpathSync` with `.native`, needs
   `as unknown as typeof fs.realpathSync`.
-- The module under test gets a new instance, and so does each
-  project module that it imports. Packages in `node_modules` and
-  builtins are not loaded again.
-- If the code under test imports a name that the mock does not
-  have, the call fails with an error that names the export to add.
-- A mock with no `default` export gets one: the mock object. So
-  `import fs from 'node:fs'` works with a mock of named exports.
+- Packages in `node_modules` and builtins are not loaded again.
+- If the code under test imports a name that the mock and the
+  real module do not have, the call fails with an error that
+  names the export and the module.
 - A CommonJS module is in the instance too (D111): the JavaScript
   of the `transform` key can be CommonJS. Node keeps one module
   for each file, and a `require` does not go through the resolve
   hook with the URL of the instance. So the load hook gives each
   CommonJS module of an instance its own `require`, which gives
   the mock of a mocked dependency, and loads a new module for
-  each project file, one time for each instance. In a CommonJS
-  instance, a dependency that is an ES module is not new.
+  each project file that is new in the instance, one time for
+  each instance. The mock that `require` gives reads an export
+  that it does not have from the real module, which loads at the
+  first such read. In a CommonJS instance, a dependency that is
+  an ES module is not new.
 
 Built in `src/mock.ts`. Node and Deno use the hooks of
 `module.registerHooks`. Bun has no such hooks, so the library uses

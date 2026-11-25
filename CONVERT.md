@@ -624,9 +624,9 @@ Things to check by hand:
 - **`vi.spyOn(module, 'name')`, where `module` is `import * as
   module`.** The exports of a module cannot change, so `spyOn`
   cannot replace one. The command leaves the call with a TODO.
-  Use `mockImport` (see `vi.mock` below). The mock must have each
-  export that the code under test imports, so spread the real
-  module: `{ ...module, name: spy(impl) }`. A converted assertion
+  Use `mockImport` (see `vi.mock` below), with only that export
+  in the mock: `{ name: spy(impl) }`. The other exports are the
+  real ones. A converted assertion
   on a name of such a module (`assert(name.calls.length > 0)`)
   gets a TODO too: the name is the real export, not a spy. Assert
   on the spy that the mock has.
@@ -718,50 +718,45 @@ Things to check by hand:
   command line.
 - **`vi.mock(path)`, `jest.mock(path)`.** These change the module
   for the whole file. `mockImport` gives a new instance of the
-  module under test with its dependency replaced, in one test:
+  module under test with its dependency replaced. At the top
+  level of the file, that instance is for each test, as with
+  `vi.mock`:
 
   ```ts
+  const payment = { charge: spy(async () => ({ id: 'r1' })) }
   const { checkout } = await mockImport(() => import('../src/cart.ts'), [
-    [() => import('../src/payment.ts'), { charge: spy(async () => ({ id: 'r1' })) }],
+    [() => import('../src/payment.ts'), payment],
   ])
   ```
 
-  The test then uses `checkout` from that instance, not from the
-  import at the top of the file.
+  The tests then use `checkout` from that instance, not from an
+  import at the top of the file. Remove that import.
 
-  - The mock must have each export of the dependency that the
-    code under test imports. To change only some, spread the real
-    module: `{ ...(await import('../src/payment.ts')), charge }`.
+  - The mock gives only the exports to replace. Each other export
+    is the real one, so a factory that spreads the real module
+    (`...(await vi.importActual(path))`) needs no spread.
+    `vi.mock(path)` with no factory makes each export a spy that
+    returns `undefined`: write a spy for each export that the test
+    uses.
+  - To change a mock for one test (`mockReturnValue` on a mocked
+    export, `vi.mocked(fn).mockImplementation(impl)`), use
+    `spyOn(payment, 'charge', impl)`. The change is in the
+    instance, and the old value comes back when the test ends.
   - The mock replaces the dependency in each project module that
     the new instance imports, at each depth. It does not replace
     it in a package of `node_modules`: see "A dependency of a
     dependency" in `ubq guide`.
-  - Each call gives a new instance of the module under test and of
-    the project modules that it imports. A class or an object of
-    that instance is not the one of the import at the top of the
-    file: `instanceof` with the class of the top import is false.
-    To spy on a module that the code shares, such as a logger, put
-    that module in the list too.
-  - A module with state that the test and the code under test
-    must share needs the same: a React context, a store, a client
-    that the module makes one time. The new instance has its own
-    copy, so a provider of the test file and a consumer of the new
-    instance do not see each other, and a "was not called" check
-    passes for the wrong reason. Give the copy of the test file as
-    the mock, with all its exports:
-    `[() => import('../src/context.ts'), await import('../src/context.ts')]`.
-  - A package of the same monorepo that the package manager links
-    (pnpm, npm workspaces) is a project module for `mockImport`,
-    not a package in `node_modules`: each call loads it again. If
-    that is slow, or if its state must be the same, give it as a
-    mock in the same form.
+  - Only the module under test, and the project modules that
+    import a mock, are new in the instance. Each other module is
+    the one that the test file imports: a class, a React context,
+    or a store is the same in the test and in the code under
+    test.
   - `vi.mocked(x)` only changes the type of `x`. Use the spy that
     you gave to the mock.
-  - For a mock that each test of a large file needs, call
-    `mockImport` one time at the top level of the file: `const {
-    checkout } = await mockImport(...)`. All tests then share that
-    instance, with its state, and the calls of its spies: a test
-    that counts calls sets `s.calls.length = 0` first.
+  - The spies of a mock at the top level keep their calls from
+    test to test. A test that counts calls makes its own spy with
+    `spyOn(payment, 'charge')`, or a `beforeEach` hook sets
+    `payment.charge.calls.length = 0`.
 - **`mockReturnValue`, `mockResolvedValue`, `mockImplementation`.**
   A spy gets its implementation when it is made: `spy(() => 1)`,
   `spy(async () => value)`. The command converts a call that is
@@ -856,7 +851,9 @@ Things to check by hand:
   assert.eventually(() => value, pattern)`.
 - **`vi.resetModules()` with a dynamic import.** `await
   mockImport(() => import('../src/a.ts'), [])` gives a new
-  instance of the module.
+  instance of the module. A module that it imports is new too
+  only if it is in the list: `[() => import('../src/config.ts'),
+  {}]`.
 - **`beforeEach` and the other hooks.** See "Hooks".
 - **Globals.** jest gives `describe`, `it`, and `expect` with no
   import. ubq has no globals. The command adds the import.
