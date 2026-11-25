@@ -3587,12 +3587,14 @@ the first three items.
 - A run where tests ran and each one skipped exits 0, with
   `pass:`. Exit code 2 is for a run with no test file or no
   selected test, as section 9 of `docs/04-architecture.md` says.
-- `UBQ_COVERAGE_CHECK=off` turns off `"coverage": "full"` for one
+- `UBQ_COVERAGE_CHECK=0` turns off `"coverage": "full"` for one
   run, such as a CI job on Windows where many tests skip. The user
   chose an environment variable. A config key per system would
   need more shape, and a CLI flag is not the place for a policy.
   `UBQ_COVERAGE` already selects the collector (`v8`), so the
-  name is a different one. Any value but `off` is an error.
+  name is a different one. The value is `0` or `1` (`1` keeps the
+  config), and any other value is an error. Not `off`: YAML reads
+  an unquoted `off` as `false`.
 - No hint for a range that an earlier run covered (glob item 9).
   The cause in glob was the order of its walks.
 - The run record has the version of ubq, in `env` (key `ubq`). If

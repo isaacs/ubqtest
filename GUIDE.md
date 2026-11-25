@@ -1038,7 +1038,7 @@ turns off the type check of each run. `"coverage": "full"` fails a
 run of all tests if code ran in no test: the code that `ubq
 uncovered` lists. The output shows fewer than 5 of them, or else
 names the command. A run of some tests does not check.
-`UBQ_COVERAGE_CHECK=off` turns the check off for one run, such as
+`UBQ_COVERAGE_CHECK=0` turns the check off for one run, such as
 in a CI job on a system where many tests skip. `transform`
 is in "Source
 that Node cannot run". A folder

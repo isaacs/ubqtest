@@ -474,6 +474,8 @@ All entries are from 2026-11-11 to 2026-11-14.
     not change it.
   - The workspaces of a monorepo run at the same time (D140), and
     share the slots of one run.
+  - `UBQ_COVERAGE_CHECK` is `0` or `1`, not `off`: YAML reads an
+    unquoted `off` as `false`.
   - The guide is a core and topics (D138): `ubq guide` prints the
     core, about 500 lines, and the list of topics. `ubq guide
     <topic>` prints one, and `ubq guide all` prints all.
