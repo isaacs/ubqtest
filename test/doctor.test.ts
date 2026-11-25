@@ -48,7 +48,7 @@ test('doctor states the fix for each problem of the setup', () => {
   p.configure({ include: ['*.ts'], retries: 2 })
   assert.equal(
     doctor().lines[1],
-    'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define, transform, env, skipTypecheck, coverage',
+    'FIX  unknown key "retries" in "ubq" in package.json. The keys are: include, exclude, helpers, build, timeout, hangRerun, bunInspectorCoverage, browser, workers, define, transform, env, skipTypecheck, coverage, dom',
   )
 
   p.configure({ include: ['*.ts'] })
@@ -175,7 +175,7 @@ test('guide prints the core of the guide, one topic, or all of it', () => {
   assert.match(core, /\n## Topics\n[^]*\| `ubq guide requirements` \| Requirements \| [^\n]+\|\n$/)
   // Each topic is one section of the guide, after the core.
   const topics = [...core.matchAll(/^\| `ubq guide (\S+)` \| ([^|]+?) \|/gm)]
-  assert.equal(topics.length, 12)
+  assert.equal(topics.length, 13)
   for (const [, topic, heading] of topics) {
     const part = p.ubq('guide', topic!).out
     assert(part.startsWith(`## ${heading}\n`), `${topic}: ${part.slice(0, 80)}`)

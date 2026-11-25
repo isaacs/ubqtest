@@ -576,6 +576,7 @@ whole guide.
 | `ubq guide stored` | Questions about stored runs | an earlier run, a flaky or slow test, coverage, SQL, a run that does not end |
 | `ubq guide ci` | CI | GitHub Actions: annotations, the cache, the summary, a review comment |
 | `ubq guide agents` | Agents | the skill, and the stop hook of Claude Code |
+| `ubq guide dom` | Tests with a DOM | a component, Testing Library, jsdom, happy-dom |
 | `ubq guide browser` | Tests in a browser | code that runs in a browser |
 | `ubq guide runtimes` | Code for more than one runtime or system | code that runs only on Bun, Deno, or one system |
 | `ubq guide processes` | Tests that start a process | a test that starts a command or a server |
@@ -762,6 +763,87 @@ Claude Code cannot end its turn: it gets the report and works on.
 When it stops again with the same report, the hook lets it stop,
 so that it can tell the user what it could not do. A different
 report blocks again.
+
+## Tests with a DOM
+
+For code that reads `document` or `window`, such as a component of
+React, Vue, Svelte, or Preact, with no browser. The `dom` key
+gives a test file the DOM of jsdom or of happy-dom, as the
+`environment` of vitest and the `testEnvironment` of jest do. Set
+up one time:
+
+```
+npm install --save-dev jsdom
+```
+
+```json
+{ "ubq": { "dom": { "package": "jsdom", "include": ["src/**/*.test.tsx"] } } }
+```
+
+| Key | Meaning |
+| --- | --- |
+| `package` | `"jsdom"` or `"happy-dom"`. The project must have the package. |
+| `include` | Glob patterns of the test files that get the DOM, from the project root. With no `include`, each test file gets it. A DOM takes time to load: give it only to the files that need it. |
+| `url` | The address of the page. The default is `http://localhost:3000/`. |
+
+The test process makes the DOM before the test file loads. So a
+library that reads `document` when it loads, such as Testing
+Library, works with no setup, and with its imports in each order:
+
+```ts
+import { fireEvent, render, screen } from '@testing-library/react'
+import { assert, test } from 'ubqtest'
+import { Counter } from '../src/Counter.tsx'
+
+test('a click adds one', () => {
+  render(<Counter />)
+  fireEvent.click(screen.getByRole('button'))
+  assert.equal(screen.getByRole('button').textContent, 'count 1')
+})
+```
+
+- The globals are those of a page: `window`, `document`,
+  `navigator`, `location`, `localStorage`, `HTMLElement`, `Event`,
+  `getComputedStyle`, and each other name of the window. `window`
+  is `globalThis`.
+- The timers, `URL`, `TextEncoder`, `crypto`, `performance`, and
+  `console` are those of the runtime. So `fakeClock` works. With
+  jsdom, `fetch`, `Request`, `Response`, and `Headers` are those
+  of the runtime, and they take a signal of the `AbortController`
+  of the page. happy-dom has its own.
+- **What a test renders goes away when the test ends.** In a test
+  file with a DOM, `beforeAll`, `afterAll`, `beforeEach`, and
+  `afterEach` are also globals. Testing Library looks for a global
+  `afterEach` when it loads, and gives it its `cleanup`. Do not
+  call that `cleanup` in the test. Import the hooks in your own
+  code, as in each other test file.
+- One DOM is for the whole test file. `document.body` is empty at
+  the start of a test only if the test before removed what it
+  added: Testing Library does. A value that a test sets, such as
+  `localStorage` or `location`, stays for the next test. Put it
+  back with `cleanup()`, or set it in a `beforeEach` hook.
+- To set a property of the page that the DOM does not have, or to
+  change one: `stub(window, 'matchMedia', fn)`,
+  `stub(window, 'innerWidth', 500)`. The old value comes back when
+  the test ends.
+- With jsdom, `jsdom` is a global, as in jest and vitest:
+  `jsdom.reconfigure({ url: 'http://localhost/page' })`.
+- jest-dom checks (`toBeInTheDocument`, `toHaveTextContent`) are
+  for `expect`, which ubq does not have. Assert on the element:
+  `assert(screen.queryByRole('alert'))`,
+  `assert.equal(element.textContent, 'saved')`,
+  `assert.equal(input.value, 'x')`.
+- Node does not run JSX, and the `transform` key does not compile
+  it. Run `.tsx` and `.jsx` test files on Bun: `bun
+  node_modules/ubqtest/cli.js`. On Node, a file with no JSX can
+  use `createElement`.
+- Run a test file with a DOM with `ubq`. As a plain program (`node
+  file`), the DOM exists only after `ubqtest` loads: a library
+  that the file imports above `ubqtest` then finds no `document`.
+- The key is for Node and Bun. jsdom and happy-dom do not load in
+  a test process of Deno.
+- A DOM is not a browser: it has no layout, no navigation, and no
+  real focus. For those, see `ubq guide browser`.
 
 ## Tests in a browser
 

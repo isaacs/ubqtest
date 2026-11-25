@@ -632,6 +632,10 @@ All entries are from 2026-11-11 to 2026-11-14.
   - `mockImport`: a mock gives only the exports to replace, a
     module is new only if it imports a mock, and `spyOn` or `stub`
     on a mock object changes the instance for one test (D143).
+  - The `dom` key: a test file gets the DOM of jsdom or of
+    happy-dom before it loads, and Testing Library works with no
+    setup. `ubq convert` writes the key (D144). Not on Deno.
+    `.tsx` files still need Bun.
 
 ## Open, waiting for a decision
 

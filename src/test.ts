@@ -237,6 +237,17 @@ export const describe: Describe = (name: string, a: TestOptions | (() => void), 
 
 type HookKind = 'beforeAll' | 'afterAll' | 'beforeEach' | 'afterEach'
 
+// The hooks that a library gave to the global hooks of a test file
+// with a DOM (src/dom.ts), before and after this module loaded. They
+// are hooks of the file.
+const early = (globalThis as { [key: symbol]: unknown })[Symbol.for('ubq.hooks')] as
+  | [kind: HookKind, fn: () => unknown][]
+  | undefined
+if (early) {
+  early.push = (...hooks) => hooks.reduce((_, [kind, fn]) => root[kind].push(fn), 0)
+  for (const [kind, fn] of early.splice(0)) root[kind].push(fn)
+}
+
 /** Adds a hook to the group whose function runs now, or to the file. */
 const addHook = <K extends HookKind>(kind: K, fn: Group[K][number], more: unknown[]): void => {
   if (current.getStore() || hook.group)

@@ -535,10 +535,7 @@ it('a', () => { expect(s).toHaveBeenCalled() })
 `)
   assert(r)
   assert.deepEqual(r.code, [
-    '/** @vitest-environment jsdom */',
-    ...todo(
-      'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
-    ),
+    // The comment for the environment goes away: the dom key has the file.
     "import { assert, beforeAll, spy, test } from 'ubqtest'",
     ...todo(
       'Node runs TypeScript with the types removed, and it cannot run an enum. Make it an object: const Name = { A: 0, B: 1 } as const.',
@@ -1252,16 +1249,18 @@ test('the report of the command: a number for each hint, and the text of a hint 
   mkdirSync(join(p.dir, 'old'))
   writeFileSync(
     join(p.dir, 'old/a.test.ts'),
-    `import { beforeEach, expect, it } from 'vitest'
+    `import { afterEach, beforeEach, expect, it } from 'vitest'
 it.skip('a', () => {})
 beforeEach(() => reset(), 1000)
 it.skip('b', () => {})
+// A hook that calls a name that the file does not declare.
+afterEach(() => reset())
 `,
   )
   // A helper with no tests: its name is not a problem.
   writeFileSync(join(p.dir, 'old/helper.ts'), "import { vi } from 'vitest'\nexport const fake = () => vi.fn()\n")
   assert.deepEqual(p.ubq('convert', '--dry', 'old').out.split('\n'), [
-    'to convert old/a.test.ts (vitest): 4 changes, 3 TODO',
+    'to convert old/a.test.ts (vitest): 5 changes, 3 TODO',
     '  old/a.test.ts:2  [1] Give the reason:',
     '  old/a.test.ts:4  [2] A hook of ubq takes one argument, the function.',
     '  old/a.test.ts:10  [1] Give the reason:',
@@ -2755,14 +2754,8 @@ describe('service', () => {
     [r?.framework, r?.todos.length, r?.code.trimEnd()],
     [
       'jest',
-      8,
+      7,
       `import { assert, describe, isMatch, test } from 'ubqtest';
-// TODO(ubq): This file needs a DOM. ubq has no test environment. For a
-// library that reads the document when it loads, such as Testing Library,
-// make the DOM in a helper file that then loads the library, and import
-// render and screen from that file: see "Testing Library" in \`ubq guide
-// convert\`. For other tests, make the DOM in each test that needs it, with
-// a function that stubs the globals: see "A DOM".
 // TODO(ubq): The imports of an ES module run before this line, also the
 // imports below it. If a module reads this value while it loads, load that
 // module after this line: const { name } = await import(path). If no

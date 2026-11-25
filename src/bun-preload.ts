@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { announce } from './child-coverage.ts'
 import { setDefines } from './config.ts'
 import { startCounters } from './counter-collector.ts'
+import { setDom } from './dom.ts'
 import { SOURCE } from './counters.ts'
 import { projectRoot } from './project.ts'
 
@@ -22,6 +23,7 @@ declare const Bun: {
 }
 
 setDefines()
+setDom(process.env.UBQ_FILE)
 const counters = startCounters()
 if (counters) {
   // The processes that the tests start count too (D53).

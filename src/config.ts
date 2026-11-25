@@ -34,6 +34,15 @@ export interface Config {
   skipTypecheck?: boolean
   /** "full": a run of all tests fails if code ran in no test (D130). */
   coverage?: 'full'
+  /** The DOM of the test files, or of those that `include` names (D144). */
+  dom?: Dom
+}
+
+/** The `dom` key: the package that makes the DOM, the test files that get it, and the address of the page. */
+export interface Dom {
+  package: 'jsdom' | 'happy-dom'
+  include?: string[]
+  url?: string
 }
 
 /** An error in the command or in the configuration. Exit code 4. */
@@ -61,6 +70,17 @@ const workers = (v: unknown): boolean =>
     const object = vars === undefined || (typeof vars === 'object' && !!vars && !Array.isArray(vars))
     return typeof config === 'string' && !!config && globs(include) && object && !Object.keys(more).length
   })
+
+const dom = (v: unknown): boolean => {
+  if (typeof v !== 'object' || !v || Array.isArray(v)) return false
+  const { package: name, include, url, ...more } = v as Record<string, unknown>
+  return (
+    (name === 'jsdom' || name === 'happy-dom') &&
+    (include === undefined || globs(include)) &&
+    (url === undefined || (typeof url === 'string' && URL.canParse(url))) &&
+    !Object.keys(more).length
+  )
+}
 
 const define = (v: unknown): boolean =>
   typeof v === 'object' && !!v && !Array.isArray(v) && Object.keys(v).every(name => /^[A-Za-z_$][\w$]*$/.test(name))
@@ -99,6 +119,10 @@ const KEYS: Record<keyof Config, [check: (v: unknown) => boolean, form: string]>
   ],
   skipTypecheck: [v => typeof v === 'boolean', 'true or false'],
   coverage: [v => v === 'full', '"full"'],
+  dom: [
+    dom,
+    'an object with "package" ("jsdom" or "happy-dom"), and "include" for the test files that get the DOM, and "url" for the address of the page, such as { "package": "jsdom", "include": ["src/**/*.test.tsx"] }',
+  ],
 }
 
 let cached: Config | undefined
@@ -125,6 +149,12 @@ export const config = (): Config => {
     if (!known[0](value)) throw new UsageError(`"ubq.${key}" in package.json must be ${known[1]}`)
   }
   return (cached = raw as Config)
+}
+
+/** The `dom` key, if the test file `file` gets a DOM. `file` is a path from the project root. */
+export const domOf = (file: string): Dom | undefined => {
+  const key = config().dom
+  return key && (key.include?.some(pattern => matchesGlob(file, pattern)) ?? true) ? key : undefined
 }
 
 /**

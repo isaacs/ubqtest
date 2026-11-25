@@ -17,7 +17,7 @@ import { OLD_TOOL } from './doctor.ts'
 import { projectRoot, rel } from './project.ts'
 import { type Transformer, transformer } from './transform.ts'
 import { setupTransform } from './transform-setup.ts'
-import { playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
+import { jestEnvironment, playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
 import { counted } from './counted.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
@@ -34,6 +34,12 @@ export interface Converted {
   todos: { line: number; text: string }[]
   /** The count of `toEqual` calls that became `assert.deepEqual`. */
   toEqual: number
+  /**
+   * The DOM that the file asks for in a comment, or `true` for a
+   * file that imports Testing Library and names none. The `dom` key
+   * of the configuration gives the file its DOM.
+   */
+  dom?: 'jsdom' | 'happy-dom' | true
 }
 
 type Parse = (source: string, file: string) => Node
@@ -372,7 +378,6 @@ const TODO = {
     'This call is in a callback that is not async. The functions of the clock return a promise, and a callback with await is async: the code that calls it then gets a promise. If you can, move this call and the code after it out of the callback, into the test, and return from the callback the values that this code needs. If the code must run in the callback, make the callback async only if the code under test awaits its callback.',
   testValue:
     "ubq has no test.skip and no test.only. For a function that skips a test: (name: string, fn: () => void) => test(name, { skip: 'the reason' }, fn).",
-  dom: 'This file needs a DOM. ubq has no test environment. For a library that reads the document when it loads, such as Testing Library, make the DOM in a helper file that then loads the library, and import render and screen from that file: see "Testing Library" in `ubq guide convert`. For other tests, make the DOM in each test that needs it, with a function that stubs the globals: see "A DOM".',
 } as const
 
 /** The compiler of the `transform` key. Undefined if the project has no such key. Null before the first use. */
@@ -2889,23 +2894,23 @@ export const convertSource = (
     return rewrite(node, use, args)
   }
 
-  const first = (program.body as Node[])[0]
-  // `@jest-environment node` is the environment of ubq.
+  // The comment that names the environment of the file goes away:
+  // the `dom` key of the configuration has the files with a DOM.
   const docblock =
-    /\/\*[\s*]*@(?:vitest|jest)-environment\s+node[\s*]*\*\/[ \t]*\r?\n?/.exec(source) ??
-    /^[ \t]*\/\/\s*@(?:vitest|jest)-environment\s+node[ \t]*\r?\n?/m.exec(source)
+    /\/\*[\s*]*@(?:vitest|jest)-environment\s+(node|jsdom|happy-dom)[\s*]*\*\/[ \t]*\r?\n?/.exec(source) ??
+    /^[ \t]*\/\/\s*@(?:vitest|jest)-environment\s+(node|jsdom|happy-dom)[ \t]*\r?\n?/m.exec(source)
   const imports = (module: RegExp): boolean =>
     (program.body as Node[]).some(
       node => node.type === 'ImportDeclaration' && module.test(String((node.source as { value?: unknown }).value)),
     )
   // A file that asks for a DOM, or that uses a library that needs
-  // one. A file with the node environment that imports jsdom makes
-  // its own DOM.
-  const dom =
-    /@(vitest|jest)-environment\s+(jsdom|happy-dom)\b/.test(source) ||
-    imports(/^@testing-library\//) ||
-    (!docblock && imports(/^(jsdom|happy-dom)$/))
-  if (first && dom) todo([program, first], TODO.dom)
+  // one. A file with the node environment makes its own DOM.
+  const dom: Converted['dom'] =
+    docblock?.[1] === 'jsdom' || docblock?.[1] === 'happy-dom'
+      ? docblock[1]
+      : !docblock && imports(/^@testing-library\//)
+        ? true
+        : undefined
   if (docblock) {
     replace(docblock.index, docblock.index + docblock[0].length, '')
     changes++
@@ -3364,7 +3369,7 @@ export const convertSource = (
     // The report has the full text of each TODO.
     found.push({ line: i + 1, text: full.get(message) ?? message })
   })
-  return { code, framework, changes: changes + removed.length, todos: found, toEqual }
+  return { code, framework, changes: changes + removed.length, todos: found, toEqual, ...(dom && { dom }) }
 }
 
 /** A file that can have code. Not a declaration file. */
@@ -3573,6 +3578,11 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   const written: string[] = []
   /** Files that still name a test tool that the project removes. */
   const old: string[] = []
+  /** The test files that need a DOM, and the package that a comment of one of them names. */
+  const domFiles: string[] = []
+  let domPackage: 'jsdom' | 'happy-dom' | undefined
+  /** True if a file had tests of jest. */
+  let jest = false
   for (const path of files.sort()) {
     const file = rel(path)
     let result: Converted | undefined
@@ -3602,6 +3612,11 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     }
     if (OLD_TOOL.test(result.code)) old.push(file)
     if (result.framework === 'playwright') playwright = true
+    if (result.framework === 'jest') jest = true
+    if (result.dom) {
+      domFiles.push(file)
+      if (result.dom !== true) domPackage ??= result.dom
+    }
     changed++
     todos += result.todos.length
     toEqual += result.toEqual
@@ -3727,23 +3742,45 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     children,
     (vitest?.projects ?? []).flatMap(project => project.setupFiles),
   )
-  for (const key of ['define', 'env'] as const) {
-    if (!defined || config()[key] || !Object.keys(defined[key]).length) continue
+  // The environment of the old config is the DOM of each test file.
+  // With no DOM in the config, the files that ask for one get it.
+  const environment = defined?.environment ?? jestEnvironment(root)
+  const keys = {
+    define: defined?.define ?? {},
+    env: defined?.env ?? {},
+    dom: environment
+      ? // The page of jest has this address.
+        { package: environment, ...(jest && { url: 'http://localhost/' }) }
+      : domFiles.length
+        ? { package: domPackage ?? 'jsdom', include: domFiles.sort() }
+        : {},
+  }
+  for (const key of ['define', 'env', 'dom'] as const) {
+    if (config()[key] || !Object.keys(keys[key]).length) continue
     const pkgPath = join(root, 'package.json')
     let wrote = false
     if (!dry)
       try {
         const text = readFileSync(pkgPath, 'utf8')
         const pkg = JSON.parse(text) as { ubq?: Record<string, unknown> }
-        pkg.ubq = { ...pkg.ubq, [key]: defined[key] }
+        pkg.ubq = { ...pkg.ubq, [key]: keys[key] }
         writeFileSync(pkgPath, JSON.stringify(pkg, null, /^\{\n(\s+)/.exec(text)?.[1] ?? 2) + '\n')
         wrote = true
       } catch {
         // No package.json that is JSON. The text below has the key.
       }
     out(
-      `${wrote ? `wrote "ubq.${key}" to package.json` : 'add to "ubq" in package.json'}: "${key}": ${JSON.stringify(defined[key])}`,
+      `${wrote ? `wrote "ubq.${key}" to package.json` : 'add to "ubq" in package.json'}: "${key}": ${JSON.stringify(keys[key])}`,
     )
+    if (key === 'dom') {
+      const name = (keys.dom as { package: string }).package
+      out(
+        `note: the "dom" key gives ${'include' in keys.dom ? counted`${domFiles.length} test file|files` : 'each test file'} the DOM of ${name}, before the file loads. See: ubq guide dom` +
+          (existsSync(join(root, 'node_modules', name))
+            ? ''
+            : `. The project does not have ${name}: npm install --save-dev ${name}`),
+      )
+    }
   }
   for (const note of defined?.notes ?? []) out(`note: ${note}`)
   if (playwright && !config().browser) for (const note of playwrightNotes(root, parse, children)) out(`note: ${note}`)

@@ -857,73 +857,29 @@ Things to check by hand:
 - **`beforeEach` and the other hooks.** See "Hooks".
 - **Globals.** jest gives `describe`, `it`, and `expect` with no
   import. ubq has no globals. The command adds the import.
-- **A DOM (jsdom, happy-dom).** ubq has no test environment. The
-  command writes a TODO in a file with an `@vitest-environment`
-  or `@jest-environment` comment for jsdom or happy-dom. Make the
-  DOM in each test that needs it. `stub` puts each global back
-  when the test ends:
+- **A DOM (jsdom, happy-dom), and Testing Library.** The `dom`
+  key of the ubq configuration gives a test file its DOM before
+  the file loads, as `environment` of vitest and `testEnvironment`
+  of jest do. Read `ubq guide dom`. The command writes the key:
+  - from `test.environment` of the vitest config, or
+    `testEnvironment` of the jest config: each test file gets the
+    DOM. For jest, the key has `"url": "http://localhost/"`, the
+    address of the page of jest;
+  - with no DOM in the config, for the files that have an
+    `@vitest-environment` or `@jest-environment` comment for jsdom
+    or happy-dom, and for the files that import Testing Library.
+    The key lists them in `include`: change the list to a pattern
+    if one fits, such as `"src/**/*.test.tsx"`.
 
-  ```ts
-  import { JSDOM } from 'jsdom'
-  import { cleanup, stub } from 'ubqtest'
-
-  const dom = () => {
-    const { window } = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/' })
-    for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Event'] as const)
-      stub(globalThis, name, window[name] as never)
-    cleanup(() => window.close())
-    return window
-  }
-
-  test('a click', () => {
-    dom()
-    const button = document.createElement('button')
-    // ...
-  })
-  ```
-
-  Add each global that the code under test reads to the list.
-  Put the function in a helper file if more than one test file
-  needs it. Delete the environment comment.
-- **Testing Library (`@testing-library/react` and the others).**
-  The library reads `document` when it loads, so a DOM that one
-  test makes is too late. Make the DOM one time for the test
-  file, in a helper file that then loads the library. The
-  command writes a TODO in each file that imports the library.
-  Each test file is its own process, so the DOM of one file is
-  not the DOM of a second file.
-
-  ```ts
-  // test/dom.ts
-  import { JSDOM } from 'jsdom'
-  import { cleanup } from 'ubqtest'
-
-  const { window } = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/' })
-  // Each name of the window that the test process does not have.
-  for (const name of Object.getOwnPropertyNames(window))
-    if (!(name in globalThis))
-      Object.defineProperty(globalThis, name, {
-        configurable: true,
-        get: () => window[name as keyof typeof window],
-      })
-
-  // After the lines above: the library reads `document` now.
-  const library = await import('@testing-library/react')
-
-  export const { screen, fireEvent, waitFor, act } = library
-  /** Renders, and removes what it made when the test ends. */
-  export const render: typeof library.render = (...args: Parameters<typeof library.render>) => {
-    cleanup(library.cleanup)
-    return library.render(...args)
-  }
-  ```
-
-  A test file imports `render` and `screen` from `./dom.ts`, not
-  from the library. jest and vitest remove each tree after each
-  test with a hook. Here `render` does it with `cleanup()`. A
-  `.tsx` test file needs Bun or Deno: Node does not run JSX. If
-  jsdom is in the project only because jest brought it, add it:
-  `npm install --save-dev jsdom`.
+  The command removes the environment comment. A file with an
+  `@vitest-environment node` comment in a project with a DOM for
+  each file gets the DOM too: use `include` if that file must
+  have none. Testing Library removes what a test rendered when
+  the test ends, as in jest and vitest: a call of its `cleanup` in
+  an `afterEach` hook can go. A `.tsx` test file needs Bun: Node
+  does not run JSX. If jsdom is in
+  the project only because jest brought it, add it: `npm install
+  --save-dev jsdom`.
 - **jest-dom (`toBeInTheDocument` and the others).** The command
   changes the checks of the table above. The others have a TODO:
   read the property of the element, and assert on it. An element

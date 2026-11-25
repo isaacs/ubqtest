@@ -2,6 +2,7 @@
 import { startCapture } from './capture.ts'
 import { setDefines } from './config.ts'
 import { startCoverage } from './coverage.ts'
+import { setDom } from './dom.ts'
 import { type Files, makeTestdir } from './fixtures.ts'
 import { startPlain } from './plain.ts'
 import { startPipe } from './sink-pipe.ts'
@@ -41,6 +42,7 @@ export const testdir = (files?: Files): string => makeTestdir(currentFile(), fil
 // For a plain program. A test process of the runner did this in its
 // preload, before the source loaded.
 setDefines()
+setDom(currentFile())
 // A child of the runner sends its events to the runner. Any other
 // process has the runner role for itself.
 if (process.env.UBQ_CHILD) startPipe()

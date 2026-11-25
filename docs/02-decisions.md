@@ -4012,3 +4012,67 @@ This replaces D88 ("`mockImport` has no partial form").
   module of an instance gets a mock that reads a missing export
   from the real module at the first read.
 
+## D144. The `dom` key: the DOM of jsdom or of happy-dom, before the test file loads (user, 2026-11-25)
+
+Three reports on large projects name the DOM as a blocker: 383,
+110, and 68 test files that need jsdom or happy-dom. With D93, each
+project wrote its own helper, with its own list of globals. It was
+fragile: Testing Library reads `document` when it loads, and a
+module can read `window.localStorage` when it loads. The user: most
+vitest users need this. Give a clear and complete solution.
+
+This replaces D93 ("a DOM is a function in the test file").
+
+- **A key, not an import.** `"dom": { "package": "jsdom",
+  "include": [...], "url": "..." }`. The test process makes the
+  DOM in its preload, before the test file loads. So the order of
+  the imports of the test file does not matter. An import of a
+  module of ubq as the first line would break when a formatter
+  sorts the imports.
+- **Which files.** `include` has glob patterns. With none, each
+  test file gets the DOM. A DOM takes time to load, so a project
+  with tests of both kinds names its files.
+- **The package is the project's.** ubq loads `jsdom` or
+  `happy-dom` from the project. The runner fails with exit code 4,
+  and `ubq doctor` has a `FIX`, if the project does not have it.
+- **The globals.** Each name of the window, and of its prototypes,
+  goes on `globalThis` as a getter that reads the window. A
+  function of the window is bound to it. A name that the runtime
+  has stays, so the timers (and `fakeClock`), `URL`, `crypto`, and
+  `console` are those of the runtime. The names that an element
+  needs from its own window are from the DOM: `Event`,
+  `EventTarget`, `AbortController`, `AbortSignal`, `Blob`, `File`,
+  `FormData`, `DOMException`, the storage, `navigator`,
+  `WebSocket`. `window` is `globalThis`, and
+  `document.defaultView` too.
+- **fetch.** With jsdom, `fetch`, `Request`, `Response`, and
+  `Headers` are those of the runtime. `fetch` and `Request` take a
+  signal of the `AbortController` of the page: the runtime refuses
+  such a signal. With happy-dom, the four are those of happy-dom.
+- **The hooks are globals in such a file.** Testing Library, for
+  each framework, looks for a global `afterEach` when it loads,
+  and gives it the function that removes what a test rendered. With
+  the global, a component test needs no setup file and no call of
+  `cleanup`. The hooks stay imports in each other file (D142).
+- **One DOM for a file.** It is not new for each test, as in jest
+  and vitest.
+- **`jsdom` is a global** with jsdom, as in jest and vitest.
+- **`ubq convert`** writes the key from `test.environment` of a
+  vitest config or `testEnvironment` of a jest config. With no DOM
+  in the config, it lists the files with an environment comment,
+  and the files that import Testing Library, in `include`. It
+  removes the comment, and writes no TODO for a DOM.
+- **Limits.**
+  - Not on Deno. Deno 2.9.6 stops when a process with module hooks
+    loads one of the two packages with `require`. The test process
+    fails with a message that says so.
+  - Node does not run JSX, and the `transform` key does not compile
+    `.tsx` (D111). A `.tsx` test file runs on Bun. This is the
+    largest gap for a React project on Node.
+  - A test file that runs as a plain program gets the DOM when
+    `ubqtest` loads, which can be too late for a library that the
+    file imports first.
+- A fault that this work found: on Bun and Deno, ubq replaced the
+  console with one that has no `timeStamp`. React 19 calls it. The
+  new console keeps each method of the console of the runtime.
+

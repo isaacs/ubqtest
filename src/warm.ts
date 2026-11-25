@@ -3,6 +3,7 @@
 // read of stdin, for its test file and its environment.
 import { readSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import { setDom } from './dom.ts'
 
 const chunks: Buffer[] = []
 const buffer = Buffer.alloc(65536)
@@ -28,4 +29,6 @@ const job = JSON.parse(text) as { file: string; env: Record<string, string> }
 for (const name of Object.keys(process.env)) if (!(name in job.env)) delete process.env[name]
 Object.assign(process.env, job.env)
 process.argv[1] = job.file
+// The preload of this process ran before it had a test file.
+setDom(job.env.UBQ_FILE)
 await import(pathToFileURL(job.file).href)

@@ -20,7 +20,8 @@ import { join, matchesGlob, resolve, sep } from 'node:path'
 import type { Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { conditionsEnv, config, nodeOptions, UsageError } from './config.ts'
+import { conditionsEnv, config, domOf, nodeOptions, UsageError } from './config.ts'
+import { domProblem, setDom } from './dom.ts'
 import { placeFromCache, prepareAll, transformer } from './counter-collector.ts'
 import { uncoveredRanges } from './query.ts'
 import { startCoverage } from './coverage.ts'
@@ -947,6 +948,11 @@ export const run = async (args: string[]): Promise<number> => {
   }
   const cacheDir = join(stateDir(), 'compile-cache')
 
+  // A test file with a DOM cannot load if the DOM cannot.
+  const dom = files.map(f => domOf(f.file)).find(Boolean)
+  const problem = dom && domProblem(dom)
+  if (problem) throw new UsageError(problem)
+
   // The server of the pages, for test files that use the browser.
   const server = await startBrowserServer(files.map(f => f.file))
   if (server) {
@@ -1007,6 +1013,7 @@ export const run = async (args: string[]): Promise<number> => {
     else if (V8) startCoverage(true)
     else await import(NODE_PRELOAD.href)
     process.env.UBQ_FILE = file
+    setDom(file)
     process.env.UBQ_CAPTURE = '1'
     process.env.UBQ_LINES = lines.join(',')
     process.env.UBQ_IDS = JSON.stringify(ids)

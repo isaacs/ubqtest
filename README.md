@@ -32,6 +32,9 @@ that loop.
   `any` for the parts that change. No globals and no `.only`. A form from a
   different tool, such as `assert.ok` or `test.only`, is a type
   error whose message gives the form to use.
+- **A DOM for component tests.** The `dom` key gives a test file
+  the DOM of jsdom or of happy-dom before it loads. Testing
+  Library works with no setup file.
 - **Coverage for each test, always on.** ubq knows which tests
   ran each line. It uses that to run only the tests that a change
   can affect, and to answer questions.

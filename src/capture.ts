@@ -29,7 +29,16 @@ export const startCapture = (file: () => string): void => {
     process[stream].write = writer(file, stream) as typeof process.stdout.write
   // The console of Deno and of Bun does not write through
   // `process.stdout`.
-  if (process.versions.deno || process.versions.bun) globalThis.console = new Console(process.stdout, process.stderr)
+  if (process.versions.deno || process.versions.bun) {
+    const native = globalThis.console as unknown as Record<string, unknown>
+    const made = new Console(process.stdout, process.stderr) as unknown as Record<string, unknown>
+    // The console of the runtime has methods that this class does
+    // not have, such as `timeStamp`. Code that loaded before this
+    // point can call them.
+    for (const [name, value] of Object.entries(native))
+      if (!(name in made)) made[name] = typeof value === 'function' ? value.bind(native) : value
+    globalThis.console = made as unknown as Console
+  }
   const stream = (name: 'stdout' | 'stderr'): Writable => new Writable({ write: writer(file, name, true) })
   const printing = new Console(stream('stdout'), stream('stderr')) as unknown as Record<PropertyKey, unknown>
   const real = globalThis.console as unknown as Record<PropertyKey, unknown>

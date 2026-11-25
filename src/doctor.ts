@@ -131,12 +131,32 @@ export const doctor = (out: (text: string) => void): number => {
 
   let workers: Config['workers']
   let transform: Config['transform']
+  let dom: Config['dom']
   try {
     workers = config().workers
+    dom = config().dom
     // Bun and Deno compile TypeScript themselves.
     if (!v.bun && !v.deno) transform = config().transform
   } catch {
     // The check of the test files above reports this.
+  }
+  if (dom) {
+    let found = true
+    try {
+      createRequire(join(root, 'package.json')).resolve(dom.package)
+    } catch {
+      found = false
+    }
+    if (v.deno)
+      // ubq: not measured: no test runs doctor on Deno with the dom key
+      fix(
+        '"ubq.dom" is set, and jsdom and happy-dom do not load in a test process of Deno. Run the test files that need a DOM on Node or on Bun.',
+      )
+    else if (found) ok(`${dom.package}, for test files with a DOM`)
+    else
+      fix(
+        `"ubq.dom" names the package ${dom.package}, and the project does not have it. Run: npm install --save-dev ${dom.package}`,
+      )
   }
   if (workers) {
     const absent = workers.map(entry => entry.config).filter(path => !existsSync(join(root, path)))

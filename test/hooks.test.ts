@@ -45,7 +45,7 @@ test('a', () => {
 })
 describe('g', () => {
   beforeAll(() => {
-    log('g beforeAll ' + testdir().split('/').pop())
+    log('g beforeAll ' + testdir().split(/[\\\\/]/).pop())
     cleanup(() => log('g cleanup'))
   })
   afterAll(() => log('g afterAll'))

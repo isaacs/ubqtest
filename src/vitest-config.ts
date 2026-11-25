@@ -198,10 +198,19 @@ export const viteDefine = (
   children: Children,
   /** The setup files that have a note of their own: those of a Workers project. */
   noted: string[] = [],
-): { define: Record<string, unknown>; env: Record<string, string>; notes: string[] } | undefined => {
+):
+  | {
+      define: Record<string, unknown>
+      env: Record<string, string>
+      notes: string[]
+      /** `test.environment`, if it is a DOM. */
+      environment?: 'jsdom' | 'happy-dom'
+    }
+  | undefined => {
   const define: Record<string, unknown> = {}
   const env: Record<string, string> = {}
   const notes: string[] = []
+  let environment: 'jsdom' | 'happy-dom' | undefined
   let found = false
   const dir = configFolder(root)
   for (const name of CONFIGS) {
@@ -259,6 +268,8 @@ export const viteDefine = (
         } catch {
           setup.push('not plain text')
         }
+      const kind = get(get(node, 'test'), 'environment')
+      if (kind?.type === 'Literal' && (kind.value === 'jsdom' || kind.value === 'happy-dom')) environment = kind.value
       const timeout = node.type === 'ObjectExpression' ? get(node, 'testTimeout') : undefined
       if (timeout?.type === 'Literal' && typeof timeout.value === 'number') limit = timeout.value
       const values = node.type === 'ObjectExpression' ? get(node, 'define') : undefined
@@ -351,7 +362,31 @@ export const viteDefine = (
         `${file} spreads a config from a different file. If that config has define, add its values to "ubq.define" in package.json, such as { "__DEBUG_BUILD__": true }.`,
       )
   }
-  return found || notes.length || Object.keys(env).length ? { define, env, notes } : undefined
+  return found || notes.length || Object.keys(env).length || environment
+    ? { define, env, notes, ...(environment && { environment }) }
+    : undefined
+}
+
+/**
+ * The DOM of a jest config: `testEnvironment` in the `jest` key of
+ * `package.json`, or in a `jest.config` file of the project root.
+ * The file is read as text: `'jsdom'`, `'jest-environment-jsdom'`,
+ * and a package with one of the two names in its name.
+ */
+export const jestEnvironment = (root: string): 'jsdom' | 'happy-dom' | undefined => {
+  const texts: string[] = []
+  for (const name of ['package.json', ...['js', 'cjs', 'mjs', 'ts', 'json'].map(end => `jest.config.${end}`)])
+    try {
+      texts.push(readFileSync(join(root, name), 'utf8'))
+    } catch {
+      // The project does not have this file.
+    }
+  for (const text of texts) {
+    const value = /['"]?testEnvironment['"]?\s*:\s*(['"])([^'"\n]+)\1/.exec(text)?.[2]
+    const kind = value && /happy-dom|jsdom/.exec(value)?.[0]
+    if (kind) return kind as 'jsdom' | 'happy-dom'
+  }
+  return undefined
 }
 
 /**

@@ -7,6 +7,7 @@ import { createRequire, registerHooks } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { announce } from './child-coverage.ts'
 import { setDefines } from './config.ts'
+import { setDom } from './dom.ts'
 import { startCounters } from './counter-collector.ts'
 import { builtin, withCounters } from './load-hook.ts'
 
@@ -76,6 +77,7 @@ registerHooks({
 })
 
 setDefines()
+setDom(process.env.UBQ_FILE)
 const counters = startCounters()
 // Before Node 24.18 and 26.5, a `require` with a name that is no
 // file does not get the names of the resolve hook above. The
