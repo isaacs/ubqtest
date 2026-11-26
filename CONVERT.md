@@ -274,7 +274,7 @@ names, do one of these:
 | `t.doesNotThrow(() => f())` | `f()` |
 | `t.ok(a)`, `t.notOk(a)` | `assert(a)`, `assert(!a)` |
 | `t.match(a, pattern)`, `t.has` | `assert.match(a, pattern)` |
-| `t.match(a, { b: String, c: Date })` | `assert.match(a, { b: any.string, c: any.instanceOf(Date) })` |
+| `t.match(a, { b: String, c: URL })` | `assert.match(a, { b: any.string, c: any.instanceOf(URL) })` |
 | `process.env.NAME = 'text'` in a test, `delete process.env.NAME` | `env({ NAME: 'text' })`, `env({ NAME: undefined })` |
 | `t.throws(fn, expected)` | `assert.throws(fn, expected)` (`Error` if there was none) |
 | `await t.rejects(p, expected)` | `await assert.rejects(p, expected)` |

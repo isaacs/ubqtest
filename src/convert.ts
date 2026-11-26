@@ -2866,10 +2866,12 @@ export const convertSource = (
     if (use.startsWith('assert.match(') && !ownAny) {
       const classes = (n: Node | undefined | null): void => {
         // A name that the file declares with const, let, or var can
-        // be an object of a pattern.
+        // be an object of a pattern. So can a name in capitals, such
+        // as EXPECTED, if it is not a class of the runtime, as URL is.
         if (
           n?.type === 'Identifier' &&
-          /^[A-Z][a-z]/.test(nameOf(n)!) &&
+          /^[A-Z]/.test(nameOf(n)!) &&
+          (/[a-z]/.test(nameOf(n)!) || typeof (globalThis as Record<string, unknown>)[nameOf(n)!] === 'function') &&
           !new RegExp(`\\b(const|let|var)\\s+${nameOf(n)}\\b`).test(source)
         ) {
           const name = nameOf(n)!
