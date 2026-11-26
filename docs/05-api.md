@@ -3,10 +3,15 @@
 The API for test files. Status: the user accepted it on 2026-11-11
 (D15 to D18 in `02-decisions.md`).
 
-The type sketch is in `experiments/api/ubq.ts`. `good.ts` there
-compiles, and each line of `bad.ts` gives the compile error that
-this document claims. `mock-rt.ts` proves the mock call at run time
-on Node and Deno.
+The types are in `src/` (`src/index.ts` exports them), and
+`api.md` lists them from the source. `test/types.test.ts` checks
+them in each run: the project compiles, and each line of
+`test/fixtures/types-bad.ts` gives the compile error that this
+document claims.
+
+`experiments/api/` has the type sketch from before the
+implementation. It is a record: it does not have what the API got
+later, such as the hooks.
 
 Not in this document: the CLI (`ubq guide`) and the config
 (`08-config.md`).

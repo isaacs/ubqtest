@@ -1,5 +1,5 @@
-// Type sketch of the test API in docs/05-api.md. Declarations only:
-// this file checks that the types work as the document claims.
+// Type sketch of the test API in docs/05-api.md, from before the
+// implementation. Declarations only. A record: the API is in src/.
 export interface TestContext { readonly signal: AbortSignal }
 export interface TestOptions { skip?: string | false; timeout?: number }
 type TestFn = (ctx: TestContext) => void | Promise<void>
