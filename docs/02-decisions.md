@@ -4133,3 +4133,32 @@ changes, `ubq check` names no failed test. Two cases broke it.
   in the selection".
 - The report of `ubq check` has "1 failed test", not "1 failed
   tests".
+
+## D147. The project shows the tool of a file with globals (user, 2026-11-26)
+
+A test file that imports no test tool uses globals. Before, the
+command took such a file for jest if it called `expect`, and for
+mocha if not. vitest was not a possible answer. A vitest project
+with `globals: true` got the page address of jest in its `dom`
+key, and no TODO for a hook that returns a function.
+
+The user: "Can we establish conclusively, rather than trying to
+infer based on globals?" and "if it IS just a guess, output this,
+and suggest `ubq convert --from <tool>` as a deterministic
+option."
+
+- **The project decides.** The search goes from the folder of the
+  file up to the project root, and then to the root of the
+  workspaces. In each folder a config file of a tool gives the
+  answer, or else a dependency of the `package.json`
+  (`react-scripts` is jest). The nearest folder with an answer
+  wins.
+- **A guess is reported.** If no folder shows a tool, or a folder
+  shows two (a project that moves from jest to vitest), the old
+  rule applies. A `note` line names the files, the tools that the
+  project has, and `ubq convert --from <tool>`.
+- **`--from jest|vitest|mocha`** gives the tool of each file with
+  globals. A file that imports its tool keeps that tool.
+- **Not done.** The `test` script is not a source. It often names
+  a wrapper (`nx test`, `turbo run test`), and the config files
+  and the dependencies cover the same projects.

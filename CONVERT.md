@@ -20,6 +20,9 @@ has the API and the rules of ubq.
    step too.
 3. **Convert.** `npx ubq convert test` (give the folders and files
    that have tests). `--dry` shows the report and changes no file.
+   `--from jest` (or `vitest`, or `mocha`) gives the tool of the
+   files that import no test tool: use it if a `note` says that
+   the tool is a guess.
    The command changes the files in place. If `git status` is
    clean before it, `git diff` shows only its changes. It is safe to run the command again on one file. The
    command keeps the code correct, and then runs the formatter of
@@ -536,6 +539,21 @@ Things to check by hand:
 - **`mock.timers`.** Use `fakeClock`.
 
 ## vitest, jest, and bun:test
+
+**A file that imports no test tool.** jest, vitest with `globals:
+true`, and mocha give `describe`, `it`, and `expect` as globals.
+For such a file, the command reads the tool from the project. It
+goes from the folder of the file up to the project root, and then
+to the root of the workspaces. In each folder, a config file gives
+the tool (`vitest.config.*`, a `vite.config.*` with a `test` key,
+`jest.config.*`, `.mocharc.*`, or a `jest` or `mocha` key of
+`package.json`), or else a dependency of the `package.json`. If no
+folder shows a tool, or a folder shows two, the tool is a guess
+from the text of the file, and a `note` line names the files. Then
+give the tool: `ubq convert --from vitest test`. The values are
+`jest`, `vitest`, and `mocha`. The tool changes the page address
+of the `dom` key, the rule for a hook that returns a function, and
+the rule for a bare `fail()`.
 
 `bun:test` has the `expect` of jest. This table is for it too.
 `ubq convert` changes its `spyOn(object, key)` to the `spyOn` of

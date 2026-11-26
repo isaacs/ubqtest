@@ -4,7 +4,7 @@
 // the bindings, and the setup files of each project in it. Also
 // reads the `define` values of a vite or vitest config.
 // The config is code. This reads its text, and does not run it.
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, posix, relative, resolve, sep } from 'node:path'
 import type { Config } from './config.ts'
 import type { Node } from './instrument.ts'
@@ -184,6 +184,56 @@ export const configFolder = (root: string): string => {
     return (workspaces || existsSync(join(dir, 'pnpm-workspace.yaml'))) && has(dir) ? dir : root
   }
   return root
+}
+
+/** A test tool that gives its functions as globals. */
+export type GlobalsTool = 'jest' | 'vitest' | 'mocha'
+export const GLOBALS_TOOLS: GlobalsTool[] = ['jest', 'vitest', 'mocha']
+
+/**
+ * The test tool of the test files in `folder` that import no test
+ * tool: the project shows it. The search goes from the folder up.
+ * In each folder, a config file of a tool gives the answer, or else
+ * a dependency of the `package.json`. The search ends at the
+ * project root, or at the root of the workspaces above it.
+ * The result has more than one name if a folder shows more than
+ * one tool, and is empty if no folder shows one.
+ */
+export const globalsTool = (folder: string, root: string): GlobalsTool[] => {
+  let above = relative(root, folder).startsWith('..')
+  for (let dir = folder; ; dir = dirname(dir)) {
+    let names: string[] = []
+    try {
+      names = readdirSync(dir)
+    } catch {
+      // ubq: not measured: the folder of a file that the command read
+    }
+    let pkg: Record<string, unknown> = {}
+    try {
+      pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as Record<string, unknown>
+    } catch {
+      // The folder has no package.json that is JSON.
+    }
+    // Above the project root, only the root of its workspaces
+    // counts, and the search ends there.
+    const last = above && names.includes('package.json')
+    if (last && !pkg.workspaces && !names.includes('pnpm-workspace.yaml')) return []
+    const text = (name: string): string => readFileSync(join(dir, name), 'utf8')
+    const config = new Set<GlobalsTool>()
+    for (const name of names)
+      if (/^vitest\.(config|workspace)\./.test(name)) config.add('vitest')
+      else if (name.startsWith('vite.config.') && /\btest\s*:/.test(text(name))) config.add('vitest')
+      else if (name.startsWith('jest.config.')) config.add('jest')
+      else if (/^\.mocharc(\.|$)/.test(name)) config.add('mocha')
+    if (pkg.jest) config.add('jest')
+    if (pkg.mocha) config.add('mocha')
+    if (config.size) return [...config].sort()
+    const deps = { ...(pkg.dependencies as object), ...(pkg.devDependencies as object) }
+    const found = GLOBALS_TOOLS.filter(tool => tool in deps || (tool === 'jest' && 'react-scripts' in deps))
+    if (found.length) return found
+    if (last || dir === dirname(dir)) return []
+    if (dir === root) above = true
+  }
 }
 
 /**

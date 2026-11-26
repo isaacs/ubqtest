@@ -640,6 +640,9 @@ All entries are from 2026-11-11 to 2026-11-14.
   - `ubq check`, `ubq --failed`, and `ubq --changed` read only the
     test files of the project, and not a test that is gone from
     its file (D146).
+  - `ubq convert` reads the tool of a file with globals from the
+    project. If that is a guess, a note says so, and `--from
+    <tool>` gives the tool (D147).
   - The guide says what the store is: where it is, that each
     branch and each process of the folder shares it, what it
     keeps, and that it is safe to remove (`ubq guide stored`).

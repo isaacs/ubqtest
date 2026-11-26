@@ -3733,3 +3733,99 @@ it('a', () => { expect(pending()).toBe(1) })
 `)
   assert.equal(own?.todos.length, 0)
 })
+
+test('the tool of a file that imports no test tool is the tool of the project', () => {
+  const p = project()
+  const write = (name: string, text: string): void => {
+    mkdirSync(join(p.dir, name, '..'), { recursive: true })
+    writeFileSync(join(p.dir, name), text)
+  }
+  const pkg = (dir: string, more: object): void => write(`${dir}/package.json`, JSON.stringify({ name: 'x', ...more }))
+  const file = "beforeEach(() => () => {})\nit('a', () => { expect(1).toBe(1) })\n"
+  const lines = (...args: string[]): string[] => p.ubq('convert', '--dry', ...args).out.split('\n')
+  write('t/a.test.ts', file)
+  // Nothing shows the tool: a guess, and a note.
+  const guess = lines('t')
+  assert.contains(guess[0], 't/a.test.ts (jest)')
+  assert.contains(
+    guess,
+    'note: 1 file imports no test tool, and the project has no config file and no dependency of jest, vitest, or mocha. The tool of each one is a guess from its text: t/a.test.ts (jest). To give the tool: ubq convert --from <jest, vitest, or mocha> <files>',
+  )
+  // The note names five files at most. A file with no expect
+  // call is a guess of mocha.
+  for (const n of [1, 2, 3, 4, 5, 6]) write(`g/${n}.test.ts`, "import assert from 'node:assert'\nit('a', () => {})\n")
+  assert.contains(lines('g').join('\n'), 'g/4.test.ts (mocha), g/5.test.ts (mocha), .... To give the tool')
+  // The command gives the tool. A hook of vitest that returns a
+  // function gets a TODO.
+  const from = lines('--from', 'vitest', 't')
+  assert.contains(from[0], 't/a.test.ts (vitest): 3 changes, 1 TODO')
+  assert(!from.some(line => line.includes('is a guess')))
+  assert.equal(p.ubq('convert', '--from', 'tap', 't').code, 4)
+  assert.equal(p.ubq('convert', 't', '--from').code, 4)
+  // A dependency, a config file, and a config file with a test key.
+  const real = JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8'))
+  const deps = (devDependencies: object): void =>
+    writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ ...real, devDependencies }))
+  deps({ vitest: '4' })
+  assert.contains(lines('t')[0], '(vitest)')
+  deps({ 'react-scripts': '5' })
+  assert.contains(lines('t')[0], '(jest)')
+  deps({ mocha: '11' })
+  assert.contains(lines('t')[0], '(mocha)')
+  // Two tools: a guess, and the note names them.
+  deps({ vitest: '4', jest: '30' })
+  const both = lines('t')
+  assert.contains(both.join('\n'), 'no test tool, and the project has jest and vitest. The tool of each one is a guess')
+  // A config file is before the dependencies.
+  write('vite.config.ts', 'export default { plugins: [] }\n')
+  assert.contains(lines('t').join('\n'), 'is a guess')
+  write('vite.config.ts', 'export default { test: { globals: true } }\n')
+  assert.deepEqual([lines('t')[0]?.includes('(vitest)'), lines('t').some(l => l.includes('is a guess'))], [true, false])
+  // The folder that is nearest to the file is first.
+  pkg('t/jest', { jest: {} })
+  pkg('g', { mocha: {} })
+  assert.contains(lines('g/1.test.ts').join('\n'), '(mocha)')
+  assert(!lines('g/1.test.ts').some(l => l.includes('is a guess')))
+  write('t/jest/b.test.ts', file)
+  write('t/mocha/.mocharc.json', '{}')
+  write('t/mocha/c.test.ts', file)
+  write('t/config/jest.config.js', 'module.exports = {}\n')
+  write('t/config/d.test.ts', file)
+  assert.deepEqual(
+    lines('t')
+      .filter(line => line.startsWith('to convert'))
+      .map(line => /^to convert (\S+) \((\w+)\)/.exec(line)?.slice(1).join(' ')),
+    ['t/a.test.ts vitest', 't/config/d.test.ts jest', 't/jest/b.test.ts jest', 't/mocha/c.test.ts mocha'],
+  )
+  // A file that imports its tool keeps it.
+  write('t/e.test.ts', `import { it, expect } from '@jest/globals'\n${file}`)
+  assert.contains(lines('t/e.test.ts')[0], '(jest)')
+})
+
+test('the tool of a workspace is that of the root of the workspaces', () => {
+  const p = project()
+  const write = (name: string, text: string): void => {
+    mkdirSync(join(p.dir, name, '..'), { recursive: true })
+    writeFileSync(join(p.dir, name), text)
+  }
+  const real = JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8'))
+  const root = (more: object): void => writeFileSync(join(p.dir, 'package.json'), JSON.stringify({ ...real, ...more }))
+  write('packages/a/package.json', JSON.stringify({ name: 'a', type: 'module' }))
+  write('packages/a/a.test.ts', "it('a', () => { expect(1).toBe(1) })\n")
+  const first = (): string | undefined => {
+    const run = spawnSync(
+      process.execPath,
+      [fileURLToPath(new URL('../src/cli.ts', import.meta.url)), 'convert', '--dry', '.'],
+      {
+        cwd: join(p.dir, 'packages/a'),
+        encoding: 'utf8',
+      },
+    )
+    return /\((\w+)\)/.exec(run.stdout.split('\n')[0]!)?.[1] + (run.stdout.includes('is a guess') ? ' guess' : '')
+  }
+  root({ workspaces: ['packages/*'], devDependencies: { vitest: '4' } })
+  assert.equal(first(), 'vitest')
+  // A package.json above that has no workspaces is a different project.
+  root({ devDependencies: { vitest: '4' } })
+  assert.equal(first(), 'jest guess')
+})

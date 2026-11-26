@@ -17,7 +17,16 @@ import { OLD_TOOL } from './doctor.ts'
 import { projectRoot, rel } from './project.ts'
 import { type Transformer, transformer } from './transform.ts'
 import { setupTransform } from './transform-setup.ts'
-import { jestEnvironment, playwrightNotes, setupMigrations, viteDefine, vitestWorkers } from './vitest-config.ts'
+import {
+  GLOBALS_TOOLS,
+  type GlobalsTool,
+  globalsTool,
+  jestEnvironment,
+  playwrightNotes,
+  setupMigrations,
+  viteDefine,
+  vitestWorkers,
+} from './vitest-config.ts'
 import { counted } from './counted.ts'
 
 // The source is `.ts`, and the bundle is `.js`.
@@ -34,6 +43,8 @@ export interface Converted {
   todos: { line: number; text: string }[]
   /** The count of `toEqual` calls that became `assert.deepEqual`. */
   toEqual: number
+  /** True if the tool is a guess from the text of a file that imports no test tool. */
+  guess?: boolean
   /**
    * The DOM that the file asks for in a comment, or `true` for a
    * file that imports Testing Library and names none. The `dom` key
@@ -527,6 +538,8 @@ export const convertSource = (
   migrate: string[] = [],
   /** The starts of the statements and properties to remove: see restorePlan. */
   drop: Set<number> = new Set(),
+  /** The tool of a file that imports no test tool, if the project or the command shows it. */
+  globals?: GlobalsTool,
 ): Converted | undefined => {
   const program = parse(source, file)
   const text = (n: Node): string => source.slice(n.start, n.end)
@@ -542,6 +555,8 @@ export const convertSource = (
   let changes = 0
   let toEqual = 0
   let framework: string | undefined
+  /** True if the tool is only what the text of the file suggests. */
+  let guess = false
   let commonJs = false
   /** Statements of the old test tool to remove: imports and `require` calls. */
   const removed: Node[] = []
@@ -758,7 +773,8 @@ export const convertSource = (
     // assertions of its own: a file can use node:assert with it.
     const expects = /\bexpect\s*\(/.test(source)
     if (other || !/\b(describe|it|test)\s*\(/.test(source) || (!expects && !removed.length)) return undefined
-    framework = expects ? 'jest' : 'mocha'
+    framework = globals ?? (expects ? 'jest' : 'mocha')
+    guess = !globals
     for (const name of ['test', 'it']) roles.set(name, 'test')
     roles.set('describe', 'describe')
     roles.set('expect', 'expect')
@@ -3371,7 +3387,15 @@ export const convertSource = (
     // The report has the full text of each TODO.
     found.push({ line: i + 1, text: full.get(message) ?? message })
   })
-  return { code, framework, changes: changes + removed.length, todos: found, toEqual, ...(dom && { dom }) }
+  return {
+    code,
+    framework,
+    changes: changes + removed.length,
+    todos: found,
+    toEqual,
+    ...(dom && { dom }),
+    ...(guess && { guess }),
+  }
 }
 
 /** A file that can have code. Not a declaration file. */
@@ -3506,10 +3530,16 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   const compiler = args.find(a => a.startsWith('--transform'))
   if (compiler !== undefined) return setupTransform(compiler.slice('--transform='.length), out)
   const dry = args.includes('--dry')
-  const paths = args.filter(a => a !== '--dry')
+  const at = args.indexOf('--from')
+  const from = at === -1 ? undefined : (args[at + 1] as GlobalsTool | undefined)
+  if (at !== -1 && !GLOBALS_TOOLS.includes(from!))
+    throw new UsageError(
+      `ubq convert --from needs the test tool that gives the globals of the files: ${GLOBALS_TOOLS.join(', ')}. Such as: ubq convert --from vitest test. A file that imports its test tool does not need it.`,
+    )
+  const paths = args.filter((a, i) => a !== '--dry' && (at === -1 || (i !== at && i !== at + 1)))
   if (!paths.length || paths.some(p => p.startsWith('--')))
     throw new UsageError(
-      'ubq convert needs test files or folders, such as: ubq convert test. With --dry, it changes no file.',
+      'ubq convert needs test files or folders, such as: ubq convert test. With --dry, it changes no file. With --from and jest, vitest, or mocha, a file that imports no test tool is a file of that tool.',
     )
   const { parse, children } = createRequire(import.meta.url)(INSTRUMENT) as typeof import('./instrument.ts')
   const files: string[] = []
@@ -3585,6 +3615,11 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
   let domPackage: 'jsdom' | 'happy-dom' | undefined
   /** True if a file had tests of jest. */
   let jest = false
+  /** For each folder: the tools that the project shows for its files with globals. */
+  const shown = new Map<string, GlobalsTool[]>()
+  /** The files with a tool that is a guess, and the tools that the project showed. */
+  const guessed: string[] = []
+  const tools = new Set<GlobalsTool>()
   for (const path of files.sort()) {
     const file = rel(path)
     let result: Converted | undefined
@@ -3602,7 +3637,21 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
       }
     } else
       try {
-        result = convertSource(sources.get(path)!, path, parse, children, migrations.get(path), drop.get(path))
+        let found = shown.get(dirname(path))
+        if (!found) shown.set(dirname(path), (found = from ? [from] : globalsTool(dirname(path), root)))
+        result = convertSource(
+          sources.get(path)!,
+          path,
+          parse,
+          children,
+          migrations.get(path),
+          drop.get(path),
+          found.length === 1 ? found[0] : undefined,
+        )
+        if (result?.guess) {
+          guessed.push(`${file} (${result.framework})`)
+          for (const tool of found) tools.add(tool)
+        }
       } catch (error) {
         out(`not converted ${file}: ${(error as Error).message}`)
         failed++
@@ -3678,6 +3727,10 @@ export const convertCommand = (args: string[], out: (text: string) => void): num
     } catch {
       // ubq: not measured: the command read each of these files
     }
+  if (guessed.length)
+    out(
+      counted`note: ${guessed.length} file|files imports|import no test tool, and ${tools.size ? `the project has ${[...tools].sort().join(' and ')}` : 'the project has no config file and no dependency of jest, vitest, or mocha'}. The tool of each one is a guess from its text: ${guessed.slice(0, 5).join(', ')}${guessed.length > 5 ? ', ...' : ''}. To give the tool: ubq convert --from <jest, vitest, or mocha> <files>`,
+    )
   if (old.length && changed)
     out(
       `note: these files still name the old test tool: ${old.sort().join(', ')}. Change them before you remove that tool.`,
