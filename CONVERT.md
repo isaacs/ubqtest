@@ -103,7 +103,8 @@ count of type errors in other files: those are not yours.
 ## What `ubq convert` changes
 
 - The import of the old tool becomes `import { ... } from
-  'ubqtest'`, with the names that the file uses. If code under a
+  'ubqtest'`, with the names that the file uses (`require` in a
+  CommonJS file). If code under a
   TODO still uses a name of the old tool, such as `expectTypeOf`,
   the import of the old tool stays with only those names. Do the
   TODO, then remove that import.
@@ -130,7 +131,8 @@ It does not change the name of a file or the source of the
 project. It changes `package.json` in these cases:
 
 - From a vitest or jest config, it writes the `define`, `env`,
-  and `dom` keys of the ubq configuration (see below).
+  and `dom` keys of the ubq configuration (see "The old
+  configuration" below).
 - For a project of the vitest plugin for Workers, it writes the
   `workers` key of the ubq configuration, if the key is not there.
 - If the scripts are `"test": "tap"` and `"snap": "tap"` (or
@@ -164,6 +166,17 @@ names, do one of these:
 - A test that imports the build output (`'../dist/index.js'`)
   works only after a build. Import the source (`'../src/index.ts'`):
   then a run needs no build, and coverage has the source lines.
+- An alias for imports (`resolve.alias`, `test.alias`) has no key
+  in ubq, and the command prints a note. ubq does not change the
+  name of an import: use the `imports` key of `package.json`
+  (`"#lib": "./lib/index.ts"`, and `import '#lib'`), a package of
+  the workspace, or a relative path. A test file that imports a
+  name of an alias, or of the `paths` of a tsconfig, does not
+  load, and the failure has a hint with the config that has the
+  name.
+
+## Source that Node cannot run
+
 - Node runs TypeScript with the types removed, and no other
   change. Source with `enum`, `namespace`, a decorator, or a parameter property
   (`constructor(private x: number)`) does not load. `ubq doctor`
@@ -196,6 +209,30 @@ names, do one of these:
   becomes `typeof Level.Dirt`. A plain `number` is not a `Level`:
   where the code made one from a number, add a check or a cast.
   Run the type checker, and correct each place that it names.
+- A test file with an import is an ES module. `ubq convert`
+  changes `__dirname` and `__filename` to `import.meta.dirname`
+  and `import.meta.filename`. It writes a TODO for each use of
+  `require`, for an `enum`, and for a parameter property in a test file.
+  Change these in the test file: this is not the source of the
+  project. Not with the `transform` key: see the first item of
+  this section.
+- A test file with `require` and no import, of a tool that gives
+  its functions as globals (jest, mocha), stays CommonJS. It gets
+  `const { ... } = require('ubqtest')`, and keeps `require` and
+  `__dirname`. In a package with `"type": "module"`, and for a
+  `.mjs` or `.mts` file, Node loads the file as an ES module: then
+  the file gets the import, and a TODO for each `require`.
+- In a package with no `"type": "module"`, Node prints the
+  warning `MODULE_TYPELESS_PACKAGE_JSON` for each test file. The
+  tests run. Do not add `"type": "module"` to stop the warning:
+  it changes how the package loads for its users. Tell the user
+  about it.
+
+## The old configuration
+
+`ubq convert` reads the config of the old tool, and writes what
+it can to the `ubq` key of `package.json`.
+
 - If the old config has a time limit for each test (`testTimeout`
   of vitest), `ubq convert` prints a note with the `"timeout"` key
   to add. A test that takes more than its limit fails, also a
@@ -205,23 +242,8 @@ names, do one of these:
   command writes the key from the values that are plain text,
   and prints a note for the others.
 - A setup file of a vitest config (`test.setupFiles`) gets a
-  note: ubq has no setup files. Import the file in each test file
-  that needs it. A hook at its top level is then a hook of that
-  test file.
-- An alias for imports (`resolve.alias`, `test.alias`) has no key
-  in ubq, and the command prints a note. ubq does not change the
-  name of an import: use the `imports` key of `package.json`
-  (`"#lib": "./lib/index.ts"`, and `import '#lib'`), a package of
-  the workspace, or a relative path. A test file that imports a
-  name of an alias, or of the `paths` of a tsconfig, does not
-  load, and the failure has a hint with the config that has the
-  name.
-- The old tool did not check the types of the tests, and ubq
-  does in each run. A large conversion can have hundreds of type
-  errors. They are real, but you can do the tests first: set
-  `"skipTypecheck": true` in the `ubq` key, make the tests pass,
-  then remove the key and correct the types. Tell the user if
-  the key stays.
+  note: ubq has no setup files. See "A setup file" in "Hooks"
+  below.
 - Vite puts each value of its `define` in the source, such as
   `__DEBUG_BUILD__`. With ubq, the source throws `ReferenceError:
   __DEBUG_BUILD__ is not defined`. Give the values in the
@@ -240,13 +262,15 @@ names, do one of these:
   the project imports. Tell the user about it: the source needs a
   form that works with no plugin, such as a condition that the
   code tests while it runs.
-- A test file is an ES module. `ubq convert` changes `__dirname`
-  and `__filename` to `import.meta.dirname` and
-  `import.meta.filename`. It writes a TODO for each use of
-  `require`, for an `enum`, and for a parameter property in a test file.
-  Change these in the test file: this is not the source of the
-  project. Not with the `transform` key: see "Imports of the
-  source" above.
+
+## The type check
+
+- The old tool did not check the types of the tests, and ubq
+  does in each run. A large conversion can have hundreds of type
+  errors. They are real, but you can do the tests first: set
+  `"skipTypecheck": true` in the `ubq` key, make the tests pass,
+  then remove the key and correct the types. Tell the user if
+  the key stays.
 - The type check of ubq reads the `tsconfig.json` of each folder
   from a test file up to the project root, and no other file
   name. If the project has the options of its tests in a file
@@ -259,11 +283,6 @@ names, do one of these:
   `tsconfig.spec.json`. Commit it. If that config has `"types":
   ["jest"]`, set `"types"` in the new file to the types that the
   tests need now.
-- In a package with no `"type": "module"`, Node prints the
-  warning `MODULE_TYPELESS_PACKAGE_JSON` for each test file. The
-  tests run. Do not add `"type": "module"` to stop the warning:
-  it changes how the package loads for its users. Tell the user
-  about it.
 
 ## tap
 
@@ -1141,7 +1160,7 @@ Find the kind of the failure before you change a line.
 | `duplicate test name` | Two tests of one group have one name. | Make the names different. |
 | test name must be a string that is not empty | tap permits an empty name. | Give each test a name. A name from data can be empty, or two can be the same: use `JSON.stringify(value)`, and add ` #2` to a repeat. |
 | the test process ended before the file loaded ubqtest | The file still imports the old tool, or it is not a test file, such as a snapshot file of tap. | Convert it, or put it in `"exclude"`. |
-| the test file did not load | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source". |
+| the test file did not load | A syntax error, an import that names no file, or syntax that Node cannot run. | Read the line in the report. See "Imports of the source" and "Source that Node cannot run". |
 | the file registered no tests | The file is a helper, not a test file. | Put it in `"exclude"`. |
 | a `TYPE` block | The type checker runs with each run. | Correct the type. A mock must have the types of the real export. |
 | a `TYPE` block at a converted assertion, such as "Argument of type 'string \| undefined' is not assignable to parameter of type 'string'" | `expect()` took a value of each type. `assert` is strict: the actual value cannot be `undefined` where a method is called on it, and the expected value must have the type of the actual value (the parameter is `NoInfer<T>`). | Add `!` or `?.` to the actual value, or narrow it first with `assert(value)`. If the two types differ on purpose, write `assert.deepEqual<unknown>(a, b)`. |

@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assert, cleanup, test } from 'ubqtest'
@@ -3458,6 +3459,66 @@ it('a', () => {
       '})',
     ],
   )
+})
+
+test('a type annotation of any is not a value any of the file', () => {
+  const r = convert(`import { expect, it } from 'vitest'
+const a: any = 1
+it('a', () => {
+  expect(x).toMatchObject({ a: expect.any(Number) })
+})
+`)
+  assert.deepEqual(r?.code, [
+    "import { any, assert, test } from 'ubqtest'",
+    'const a: any = 1',
+    "test('a', () => {",
+    '  assert.match(x, { a: any.number })',
+    '})',
+  ])
+})
+
+test('a file with globals and require stays CommonJS', () => {
+  const source = `const { add } = require('../src/add')
+it('a', () => {
+  expect(add(1, 2)).toBe(3)
+  expect(__dirname).toBe(require('node:path').resolve('test'))
+})
+`
+  // A folder with no package.json above it.
+  assert.deepEqual(convert(source, join(tmpdir(), 'a.test.js'))?.code, [
+    "const { assert, test } = require('ubqtest')",
+    "const { add } = require('../src/add')",
+    "test('a', () => {",
+    '  assert.equal(add(1, 2), 3)',
+    "  assert.equal(__dirname, require('node:path').resolve('test'))",
+    '})',
+  ])
+  // Node loads these as ES modules: a .mjs file, and a file of a
+  // package that is "type": "module". A file with globals and no
+  // require gets an import too.
+  const p = project()
+  cleanup(() => rmSync(p.dir, { recursive: true }))
+  assert.equal(JSON.parse(readFileSync(join(p.dir, 'package.json'), 'utf8')).type, 'module')
+  for (const file of ['a.test.mjs', join(p.dir, 'a.test.js')]) {
+    const r = convert(source, file)
+    assert.deepEqual(
+      r?.code.filter(line => !/^\s*\/\/ (?!TODO)/.test(line)),
+      [
+        "import { assert, test } from 'ubqtest'",
+        '// TODO(ubq): An ES module has no require. Use an import statement, await',
+        "const { add } = require('../src/add')",
+        "test('a', () => {",
+        '  assert.equal(add(1, 2), 3)',
+        '  // TODO(ubq): An ES module has no require. Use an import statement, await',
+        "  assert.equal(import.meta.dirname, require('node:path').resolve('test'))",
+        '})',
+      ],
+    )
+  }
+  assert.deepEqual(convert("it('a', () => { expect(__dirname).toBe('x') })\n")?.code, [
+    "import { assert, test } from 'ubqtest'",
+    "test('a', () => { assert.equal(import.meta.dirname, 'x') })",
+  ])
 })
 
 test('convert adds .ubq to the ignore files of formatters and linters', () => {

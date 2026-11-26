@@ -643,6 +643,8 @@ All entries are from 2026-11-11 to 2026-11-14.
   - `ubq convert` reads the tool of a file with globals from the
     project. If that is a guess, a note says so, and `--from
     <tool>` gives the tool (D147).
+  - `ubq convert` keeps a file with globals and `require` as
+    CommonJS (D148).
   - The guide says what the store is: where it is, that each
     branch and each process of the folder shares it, what it
     keeps, and that it is safe to remove (`ubq guide stored`).

@@ -406,6 +406,18 @@ const commonjs = (file: string): boolean => {
   return compiler?.format(resolve(file)) === 'commonjs'
 }
 
+/** True if Node loads the file as an ES module for its name or for its package. */
+const packageModule = (file: string): boolean => {
+  if (/\.[cm][jt]s$/.test(file)) return /\.m[jt]s$/.test(file)
+  for (let dir = dirname(resolve(file)); ; dir = dirname(dir)) {
+    try {
+      return (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { type?: string }).type === 'module'
+    } catch {
+      if (dir === dirname(dir)) return false
+    }
+  }
+}
+
 const TICK =
   'Use await clock.tick(ms), with the clock of fakeClock(). A timer of 0 ms runs after 1 ms, as in Node: for a time of 0, use clock.tick(1).'
 
@@ -774,6 +786,13 @@ export const convertSource = (
     const expects = /\bexpect\s*\(/.test(source)
     if (other || !/\b(describe|it|test)\s*\(/.test(source) || (!expects && !removed.length)) return undefined
     framework = globals ?? (expects ? 'jest' : 'mocha')
+    // A file with `require` and no import is CommonJS, and stays
+    // so: it gets ubqtest with `require`. Not in a package that is
+    // "type": "module": there Node loads it as an ES module.
+    commonJs ||=
+      /\brequire\s*\(/.test(source) &&
+      !(program.body as Node[]).some(n => /^(Import|Export)/.test(n.type)) &&
+      !packageModule(file)
     guess = !globals
     for (const name of ['test', 'it']) roles.set(name, 'test')
     roles.set('describe', 'describe')
@@ -1280,17 +1299,21 @@ export const convertSource = (
       (block.body as unknown as Node[]).at(-1) === statement
     )
   }
-  // A file with an import is an ES module, on each runtime. With
-  // the `transform` key, the compiler of the project can make
+  // A file with an import is an ES module, on each runtime, and a
+  // file that gets its first import from this command is one too.
+  // With the `transform` key, the compiler of the project can make
   // CommonJS from it, which has `require` and `__dirname`.
-  const esm = !commonjs(file) && (program.body as Node[]).some(n => n.type === 'ImportDeclaration')
+  const esm = !commonjs(file) && (!commonJs || (program.body as Node[]).some(n => n.type === 'ImportDeclaration'))
   const META = new Map([
     ['__dirname', 'import.meta.dirname'],
     ['__filename', 'import.meta.filename'],
   ])
-  /** True if the file makes its own value with this name. */
+  /**
+   * True if the file makes its own value with this name. `const a:
+   * any = 1` has the type `any`, and assigns to no `any`.
+   */
   const declares = (name: string): boolean =>
-    new RegExp(`\\b(const|let|var|function)\\s+${name}\\b|\\b${name}\\s*=[^=]`).test(source)
+    new RegExp(`\\b(const|let|var|function)\\s+${name}\\b|(?<!:\\s*)\\b${name}\\s*=[^=]`).test(source)
   /** The hook of ubq for a hook of an other tool: `before` of node:test and mocha is `beforeAll`. */
   const hookName = (name: string): string => (/(Each|All)$/.test(name) ? name : `${name}All`)
   /**

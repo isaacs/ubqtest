@@ -4162,3 +4162,28 @@ option."
 - **Not done.** The `test` script is not a source. It often names
   a wrapper (`nx test`, `turbo run test`), and the config files
   and the dependencies cover the same projects.
+
+## D148. A file with globals and `require` stays CommonJS (user, 2026-11-26)
+
+`ubq convert` gave a jest file with `require` and no import the
+line `import { ... } from 'ubqtest'`, and kept each `require` and
+`__dirname` with no TODO. The import made the file an ES module,
+and it failed: "require is not defined in ES module scope".
+
+- **The file stays CommonJS.** A file of a tool with globals,
+  with a `require` call and no import or export, gets `const {
+  ... } = require('ubqtest')`. A file that loads tap or
+  `node:test` with `require` had this rule before.
+- **Where Node loads the file as an ES module** (a `.mjs` or
+  `.mts` file, or a package with `"type": "module"`), the file
+  gets the import, a TODO for each `require`, and
+  `import.meta.dirname` for `__dirname`.
+- **Not done.** The command does not change `require` to
+  `import`. That changes when the module loads, and a mock of
+  jest can depend on it.
+
+In the same change: a type annotation (`const a: any = 1`) is not
+a value `any` of the file, so the `any` matchers of such a file
+are converted. `CONVERT.md` has four sections in place of
+"Imports of the source": that one, "Source that Node cannot run",
+"The old configuration", and "The type check".
