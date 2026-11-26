@@ -233,8 +233,9 @@ comment with the instruction.
   `cloudflare:workers` sends a request to the Worker. The
   project installs `wrangler`.
 - Configuration is the `ubq` key of `package.json`: `include`,
-  `exclude`, `helpers`, `build`, `timeout`, `browser`, `workers`,
-  `define`, `env`, `transform`, `coverage`, and three switches.
+  `exclude`, `helpers`, `build`, `timeout`, `dom`, `browser`,
+  `workers`, `define`, `env`, `transform`, `coverage`, and three
+  switches.
   Most projects need none.
   See [docs/08-config.md](docs/08-config.md).
 

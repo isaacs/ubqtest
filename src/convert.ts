@@ -319,9 +319,9 @@ const TODO = {
   launch:
     "ubq starts the browser, and closes the page when the test ends: const page = await browser(), from 'ubqtest/browser'. Remove the launch, the new page, and the close.",
   subtests:
-    'ubq has no test in a test. This is a describe() now. Move the assertions and the setup that are not in a subtest into a test() or a setup function.',
+    'ubq has no test in a test. This is a describe() now. Move the assertions that are not in a subtest into a test(), and the setup into a beforeEach or beforeAll hook.',
   describeAwait: (code: string): string =>
-    `The function of describe() must not be async: it runs when the file loads, and ubq does not wait for it. It awaits here: \`${code}\`. Do one of these: (1) await it at the top level of the file, before describe(); (2) put it in a setup function, and await the function at the start of each test of the group. For one result that the tests share: let ready; const setup = () => (ready ??= work()).`,
+    `The function of describe() must not be async: it runs when the file loads, and ubq does not wait for it. It awaits here: \`${code}\`. Do one of these: (1) await it at the top level of the file, before describe(); (2) put it in a beforeAll hook of the group, which can be async.`,
   helperTests:
     'ubq has no test in a test. This function gets the test object of tap, and makes tests with it: a test of ubq cannot make tests. Call this function at the top level of the file or in a describe(), not in a test, and remove its test parameter.',
   rootTest:
@@ -337,7 +337,7 @@ const TODO = {
   tapType:
     'This type of tap is for a test object, and ubq has none. Remove the parameter of this type from each function, and its argument from each call. Then remove this import.',
   describeBody:
-    'This code was in a test of tap, and ran after the tests before it. In describe(), it runs when the file loads, before each test of the file. If it changes the process or a value from outside (process.chdir, a property of process, a variable), move it into a setup function that each test of the group calls.',
+    'This code was in a test of tap, and ran after the tests before it. In describe(), it runs when the file loads, before each test of the file. If it changes the process or a value from outside (process.chdir, a property of process, a variable), move it into a beforeAll or beforeEach hook of the group.',
   before:
     'This file was the before script of tap, which ran it one time before all test files. ubq has no such script, and this command did not change the file. Make it a module that each test file imports, with no tests or assertions in it. Each test file is its own process, and the files run at the same time: the module must be safe to run more than one time, also at the same time.',
   rootAssert:
@@ -351,7 +351,7 @@ const TODO = {
   skip: "Give the reason: { skip: 'the reason' }.",
   context: 'ubq has no test object. Use the functions of ubqtest in place of the parameter of this test function.',
   done: 'ubq has no done callback. Make the test function async, and await a promise.',
-  mock: "Use mockImport: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { fn: spy(impl) }]]). The mock gives only the exports to replace: each other export is the real one. For a mock that each test needs, call it one time at the top level of the file, with the mock object in a const: spyOn(mock, 'fn', impl) then changes it for one test. The paths are from this test file. The mock replaces the dependency in each project module of the new instance, not in a package of node_modules: if only a package imports the dependency, see \"A dependency of a dependency\" in ubq guide.",
+  mock: "Use mockImport: const { f } = await mockImport(() => import('<the module under test>'), [[() => import('<the dependency>'), { fn: spy(impl) }]]). The mock gives only the exports to replace: each other export is the real one. For a mock that each test needs, call it one time at the top level of the file, with the mock object in a const: spyOn(mock, 'fn', impl) then changes it for one test. The paths are from this test file. The mock replaces the dependency in each project module of the new instance, not in a package of node_modules: if only a package imports the dependency, see \"A dependency of a dependency\" in ubq guide mock.",
   spyImpl:
     'A spy gets its implementation as an argument: spy(impl), spyOn(object, key, impl). For a result that changes, the implementation reads a variable: let result = 1; const s = spy(() => result). For a different result in each call: spy.results(a, b), or for an async function spy.results(Promise.resolve(a), Promise.reject(error)). A call after the last result throws. A call is spy.calls[i]: { args, result, error }.',
   spyClear:
@@ -413,7 +413,7 @@ const VI: Record<string, string> = {
   clearAllMocks: TODO.spyClear,
   resetAllMocks: TODO.spyClear,
   useFakeTimers:
-    'Use fakeClock: const clock = fakeClock(). It replaces the timers and Date until the test ends. Make it in the test that uses it: if this is in a hook, make the clock in a setup function that each test calls.',
+    'Use fakeClock: const clock = fakeClock(). It replaces the timers and Date until the test ends. Make it in the test that uses it, or in a beforeEach hook.',
   setSystemTime:
     'Use clock.set(time), with the clock of fakeClock(). It sets the time of Date and runs no timer. Or give the time when you make the clock: fakeClock({ now: time }).',
   advanceTimersByTime: TICK,

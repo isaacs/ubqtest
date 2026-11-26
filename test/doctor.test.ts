@@ -175,7 +175,7 @@ test('guide prints the core of the guide, one topic, or all of it', () => {
   assert.match(core, /\n## Topics\n[^]*\| `ubq guide requirements` \| Requirements \| [^\n]+\|\n$/)
   // Each topic is one section of the guide, after the core.
   const topics = [...core.matchAll(/^\| `ubq guide (\S+)` \| ([^|]+?) \|/gm)]
-  assert.equal(topics.length, 13)
+  assert.equal(topics.length, 14)
   for (const [, topic, heading] of topics) {
     const part = p.ubq('guide', topic!).out
     assert(part.startsWith(`## ${heading}\n`), `${topic}: ${part.slice(0, 80)}`)

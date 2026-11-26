@@ -76,7 +76,7 @@ has the API and the rules of ubq.
    of the project for the old command (`grep -rn 'bun test'`). A
    caller that stays can pass with no test: `bun test` of
    converted files runs 0 tests and exits with 0. ubq needs
-   Node 22.18 or later, or Bun 1.4 or later: if the CI matrix or a machine that runs the
+   Node 22.18 or later, or Bun 1.4 or later, or Deno: if the CI matrix or a machine that runs the
    tests has an older version,
    tell the user, and do not remove it with no answer. The folder `.ubq/` has the run store, and git ignores it
    with no setup. The store is the same on each branch, each
@@ -124,8 +124,10 @@ count of type errors in other files: those are not yours.
   ends.
 
 It does not change the name of a file or the source of the
-project. It changes `package.json` in two cases:
+project. It changes `package.json` in these cases:
 
+- From a vitest or jest config, it writes the `define`, `env`,
+  and `dom` keys of the ubq configuration (see below).
 - For a project of the vitest plugin for Workers, it writes the
   `workers` key of the ubq configuration, if the key is not there.
 - If the scripts are `"test": "tap"` and `"snap": "tap"` (or
@@ -272,7 +274,7 @@ names, do one of these:
 | `t.doesNotThrow(() => f())` | `f()` |
 | `t.ok(a)`, `t.notOk(a)` | `assert(a)`, `assert(!a)` |
 | `t.match(a, pattern)`, `t.has` | `assert.match(a, pattern)` |
-| `t.match(a, { b: String, c: URL })` | `assert.match(a, { b: any.string, c: any.instanceOf(URL) })` |
+| `t.match(a, { b: String, c: Date })` | `assert.match(a, { b: any.string, c: any.instanceOf(Date) })` |
 | `process.env.NAME = 'text'` in a test, `delete process.env.NAME` | `env({ NAME: 'text' })`, `env({ NAME: undefined })` |
 | `t.throws(fn, expected)` | `assert.throws(fn, expected)` (`Error` if there was none) |
 | `await t.rejects(p, expected)` | `await assert.rejects(p, expected)` |
@@ -551,13 +553,13 @@ gets a TODO too.
 | `expect(a).toEqual(b)`, `toStrictEqual` | `assert.deepEqual(a, b)` |
 | `expect(a).not.toBe(b)` | `assert.notEqual(a, b)` |
 | `toBeTruthy()`, `toBeFalsy()` | `assert(a)`, `assert(!a)` |
-| `toBeNull()`, `toBeUndefined()`, `toBeDefined()` | `assert.equal(a, null)`, `assert.equal(a, undefined)`, `assert.notEqual(a, undefined)` |
+| `toBeNull()`, `toBeUndefined()`, `toBeDefined()` | `assert.equal(a, null)`, `assert.equal(a, undefined)`, `assert(a !== undefined)` |
 | `toContain(b)`, `not.toContain(b)`, `toHaveLength(n)` | `assert.contains(a, b)`, `assert.notContains(a, b)`, `assert.equal(a.length, n)` |
 | `toMatch(/re/)`, `toMatch('text')` | `assert.match(a, /re/)`, `assert.contains(a, 'text')` |
 | `toMatchObject(o)` | `assert.match(a, o)` |
 | `toBeInstanceOf(C)` | `assert(a instanceof C)` |
 | `not.toBeInstanceOf(C)` | `assert.equal(a instanceof C, false)` (`assert(!(a instanceof C))` narrows a value of the type `C` to `never`) |
-| `toBeInTheDocument()`, `not.toBeInTheDocument()` | `assert(el.isConnected)`, `assert(!el?.isConnected)` |
+| `toBeInTheDocument()`, `not.toBeInTheDocument()` | `assert(el?.isConnected)` (`assert(screen.getByRole('x').isConnected)` for a `getBy` call), `assert(!el?.isConnected)` |
 | `toHaveAttribute(name)`, `toHaveAttribute(name, v)` | `assert(el.hasAttribute(name))`, `assert.equal(el.getAttribute(name), v)` |
 | `toHaveTextContent('text')`, `toHaveTextContent(/re/)` | `assert.contains(el.textContent, 'text')`, `assert.match(el.textContent, /re/)` |
 | `toHaveClass('name')` | `assert(el.classList.contains('name'))` |
@@ -668,11 +670,10 @@ Things to check by hand:
   itself.
   `expect.stringMatching(/re/)` becomes the RegExp, and
   `expect.fail('text')` becomes `assert.fail('text')`.
-  `expect.stringContaining('text')` becomes a RegExp only in a
-  pattern (`toMatchObject`, `toThrow`). In an exact comparison
-  (`toEqual`, `toHaveBeenCalledWith`) it stays, with a TODO: a
-  RegExp is not equal to a string there. Assert on that value by
-  itself: `assert.contains(s.calls.at(-1)?.args[0], 'text')`.
+  `expect.stringContaining('text')` becomes a RegExp, in a
+  pattern (`toMatchObject`, `toThrow`) and in a comparison
+  (`toEqual`, `toHaveBeenCalledWith`): those become `matchOnly`
+  and `isMatch`, where a RegExp tests a string.
 - **`toContainEqual(b)`.** The command writes
   `assert(list.some(item => isDeepEqual(item, b)))`.
   `isDeepEqual` gives true or false by the rules of
@@ -781,7 +782,8 @@ Things to check by hand:
   A spy from a shared helper, or at the top level of a file, lives
   until the file ends. Make it in a function that each test
   calls, so that each test gets a new one.
-- **`fn.mock.calls[0]`** is `fn.calls[0]?.args`.
+- **`fn.mock.calls[0]`** is `fn.calls[0].args` (`fn.calls[0]?.args`
+  if the type check needs it).
   `fn.mock.calls` as a list is `fn.calls.map(call => call.args)`,
   and `fn.mock.lastCall` is `fn.calls.at(-1)?.args`. The command
   writes these.
@@ -883,15 +885,18 @@ Things to check by hand:
   needs the `transform` key: `ubq doctor` has the choices for the
   person who owns the project. If jsdom is in
   the project only because jest brought it, add it: `npm install
-  --save-dev jsdom`.
+  --save-dev jsdom`. The `dom` key is for Node and Bun: jsdom
+  and happy-dom do not load in a test process of Deno.
 - **jest-dom (`toBeInTheDocument` and the others).** The command
   changes the checks of the table above. The others have a TODO:
   read the property of the element, and assert on it. An element
   that a `queryBy` function did not find is `null`. For a test of real
   browser behavior (layout, focus, navigation), tell the user
   about browser tests: `ubq guide browser`.
-- **A custom environment, a transform.** ubq has none. Tell the
-  user about each test file that needs one.
+- **A custom environment, a transform of jest or a plugin of
+  vite.** ubq has none: the `transform` key of ubq is only the
+  compiler for TypeScript and JSX. Tell the user about each test
+  file that needs one.
 - **A Cloudflare Worker (`cloudflare:test`,
   `@cloudflare/vitest-pool-workers`).** These tests run in the
   Workers runtime with ubq too. Read `ubq guide
@@ -1078,7 +1083,7 @@ Things to check by hand:
 - **An assertion in a hook.** It does not count for the rule that
   a test must run an assertion. A test with assertions only in its
   hooks fails with "the test ran no assertions".
-- **A setup file** (`setupFiles` of vitest, `setupFilesAfterEach`
+- **A setup file** (`setupFiles` of vitest, `setupFilesAfterEnv`
   of jest). ubq has no key for it. Import the file in each test
   file that needs it: `import './setup.ts'`. A hook at the top
   level of that file is then a hook of the test file.
@@ -1142,7 +1147,7 @@ Report to the user:
   difference
 - each test that you changed in more than its form, and why
 - each thing that ubq does not have and the project used
-  (a DOM, a coverage limit, a global setup), with what you did
+  (a custom environment, a global setup), with what you did
 - a change in what the tests load: if the tests ran the build
   (`dist/`) before, and run the source now, say so. A maintainer
   can have a reason for the old way.

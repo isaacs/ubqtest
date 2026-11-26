@@ -36,7 +36,7 @@ test('help, and the error of each command with a wrong or absent argument', () =
   assert.deepEqual(error('failures'), [4, 'ubq: no run. Run: ubq'])
   assert.deepEqual(error('guide', 'nope'), [
     4,
-    'ubq: no topic "nope" in the guide. The topics are: types, stored, ci, agents, dom, browser, runtimes, processes, workers, server, editors, config, requirements, all, convert',
+    'ubq: no topic "nope" in the guide. The topics are: mock, types, stored, ci, agents, dom, browser, runtimes, processes, workers, server, editors, config, requirements, all, convert',
   ])
   assert.deepEqual(error('browser'), [4, 'ubq: the command is: ubq browser install'])
   assert.deepEqual(error('browser', 'install'), [

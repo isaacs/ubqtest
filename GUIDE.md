@@ -301,13 +301,13 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
   the file. A failure there is an `ERROR` block of the file, with
   the values. `assert.snapshot` needs a test.
 - Tests of a file run one at a time, in the order of the file.
+  Test files run in parallel, each in its own process, in a random
+  order. A run with a failure prints the seed. `ubq --seed <n>`
+  repeats the order.
 - `fakeClock` replaces the global timers and `Date`. On Node, it
   also replaces a name that a file imported from `node:timers` or
   `node:timers/promises`. On Bun and Deno, such a name keeps the
   real timer: use the global `setTimeout` there.
-  Test files run in parallel, each in its own process, in a random
-  order. A run with a failure prints the seed. `ubq --seed <n>`
-  repeats the order.
 - The hooks have the rules of jest and vitest. A hook is for the
   `describe` whose function calls it, and for the groups in it. At
   the top level of a file, it is for each test of the file.
@@ -384,6 +384,8 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
     `stub` on that object. The change is in the instance too, and
     the old value comes back when the test ends. A plain
     assignment to the object does not change the instance.
+    `ubq guide mock` has the rest: types, a package that imports
+    the module, and a mock that replaced no import.
 
     ```ts
     const payment = { charge: spy(async (card: string, cents: number) => ({ id: 'r1', cents })) }
@@ -398,32 +400,6 @@ const clock = fakeClock({ now: 0 })                  // await clock.tick(ms), aw
     })
     ```
 
-  - **Types.** Each export of the mock must have the type of the
-    real export. For a function with overloads, such as
-    `fs.readdirSync`, a mock that fits one form can fail the type
-    check: write `fakeReaddir as typeof fs.readdirSync`. A
-    function with properties, such as `realpathSync` with
-    `.native`, needs `as unknown as typeof fs.realpathSync`.
-  - A module is new if its imports name a mock in the text of its
-    file. An `import()` with a name from a variable is not found:
-    give that module an empty mock.
-- **A dependency of a dependency.** A mock replaces a module in
-  the project modules of the new instance. It does not go into a
-  package of `node_modules`. If a package imports the module that
-  you want to replace, make an instance of the package with the
-  mock, and give that instance as the mock of the package:
-
-  ```ts
-  const reader = await mockImport(() => import('reader'), [[() => import('node:fs'), fs]])
-  const { find } = await mockImport(() => import('../src/find.ts'), [[() => import('reader'), reader]])
-  ```
-
-  On Node, `'fs'` and `'node:fs'` are one module: one mock is
-  enough. `'node:fs/promises'` is a different module.
-- A mock that no import of the new instance got is a failure of
-  the test, when the test ends: "the mock of node:fs replaced no
-  import". If the test has a different failure, that failure has
-  the text as a `hint:` line.
 - Snapshots are in `ubq-snapshots/`. Commit them. A value with no
   saved text fails. Only `ubq --update [file or test id]` writes
   them. Read the new text before you commit it. Each entry of an
@@ -572,6 +548,7 @@ whole guide.
 
 | Topic | Section | Read it for |
 | --- | --- | --- |
+| `ubq guide mock` | Mocks | a mock that fails the type check, a module that a package imports, "replaced no import" |
 | `ubq guide types` | Type checks | a `TYPE` block, a tsconfig with `references`, a monorepo |
 | `ubq guide stored` | Questions about stored runs | an earlier run, a flaky or slow test, coverage, SQL, a run that does not end |
 | `ubq guide ci` | CI | GitHub Actions: annotations, the cache, the summary, a review comment |
@@ -584,7 +561,39 @@ whole guide.
 | `ubq guide server` | Faster runs | many short runs |
 | `ubq guide editors` | Editors | Neovim, VS Code, a language server |
 | `ubq guide config` | Configuration | the `ubq` key, aliases, export conditions, `not measured` comments |
-| `ubq guide requirements` | Requirements | versions, tsconfig options, `enum` and decorators |
+| `ubq guide requirements` | Requirements | versions, tsconfig options, `enum`, decorators, and JSX on Node |
+
+## Mocks
+
+More rules of `mockImport`. The core of the guide has the first
+ones.
+
+- **Types.** Each export of the mock must have the type of the
+  real export. For a function with overloads, such as
+  `fs.readdirSync`, a mock that fits one form can fail the type
+  check: write `fakeReaddir as typeof fs.readdirSync`. A
+  function with properties, such as `realpathSync` with
+  `.native`, needs `as unknown as typeof fs.realpathSync`.
+- A module is new if its imports name a mock in the text of its
+  file. An `import()` with a name from a variable is not found:
+  give that module an empty mock.
+- **A dependency of a dependency.** A mock replaces a module in
+  the project modules of the new instance. It does not go into a
+  package of `node_modules`. If a package imports the module that
+  you want to replace, make an instance of the package with the
+  mock, and give that instance as the mock of the package:
+
+  ```ts
+  const reader = await mockImport(() => import('reader'), [[() => import('node:fs'), fs]])
+  const { find } = await mockImport(() => import('../src/find.ts'), [[() => import('reader'), reader]])
+  ```
+
+  On Node, `'fs'` and `'node:fs'` are one module: one mock is
+  enough. `'node:fs/promises'` is a different module.
+- A mock that no import of the new instance got is a failure of
+  the test, when the test ends: "the mock of node:fs replaced no
+  import". If the test has a different failure, that failure has
+  the text as a `hint:` line.
 
 ## Type checks
 
@@ -734,7 +743,7 @@ text of its file, so an old entry is never wrong. With GitHub
 Actions:
 
 ```yaml
-- uses: actions/cache@v4
+- uses: actions/cache@v6
   with:
     path: .ubq/counters
     key: ubq-counters-${{ github.sha }}
@@ -747,7 +756,8 @@ table of the failures, errors, and type errors (20 rows at most),
 with the place and the command that runs each again, and the notes
 of the run. The summary is on the page of the run, above the logs.
 
-In GitHub Actions, the list can be a comment on each pull request.
+In GitHub Actions, the list of `ubq review` can be a comment on
+each pull request.
 The job needs the base commit, and a run of the tests first: then
 an item says if the test runs code that changed.
 
@@ -1175,11 +1185,13 @@ in your own configuration instead, copy them from
 `node_modules/ubqtest/nvim/`.
 
 `:UbqRunLine` runs the tests that ran the line of the cursor. It
-is the code action, which `gra` also lists. To give it a key:
+is the code action, which `gra` also lists.
 
 `:UbqTests` goes to the tests that ran the code of the cursor. If
 there is one, it opens it. If there are more, it puts them in the
 quickfix list, as `gd` does for a definition with many places.
+
+To give each command a key:
 
 ```lua
 vim.keymap.set('n', '<leader>tl', '<cmd>UbqRunLine<cr>', { desc = 'ubq: run the tests of this line' })
@@ -1199,37 +1211,43 @@ peek view if there are more, as Go to Definition does.
 
 ## Configuration
 
-Most projects need none. The `ubq` key of `package.json` can have
-`include` and `exclude` (lists of glob patterns for test files),
-`helpers` (glob patterns for test helpers: see below), `build`
-(glob patterns for build output and build tools: see below), `timeout`
-(milliseconds), `hangRerun` (`false` turns off the rerun
-of a test that timed out), and `bunInspectorCoverage` (`true`
-records coverage for a plain `bun <test file>`, with places that
-can be wrong. `ubq <test file>` on Bun does not need it), and
-`browser` (`ubq guide browser`), `workers` (`ubq guide
-workers`), and `define` (global values that the
-source reads, as the `define` of vite gives them: `"define": {
-"__DEBUG__": true }`). `env` has values of the environment
-for each test process (`"env": { "MODE": "dev" }`): a value of
-the key is before a value of the shell. `NODE_OPTIONS` is
-different: ubq adds the value of the key to the value of the
-shell, and starts each test process with it, so an option such as
-`--conditions=source` works. Bun and Deno get its export
-conditions in `BUN_OPTIONS` and `DENO_CONDITIONS`. A test file that runs as a plain
-program (`node test/a.test.ts`) started before ubq read the key:
-give it the option on the command line. `skipTypecheck` (`true`)
-turns off the type check of each run. `"coverage": "full"` fails a
-run of all tests if code ran in no test: the code that `ubq
-uncovered` lists. The output shows fewer than 5 of them, or else
-names the command. A run of some tests does not check.
-`UBQ_COVERAGE_CHECK=0` turns the check off for one run, such as
-in a CI job on a system where many tests skip. `transform`
-is in "Source
-that Node cannot run". A folder
-with its own `package.json` is a different project: run `ubq` in
-that folder. At the root of a monorepo with no tests of its own,
-`ubq` runs each workspace: the folders of `workspaces` in
+Most projects need none. The keys of the `ubq` key of
+`package.json`:
+
+| Key | Value |
+| --- | --- |
+| `include`, `exclude` | Lists of glob patterns for test files. |
+| `helpers` | Glob patterns for test helpers: see below. |
+| `build` | Glob patterns for build output and build tools: see below. |
+| `timeout` | The time limit of a test, in milliseconds. |
+| `hangRerun` | `false` turns off the rerun of a test that timed out. |
+| `bunInspectorCoverage` | `true` records coverage for a plain `bun <test file>`, with places that can be wrong. `ubq <test file>` on Bun does not need it. |
+| `dom` | The DOM of jsdom or of happy-dom: `ubq guide dom`. |
+| `browser` | `ubq guide browser`. |
+| `workers` | `ubq guide workers`. |
+| `define` | Global values that the source reads, as the `define` of vite gives them: `"define": { "__DEBUG__": true }`. |
+| `env` | Values of the environment for each test process: `"env": { "MODE": "dev" }`. See below. |
+| `skipTypecheck` | `true` turns off the type check of each run. |
+| `coverage` | `"full"` fails a run of all tests if code ran in no test. See below. |
+| `transform` | A compiler for source that Node cannot run: `ubq guide requirements`. |
+
+`env`: a value of the key is before a value of the shell.
+`NODE_OPTIONS` is different: ubq adds the value of the key to the
+value of the shell, and starts each test process with it, so an
+option such as `--conditions=source` works. Bun and Deno get its
+export conditions in `BUN_OPTIONS` and `DENO_CONDITIONS`. A test
+file that runs as a plain program (`node test/a.test.ts`) started
+before ubq read the key: give it the option on the command line.
+
+`"coverage": "full"`: the code is what `ubq uncovered` lists. The
+output shows fewer than 5 ranges, or else names the command. A run
+of some tests does not check. `UBQ_COVERAGE_CHECK=0` turns the
+check off for one run, such as in a CI job on a system where many
+tests skip.
+
+A folder with its own `package.json` is a different project: run
+`ubq` in that folder. At the root of a monorepo with no tests of
+its own, `ubq` runs each workspace: the folders of `workspaces` in
 `package.json`, or of `packages` in `pnpm-workspace.yaml`. The
 workspaces run at the same time, and their test files share the
 processes of one run. The output of each workspace is in the order
@@ -1353,6 +1371,12 @@ check report new such syntax. Do not set
 such syntax: the type checker then reports them in each run.
 `ubq doctor` asks for the option only if no file has the syntax.
 
+Bun and Deno run `.tsx` and `.jsx` files with no key, with
+coverage. Node runs them only with the `transform` key.
+
+Tests of a Cloudflare Worker run in workerd, and the project must
+have `wrangler`: `ubq guide workers`.
+
 ### Source that Node cannot run
 
 If the source of a project has syntax that cannot be erased
@@ -1422,9 +1446,3 @@ With the `transform` key, on Node:
   new instance.
 - Bun and Deno compile TypeScript themselves, and do not read
   the key.
-
-Bun and Deno run `.tsx` and `.jsx` files with no key, with
-coverage. Node runs them only with the `transform` key.
-
-Tests of a Cloudflare Worker run in workerd, and the project must
-have `wrangler`: `ubq guide workers`.

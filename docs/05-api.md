@@ -500,9 +500,6 @@ Built in `src/mock.ts`. Node and Deno use the hooks of
   resolve hook for them. The library reads the name from the text
   of the loader, and finds the module from the folder of the file
   that called `mockImport`.
-- The error for a mock that lacks an export names the file by its
-  path from the project root (`src/db.ts`), not as the code under
-  test wrote it (`./db.ts`).
 
 ## 7. Fixtures and cleanup
 
@@ -651,7 +648,8 @@ test.skip('x', () => {})
 `it` and `expect` are not exports. An import of
 one fails with the normal "no exported member" error. A hook that
 the file did not import is a `ReferenceError` whose text has the
-import. The agent
+import. In a test file of the `dom` key, the four hooks are
+globals (D144). The agent
 guide in the package lists the replacement for each.
 
 ## 10. Where each part comes from

@@ -72,8 +72,9 @@ Source: `src/config.ts`. Tests: `test/select.test.ts`.
 
 ## A monorepo
 
-At a project root that has `workspaces` in its `package.json` and
-no test files of its own, `ubq` runs the command in each
+At a project root that has `workspaces` in its `package.json`, or
+`packages` in a `pnpm-workspace.yaml`, and no test files of its
+own, `ubq` runs the command in each
 workspace (`ubq`, `ubq --failed`, `ubq --changed`). The workspaces
 run at the same time (D140). Their test files share the slots of
 one run: the count of the CPUs, plus one. A type checker holds a
@@ -82,7 +83,8 @@ the first workspace that has not ended prints as it runs, and the
 others wait. Each workspace is a project with its own store, and
 the paths in its report are from its own folder. The last line
 is `workspaces: 3 passed`, or `workspaces: 1 of 3 failed:
-packages/b`. A workspace with no tests does not count.
+packages/b. Run ubq in the folder of a workspace for its tests.`
+A workspace with no tests does not count.
 
 For a question about stored runs, or for one test, run `ubq` in
 the folder of the workspace.

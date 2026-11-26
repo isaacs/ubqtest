@@ -575,7 +575,7 @@ export const mockImport = async <M, const D extends readonly unknown[]>(
     cleanup(() => {
       const unused = wanted.filter(url => !got.has(url)).map(nameOfMock)
       if (!unused.length) return
-      const hint = `the mock of ${unused.join(', ')} replaced no import. No project module of the new instance imports ${unused.length === 1 ? 'it' : 'them'}. A mock does not go into a package of node_modules: if a package imports the module, make an instance of the package with the mock, and give that instance as the mock of the package. See "A dependency of a dependency" in ubq guide.`
+      const hint = `the mock of ${unused.join(', ')} replaced no import. No project module of the new instance imports ${unused.length === 1 ? 'it' : 'them'}. A mock does not go into a package of node_modules: if a package imports the module, make an instance of the package with the mock, and give that instance as the mock of the package. See "A dependency of a dependency" in ubq guide mock.`
       // The test can have a failure from the code that ran with no
       // mock, such as a time limit. That failure gets the cause.
       const failure = current.getStore()?.failure

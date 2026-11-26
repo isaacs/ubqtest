@@ -15,7 +15,9 @@
 2. **It makes the counters of a file when the file changes.** It
    watches the project folder. For a changed source file it
    writes the cache entry of the counters, with the source with
-   no types. The first test process that loads the file after an
+   no types. With the `transform` key, the entry has the
+   JavaScript of the compiler of the project, and the server
+   loads that compiler. The first test process that loads the file after an
    edit then needs no parser, and Node does not load its code
    that removes types.
 
