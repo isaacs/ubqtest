@@ -6,9 +6,7 @@ and the people who work with them.
 The package is `ubqtest`. The command is `ubq`. It runs on Node 22.18
 or later, Bun 1.4 or later, and Deno, with no build step and no configuration.
 
-> **Status:** early. The versions are 0.0.x, and the API can
-> change. CI passes on Linux, macOS, and Windows, with Node, Bun,
-> and Deno.
+CI passes on Linux, macOS, and Windows, with Node, Bun, and Deno.
 
 ## Why a different test tool
 
